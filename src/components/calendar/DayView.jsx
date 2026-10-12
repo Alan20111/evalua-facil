@@ -7,6 +7,7 @@ import { formatHora12 } from '../../utils/formatHora'
 import { isToday } from '../../utils/calendarGrid'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { usePointerDrag } from '../../hooks/usePointerDrag'
+import { ICONO } from '../../config/iconos'
 
 // Altura fija por hora — igual que AGENDA_ROW_H en CalendarPage.jsx.
 const ROW_H = 64
@@ -352,14 +353,14 @@ export default function DayView({
                     {/* Badge de estado para actividades con fecha límite */}
                     {it.kind === 'event' && it.ev.tipo === 'deadline' && (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: '10px', opacity: 0.85, lineHeight: 1.2, marginTop: 2 }}>
-                        {it.ev.cierraEnFecha ? <Lock size={11} /> : <LockOpen size={11} />}
+                        {it.ev.cierraEnFecha ? <Lock size={ICONO.xs} /> : <LockOpen size={ICONO.xs} />}
                         {it.ev.estado?.label}
                       </span>
                     )}
                     {/* Badge de alarma en bloques de clase */}
                     {it.kind === 'bloque' && it.b.alarma?.activa && (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: '10px', opacity: 0.7, lineHeight: 1.2, marginTop: 2 }}>
-                        <Bell size={11} /> {it.b.alarma.minutosAntes} min antes
+                        <Bell size={ICONO.xs} /> {it.b.alarma.minutosAntes} min antes
                       </span>
                     )}
                   </div>

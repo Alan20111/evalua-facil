@@ -66,6 +66,8 @@ import useTelefonoWeb from '../../hooks/useTelefonoWeb'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { formatHora12FromDate } from '../../utils/formatHora'
 import { EsqueletoActividadDocente } from '../../components/esqueletos'
+import { Input, Button, IconButton } from '../../components/ui'
+import { ICONO } from '../../config/iconos'
 
 // La evaluación con rúbrica de un alumno "no existe" hasta que se elige algún
 // nivel — un arreglo todo-null equivale a no tener rúbrica evaluada (permite
@@ -141,7 +143,7 @@ function AbrirConNativoButton({ url, nombre, className }) {
 
   return (
     <button type="button" onClick={handleClick} disabled={loading} className={className}>
-      {loading ? <Spinner size="sm" /> : <ExternalLink size={18} className="text-accent flex-shrink-0" />}
+      {loading ? <Spinner size="sm" /> : <ExternalLink size={ICONO.md} className="text-accent flex-shrink-0" />}
       <span className="truncate">{nombre}</span>
     </button>
   )
@@ -1297,13 +1299,11 @@ export default function ActivityPage() {
           &ldquo;<strong>{activity.nombre}</strong>&rdquo; se eliminará permanentemente, junto con las entregas que tenga.
         </p>
         <div className="flex gap-2">
-          <button type="button" onClick={() => setDeleteConfirm(false)}
-            className="flex-1 py-2.5 rounded-full border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-          <button type="button" onClick={handleDeleteActivity} disabled={deletingActivity}
-            className="flex-1 py-2 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
-            {deletingActivity ? <Spinner size="sm" /> : <Trash2 size={16} />}
+          <Button variant="secondary" className="flex-1" onClick={() => setDeleteConfirm(false)}>Cancelar</Button>
+          <Button variant="danger" icon={Trash2} busy={deletingActivity} className="flex-1" onClick={handleDeleteActivity} disabled={deletingActivity}>
+            
             {deletingActivity ? 'Eliminando…' : 'Eliminar'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -1377,14 +1377,7 @@ export default function ActivityPage() {
             SubjectPage.jsx). */}
         <div data-esq="act-doc-encabezado" className="px-4 py-2 overflow-hidden">
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={goBack}
-              aria-label="Volver"
-              className="p-2 -ml-2 text-hint hover:text-muted rounded-full"
-            >
-              <ArrowLeft size={22} />
-            </button>
+            <IconButton icon={ArrowLeft} label="Volver" tooltip={false} className="-ml-2" onClick={goBack} />
             <div className="flex-1 min-w-0">
               {IS_NATIVE_APP ? (
                 <>
@@ -1404,15 +1397,8 @@ export default function ActivityPage() {
                   {activityLabel && <span className="text-accent">{activityLabel} </span>}
                   {activity?.nombre}
                 </h1>
-                <button
-                  type="button"
-                  onClick={() => setEditingActivity(true)}
-                  data-tooltip="Editar actividad"
-                  aria-label="Editar actividad"
-                  className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0"
-                >
-                  <Pencil size={18} />
-                </button>
+                <IconButton icon={Pencil} label="Editar actividad" tooltip={false} onClick={() => setEditingActivity(true)}
+                  data-tooltip="Editar actividad" />
               </div>
               {/* text-base y no text-sm: es la línea que dice DE QUÉ va esto
                   (parcial y tipo) y quedaba con el mismo tamaño que la letra
@@ -1429,21 +1415,21 @@ export default function ActivityPage() {
             <div className="flex items-center gap-3 mt-2 flex-wrap">
               {activity?.publishedAt && (
                 <span data-tooltip="Publicado" className="text-sm text-emerald-600 flex items-center gap-1">
-                  <Clock size={15} /> {formatPublishAt(activity.publishedAt)}
+                  <Clock size={ICONO.sm} /> {formatPublishAt(activity.publishedAt)}
                 </span>
               )}
               {activity?.publishAt && (
                 <span data-tooltip="Publicación programada" className="text-sm text-accent flex items-center gap-1">
-                  <Clock size={15} /> {formatPublishAt(activity.publishAt)}
+                  <Clock size={ICONO.sm} /> {formatPublishAt(activity.publishAt)}
                 </span>
               )}
               {activity?.fechaLimite && (
                 <span data-tooltip="Cierre" className="text-sm text-amber-600 flex items-center gap-1">
-                  <Clock size={15} /> {formatDeadline(activity.fechaLimite)}
+                  <Clock size={ICONO.sm} /> {formatDeadline(activity.fechaLimite)}
                 </span>
               )}
               {activity?.recibirTarde && !activity?.cerradaManual && (
-                <span data-tooltip="Se aceptan entregas tarde" className="text-sm text-slate-500 flex items-center gap-1">
+                <span data-tooltip="Se aceptan entregas tarde" className="text-sm text-muted flex items-center gap-1">
                   Recibe entregas tarde
                 </span>
               )}
@@ -1487,18 +1473,15 @@ export default function ActivityPage() {
         {/* ZIP download — solo en la web. Primero en el contenedor. */}
         {!IS_NATIVE_APP && !telefonoWeb.telefono && Object.values(submissions).some((s) => s.archivoURL && !s.completadoSinArchivo) && (
           <div className="px-4 pt-3">
-            <button
-              type="button"
+            <Button variant="outline-accent" fullWidth icon={FolderDown} busy={zipDownloading}
               onClick={handleZipDownload}
               disabled={zipDownloading}
-              data-tooltip="Descarga todas las evidencias entregadas en un archivo ZIP."
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-full border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
-            >
-              {zipDownloading ? <Spinner size="sm" /> : <FolderDown size={18} />}
+              data-tooltip="Descarga todas las evidencias entregadas en un archivo ZIP.">
+              
               {zipDownloading
                 ? `Comprimiendo ${zipProgress.done}/${zipProgress.total}…`
                 : 'Descargar entregas como ZIP'}
-            </button>
+            </Button>
           </div>
         )}
 
@@ -1535,34 +1518,28 @@ export default function ActivityPage() {
             <div className="mx-4 mt-3 rounded-card border border-outline-variant">
               <p className="px-3 pt-2 text-[11px] text-muted">La IA propone; tú decides.</p>
               <div className="p-2 pt-1.5 space-y-1.5">
-                <button
-                  type="button"
+                <Button variant="outline-accent" fullWidth icon={Sparkles}
                   onClick={contarEntregasIA}
-                  data-tooltip="Genera propuestas de calificación con IA para las entregas pendientes."
-                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
-                >
-                  <Sparkles size={16} />
+                  data-tooltip="Genera propuestas de calificación con IA para las entregas pendientes.">
+                  
                   Calificar
-                </button>
+                </Button>
                 {hayVersionDistinta && (
-                  <button
-                    type="button"
+                  <Button variant="secondary" fullWidth icon={Sparkles}
                     onClick={contarRecalificarIA}
-                    data-tooltip="La rúbrica o lista de cotejo cambió desde la última evaluación con IA. Genera una nueva propuesta con la versión actual y consume créditos."
-                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-outline-variant text-muted text-sm font-medium hover:bg-surface-container transition-colors disabled:opacity-60"
-                  >
-                    <Sparkles size={16} />
+                    data-tooltip="La rúbrica o lista de cotejo cambió desde la última evaluación con IA. Genera una nueva propuesta con la versión actual y consume créditos.">
+                    
                     Recalificar
-                  </button>
+                  </Button>
                 )}
                 {pendientesIA > 0 && (
                   <button
                     type="button"
                     onClick={contarAplicarTodasIA}
                     data-tooltip="Aplica las propuestas de IA pendientes como calificación definitiva. No consume créditos."
-                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-emerald-300 text-emerald-700 text-sm font-medium hover:bg-emerald-50 transition-colors disabled:opacity-60"
+                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-emerald-300 text-emerald-700 text-sm font-medium hover:bg-emerald-50 transition-colors disabled:opacity-60 min-h-control"
                   >
-                    <CheckCheck size={16} />
+                    <CheckCheck size={ICONO.sm} />
                     Aplicar propuestas ({pendientesIA})
                   </button>
                 )}
@@ -1633,7 +1610,7 @@ export default function ActivityPage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {hasExtension && <CalendarDays size={15} className="text-orange-400" />}
+                      {hasExtension && <CalendarDays size={ICONO.sm} className="text-orange-400" />}
                       {sub?.tarde && (
                         <span data-tooltip="Entregó después de la fecha límite" className="text-[11px] font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex-shrink-0">
                           Tarde
@@ -1641,7 +1618,7 @@ export default function ActivityPage() {
                       )}
                       {sub?.calificacion != null && (
                         <span className="text-xs font-bold text-emerald-600 flex items-center gap-0.5">
-                          <Star size={14} /> {sub.calificacion}/{activity?.maxCalif}
+                          <Star size={ICONO.xs} /> {sub.calificacion}/{activity?.maxCalif}
                         </span>
                       )}
                       {!IS_NATIVE_APP && (
@@ -1680,9 +1657,9 @@ export default function ActivityPage() {
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="flex items-center gap-1 p-2 -ml-2 mt-0.5 text-muted hover:text-accent rounded text-sm font-medium flex-shrink-0 transition-colors"
+                  className="flex items-center gap-1 size-control inline-flex justify-center -ml-2 mt-0.5 text-muted hover:text-accent rounded-full text-sm font-medium flex-shrink-0 transition-colors"
                 >
-                  <ArrowLeft size={20} /> Regresar
+                  <ArrowLeft size={ICONO.md} /> Regresar
                 </button>
                 {/* Mismo patrón homogeneizado en las 4 variantes de este encabezado:
                     Asignatura — Docente / Evaluar(ción) / Número y nombre + lápiz /
@@ -1712,21 +1689,21 @@ export default function ActivityPage() {
                     <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                       {activity?.publishedAt && (
                         <span data-tooltip="Publicado" className="text-sm text-emerald-600 flex items-center gap-1">
-                          <Clock size={15} /> {formatPublishAt(activity.publishedAt)}
+                          <Clock size={ICONO.sm} /> {formatPublishAt(activity.publishedAt)}
                         </span>
                       )}
                       {activity?.publishAt && (
                         <span data-tooltip="Publicación programada" className="text-sm text-accent flex items-center gap-1">
-                          <Clock size={15} /> {formatPublishAt(activity.publishAt)}
+                          <Clock size={ICONO.sm} /> {formatPublishAt(activity.publishAt)}
                         </span>
                       )}
                       {activity?.fechaLimite && (
                         <span data-tooltip="Cierre" className="text-sm text-amber-600 flex items-center gap-1">
-                          <Clock size={15} /> {formatDeadline(activity.fechaLimite)}
+                          <Clock size={ICONO.sm} /> {formatDeadline(activity.fechaLimite)}
                         </span>
                       )}
                       {activity?.recibirTarde && !activity?.cerradaManual && (
-                        <span data-tooltip="Se aceptan entregas tarde" className="text-sm text-slate-500 flex items-center gap-1">
+                        <span data-tooltip="Se aceptan entregas tarde" className="text-sm text-muted flex items-center gap-1">
                           Recibe entregas tarde
                         </span>
                       )}
@@ -1764,11 +1741,11 @@ export default function ActivityPage() {
                       <ZoomableImage key={`${f.url}-${i}`} src={f.url} alt={f.nombre} className="block" imgClassName="max-w-full rounded mx-auto" />
                     ) : IS_NATIVE_APP ? (
                       <AbrirConNativoButton key={`${f.url}-${i}`} url={f.url} nombre={f.nombre}
-                        className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors w-full" />
+                        className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded-full border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors w-full" />
                     ) : (
                       <a key={`${f.url}-${i}`} href={downloadUrl(f.url, f.nombre)} download={f.nombre} rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors">
-                        <Download size={18} className="text-accent flex-shrink-0" />
+                        className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded-full border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors">
+                        <Download size={ICONO.md} className="text-accent flex-shrink-0" />
                         <span className="truncate">{f.nombre}</span>
                       </a>
                     )
@@ -1794,15 +1771,15 @@ export default function ActivityPage() {
                       <p>Sin vista previa disponible para este archivo.</p>
                       {IS_NATIVE_APP ? (
                         <AbrirConNativoButton url={f.url} nombre={f.nombre}
-                          className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors" />
+                          className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded-full border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors" />
                       ) : (
                         <a
                           href={downloadUrl(f.url, f.nombre)}
                           download={f.nombre}
                           rel="noopener noreferrer"
-                          className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors"
+                          className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded-full border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors"
                         >
-                          <Download size={18} className="text-accent" />
+                          <Download size={ICONO.md} className="text-accent" />
                           Descargar archivo
                         </a>
                       )}
@@ -1832,15 +1809,15 @@ export default function ActivityPage() {
                     <p>Sin vista previa disponible para este tipo de archivo.</p>
                     {IS_NATIVE_APP ? (
                       <AbrirConNativoButton url={selected.sub.archivoURL} nombre={selected.sub.nombreArchivo}
-                        className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors" />
+                        className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded-full border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors" />
                     ) : (
                       <a
                         href={downloadUrl(selected.sub.archivoURL, selected.sub.nombreArchivo)}
                         download={selected.sub.nombreArchivo}
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-surface-card rounded-full border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors"
                       >
-                        <Download size={18} className="text-accent" />
+                        <Download size={ICONO.md} className="text-accent" />
                         Descargar entrega
                       </a>
                     )}
@@ -1914,7 +1891,7 @@ export default function ActivityPage() {
                     </span>
                   </div>
                   {/* Always one line tall (min-h) so Anterior/Siguiente never move */}
-                  <p className="text-sm text-slate-500 mt-0.5 truncate min-h-5">
+                  <p className="text-sm text-muted mt-0.5 truncate min-h-5">
                     {isObservacion
                       ? 'Observación — se califica sin entrega'
                       : isEvaluacion
@@ -1940,7 +1917,7 @@ export default function ActivityPage() {
                       {formatLateness(selected.sub, selected.student, activity)}
                     </p>
                   )}
-                  <p className={`text-xs text-slate-500 mt-0.5 italic truncate min-h-4 ${selected.sub?.motivoSinEntrega ? '' : 'invisible'}`}>
+                  <p className={`text-xs text-muted mt-0.5 italic truncate min-h-4 ${selected.sub?.motivoSinEntrega ? '' : 'invisible'}`}>
                     {selected.sub?.motivoSinEntrega ? `Motivo: ${selected.sub.motivoSinEntrega}` : ' '}
                   </p>
                 </div>
@@ -1949,21 +1926,15 @@ export default function ActivityPage() {
                   <div className="space-y-1.5">
                   {/* Big, prominent prev/next — the most used controls here */}
                   <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => goToOffset(-1)}
-                      className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded-full border border-accent text-accent text-base font-semibold hover:bg-[var(--accent-medium)] transition-colors"
-                    >
-                      <ChevronLeft size={20} /> Anterior
-                    </button>
-                    <span className="text-sm text-slate-500 flex-shrink-0 px-1 whitespace-nowrap">{curIdx + 1} / {navList.length}</span>
-                    <button
-                      type="button"
-                      onClick={() => goToOffset(1)}
-                      className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded-full bg-accent text-white text-base font-semibold hover:bg-accent-hover transition-colors"
-                    >
-                      Siguiente <ChevronRight size={20} />
-                    </button>
+                    <Button variant="outline-accent" icon={ChevronLeft} className="flex-1"
+                      onClick={() => goToOffset(-1)}>
+                       Anterior
+                    </Button>
+                    <span className="text-sm text-muted flex-shrink-0 px-1 whitespace-nowrap">{curIdx + 1} / {navList.length}</span>
+                    <Button className="flex-1"
+                      onClick={() => goToOffset(1)}>
+                      Siguiente <ChevronRight size={ICONO.md} />
+                    </Button>
                   </div>
                   </div>
                 )}
@@ -1974,7 +1945,7 @@ export default function ActivityPage() {
                 {(selected.sub || isObservacion || hasRubrica) ? (
                   <form onSubmit={saveGrade} className="space-y-3">
                     {parcialCerrado && (
-                      <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 leading-relaxed">
+                      <div className="rounded-card border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 leading-relaxed">
                         <strong>El Parcial {activity?.parcial} está cerrado.</strong> No se pueden cambiar calificaciones.
                         Para modificarlas, primero <strong>reabre el parcial</strong> desde Calificaciones.
                         Al reabrirlo, las calificaciones asignadas automáticamente volverán a como estaban antes de cerrar.
@@ -1999,13 +1970,13 @@ export default function ActivityPage() {
                             if (rect) setRubricaWinTop(Math.round(rect.bottom + 6))
                             setRubricaViewOpen((v) => !v)
                           }}
-                          className={`w-full py-2.5 text-sm font-semibold rounded-full transition-colors flex items-center justify-center gap-2 ${
+                          className={`w-full py-2.5 text-sm font-semibold rounded-full transition-colors flex items-center justify-center gap-2 min-h-control ${
                             rubricaViewOpen
                               ? 'bg-accent text-white hover:bg-accent-hover'
                               : 'border border-accent text-accent hover:bg-[var(--accent-medium)]'
                           }`}
                         >
-                          <ClipboardList size={17} />
+                          <ClipboardList size={ICONO.sm} />
                           {rubricaViewOpen ? `Ocultar ${instrumentoLabel}` : `Ver ${instrumentoLabel}`}
                           <span className="font-bold">
                             {totalR != null ? `— ${totalR} / ${RUBRICA_TOTAL}` : `— faltan ${faltan} criterio${faltan !== 1 ? 's' : ''}`}
@@ -2014,14 +1985,11 @@ export default function ActivityPage() {
                       )
                     })()}
                     {puedeCalificarConIA && (
-                      <button
-                        type="button"
-                        onClick={() => abrirCalificarIA()}
-                        className="w-full py-2.5 text-sm font-semibold rounded-full border border-accent text-accent hover:bg-[var(--accent-medium)] transition-colors flex items-center justify-center gap-2"
-                      >
-                        <Sparkles size={17} />
+                      <Button variant="outline-accent" fullWidth icon={Sparkles}
+                        onClick={() => abrirCalificarIA()}>
+                        
                         {labelCalificarConIA}
-                      </button>
+                      </Button>
                     )}
 
                     {/* Download on the left, grade (with its own header) on the
@@ -2042,13 +2010,13 @@ export default function ActivityPage() {
                           /* bg-surface-card (blanco) como los otros botones de
                              descarga de esta pantalla: con el lienzo azul,
                              `bg-surface` se pintaba de azul y este se perdía. */
-                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors min-w-0"
+                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-surface-card rounded-full border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors min-w-0"
                         >
-                          <Download size={18} className="text-accent flex-shrink-0" />
+                          <Download size={ICONO.md} className="text-accent flex-shrink-0" />
                           <span className="truncate">Descargar entrega</span>
                         </a>
                       ) : hasRubrica ? (
-                        <div aria-hidden="true" className="flex-1 invisible flex items-center justify-center gap-2 px-3 py-2 rounded border text-sm min-w-0">
+                        <div aria-hidden="true" className="flex-1 invisible flex items-center justify-center gap-2 px-3 py-2 rounded-full border text-sm min-w-0">
                           <span className="truncate">Descargar entrega</span>
                         </div>
                       ) : null}
@@ -2056,7 +2024,7 @@ export default function ActivityPage() {
                         <label htmlFor="act-calificacion" className="block text-sm font-medium text-muted mb-1 text-center">
                           Calificación <span className="text-hint">(máx. {activity?.maxCalif})</span>
                         </label>
-                        <input
+                        <Input
                           id="act-calificacion"
                           type="number"
                           value={gradeForm.calificacion}
@@ -2068,7 +2036,7 @@ export default function ActivityPage() {
                           // Primer campo del panel de calificación, abierto con intención de escribir.
                           autoFocus={PUEDE_AUTOFOCUS && !parcialCerrado}
                           disabled={parcialCerrado}
-                          className="w-full px-3 py-2 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold bg-surface disabled:opacity-60 disabled:cursor-not-allowed"
+                          className="text-base font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
                         />
                       </div>
                     </div>
@@ -2096,7 +2064,7 @@ export default function ActivityPage() {
                               aria-label="Descargar todas en ZIP"
                               className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded-full flex-shrink-0 disabled:opacity-40"
                             >
-                              {studentZipDownloading ? <Spinner size="sm" /> : <Download size={15} />}
+                              {studentZipDownloading ? <Spinner size="sm" /> : <Download size={ICONO.sm} />}
                             </button>
                           )}
                           <button
@@ -2126,7 +2094,7 @@ export default function ActivityPage() {
                                 aria-label="Descargar esta imagen"
                                 className="p-2 text-accent hover:bg-[var(--accent-medium)] rounded flex-shrink-0"
                               >
-                                <Download size={15} />
+                                <Download size={ICONO.sm} />
                               </a>
                             )}
                             <button
@@ -2151,7 +2119,7 @@ export default function ActivityPage() {
                         value={gradeForm.comentario}
                         onChange={(e) => setGradeForm((f) => ({ ...f, comentario: e.target.value }))}
                         rows={6}
-                        className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-full px-4 py-2.5 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y disabled:opacity-60 disabled:cursor-not-allowed"
                       />
                     </div>
                     {/* Empieza mostrando el default/global de la actividad
@@ -2169,7 +2137,7 @@ export default function ActivityPage() {
                           comentarioVisibleEsExcepcionRef.current = true
                           setGradeForm((f) => ({ ...f, comentarioVisibleAlumno: e.target.checked }))
                         }}
-                        className="w-4 h-4 rounded border-outline-variant text-accent focus:ring-accent"
+                        className="w-4 h-4 rounded-card border-outline-variant text-accent focus:ring-accent"
                       />
                       Permitir que el estudiante vea este comentario
                     </label>
@@ -2180,24 +2148,20 @@ export default function ActivityPage() {
                     )}
                     {parcialCerrado ? (
                       selected.sub && (
-                        <button
+                        <Button fullWidth busy={saving}
                           type="submit"
-                          disabled={saving || !canCreate || !comentarioDirty()}
-                          className="w-full py-2.5 bg-accent text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                        >
-                          {saving ? <Spinner size="sm" /> : null}
+                          disabled={saving || !canCreate || !comentarioDirty()}>
+                          
                           {saving ? 'Guardando…' : 'Guardar comentario'}
-                        </button>
+                        </Button>
                       )
                     ) : (
-                      <button
+                      <Button fullWidth icon={Star} busy={saving}
                         type="submit"
-                        disabled={saving || !canCreate || !isDirty()}
-                        className="w-full py-2.5 bg-accent text-white font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-                      >
-                        {saving ? <Spinner size="sm" /> : <Star size={18} />}
+                        disabled={saving || !canCreate || !isDirty()}>
+                        
                         {saving ? 'Guardando…' : 'Guardar calificación'}
-                      </button>
+                      </Button>
                     )}
                   </form>
                 ) : (
@@ -2218,7 +2182,7 @@ export default function ActivityPage() {
                             ? (d => `${d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}, ${formatHora12FromDate(d)}`)(new Date(t.seconds * 1000))
                             : '—'
                           return (
-                            <div key={a.id} className="px-3 py-2 bg-surface rounded border border-outline-variant text-xs space-y-0.5">
+                            <div key={a.id} className="px-3 py-2 bg-surface rounded-card border border-outline-variant text-xs space-y-0.5">
                               <p className="text-muted truncate">{a.enlaceURL ? 'Enlace o URL' : (a.nombreArchivo || 'Archivo')}</p>
                               <p className="text-hint">Entregada: {fmt(a.fechaEntrega)} · Anulada: {fmt(a.fechaAnulacion)}</p>
                             </div>
@@ -2234,7 +2198,7 @@ export default function ActivityPage() {
                     <p className="text-xs font-medium text-hint mb-2">Versiones anteriores</p>
                     <div className="space-y-1.5">
                       {[...selected.sub.historial].reverse().map((v, i) => (
-                        <div key={`${v.fechaEntrega?.seconds ?? 'v'}-${i}`} className="flex items-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-xs">
+                        <div key={`${v.fechaEntrega?.seconds ?? 'v'}-${i}`} className="flex items-center gap-2 px-3 py-2 bg-surface rounded-full border border-outline-variant text-xs">
                           <span className="text-hint flex-shrink-0">
                             {v.fechaEntrega?.seconds
                               ? (d => `${d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}, ${formatHora12FromDate(d)}`)(new Date(v.fechaEntrega.seconds * 1000))
@@ -2246,9 +2210,9 @@ export default function ActivityPage() {
                               ? (IS_NATIVE_APP || telefonoWeb.telefono)
                                 ? <span className="text-muted truncate flex items-center gap-1">{v.nombreArchivo}</span>
                                 : <a href={downloadUrl(v.archivoURL, v.nombreArchivo)} download={v.nombreArchivo} rel="noopener noreferrer" className="text-accent hover:underline truncate flex items-center gap-1">
-                                  <Download size={14} /> {v.nombreArchivo}
+                                  <Download size={ICONO.xs} /> {v.nombreArchivo}
                                 </a>
-                              : <span className="text-slate-300 italic">sin archivo</span>
+                              : <span className="text-hint italic">sin archivo</span>
                           }
                         </div>
                       ))}
@@ -2266,34 +2230,28 @@ export default function ActivityPage() {
                       <button
                         type="button"
                         onClick={() => setAnnulMode(true)}
-                        className="block mx-auto text-sm text-slate-500 hover:text-red-600 transition-colors"
+                        className="block mx-auto text-sm text-muted hover:text-red-600 transition-colors"
                       >
                         Anular la entrega actual para este estudiante
                       </button>
                     ) : (
-                      <div className="rounded border border-red-200 bg-red-50 p-3 space-y-2">
+                      <div className="rounded-card border border-red-200 bg-red-50 p-3 space-y-2">
                         <p className="text-sm text-red-700">
                           ¿Anular la entrega de <strong>{studentFullName(selected.student)}</strong>?
                           Volverá a quedar <strong>Pendiente</strong> y podrá entregar de nuevo.
                           {selected.sub.calificacion != null && ' La calificación actual se eliminará.'}
                         </p>
                         <div className="flex gap-2">
-                          <button
-                            type="button"
+                          <Button variant="secondary" className="flex-1"
                             onClick={() => setAnnulMode(false)}
-                            disabled={annulling}
-                            className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
-                          >
+                            disabled={annulling}>
                             Cancelar
-                          </button>
-                          <button
-                            type="button"
+                          </Button>
+                          <Button variant="danger" className="flex-1"
                             onClick={annulSubmission}
-                            disabled={annulling}
-                            className="flex-1 py-2 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
-                          >
+                            disabled={annulling}>
                             {annulling ? 'Anulando…' : 'Anular entrega'}
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     )
@@ -2303,7 +2261,7 @@ export default function ActivityPage() {
                       <button
                         type="button"
                         disabled
-                        className="block mx-auto text-sm text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="block mx-auto text-sm text-muted disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         Modificar fecha de entrega para este estudiante
                       </button>
@@ -2313,7 +2271,7 @@ export default function ActivityPage() {
                     <button
                       type="button"
                       onClick={() => (parcialCerrado ? toast(mensajeParcialCerrado(activity.parcial), 'error') : setExtendMode(true))}
-                      className="block mx-auto text-sm text-slate-500 hover:text-muted transition-colors"
+                      className="block mx-auto text-sm text-muted hover:text-muted transition-colors"
                     >
                       Modificar fecha de entrega para este estudiante
                     </button>
@@ -2334,25 +2292,19 @@ export default function ActivityPage() {
                           value={extendMotivo}
                           onChange={(e) => setExtendMotivo(e.target.value)}
                           rows={2}
-                          className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
+                          className="w-full px-3 py-2 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
                         />
                       </div>
                       <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setExtendMode(false)}
-                          className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
-                        >
+                        <Button variant="secondary" className="flex-1"
+                          onClick={() => setExtendMode(false)}>
                           Cancelar
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button className="flex-1"
                           onClick={saveExtension}
-                          disabled={!extendDate || savingExtension || extensionUnchanged}
-                          className="flex-1 py-2.5 bg-accent text-white text-sm font-semibold rounded-full disabled:opacity-60 transition-colors"
-                        >
+                          disabled={!extendDate || savingExtension || extensionUnchanged}>
                           {savingExtension ? 'Guardando…' : 'Guardar'}
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   )}
@@ -2363,18 +2315,18 @@ export default function ActivityPage() {
                       <button
                         type="button"
                         onClick={() => setSinEntregaMode(true)}
-                        className="block mx-auto text-sm text-slate-500 hover:text-accent transition-colors"
+                        className="block mx-auto text-sm text-muted hover:text-accent transition-colors"
                       >
                         Evaluar sin entrega
                       </button>
                     ) : (
-                      <div className="space-y-2 rounded border border-outline-variant bg-surface p-3">
+                      <div className="space-y-2 rounded-card border border-outline-variant bg-surface p-3">
                         <p className="text-sm font-medium text-on-surface">Evaluar sin entrega</p>
                         <div>
                           <label htmlFor="act-sinentrega-calif" className="block text-sm font-medium text-muted mb-1">
                             Calificación <span className="text-hint">(máx. {activity?.maxCalif})</span>
                           </label>
-                          <input
+                          <Input
                             id="act-sinentrega-calif"
                             type="number"
                             value={sinEntregaGrade}
@@ -2384,7 +2336,7 @@ export default function ActivityPage() {
                             step="0.1"
                             // Primer campo del panel "Evaluar sin entrega", abierto con intención de escribir.
                             autoFocus={PUEDE_AUTOFOCUS}
-                            className="w-full px-3 py-2 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-base font-semibold bg-surface"
+                            className="text-base font-semibold"
                           />
                         </div>
                         <div>
@@ -2394,25 +2346,19 @@ export default function ActivityPage() {
                             value={sinEntregaMotivo}
                             onChange={(e) => setSinEntregaMotivo(e.target.value)}
                             rows={2}
-                            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
+                            className="w-full px-3 py-2 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
                           />
                         </div>
                         <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setSinEntregaMode(false)}
-                            className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
-                          >
+                          <Button variant="secondary" className="flex-1"
+                            onClick={() => setSinEntregaMode(false)}>
                             Cancelar
-                          </button>
-                          <button
-                            type="button"
+                          </Button>
+                          <Button className="flex-1"
                             onClick={saveSinEntrega}
-                            disabled={savingSinEntrega || sinEntregaGrade === ''}
-                            className="flex-1 py-2.5 bg-accent text-white text-sm font-semibold rounded-full disabled:opacity-60 transition-colors"
-                          >
+                            disabled={savingSinEntrega || sinEntregaGrade === ''}>
                             {savingSinEntrega ? 'Guardando…' : 'Guardar'}
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     )
@@ -2473,9 +2419,9 @@ export default function ActivityPage() {
               onClick={closeModal}
               aria-label="Regresar"
               data-tooltip="Regresar"
-              className="p-2 -ml-1 text-muted hover:text-accent rounded flex-shrink-0 transition-colors"
+              className="size-control inline-flex items-center justify-center -ml-1 text-muted hover:text-accent rounded-full flex-shrink-0 transition-colors"
             >
-              <ArrowLeft size={22} />
+              <ArrowLeft size={ICONO.md} />
             </button>
             <h3 className="text-sm font-semibold text-on-surface truncate flex-1 min-w-0">
               {activityLabel && <span className="text-accent">{activityLabel} </span>}
@@ -2512,15 +2458,15 @@ export default function ActivityPage() {
                         </div>
                       ) : IS_NATIVE_APP ? (
                         <AbrirConNativoButton url={f.url} nombre={f.nombre}
-                          className="flex items-center gap-2 px-4 py-3 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors w-full" />
+                          className="flex items-center gap-2 px-4 py-3 bg-surface-card rounded-card border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors w-full" />
                       ) : (
                         <a
                           href={downloadUrl(f.url, f.nombre)}
                           download={f.nombre}
                           rel="noopener noreferrer"
-                          className="flex items-center gap-2 px-4 py-3 bg-surface-card rounded border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors"
+                          className="flex items-center gap-2 px-4 py-3 bg-surface-card rounded-card border border-outline-variant text-sm text-muted hover:bg-[var(--accent-medium)] transition-colors"
                         >
-                          <Download size={18} className="text-accent flex-shrink-0" />
+                          <Download size={ICONO.md} className="text-accent flex-shrink-0" />
                           <span className="truncate">{f.nombre}</span>
                         </a>
                       )}
@@ -2555,7 +2501,7 @@ export default function ActivityPage() {
                 </p>
               )}
               {selected.sub?.motivoSinEntrega && (
-                <p className="text-xs text-slate-500 mt-0.5 italic truncate">
+                <p className="text-xs text-muted mt-0.5 italic truncate">
                   Motivo: {selected.sub.motivoSinEntrega}
                 </p>
               )}
@@ -2565,22 +2511,16 @@ export default function ActivityPage() {
                 hay a dónde navegar. */}
             <div className="space-y-1.5 flex-shrink-0 px-3">
               <div className="flex items-center justify-center gap-2">
-                <button
-                  type="button"
+                <Button variant="outline-accent" icon={ChevronLeft} className="flex-1"
                   onClick={() => goToOffset(-1)}
-                  disabled={navList.length < 2}
-                  className="flex-1 flex items-center justify-center gap-1 py-2 rounded-full border border-accent text-accent text-sm font-semibold hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-40"
-                >
-                  <ChevronLeft size={18} /> Anterior
-                </button>
-                <button
-                  type="button"
+                  disabled={navList.length < 2}>
+                   Anterior
+                </Button>
+                <Button className="flex-1"
                   onClick={() => goToOffset(1)}
-                  disabled={navList.length < 2}
-                  className="flex-1 flex items-center justify-center gap-1 py-2 rounded-full bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors disabled:opacity-40"
-                >
-                  Siguiente <ChevronRight size={18} />
-                </button>
+                  disabled={navList.length < 2}>
+                  Siguiente <ChevronRight size={ICONO.md} />
+                </Button>
               </div>
             </div>
 
@@ -2592,7 +2532,7 @@ export default function ActivityPage() {
             {(selected.sub || isObservacion || hasRubrica || !isEvaluacion) ? (
               <form onSubmit={saveGrade} className="space-y-2 flex-shrink-0 px-3">
                 {parcialCerrado && !IS_NATIVE_APP && (
-                  <div className="rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 leading-relaxed">
+                  <div className="rounded-card border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 leading-relaxed">
                     <strong>El Parcial {activity?.parcial} está cerrado.</strong> No se pueden cambiar calificaciones.
                     Para modificarlas, primero <strong>reabre el parcial</strong> desde Calificaciones.
                     Al reabrirlo, las calificaciones asignadas automáticamente volverán a como estaban antes de cerrar.
@@ -2618,13 +2558,13 @@ export default function ActivityPage() {
                         if (rect) setRubricaWinBottom(Math.round(window.innerHeight - rect.top + 6))
                         setRubricaViewOpen((v) => !v)
                       }}
-                      className={`w-full py-2.5 text-sm font-semibold rounded-full transition-colors flex items-center justify-center gap-2 ${
+                      className={`w-full py-2.5 text-sm font-semibold rounded-full transition-colors flex items-center justify-center gap-2 min-h-control ${
                         rubricaViewOpen
                           ? 'bg-accent text-white hover:bg-accent-hover'
                           : 'border border-accent text-accent hover:bg-[var(--accent-medium)]'
                       }`}
                     >
-                      <ClipboardList size={17} />
+                      <ClipboardList size={ICONO.sm} />
                       {rubricaViewOpen ? `Ocultar ${instrumentoLabel}` : `Ver ${instrumentoLabel}`}
                       <span className="font-bold">
                         {totalR != null ? `— ${totalR} / ${RUBRICA_TOTAL}` : `— faltan ${faltan} criterio${faltan !== 1 ? 's' : ''}`}
@@ -2633,14 +2573,11 @@ export default function ActivityPage() {
                   )
                 })()}
                 {puedeCalificarConIA && !IS_NATIVE_APP && (
-                  <button
-                    type="button"
-                    onClick={() => abrirCalificarIA()}
-                    className="w-full py-2.5 text-sm font-semibold rounded-full border border-accent text-accent hover:bg-[var(--accent-medium)] transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Sparkles size={17} />
+                  <Button variant="outline-accent" fullWidth icon={Sparkles}
+                    onClick={() => abrirCalificarIA()}>
+                    
                     {labelCalificarConIA}
-                  </button>
+                  </Button>
                 )}
 
                 {/* Calificación grande — sin la etiqueta de arriba (le cede
@@ -2738,7 +2675,7 @@ export default function ActivityPage() {
                             data-tooltip={prorrogaBloqueada ? MENSAJE_PRORROGA_CON_ENTREGA : 'Modificar fecha de entrega'}
                             className="h-9 pl-2 pr-3 rounded-full border border-outline-variant text-muted hover:text-accent hover:border-accent flex items-center justify-center transition-colors disabled:opacity-40"
                           >
-                            <CalendarDays size={17} />
+                            <CalendarDays size={ICONO.sm} />
                           </button>
                           {selected.sub && (
                             <button
@@ -2749,7 +2686,7 @@ export default function ActivityPage() {
                               data-tooltip="Anular la entrega"
                               className="h-9 pl-2 pr-3 rounded-full border border-outline-variant text-muted hover:text-red-600 hover:border-red-300 flex items-center justify-center transition-colors disabled:opacity-40"
                             >
-                              <Trash2 size={17} />
+                              <Trash2 size={ICONO.sm} />
                             </button>
                           )}
                         </div>
@@ -2770,7 +2707,7 @@ export default function ActivityPage() {
                     disabled={saving || !canCreate || !isDirty()}
                     className="h-10 w-full bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                   >
-                    {saving ? <Spinner size="sm" /> : <Star size={18} />}
+                    {saving ? <Spinner size="sm" /> : <Star size={ICONO.md} />}
                     {saving ? 'Guardando…' : 'Guardar calificación'}
                   </button>
                 )}
@@ -2786,7 +2723,7 @@ export default function ActivityPage() {
                 <p className="text-xs font-medium text-hint mb-2">Versiones anteriores</p>
                 <div className="space-y-1.5">
                   {[...selected.sub.historial].reverse().map((v, i) => (
-                    <div key={`${v.fechaEntrega?.seconds ?? 'v'}-${i}`} className="flex items-center gap-2 px-3 py-2 bg-surface rounded border border-outline-variant text-xs">
+                    <div key={`${v.fechaEntrega?.seconds ?? 'v'}-${i}`} className="flex items-center gap-2 px-3 py-2 bg-surface rounded-full border border-outline-variant text-xs">
                       <span className="text-hint flex-shrink-0">
                         {v.fechaEntrega?.seconds
                           ? (d => `${d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}, ${formatHora12FromDate(d)}`)(new Date(v.fechaEntrega.seconds * 1000))
@@ -2798,9 +2735,9 @@ export default function ActivityPage() {
                           ? IS_NATIVE_APP
                             ? <span className="text-muted truncate flex items-center gap-1">{v.nombreArchivo}</span>
                             : <a href={downloadUrl(v.archivoURL, v.nombreArchivo)} download={v.nombreArchivo} rel="noopener noreferrer" className="text-accent hover:underline truncate flex items-center gap-1">
-                              <Download size={14} /> {v.nombreArchivo}
+                              <Download size={ICONO.xs} /> {v.nombreArchivo}
                             </a>
-                          : <span className="text-slate-300 italic">sin archivo</span>
+                          : <span className="text-hint italic">sin archivo</span>
                       }
                     </div>
                   ))}
@@ -2827,22 +2764,16 @@ export default function ActivityPage() {
               {selected.sub.calificacion != null && ' La calificación actual se eliminará.'}
             </p>
             <div className="flex gap-2">
-              <button
-                type="button"
+              <Button variant="secondary" className="flex-1"
                 onClick={() => setAnnulMode(false)}
-                disabled={annulling}
-                className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
-              >
+                disabled={annulling}>
                 Cancelar
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button variant="danger" className="flex-1"
                 onClick={annulSubmission}
-                disabled={annulling}
-                className="flex-1 py-2 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
-              >
+                disabled={annulling}>
                 {annulling ? 'Anulando…' : 'Anular entrega'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -2867,25 +2798,19 @@ export default function ActivityPage() {
                 value={extendMotivo}
                 onChange={(e) => setExtendMotivo(e.target.value)}
                 rows={2}
-                className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
+                className="w-full px-3 py-2 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
               />
             </div>
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setExtendMode(false)}
-                className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors"
-              >
+              <Button variant="secondary" className="flex-1"
+                onClick={() => setExtendMode(false)}>
                 Cancelar
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button className="flex-1"
                 onClick={saveExtension}
-                disabled={!extendDate || savingExtension || extensionUnchanged}
-                className="flex-1 py-2.5 bg-accent text-white text-sm font-semibold rounded-full disabled:opacity-60 transition-colors"
-              >
+                disabled={!extendDate || savingExtension || extensionUnchanged}>
                 {savingExtension ? 'Guardando…' : 'Guardar'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -2927,8 +2852,8 @@ export default function ActivityPage() {
                 violeta = lista de cotejo (ver instrumentoColors). */}
             <div className={`flex items-center gap-2 px-3 py-2 border-b border-outline-variant flex-shrink-0 ${instrumentoColors(activity.rubrica).bg}`}>
               {esCotejo(activity.rubrica)
-                ? <ListChecks size={17} className={`${instrumentoColors(activity.rubrica).icon} flex-shrink-0`} />
-                : <ClipboardList size={17} className={`${instrumentoColors(activity.rubrica).icon} flex-shrink-0`} />}
+                ? <ListChecks size={ICONO.sm} className={`${instrumentoColors(activity.rubrica).icon} flex-shrink-0`} />
+                : <ClipboardList size={ICONO.sm} className={`${instrumentoColors(activity.rubrica).icon} flex-shrink-0`} />}
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-on-surface truncate">
                   <span className={instrumentoColors(activity.rubrica).text}>{esCotejo(activity.rubrica) ? 'Lista de cotejo' : 'Rúbrica'}</span>: {activity.rubrica.titulo}
@@ -2939,15 +2864,9 @@ export default function ActivityPage() {
                     : 'Marca una opción por renglón — la calificación se calcula sola'}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setRubricaViewOpen(false)}
-                aria-label="Cerrar rúbrica"
-                data-tooltip="Cerrar rúbrica"
-                className="p-2 text-hint hover:text-accent rounded-full flex-shrink-0"
-              >
-                <X size={17} />
-              </button>
+              <IconButton icon={X} label="Cerrar rúbrica" tooltip={false} onClick={() => setRubricaViewOpen(false)}
+               
+                data-tooltip="Cerrar rúbrica" />
             </div>
             <div className="flex-1 min-h-0 overflow-auto p-3">
               <RubricaGradeTable
@@ -2959,8 +2878,7 @@ export default function ActivityPage() {
               />
             </div>
             <div className="p-2 border-t border-outline-variant flex-shrink-0">
-              <button
-                type="button"
+              <Button fullWidth
                 disabled={saving || parcialCerrado || totalR == null}
                 onClick={async () => {
                   // Acción explícita del docente: convierte el total de la
@@ -2974,11 +2892,9 @@ export default function ActivityPage() {
                     toast('Calificación guardada')
                   }
                   setRubricaViewOpen(false)
-                }}
-                className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded-full flex items-center justify-center gap-2 hover:bg-accent-hover disabled:opacity-60 transition-colors"
-              >
+                }}>
                 Aplicar y guardar calificación{totalR != null ? ` — ${totalR} / ${RUBRICA_TOTAL}` : ` (faltan ${faltan})`}
-              </button>
+              </Button>
             </div>
           </div>
         )

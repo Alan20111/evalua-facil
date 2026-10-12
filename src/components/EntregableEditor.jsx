@@ -33,6 +33,8 @@ import { groupExtensions } from '../utils/extensiones'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import { IS_NATIVE_APP } from '../utils/platform'
+import { Input, Button, IconButton } from './ui'
+import { ICONO } from '../config/iconos'
 
 const MAX_ATTACH = 15 * 1024 * 1024
 
@@ -452,9 +454,7 @@ export default function EntregableEditor({
       {/* Header */}
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg safe-top">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <button type="button" onClick={onClose} aria-label="Volver" className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors flex-shrink-0">
-            <ArrowLeft size={22} />
-          </button>
+          <IconButton icon={ArrowLeft} label="Volver" tooltip={false} className="-ml-2" onClick={onClose} />
           <div className="flex-1 min-w-0">
             {contextLine && <p className="text-xl font-bold text-white truncate">{contextLine}</p>}
             <p className="text-xs text-white/70 uppercase tracking-wide">{tipoLabel} — Parcial {parcial}</p>
@@ -477,18 +477,15 @@ export default function EntregableEditor({
       <div className="max-w-3xl mx-auto px-4 py-6">
         <form onSubmit={handleSave} className="space-y-4">
           <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
-            <div>
-              <label htmlFor="ent-nombre" className="block text-sm font-medium text-muted mb-1">Nombre de la actividad</label>
-              <input id="ent-nombre" type="text" value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
-                required
-                className="w-full px-4 py-2.5 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
-            </div>
+            <Input
+              label="Nombre de la actividad" id="ent-nombre" type="text" value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
+              required />
 
             {/* Default apagado: el docente elige, actividad por actividad,
                 cuáles quiere que le avisen. El push solo llega al celular
                 donde tenga instalada la app — se puede configurar desde
                 aquí o desde ahí, da igual dónde se edite la actividad. */}
-            <div className="flex items-start gap-3 p-3 bg-slate-50 rounded border border-outline-variant">
+            <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-card border border-outline-variant">
               <input
                 type="checkbox"
                 id="ent-notificar-docente"
@@ -525,7 +522,7 @@ export default function EntregableEditor({
                 type="checkbox"
                 checked={form.comentarioVisibleAlumno !== false}
                 onChange={(e) => setForm((f) => ({ ...f, comentarioVisibleAlumno: e.target.checked }))}
-                className="w-4 h-4 rounded border-outline-variant text-accent focus:ring-accent"
+                className="w-4 h-4 rounded-card border-outline-variant text-accent focus:ring-accent"
               />
               Permitir que cada estudiante pueda ver el comentario que el docente le otorga al calificarlo
             </label>
@@ -567,7 +564,7 @@ export default function EntregableEditor({
           <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
               <div>
                 <h2 className="text-sm font-semibold text-on-surface flex items-center gap-1.5">
-                  <ClipboardList size={16} className="text-accent" /> Rúbrica de evaluación
+                  <ClipboardList size={ICONO.sm} className="text-accent" /> Rúbrica de evaluación
                   <span className="text-hint font-normal">(opcional)</span>
                 </h2>
                 <InfoDisclosure className="mt-0.5">
@@ -582,8 +579,8 @@ export default function EntregableEditor({
                 <>
                   <div className={`flex items-center gap-3 rounded border px-3 py-2.5 ${instrumentoColors(form.rubrica).border} ${instrumentoColors(form.rubrica).bg}`}>
                     {esCotejo(form.rubrica)
-                      ? <ListChecks size={20} className={`${instrumentoColors(form.rubrica).icon} flex-shrink-0`} />
-                      : <ClipboardList size={20} className={`${instrumentoColors(form.rubrica).icon} flex-shrink-0`} />}
+                      ? <ListChecks size={ICONO.md} className={`${instrumentoColors(form.rubrica).icon} flex-shrink-0`} />
+                      : <ClipboardList size={ICONO.md} className={`${instrumentoColors(form.rubrica).icon} flex-shrink-0`} />}
                     <div className="flex-1 min-w-0">
                       <p className={`text-[10px] font-bold uppercase tracking-wide ${instrumentoColors(form.rubrica).text}`}>
                         {esCotejo(form.rubrica) ? 'Lista de cotejo' : 'Rúbrica'}
@@ -595,23 +592,17 @@ export default function EntregableEditor({
                           : `${form.rubrica.criterios?.length} criterios · ${form.rubrica.niveles?.length} niveles · se califica sobre 10`}
                       </p>
                     </div>
-                    <button type="button"
-                      onClick={() => setForm((f) => ({ ...f, rubrica: null, rubricaId: null }))}
-                      aria-label="Quitar rúbrica" data-tooltip="Quitar rúbrica"
-                      className="p-2 text-hint hover:text-red-500 rounded-full flex-shrink-0">
-                      <X size={17} />
-                    </button>
+                    <IconButton icon={X} label="Quitar rúbrica" variant="danger" tooltip={false} onClick={() => setForm((f) => ({ ...f, rubrica: null, rubricaId: null }))}
+                      data-tooltip="Quitar rúbrica" />
                   </div>
                   <div className="flex gap-2">
-                    <button type="button" onClick={() => setRubricaPreview((v) => !v)}
-                      className="flex-1 py-2.5 text-sm border border-outline-variant text-muted rounded-full hover:border-accent hover:text-accent transition-colors flex items-center justify-center gap-1.5">
-                      {rubricaPreview ? <EyeOff size={15} /> : <Eye size={15} />}
+                    <Button variant="secondary" className="flex-1" onClick={() => setRubricaPreview((v) => !v)}>
+                      {rubricaPreview ? <EyeOff size={ICONO.sm} /> : <Eye size={ICONO.sm} />}
                       {rubricaPreview ? 'Ocultar' : 'Ver rúbrica'}
-                    </button>
-                    <button type="button" onClick={() => setRubricaPickerOpen(true)}
-                      className="flex-1 py-2.5 text-sm border border-outline-variant text-muted rounded-full hover:border-accent hover:text-accent transition-colors">
+                    </Button>
+                    <Button variant="secondary" className="flex-1" onClick={() => setRubricaPickerOpen(true)}>
                       Cambiar rúbrica
-                    </button>
+                    </Button>
                   </div>
                   {rubricaPreview && <RubricaTable rubrica={form.rubrica} compact={!IS_NATIVE_APP} />}
                   {/* Visibilidad para el estudiante (23-ago-2026, pedido de
@@ -623,7 +614,7 @@ export default function EntregableEditor({
                       type="checkbox"
                       checked={form.rubricaVisibleAlumno !== false}
                       onChange={(e) => setForm((f) => ({ ...f, rubricaVisibleAlumno: e.target.checked }))}
-                      className="w-4 h-4 rounded border-outline-variant text-accent focus:ring-accent"
+                      className="w-4 h-4 rounded-card border-outline-variant text-accent focus:ring-accent"
                     />
                     Permitir que los estudiantes vean {esCotejo(form.rubrica) ? 'la lista de cotejo' : 'la rúbrica'}
                   </label>
@@ -636,14 +627,12 @@ export default function EntregableEditor({
                       igual que crear rúbricas a mano. */}
                   {!IS_NATIVE_APP && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <button type="button" onClick={() => pedirIA('rubrica')}
-                        className="w-full py-2.5 text-sm bg-accent text-white font-semibold rounded-full hover:bg-accent-hover transition-colors flex items-center justify-center gap-2">
-                        <Sparkles size={16} /> Generar rúbrica con IA
-                      </button>
-                      <button type="button" onClick={() => pedirIA('cotejo')}
-                        className="w-full py-2.5 text-sm border border-accent text-accent font-semibold rounded-full hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2">
-                        <Sparkles size={16} /> Generar lista de cotejo con IA
-                      </button>
+                      <Button fullWidth icon={Sparkles} onClick={() => pedirIA('rubrica')}>
+                         Generar rúbrica con IA
+                      </Button>
+                      <Button variant="outline-accent" fullWidth icon={Sparkles} onClick={() => pedirIA('cotejo')}>
+                         Generar lista de cotejo con IA
+                      </Button>
                     </div>
                   )}
                   {!IS_NATIVE_APP && (
@@ -655,15 +644,13 @@ export default function EntregableEditor({
                   )}
                   {/* Crear directo (banco Y asignación en un paso): solo en la web */}
                   {!IS_NATIVE_APP && (
-                    <button type="button" onClick={() => setRubricaEditorOpen(true)}
-                      className="w-full py-2.5 text-sm border border-outline-variant text-muted rounded-full hover:border-accent hover:text-accent transition-colors flex items-center justify-center gap-2">
-                      <Plus size={16} /> Crear rúbrica a mano
-                    </button>
+                    <Button variant="secondary" fullWidth icon={Plus} onClick={() => setRubricaEditorOpen(true)}>
+                       Crear rúbrica a mano
+                    </Button>
                   )}
-                  <button type="button" onClick={() => setRubricaPickerOpen(true)}
-                    className="w-full py-2.5 text-sm border border-accent text-accent rounded-full hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2">
-                    <ClipboardList size={16} /> Usar una rúbrica de mi banco
-                  </button>
+                  <Button variant="outline-accent" fullWidth icon={ClipboardList} onClick={() => setRubricaPickerOpen(true)}>
+                     Usar una rúbrica de mi banco
+                  </Button>
                 </div>
               )}
           </div>
@@ -730,8 +717,8 @@ export default function EntregableEditor({
                         <span data-tooltip="Desactivar para recibir tarde" className="text-muted text-xs block mt-0.5">Desactivar para recibir entregas (se marcarán como entregadas tarde).</span>
                       </label>
                       {(form.cerrarEntregasEnFecha ?? true)
-                        ? <Lock size={28} className="flex-shrink-0 self-stretch text-muted" strokeWidth={1.5} />
-                        : <LockOpen size={28} className="flex-shrink-0 self-stretch text-muted" strokeWidth={1.5} />}
+                        ? <Lock size={ICONO.lg} className="flex-shrink-0 self-stretch text-muted" strokeWidth={1.5} />
+                        : <LockOpen size={ICONO.lg} className="flex-shrink-0 self-stretch text-muted" strokeWidth={1.5} />}
                     </div>
                   )}
                 </div>
@@ -747,14 +734,14 @@ export default function EntregableEditor({
                   return (
                     <details className="group">
                       <summary className="flex items-center gap-1 text-sm text-accent cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
-                        <ChevronRight size={14} className="flex-shrink-0 transition-transform group-open:rotate-90" />
+                        <ChevronRight size={ICONO.xs} className="flex-shrink-0 transition-transform group-open:rotate-90" />
                         Prórrogas otorgadas ({grupos.length})
                       </summary>
                       <div className="mt-2 space-y-2">
                         {grupos.map((g, i) => (
-                          <div key={i} className="p-3 bg-amber-50 rounded border border-amber-200 text-sm">
+                          <div key={i} className="p-3 bg-amber-50 rounded-card border border-amber-200 text-sm">
                             <p className="font-medium text-on-surface flex items-center gap-1.5">
-                              <CalendarDays size={14} className="text-amber-600 flex-shrink-0" />
+                              <CalendarDays size={ICONO.xs} className="text-amber-600 flex-shrink-0" />
                               Prórroga hasta {formatDeadline(g.date)}
                             </p>
                             <p className="text-xs text-muted mt-1">Para: {g.names.join(', ')}</p>
@@ -769,13 +756,10 @@ export default function EntregableEditor({
                 {/* Published activity: extend the deadline for the whole group or for
                     specific students who fell behind — opens the modal in ActivityPage. */}
                 {onNuevaFecha && (
-                  <button
-                    type="button"
-                    onClick={onNuevaFecha}
-                    className="w-full py-2.5 text-sm border border-accent text-accent rounded-full hover:bg-[var(--accent-tint)] transition-colors flex items-center justify-center gap-2"
-                  >
-                    <CalendarDays size={16} /> Nueva fecha para prórroga
-                  </button>
+                  <Button variant="outline-accent" fullWidth icon={CalendarDays}
+                    onClick={onNuevaFecha}>
+                     Nueva fecha para prórroga
+                  </Button>
                 )}
               </div>
             )}
@@ -784,7 +768,7 @@ export default function EntregableEditor({
           {/* Vista previa: la actividad exactamente como la verá el estudiante */}
           <button type="button" onClick={() => setPreview((v) => !v)}
             className="w-full py-2 text-sm text-accent font-medium flex items-center justify-center gap-1.5 hover:underline">
-            {preview ? <EyeOff size={16} /> : <Eye size={16} />}
+            {preview ? <EyeOff size={ICONO.sm} /> : <Eye size={ICONO.sm} />}
             {preview ? 'Ocultar vista del estudiante' : 'Ver cómo vería el estudiante esta actividad'}
           </button>
           {preview && (
@@ -801,7 +785,7 @@ export default function EntregableEditor({
               )}
               {!isObservacion && form.fechaLimite && (
                 <p className="text-sm text-muted flex items-center gap-1.5">
-                  <CalendarDays size={15} className="flex-shrink-0" /> Fecha límite: <span className="font-medium text-on-surface">{formatDeadline(form.fechaLimite)}</span>
+                  <CalendarDays size={ICONO.sm} className="flex-shrink-0" /> Fecha límite: <span className="font-medium text-on-surface">{formatDeadline(form.fechaLimite)}</span>
                 </p>
               )}
               {!isObservacion && (
@@ -820,36 +804,32 @@ export default function EntregableEditor({
 
           {wasDraft && form.visibilidadMode === 'hide' ? (
             // Draft with "Borrador" selected: the only save action keeps it as draft
-            <button type="button" onClick={(e) => handleSave(e, true)} disabled={saving || !isDirty}
-              className="w-full py-3 bg-accent text-white font-semibold rounded-full disabled:opacity-60 flex items-center justify-center gap-2">
-              {saving ? <Spinner size="sm" /> : <Pencil size={18} />}
+            <Button fullWidth icon={Pencil} busy={saving} onClick={(e) => handleSave(e, true)} disabled={saving || !isDirty}>
+              
               {saving ? 'Guardando…' : 'Guardar borrador y salir'}
-            </button>
+            </Button>
           ) : (
             <>
-              <button type="submit" disabled={saving || (!wasDraft && !isDirty)}
-                className="w-full py-3 bg-accent text-white font-semibold rounded-full disabled:opacity-60 flex items-center justify-center gap-2">
-                {saving ? <Spinner size="sm" /> : isNew ? <Plus size={18} /> : <Pencil size={18} />}
+              <Button fullWidth type="submit" disabled={saving || (!wasDraft && !isDirty)}>
+                {saving ? <Spinner size="sm" /> : isNew ? <Plus size={ICONO.md} /> : <Pencil size={ICONO.md} />}
                 {saving ? 'Guardando…' : isNew ? 'Crear actividad' : wasDraft ? (form.visibilidadMode === 'schedule' ? 'Guardar con la fecha programada' : 'Guardar y publicar ahora') : 'Guardar cambios'}
-              </button>
+              </Button>
               {/* También cuando ya está publicada: una actividad se puede
                   regresar a borrador. Ahí sí se pregunta antes, porque deja de
                   verse para los estudiantes (ver confirmDraft). */}
               {!wasDraft && (
-                <button
-                  type="button"
+                <Button variant="outline-accent" fullWidth
                   onClick={(e) => { if (form.publishedAt) setConfirmDraft(true); else handleSave(e, true) }}
-                  disabled={saving}
-                  className="w-full py-2.5 border border-accent text-accent font-medium rounded-full hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+                  disabled={saving}>
                   Guardar como borrador
-                </button>
+                </Button>
               )}
             </>
           )}
           {!isNew && (
             // With no changes, exiting is the natural action — it takes the primary style
             <button type="button" onClick={onClose} disabled={saving}
-              className={`w-full py-2.5 font-medium rounded-full transition-colors disabled:opacity-60 ${(!isDirty && (!wasDraft || form.visibilidadMode === 'hide'))
+              className={`w-full py-2.5 font-medium rounded-full transition-colors disabled:opacity-60 min-h-control ${(!isDirty && (!wasDraft || form.visibilidadMode === 'hide'))
                 ? 'bg-accent text-white font-semibold hover:bg-accent-hover'
                 : 'border border-outline-variant text-muted hover:bg-surface-container'}`}>
               {isDirty ? 'Salir sin guardar cambios' : 'Salir'}
@@ -858,7 +838,7 @@ export default function EntregableEditor({
           {!isNew && onDeleteActivity && (
             <button type="button" onClick={onDeleteActivity} disabled={saving}
               className="w-full py-2.5 text-error font-medium rounded-card hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5">
-              <Trash2 size={16} /> Eliminar actividad
+              <Trash2 size={ICONO.sm} /> Eliminar actividad
             </button>
           )}
           <div className="h-6 safe-bottom" />
@@ -992,14 +972,14 @@ export default function EntregableEditor({
                       <span className="truncate">{file.name}</span>
                       <button type="button" onClick={() => removeEvidenciaIA(i)} disabled={iaTrabajando}
                         className="flex-shrink-0 text-muted hover:text-error disabled:opacity-60">
-                        <X size={14} />
+                        <X size={ICONO.xs} />
                       </button>
                     </li>
                   ))}
                 </ul>
               )}
               <label className={`flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-dashed border-outline-variant rounded cursor-pointer hover:bg-surface-container transition-colors ${iaTrabajando ? 'opacity-60 pointer-events-none' : ''}`}>
-                <Paperclip size={14} /> Adjuntar archivo
+                <Paperclip size={ICONO.xs} /> Adjuntar archivo
                 <input
                   type="file"
                   accept=".jpg,.jpeg,.png,.pdf,.docx"

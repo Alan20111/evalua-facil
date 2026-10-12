@@ -37,7 +37,7 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
   // in the parent form.
   if (mode === 'published' || publishedAt) {
     return (
-      <div className="flex items-start gap-3 p-3 rounded border"
+      <div className="flex items-start gap-3 p-3 rounded-card border"
         style={{ borderColor: 'var(--accent)', background: 'var(--accent-light)' }}>
         <span className="text-base" style={{ color: 'var(--accent)', marginTop: 2, flexShrink: 0 }}>✓</span>
         <div>
@@ -63,7 +63,7 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
   // republishing/hiding make no sense — only allow moving the scheduled date.
   if (wasScheduled) {
     return (
-      <div className="rounded border"
+      <div className="rounded-card border"
         style={{ borderColor: 'var(--accent)', background: 'var(--accent-light)' }}>
         <div className="p-3">
           <p className="text-sm font-medium text-on-surface">Reprogramar publicación</p>
@@ -93,7 +93,7 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
       {/* Editing a saved draft: "Borrador" is a selectable option — the
           teacher may only be reviewing/editing and not want to publish yet */}
       {isDraft ? (
-        <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
+        <label className="flex items-center gap-2 p-3 rounded-card border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
           aria-label="Borrador"
           style={{ borderColor: mode === 'hide' ? 'var(--accent)' : '#e2e8f0', background: mode === 'hide' ? 'var(--accent-light)' : '' }}>
           <input type="radio" name="visibilidad" checked={mode === 'hide'}
@@ -105,12 +105,12 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
           </div>
         </label>
       ) : mode === 'hide' && (
-        <div className="p-3 rounded border" style={{ borderColor: '#e2e8f0', background: 'var(--surface-container)' }}>
+        <div className="p-3 rounded-card border" style={{ borderColor: '#e2e8f0', background: 'var(--surface-container)' }}>
           <p className="text-sm font-medium text-on-surface">Borrador</p>
           <p className="text-xs text-muted">Oculta para estudiantes. Publícala eligiendo una opción abajo, guárdala de nuevo como borrador, o usa el ojito en la asignatura.</p>
         </div>
       )}
-      <label className="flex items-center gap-2 p-3 rounded border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
+      <label className="flex items-center gap-2 p-3 rounded-card border cursor-pointer transition-colors hover:bg-[var(--accent-tint)]"
         aria-label="Publicar ahora"
         style={{ borderColor: mode === 'show' ? 'var(--accent)' : '#e2e8f0', background: mode === 'show' ? 'var(--accent-light)' : '' }}>
         <input type="radio" name="visibilidad" checked={mode === 'show'}
@@ -123,7 +123,7 @@ export default function VisibilitySelect({ mode, publishAt, publishedAt, wasSche
       </label>
       {/* Radio + date picker share one bordered container so they read as
           a single option, not two separate rows */}
-      <div className="rounded border transition-colors"
+      <div className="rounded-card border transition-colors"
         style={{ borderColor: mode === 'schedule' ? 'var(--accent)' : '#e2e8f0', background: mode === 'schedule' ? 'var(--accent-light)' : '' }}>
         <label className="flex items-center gap-2 p-3 cursor-pointer hover:bg-[var(--accent-tint)] rounded"
           aria-label="Programar publicación">

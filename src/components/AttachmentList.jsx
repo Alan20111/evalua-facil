@@ -9,6 +9,8 @@ import { useScrollLock } from '../hooks/useScrollLock'
 import PdfCanvasPreview from './PdfCanvasPreview'
 import PinchZoomImage from './PinchZoomImage'
 import BotonDescargarArchivo from './BotonDescargarArchivo'
+import { IconButton } from './ui'
+import { ICONO } from '../config/iconos'
 
 const PDF_EXTS = ['pdf']
 // Word y PowerPoint SÍ se ven bien con Google Docs Viewer — confirmado por
@@ -57,38 +59,33 @@ function FileRow({ f, onRemove, index }) {
     : null
 
   return (
-    <div className="rounded border border-outline-variant bg-surface-card">
+    <div className="rounded-card border border-outline-variant bg-surface-card">
       <div className="flex items-center gap-2 px-2 py-1.5">
-        <Icon size={18} className={`flex-shrink-0 ${color}`} />
+        <Icon size={ICONO.md} className={`flex-shrink-0 ${color}`} />
         <span className="text-sm text-on-surface truncate flex-1">{f.nombre}</span>
         <span className="text-xs text-hint flex-shrink-0">
           {f.tamano != null ? formatFileSize(f.tamano) : ''}
         </span>
         {f.url && canView && (
-          <button type="button" onClick={() => setOpen(true)} aria-label="Vista previa"
-            className="p-2 text-hint hover:text-accent rounded-full flex-shrink-0" data-tooltip="Vista previa">
-            <FileSearch size={15} />
-          </button>
+          <IconButton icon={FileSearch} label="Vista previa" tooltip={false} onClick={() => setOpen(true)}
+            data-tooltip="Vista previa" />
         )}
         {f.url && openInTabUrl && (
           <a href={openInTabUrl} target="_blank" rel="noreferrer"
             data-tooltip={isImgPdf ? 'Abrir página 1 en pestaña nueva' : 'Abrir en Google Docs'}
             aria-label={isImgPdf ? 'Abrir página 1 en pestaña nueva' : 'Abrir en Google Docs'}
             className="p-2 text-hint hover:text-accent rounded flex-shrink-0">
-            <ExternalLink size={15} />
+            <ExternalLink size={ICONO.sm} />
           </a>
         )}
         {f.url && (
           <a href={downloadHref} download={f.nombre} rel="noreferrer" data-tooltip="Descargar" aria-label="Descargar"
             className="p-2 text-hint hover:text-accent rounded flex-shrink-0">
-            <Download size={15} />
+            <Download size={ICONO.sm} />
           </a>
         )}
         {onRemove && (
-          <button type="button" onClick={() => onRemove(index)} data-tooltip="Quitar" aria-label="Quitar"
-            className="p-2 text-hint hover:text-red-500 rounded-full flex-shrink-0">
-            <X size={15} />
-          </button>
+          <IconButton icon={X} label="Quitar" variant="danger" tooltip={false} onClick={() => onRemove(index)} data-tooltip="Quitar" />
         )}
       </div>
 
@@ -192,7 +189,7 @@ function PdfPagesPreview({ url, nombre, fill, onCountKnown }) {
         />
       ))}
       {ended && !anyLoaded && (
-        <div className="text-center text-slate-300 text-sm p-6">
+        <div className="text-center text-hint text-sm p-6">
           No se pudo mostrar la vista previa de este PDF.
         </div>
       )}
@@ -228,7 +225,7 @@ export function FilePreviewModal({ url, nombre, onClose }) {
           <span className="flex-1 text-sm font-medium text-on-surface truncate">{nombre}</span>
           <a href={openInTabUrl} target="_blank" rel="noreferrer" data-tooltip="Abrir en pestaña nueva" aria-label="Abrir en pestaña nueva"
             className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-            <ExternalLink size={18} />
+            <ExternalLink size={ICONO.md} />
           </a>
           {/* El <a download> de antes era inerte dentro del WebView de la app:
               no descargaba, no fallaba, no avisaba (1-sep-2026). Este botón
@@ -243,10 +240,7 @@ export function FilePreviewModal({ url, nombre, onClose }) {
             title="Descargar"
             className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 disabled:opacity-60"
           />
-          <button type="button" onClick={onClose} data-tooltip="Cerrar" aria-label="Cerrar"
-            className="p-2 text-hint hover:text-on-surface hover:bg-surface rounded-full transition-colors flex-shrink-0">
-            <X size={18} />
-          </button>
+          <IconButton icon={X} label="Cerrar" tooltip={false} onClick={onClose} data-tooltip="Cerrar" />
         </div>
         <div className="flex-1 min-h-0 overflow-auto bg-surface">
           <FilePreview url={url} nombre={nombre} fill />

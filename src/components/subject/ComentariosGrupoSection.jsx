@@ -10,7 +10,7 @@ import { setDoc } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
-import { SkeletonText } from '../ui'
+import { SkeletonText, Button } from '../ui'
 
 const PLACEHOLDER =
   'Escribe información real sobre tu grupo y su entorno que quieras que la IA tome en cuenta ' +
@@ -88,7 +88,7 @@ export default function ComentariosGrupoSection({ subjectId, docenteId }) {
         Pesan mucho al diseñar la Planeación con IA — junto con los diagnósticos.
       </p>
       <textarea
-        className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y"
+        className="w-full px-4 py-2.5 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y"
         rows={4}
         aria-label={PLACEHOLDER}
         value={comentarios}
@@ -96,15 +96,12 @@ export default function ComentariosGrupoSection({ subjectId, docenteId }) {
         maxLength={2000}
       />
       <div className="flex items-center justify-between gap-2 mt-2">
-        <button
-          type="button"
+        <Button
           onClick={guardar}
-          disabled={guardando || comentarios.trim() === guardado}
-          className="px-4 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center gap-2"
-        >
+          disabled={guardando || comentarios.trim() === guardado}>
           {guardando && <Spinner size="sm" />}
           {guardando ? 'Guardando…' : 'Guardar'}
-        </button>
+        </Button>
         <label className="flex items-center gap-1.5 text-xs text-on-surface cursor-pointer select-none flex-shrink-0">
           <input
             type="checkbox"

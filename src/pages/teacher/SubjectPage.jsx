@@ -98,8 +98,9 @@ import NuevaFechaEntregaModal from '../../components/NuevaFechaEntregaModal'
 import AvisosTab from '../../components/subject/AvisosTab'
 import PlaneacionDidacticaTab from '../../components/subject/PlaneacionDidacticaTab'
 import { isPerfilIACompleto } from '../../utils/perfilIA'
-import { SkeletonList, SkeletonTable } from '../../components/ui'
+import { SkeletonList, SkeletonTable, Input, Button, IconButton } from '../../components/ui'
 import { EsqueletoAsignaturaDocente } from '../../components/esqueletos'
+import { ICONO } from '../../config/iconos'
 
 // ── Materiales de apoyo: ordenamiento robusto ─────────────────────────────
 // Builds a unified ordered list of activities + positioned materials for one
@@ -224,7 +225,7 @@ const EMPTY_MATERIAL_FORM = { nombre: '', descripcion: '', oculta: false, publis
 // Un tono más oscuro en cada familia (slate-500 4.76:1, amber-700 5.02:1,
 // red-600 4.83:1) resuelve los tres sin cambiar de familia de color.
 function gradeColor(norm) {
-  if (norm === null) return 'text-slate-500'
+  if (norm === null) return 'text-muted'
   if (norm >= 8) return 'text-emerald-700'
   if (norm >= 6) return 'text-amber-700'
   return 'text-red-600'
@@ -576,14 +577,13 @@ const AttendanceTable = memo(function AttendanceTable({
                   regresa (pedido explícito) */}
               <button type="button" onClick={onBack} aria-label="Regresar"
                 className="flex-none px-2.5 py-1 -ml-1 rounded bg-[#39FF14] text-black hover:bg-[#2ee510] transition-colors">
-                <ArrowLeft size={20} />
+                <ArrowLeft size={ICONO.md} />
               </button>
               <span className="text-xs font-bold text-on-surface uppercase tracking-wide">Asistencias</span>
               {addDayLabel && (
-                <button type="button" onClick={onAddDay}
-                  className="ml-auto flex items-center gap-1 px-2 py-1 bg-accent text-white text-[11px] font-medium rounded hover:bg-accent-hover transition-colors">
-                  <CalendarPlus size={13} /> {addDayLabel}
-                </button>
+                <Button size="sm" icon={CalendarPlus} className="ml-auto" onClick={onAddDay}>
+                  {addDayLabel}
+                </Button>
               )}
             </div>
           </th>
@@ -718,20 +718,20 @@ const AttendanceTable = memo(function AttendanceTable({
           }),
           <th key={`ha-${g.parcial}`} data-tooltip="Asistencias del parcial"
             className={`px-0.5 ${diaPy} text-center border-l-2 border-outline`}>
-            <CheckIcon size={13} className="inline text-green-600" />
+            <CheckIcon size={ICONO.xs} className="inline text-green-600" />
           </th>,
           <th key={`hi-${g.parcial}`} data-tooltip="Faltas del parcial"
             className={`px-0.5 ${diaPy} text-center`}>
-            <X size={13} className="inline text-red-500" />
+            <X size={ICONO.xs} className="inline text-red-500" />
           </th>,
         ])}
         {!esSimple && (
           <>
             <th data-tooltip="Total de asistencias" className="px-0.5 py-1 text-center border-l-2 border-outline">
-              <CheckIcon size={13} className="inline text-green-600" />
+              <CheckIcon size={ICONO.xs} className="inline text-green-600" />
             </th>
             <th data-tooltip="Total de faltas" className="px-0.5 py-1 text-center">
-              <X size={13} className="inline text-red-500" />
+              <X size={ICONO.xs} className="inline text-red-500" />
             </th>
           </>
         )}
@@ -826,10 +826,10 @@ const AttendanceTable = memo(function AttendanceTable({
                 const motivo = estado === 'justificada' ? (r.motivos?.[s.id] || '') : ''
                 const observacion = conObservaciones ? (observaciones[llaveCeldaObservacion(fecha, r.slot, s.id)] || '') : ''
                 const ui = estado == null
-                  ? { cls: 'bg-slate-100 text-slate-300', icon: <Minus size={14} /> }
+                  ? { cls: 'bg-slate-100 text-hint', icon: <Minus size={ICONO.xs} /> }
                   : {
-                      presente: { cls: 'bg-green-100 text-green-600', icon: <CheckIcon size={14} /> },
-                      falta: { cls: 'bg-red-100 text-red-500', icon: <X size={14} /> },
+                      presente: { cls: 'bg-green-100 text-green-600', icon: <CheckIcon size={ICONO.xs} /> },
+                      falta: { cls: 'bg-red-100 text-red-500', icon: <X size={ICONO.xs} /> },
                       justificada: { cls: 'bg-amber-100 text-amber-600', icon: <span className="text-[12px] font-bold leading-none">J</span> },
                     }[estado]
                 return (
@@ -941,22 +941,17 @@ function ExportSplitButton({ label, Icon, onMain, mainDisabled, mainTooltip, men
 
   return (
     <div ref={boxRef} className="flex-1 min-w-0 relative flex">
-      <button type="button"
+      <Button variant="outline-accent" icon={Icon} busy={mainDisabled} className="flex-1"
         onClick={onMain}
         disabled={mainDisabled}
-        data-tooltip={mainTooltip}
-        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[var(--accent-light)] border border-accent rounded-full text-sm font-semibold text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
-      >
-        {mainDisabled ? <Spinner size="sm" /> : <Icon size={17} />} {label}
-      </button>
-      <button type="button"
+        data-tooltip={mainTooltip}>
+         {label}
+      </Button>
+      <Button variant="outline-accent" icon={MoreVertical} className="ml-1 !px-0 aspect-square"
         onClick={() => setOpen((v) => !v)}
         aria-label={`${label} por parcial`}
         aria-expanded={open}
-        data-tooltip={menuTooltip}
-        className="px-2 bg-[var(--accent-light)] border ml-1 border-accent rounded-full text-accent hover:bg-[var(--accent-medium)] transition-colors">
-        <MoreVertical size={16} />
-      </button>
+        data-tooltip={menuTooltip}></Button>
       {open && (
         <div className="absolute z-40 top-full mt-1 right-0 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden">
           <div className="px-3 py-2 text-xs font-semibold text-muted border-b border-outline-variant">{menuLabel}</div>
@@ -5475,14 +5470,13 @@ export default function SubjectPage() {
           color y tamaño en cualquier asignatura */}
       <button type="button" onClick={() => switchTab('actividades')} aria-label="Regresar"
         className="flex-none px-2.5 py-1 rounded bg-[#39FF14] text-black hover:bg-[#2ee510] transition-colors">
-        <ArrowLeft size={20} />
+        <ArrowLeft size={ICONO.md} />
       </button>
       <span className="text-sm font-bold text-on-surface uppercase tracking-wide">Asistencias</span>
       {addDayLabel && totalStudents > 0 && (
-        <button type="button" onClick={handleAddDayClick}
-          className="ml-auto flex items-center gap-1.5 px-2.5 py-1 bg-accent text-white text-xs font-medium rounded hover:bg-accent-hover transition-colors">
-          <CalendarPlus size={14} /> {addDayLabel}
-        </button>
+        <Button icon={CalendarPlus} className="ml-auto" onClick={handleAddDayClick}>
+           {addDayLabel}
+        </Button>
       )}
     </div>
   )
@@ -5495,7 +5489,7 @@ export default function SubjectPage() {
     <div className="flex items-center gap-2 px-2 py-1 bg-accent-light border-b border-outline-variant">
       <button type="button" onClick={stableTomarListaBack} aria-label="Regresar"
         className="flex-none px-2.5 py-1 rounded bg-[#39FF14] text-black hover:bg-[#2ee510] transition-colors">
-        <ArrowLeft size={20} />
+        <ArrowLeft size={ICONO.md} />
       </button>
       {/* Indicación (no botón) solo en vertical: debajo de ASISTENCIAS, así la
           barra crece ~4px en vez de agregar una franja propia. */}
@@ -5506,10 +5500,9 @@ export default function SubjectPage() {
         )}
       </div>
       {addDayLabel && totalStudents > 0 && (
-        <button type="button" onClick={handleAddDayClick}
-          className="ml-auto flex items-center gap-1.5 px-2.5 py-1 bg-accent text-white text-xs font-medium rounded hover:bg-accent-hover transition-colors">
-          <CalendarPlus size={14} /> {addDayLabel}
-        </button>
+        <Button icon={CalendarPlus} className="ml-auto" onClick={handleAddDayClick}>
+           {addDayLabel}
+        </Button>
       )}
     </div>
   )
@@ -5540,7 +5533,7 @@ export default function SubjectPage() {
         data-tooltip={IS_NATIVE_APP ? 'Copiar código de acceso para estudiantes' : 'Copiar'}
         className={`flex items-center gap-2 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-2xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
         {copiedCode
-          ? <><CheckIcon size={22} className="animate-pop motion-reduce:animate-none flex-shrink-0" /><span>Copiado</span></>
+          ? <><CheckIcon size={ICONO.md} className="animate-pop motion-reduce:animate-none flex-shrink-0" /><span>Copiado</span></>
           : <span>{subject?.accessCode}</span>}
       </button>
       {/* Leyenda del código: solo en la web de ESCRITORIO. En la app nunca
@@ -5560,15 +5553,15 @@ export default function SubjectPage() {
       <button type="button" onClick={openEditSubject}
         aria-label="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
         data-tooltip="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
-        className="flex items-center gap-1.5 px-2 py-1.5 text-sm font-medium text-slate-500 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-        <Pencil size={18} /> Editar
+        className="flex items-center gap-1.5 px-2 py-1.5 text-sm font-medium text-muted hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
+        <Pencil size={ICONO.md} /> Editar
       </button>
       {subject?.archived && (
         <button type="button" onClick={handleToggleArchive} disabled={archiving}
           aria-label="Restaurar asignatura (vuelve a tus asignaturas activas)"
           data-tooltip="Restaurar asignatura (vuelve a tus asignaturas activas)"
-          className="flex items-center gap-1.5 px-2 py-1.5 text-sm font-medium text-slate-500 hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-40 flex-shrink-0">
-          <ArchiveRestore size={18} /> Restaurar
+          className="flex items-center gap-1.5 px-2 py-1.5 text-sm font-medium text-muted hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors disabled:opacity-40 flex-shrink-0">
+          <ArchiveRestore size={ICONO.md} /> Restaurar
         </button>
       )}
     </>
@@ -5583,30 +5576,21 @@ export default function SubjectPage() {
           flex-wrap), no en un div contenedor — así se conserva la fila plana
           que evita el desbordamiento descrito arriba. Si la fila envuelve,
           el grupo simplemente queda alineado a la derecha del renglón nuevo. */}
-      <button type="button" onClick={openEditSubject}
-        aria-label="Editar los datos de la asignatura (nombre, grupo, color, icono…)"
-        data-tooltip="Editar los datos de la asignatura (nombre, grupo, color, icono…)" data-tooltip-pos="left"
-        className="p-2 ml-auto text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0">
-        <Pencil size={21} />
-      </button>
-      <button type="button" onClick={openCopyModal}
-        aria-label="Duplicar esta asignatura (con o sin la lista de estudiantes)"
-        data-tooltip="Duplicar esta asignatura (con o sin la lista de estudiantes)" data-tooltip-pos="left"
-        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0">
-        <Copy size={21} />
-      </button>
+      <IconButton icon={Pencil} label="Editar los datos de la asignatura (nombre, grupo, color, icono…)" tooltip={false} className="ml-auto" onClick={openEditSubject}
+       
+        data-tooltip="Editar los datos de la asignatura (nombre, grupo, color, icono…)" data-tooltip-pos="left" />
+      <IconButton icon={Copy} label="Duplicar esta asignatura (con o sin la lista de estudiantes)" tooltip={false} onClick={openCopyModal}
+       
+        data-tooltip="Duplicar esta asignatura (con o sin la lista de estudiantes)" data-tooltip-pos="left" />
       <button type="button" onClick={handleToggleArchive} disabled={archiving}
         aria-label={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (la guarda completa; sale de tus asignaturas activas)'}
         data-tooltip={subject?.archived ? 'Restaurar asignatura (vuelve a tus asignaturas activas)' : 'Archivar asignatura (la guarda completa; sale de tus asignaturas activas)'} data-tooltip-pos="left"
-        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors disabled:opacity-40 flex-shrink-0">
-        {subject?.archived ? <ArchiveRestore size={21} /> : <Archive size={21} />}
+        className="size-control inline-flex items-center justify-center text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors disabled:opacity-40 flex-shrink-0">
+        {subject?.archived ? <ArchiveRestore size={ICONO.md} /> : <Archive size={ICONO.md} />}
       </button>
-      <button type="button" onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
-        aria-label="Eliminar la asignatura permanentemente (no se puede deshacer)"
-        data-tooltip="Eliminar la asignatura permanentemente (no se puede deshacer)" data-tooltip-pos="left"
-        className="p-2 text-hint hover:text-red-500 hover:bg-red-50 rounded-full transition-colors flex-shrink-0">
-        <Trash2 size={21} />
-      </button>
+      <IconButton icon={Trash2} label="Eliminar la asignatura permanentemente (no se puede deshacer)" variant="danger" tooltip={false} onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
+       
+        data-tooltip="Eliminar la asignatura permanentemente (no se puede deshacer)" data-tooltip-pos="left" />
     </>
   ) : subjectHeaderRightIconsWeb
 
@@ -5630,11 +5614,11 @@ export default function SubjectPage() {
         <div data-esq="subj-doc-encabezado" className="bg-surface-card rounded-card">
           <div data-esq="subj-doc-encabezado-interior" className="px-4 py-2">
           <div className="flex items-center gap-2">
-            <button type="button" onClick={goBack} className="p-2 -ml-2 text-hint hover:text-muted rounded-full flex-shrink-0">
-              <ArrowLeft size={22} />
+            <button type="button" onClick={goBack} className="size-control inline-flex items-center justify-center -ml-2 text-hint hover:text-muted rounded-full flex-shrink-0">
+              <ArrowLeft size={ICONO.md} />
             </button>
             <div className="w-9 h-9 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
-              <SubjectIcon iconKey={subject?.icon} size={20} className="text-accent" />
+              <SubjectIcon iconKey={subject?.icon} size={ICONO.md} className="text-accent" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 min-w-0">
@@ -5708,7 +5692,7 @@ export default function SubjectPage() {
                   <button data-esq="subj-doc-pestana" type="button" key={g.id} role="tab" aria-selected={activo}
                     onClick={() => switchTab(activo ? activeTab : (ultimaDeGrupo.current[g.id] && g.tabs.includes(ultimaDeGrupo.current[g.id]) ? ultimaDeGrupo.current[g.id] : g.tabs[0]))}
                     data-tooltip={motivo || undefined}
-                    className={`flex-1 whitespace-nowrap px-3 py-2 text-sm font-medium rounded-full transition-colors ${
+                    className={`flex-1 whitespace-nowrap px-3 h-[calc(var(--control)-0.5rem)] text-sm font-medium rounded-full transition-colors ${
                       activo ? 'bg-surface-card shadow-card' : 'hover:bg-[var(--accent-medium)]'
                     } ${
                       atencion
@@ -5730,7 +5714,7 @@ export default function SubjectPage() {
                 {grupoActivo.tabs.map((t) => (
                   <button key={t} type="button" role="tab" aria-selected={activeTab === t} onClick={() => switchTab(t)}
                     data-tooltip={atencionPestanas[t] || undefined}
-                    className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${
+                    className={`h-control-sm px-4 text-sm font-medium rounded-full transition-colors ${
                       activeTab === t
                         ? (atencionPestanas[t] ? 'bg-red-600 text-white' : 'bg-accent text-white')
                         : atencionPestanas[t] ? 'text-red-700 font-semibold bg-red-50 hover:bg-red-100' : 'text-muted hover:bg-[var(--accent-tint)]'
@@ -5746,7 +5730,7 @@ export default function SubjectPage() {
                 desaparece en cuanto el docente ya deslizó hasta el final. */}
             {tabsOverflow && (
               <div className="absolute right-0 top-2 bottom-0 flex items-center pointer-events-none bg-gradient-to-l from-surface-container via-surface-container to-transparent pl-6 pr-1 rounded-full">
-                <ChevronRight size={16} className="text-accent animate-pulse" />
+                <ChevronRight size={ICONO.sm} className="text-accent animate-pulse" />
               </div>
             )}
           </div>
@@ -5806,7 +5790,7 @@ export default function SubjectPage() {
                         {/* Solo cuenta las que llevan número (1.1., 1.2.…): misma
                             regla que activityLabelById, para que nunca se desalineen.
                             Borradores y "sin calificación" siguen en la lista, no aquí. */}
-                        <p className="text-sm text-slate-500 leading-tight -mt-0.5">{totalMostrado} actividad{totalMostrado !== 1 ? 'es' : ''}</p>
+                        <p className="text-sm text-muted leading-tight -mt-0.5">{totalMostrado} actividad{totalMostrado !== 1 ? 'es' : ''}</p>
                       </div>
                     </button>
                     <button type="button"
@@ -5814,12 +5798,12 @@ export default function SubjectPage() {
                       aria-label={parcialOculto ? 'Mostrar este parcial a los estudiantes' : 'Ocultar este parcial a los estudiantes'}
                       data-tooltip={parcialOculto ? 'Mostrar este parcial a los estudiantes' : 'Ocultar este parcial a los estudiantes'}
                       data-tooltip-pos="left"
-                      className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0"
+                      className="size-control inline-flex items-center justify-center text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0"
                     >
-                      {parcialOculto ? <EyeOff size={18} /> : <Eye size={18} />}
+                      {parcialOculto ? <EyeOff size={ICONO.md} /> : <Eye size={ICONO.md} />}
                     </button>
-                    <button type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)} className="p-2 mr-2 flex-shrink-0">
-                      {isOpen ? <ChevronUp size={20} className="text-hint" /> : <ChevronDown size={20} className="text-hint" />}
+                    <button type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)} className="size-control inline-flex items-center justify-center rounded-full mr-2 flex-shrink-0">
+                      {isOpen ? <ChevronUp size={ICONO.md} className="text-hint" /> : <ChevronDown size={ICONO.md} className="text-hint" />}
                     </button>
                   </div>
                   {!IS_NATIVE_APP && (
@@ -5914,11 +5898,11 @@ export default function SubjectPage() {
                                       className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)]'}${dragDraftId === a.id ? ' opacity-40' : ''}`}>
                                       {arrastrable && (
                                         <div
-                                          className="pl-2 py-2 text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing flex-shrink-0"
+                                          className="pl-2 py-2 text-hint hover:text-slate-500 cursor-grab active:cursor-grabbing flex-shrink-0"
                                           data-tooltip="Arrastrar para reordenar"
                                           data-tooltip-pos="right"
                                         >
-                                          <GripVertical size={16} />
+                                          <GripVertical size={ICONO.sm} />
                                         </div>
                                       )}
                                       <button type="button"
@@ -5931,12 +5915,12 @@ export default function SubjectPage() {
                                         }}
                                         data-tooltip-follow={isDraftActivity(a) && !esJuego ? 'Editar borrador' : a.tipo === 'evaluacion' ? 'Evaluación' : 'Evaluar'}
                                         className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left">
-                                        <ActIcon size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : a.categoria === 'juego' ? 'text-accent' : 'text-hint'}`} />
+                                        <ActIcon size={ICONO.md} className={`flex-shrink-0 ${isHidden ? 'text-hint' : a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : a.categoria === 'juego' ? 'text-accent' : 'text-hint'}`} />
                                         <div className="flex-1 min-w-0">
                                           <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-hint' : 'text-on-surface'}`}>
                                             {activityLabelById[a.id] && <span className="text-accent font-semibold">{activityLabelById[a.id]} </span>}
                                             {esJuego ? (a.nombre || etiquetaJuego(a)) : a.nombre}
-                                            <span className={`text-xs font-normal ${isHidden ? 'text-slate-300' : 'text-hint'}`}>
+                                            <span className={`text-xs font-normal ${isHidden ? 'text-hint' : 'text-hint'}`}>
                                               {' '}({a.categoria === 'examen' ? 'Examen' : a.categoria === 'cuestionario' ? 'Cuestionario' : a.categoria === 'observacion' ? 'Observación' : a.categoria === 'juego' ? etiquetaJuego(a) : 'Entregable'})
                                             </span>
                                             {sinCalificacion(a) && (
@@ -5951,24 +5935,24 @@ export default function SubjectPage() {
                                             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                                               {!IS_NATIVE_APP && !telefonoWeb.telefono && a.publishedAt && (
                                                 <span data-tooltip="Publicado" className="text-xs text-emerald-600 flex items-center gap-0.5">
-                                                  <Clock size={14} /> {formatPublishAt(a.publishedAt)}
+                                                  <Clock size={ICONO.xs} /> {formatPublishAt(a.publishedAt)}
                                                 </span>
                                               )}
                                               {!IS_NATIVE_APP && !telefonoWeb.telefono && a.publishAt && (
                                                 <span data-tooltip="Publicación programada" className="text-xs text-accent flex items-center gap-0.5">
-                                                  <Clock size={14} /> {formatPublishAt(a.publishAt)}
+                                                  <Clock size={ICONO.xs} /> {formatPublishAt(a.publishAt)}
                                                 </span>
                                               )}
                                               {!IS_NATIVE_APP && !telefonoWeb.telefono && a.fechaLimite && (
                                                 <span data-tooltip="Cierre" className="text-xs text-amber-600 flex items-center gap-0.5">
-                                                  <Clock size={14} /> {formatDeadline(a.fechaLimite)}
+                                                  <Clock size={ICONO.xs} /> {formatDeadline(a.fechaLimite)}
                                                 </span>
                                               )}
                                               {visState === 'hidden' && (
                                                 <span
                                                   data-tooltip={parcialOculto ? 'La actividad está publicada, pero el Parcial completo está oculto a estudiantes. Muéstralo con el ojo del encabezado del parcial.' : undefined}
                                                   className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-0.5 ${parcialOculto ? 'bg-amber-100 text-amber-700' : 'bg-surface-container text-muted'}`}>
-                                                  <EyeOff size={13} /> {parcialOculto ? 'Parcial oculto' : (!a.publishedAt && a.oculta && !a.publishAt) ? 'Borrador' : 'Oculta'}
+                                                  <EyeOff size={ICONO.xs} /> {parcialOculto ? 'Parcial oculto' : (!a.publishedAt && a.oculta && !a.publishAt) ? 'Borrador' : 'Oculta'}
                                                 </span>
                                               )}
                                             </div>
@@ -5978,52 +5962,39 @@ export default function SubjectPage() {
                                           <div className="flex items-center gap-1 flex-shrink-0">
                                             <span
                                               data-tooltip="Entregados"
-                                              className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                              <FileCheck2 size={11} /> {counts.delivered}/{totalStudents}
+                                              className="text-xs bg-slate-100 text-muted px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                                              <FileCheck2 size={ICONO.xs} /> {counts.delivered}/{totalStudents}
                                             </span>
                                             <span
                                               data-tooltip="Calificados"
                                               className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                              <CheckCircle size={11} /> {counts.graded}/{counts.delivered}
+                                              <CheckCircle size={ICONO.xs} /> {counts.graded}/{counts.delivered}
                                             </span>
                                             <span
                                               data-tooltip="Por calificar"
                                               className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                              <Timer size={11} /> {counts.delivered - counts.graded}/{counts.delivered}
+                                              <Timer size={ICONO.xs} /> {counts.delivered - counts.graded}/{counts.delivered}
                                             </span>
                                           </div>
                                         )}
                                       </button>
                                       {esJuego && a.juego?.estado !== 'juego_confirmado' ? null : isHidden ? (
-                                        <button type="button"
-                                          onClick={(e) => { e.stopPropagation(); a.publishedAt ? showActivityNow(a) : setPublishDraftConfirm(a) }}
-                                          aria-label={a.publishedAt ? 'Mostrar a estudiantes' : 'Publicar para estudiantes'}
-                                          data-tooltip={a.publishedAt ? 'Mostrar a estudiantes' : 'Publicar para estudiantes'}
-                                          className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0"
-                                        >
-                                          <EyeOff size={16} />
-                                        </button>
+                                        <IconButton icon={EyeOff} label={a.publishedAt ? 'Mostrar a estudiantes' : 'Publicar para estudiantes'} tooltip={false} onClick={(e) => { e.stopPropagation(); a.publishedAt ? showActivityNow(a) : setPublishDraftConfirm(a) }}
+                                         
+                                          data-tooltip={a.publishedAt ? 'Mostrar a estudiantes' : 'Publicar para estudiantes'} />
                                       ) : (
-                                        <button type="button"
-                                          onClick={(e) => { e.stopPropagation(); hideActivity(a) }}
-                                          aria-label="Ocultar para estudiantes"
-                                          data-tooltip="Ocultar para estudiantes"
-                                          className="p-2 text-hint hover:text-muted hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0"
-                                        >
-                                          <Eye size={16} />
-                                        </button>
+                                        <IconButton icon={Eye} label="Ocultar para estudiantes" tooltip={false} onClick={(e) => { e.stopPropagation(); hideActivity(a) }}
+                                         
+                                          data-tooltip="Ocultar para estudiantes" />
                                       )}
-                                      <button type="button" onClick={() => esJuego ? navigate(`/activity/${a.id}`) : openEdit(a, activityLabelById[a.id])} aria-label="Editar" data-tooltip="Editar"
-                                        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0 mr-0.5">
-                                        <Pencil size={16} />
-                                      </button>
+                                      <IconButton icon={Pencil} label="Editar" tooltip={false} className="mr-0.5" onClick={() => esJuego ? navigate(`/activity/${a.id}`) : openEdit(a, activityLabelById[a.id])} data-tooltip="Editar" />
                                       {!IS_NATIVE_APP && (
                                         <button type="button"
                                           onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setActivityMenu((m) => m?.a?.id === a.id ? null : { a, x: r.right, y: r.bottom }) }}
                                           aria-label="Más acciones"
                                           data-tooltip="Más acciones"
-                                          className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0 mr-1">
-                                          <MoreVertical size={16} />
+                                          className="size-control inline-flex items-center justify-center text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0 mr-1">
+                                          <MoreVertical size={ICONO.sm} />
                                         </button>
                                       )}
                                     </div>
@@ -6049,55 +6020,43 @@ export default function SubjectPage() {
                                       <div className="flex items-center gap-1">
                                         {!IS_NATIVE_APP && (
                                           <div
-                                            className="pl-2 py-2 text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing flex-shrink-0"
+                                            className="pl-2 py-2 text-hint hover:text-slate-500 cursor-grab active:cursor-grabbing flex-shrink-0"
                                             data-tooltip="Arrastrar para reordenar"
                                             data-tooltip-pos="right"
                                           >
-                                            <GripVertical size={16} />
+                                            <GripVertical size={ICONO.sm} />
                                           </div>
                                         )}
                                         <button type="button" onClick={() => setExpandedMaterialId(isExpanded ? null : m.id)}
                                           className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 text-left hover:bg-[var(--accent-tint)] rounded transition-colors">
-                                          <BookOpen size={20} className={`flex-shrink-0 ${isHidden ? 'text-slate-300' : 'text-amber-500'}`} />
+                                          <BookOpen size={ICONO.md} className={`flex-shrink-0 ${isHidden ? 'text-hint' : 'text-amber-500'}`} />
                                           <div className="flex-1 min-w-0">
                                             <p className={`text-base font-medium leading-tight truncate ${isHidden ? 'text-hint' : 'text-on-surface'}`}>{m.nombre}</p>
                                             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                              <span className="text-xs text-slate-500 flex items-center gap-0.5">
-                                                <Paperclip size={12} /> {(m.archivos || []).length} archivo{(m.archivos || []).length !== 1 ? 's' : ''}
+                                              <span className="text-xs text-muted flex items-center gap-0.5">
+                                                <Paperclip size={ICONO.xs} /> {(m.archivos || []).length} archivo{(m.archivos || []).length !== 1 ? 's' : ''}
                                               </span>
                                               {!telefonoWeb.telefono && m.publishAt && (
                                                 <span data-tooltip="Fecha de publicación" className="text-xs text-accent flex items-center gap-0.5">
-                                                  <Clock size={14} /> {formatPublishAt(m.publishAt)}
+                                                  <Clock size={ICONO.xs} /> {formatPublishAt(m.publishAt)}
                                                 </span>
                                               )}
                                               {visState === 'hidden' && (
                                                 <span className="text-xs bg-surface-container text-muted px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                                                  <EyeOff size={13} /> Oculto
+                                                  <EyeOff size={ICONO.xs} /> Oculto
                                                 </span>
                                               )}
                                             </div>
                                           </div>
-                                          {isExpanded ? <ChevronUp size={18} className="text-hint flex-shrink-0" /> : <ChevronDown size={18} className="text-hint flex-shrink-0" />}
+                                          {isExpanded ? <ChevronUp size={ICONO.md} className="text-hint flex-shrink-0" /> : <ChevronDown size={ICONO.md} className="text-hint flex-shrink-0" />}
                                         </button>
                                         {isHidden ? (
-                                          <button type="button" onClick={(e) => { e.stopPropagation(); showMaterialNow(m) }} aria-label="Mostrar a estudiantes" data-tooltip="Mostrar a estudiantes"
-                                            className="p-2 text-slate-300 hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0">
-                                            <EyeOff size={16} />
-                                          </button>
+                                          <IconButton icon={EyeOff} label="Mostrar a estudiantes" tooltip={false} onClick={(e) => { e.stopPropagation(); showMaterialNow(m) }} data-tooltip="Mostrar a estudiantes" />
                                         ) : (
-                                          <button type="button" onClick={(e) => { e.stopPropagation(); hideMaterial(m) }} aria-label="Ocultar a estudiantes" data-tooltip="Ocultar a estudiantes"
-                                            className="p-2 text-hint hover:text-muted hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0">
-                                            <Eye size={16} />
-                                          </button>
+                                          <IconButton icon={Eye} label="Ocultar a estudiantes" tooltip={false} onClick={(e) => { e.stopPropagation(); hideMaterial(m) }} data-tooltip="Ocultar a estudiantes" />
                                         )}
-                                        <button type="button" onClick={() => openEditMaterial(m)} aria-label="Editar" data-tooltip="Editar"
-                                          className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0 mr-0.5">
-                                          <Pencil size={16} />
-                                        </button>
-                                        <button type="button" onClick={() => setDeleteMaterialConfirm(m)} aria-label="Eliminar" data-tooltip="Eliminar"
-                                          className="p-2 text-hint hover:text-red-500 hover:bg-red-50 rounded-full transition-colors flex-shrink-0 mr-1">
-                                          <Trash2 size={16} />
-                                        </button>
+                                        <IconButton icon={Pencil} label="Editar" tooltip={false} className="mr-0.5" onClick={() => openEditMaterial(m)} data-tooltip="Editar" />
+                                        <IconButton icon={Trash2} label="Eliminar" variant="danger" tooltip={false} className="mr-1" onClick={() => setDeleteMaterialConfirm(m)} data-tooltip="Eliminar" />
                                       </div>
                                       {isExpanded && (
                                         <div className="border-t border-outline-variant px-3 py-2 ml-9">
@@ -6121,28 +6080,28 @@ export default function SubjectPage() {
                       {!IS_NATIVE_APP && (
                       <button data-esq="subj-doc-cta" type="button" onClick={() => openAdd(p)}
                         data-tooltip={canCreate ? undefined : 'Necesitas Créditos IA para crear nuevas actividades'}
-                        className={`w-full py-2.5 border border-dashed rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                        className={`w-full h-control border border-dashed rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent-soft text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-hint hover:bg-[var(--accent-medium)]'
                         }`}>
-                        <Plus size={17} /> Agregar actividad
+                        <Plus size={ICONO.sm} /> Agregar actividad
                       </button>
                       )}
                       {!IS_NATIVE_APP && (
                       <button data-esq="subj-doc-cta" type="button" onClick={() => openAddMaterial(p)}
                         data-tooltip={canCreate ? undefined : 'Necesitas Créditos IA para crear nuevo material de apoyo'}
-                        className={`w-full py-2.5 border border-dashed rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                        className={`w-full h-control border border-dashed rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent-soft text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-hint hover:bg-[var(--accent-medium)]'
                         }`}>
-                        <BookOpen size={17} /> Agregar material de apoyo
+                        <BookOpen size={ICONO.sm} /> Agregar material de apoyo
                       </button>
                       )}
                       {!IS_NATIVE_APP && (
                       <button data-esq="subj-doc-cta" type="button" onClick={() => openImport(p)}
                         data-tooltip="Copia actividades de otra de tus asignaturas a este parcial"
-                        className={`w-full py-2.5 border border-dashed rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
+                        className={`w-full h-control border border-dashed rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
                           canCreate ? 'border-accent-soft text-accent hover:bg-[var(--accent-medium)]' : 'border-outline-variant text-hint hover:bg-[var(--accent-medium)]'
                         }`}>
-                        <Copy size={17} /> Traer de otra asignatura
+                        <Copy size={ICONO.sm} /> Traer de otra asignatura
                       </button>
                       )}
                       </div>
@@ -6203,11 +6162,10 @@ export default function SubjectPage() {
                 {/* Análisis integral con IA: junto a Excel/PDF porque parte de
                     lo mismo que ellos — los resultados de toda la asignatura.
                     No ejecuta nada al pulsarlo: abre la configuración. */}
-                <button type="button" onClick={() => setAnalisisAsignaturaAbierto(true)}
-                  data-tooltip="Elige parciales y fuentes; la IA prepara un informe del grupo. No modifica calificaciones."
-                  className="flex-1 min-w-0 flex items-center justify-center gap-2 py-2.5 border border-accent rounded-full text-sm font-semibold text-accent hover:bg-[var(--accent-tint)] transition-colors">
-                  <Sparkles size={17} className="flex-shrink-0" /> <span className="truncate">Analizar asignatura con IA</span>
-                </button>
+                <Button variant="outline-accent" icon={Sparkles} className="flex-1 min-w-0" onClick={() => setAnalisisAsignaturaAbierto(true)}
+                  data-tooltip="Elige parciales y fuentes; la IA prepara un informe del grupo. No modifica calificaciones.">
+                   <span className="truncate">Analizar asignatura con IA</span>
+                </Button>
               </div>
             </div>
 
@@ -6239,7 +6197,7 @@ export default function SubjectPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <button type="button" onClick={togglePonderacion}
                     data-tooltip={anyPonderacionOn ? 'Quitar la ponderación de todos los parciales' : 'Cada actividad vale un peso — se activa en todos los parciales; luego puedes apagarla por parcial'}
-                    className={`px-3 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-colors ${anyPonderacionOn
+                    className={`px-3 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-colors min-h-control-sm ${anyPonderacionOn
                       ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
                       : 'bg-accent text-white hover:bg-accent-hover'}`}>
                     {anyPonderacionOn ? 'Volver a promedio simple' : 'Activar ponderación'}
@@ -6254,17 +6212,13 @@ export default function SubjectPage() {
                         Promedio final; los 3 puntitos eligen el parcial. */}
                     {gradeSortOn && ['excel', 'pdf'].map((kind) => (
                       <div key={kind} className="order-2 flex items-center relative">
-                        <button type="button" onClick={() => doExportRanking(kind, null)}
-                          data-tooltip={`${kind === 'excel' ? 'Excel' : 'PDF'} del ranking (Promedio final)`}
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold border border-accent text-accent hover:bg-[var(--accent-medium)] transition-colors">
-                          {kind === 'excel' ? <FileSpreadsheet size={14} /> : <FileText size={14} />}
+                        <Button variant="outline-accent" onClick={() => doExportRanking(kind, null)}
+                          data-tooltip={`${kind === 'excel' ? 'Excel' : 'PDF'} del ranking (Promedio final)`}>
+                          {kind === 'excel' ? <FileSpreadsheet size={ICONO.xs} /> : <FileText size={ICONO.xs} />}
                           {kind === 'excel' ? 'Excel' : 'PDF'}
-                        </button>
-                        <button type="button" onClick={() => setRankingExportMenu((m) => (m === kind ? null : kind))}
-                          aria-label="Elegir parcial del documento" data-tooltip="Elegir parcial (o general)"
-                          className="px-1 py-1.5 ml-1 rounded-full border border-accent text-accent hover:bg-[var(--accent-medium)] transition-colors">
-                          <MoreVertical size={14} />
-                        </button>
+                        </Button>
+                        <Button variant="outline-accent" icon={MoreVertical} className="ml-1 !px-0 aspect-square" onClick={() => setRankingExportMenu((m) => (m === kind ? null : kind))}
+                          aria-label="Elegir parcial del documento" data-tooltip="Elegir parcial (o general)"></Button>
                         {rankingExportMenu === kind && (
                           <div className="absolute right-0 top-full mt-1 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg py-1 min-w-[180px]">
                             <button type="button" onClick={() => doExportRanking(kind, null)}
@@ -6286,20 +6240,17 @@ export default function SubjectPage() {
                     <div className="order-1 flex items-center gap-1 relative">
                       <button type="button" onClick={() => setGradeSortOn((v) => !v)}
                         data-tooltip={gradeSortOn ? 'Ordenado de mayor a menor' : 'Ordenar por promedio, de mayor a menor'}
-                        className={`px-3 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-colors ${gradeSortOn ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-surface-container text-muted hover:text-accent'}`}>
+                        className={`px-3 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-colors min-h-control-sm ${gradeSortOn ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-surface-container text-muted hover:text-accent'}`}>
                         Ordenar de mayor a menor{gradeSortOn ? ` · ${gradeSortParcial == null ? 'General' : `P${gradeSortParcial}`}` : ''}
                       </button>
                       <button type="button" onClick={() => setGradeSortMenuOpen((v) => !v)}
                         aria-label="Elegir parcial para ordenar" data-tooltip="Elegir parcial (o general)"
-                        className={`px-1.5 py-1.5 ml-1 rounded-full transition-colors ${gradeSortOn ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-surface-container text-muted hover:text-accent'}`}>
-                        <MoreVertical size={15} />
+                        className={`px-1.5 py-1.5 ml-1 rounded-full transition-colors min-h-control-sm ${gradeSortOn ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-surface-container text-muted hover:text-accent'}`}>
+                        <MoreVertical size={ICONO.sm} />
                       </button>
                       {gradeSortOn && (
-                        <button type="button" onClick={() => { setGradeSortOn(false); setGradeSortMenuOpen(false) }}
-                          aria-label="Volver al orden normal" data-tooltip="Volver al orden normal"
-                          className="p-2 text-hint hover:text-red-500 rounded-full">
-                          <X size={16} />
-                        </button>
+                        <IconButton icon={X} label="Volver al orden normal" variant="danger" tooltip={false} onClick={() => { setGradeSortOn(false); setGradeSortMenuOpen(false) }}
+                          data-tooltip="Volver al orden normal" />
                       )}
                       {gradeSortMenuOpen && (
                         <div className="absolute right-0 top-full mt-1 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg py-1 min-w-[170px]">
@@ -6374,10 +6325,10 @@ export default function SubjectPage() {
                                 closed state at a glance. */}
                             <div className="flex items-center justify-center gap-1">
                               {subject?.parcialesCerrados?.[p] && (
-                                <Lock size={12} className="text-emerald-600 flex-shrink-0" data-tooltip="Parcial cerrado" />
+                                <Lock size={ICONO.xs} className="text-emerald-600 flex-shrink-0" data-tooltip="Parcial cerrado" />
                               )}
                               {estadoParcial(subject, p) === 'atencion' && (
-                                <MessageCircleQuestion size={12} className="text-accent flex-shrink-0" data-tooltip="Atención de inquietudes" />
+                                <MessageCircleQuestion size={ICONO.xs} className="text-accent flex-shrink-0" data-tooltip="Atención de inquietudes" />
                               )}
                               <span>
                                 Parcial {p}
@@ -6396,7 +6347,7 @@ export default function SubjectPage() {
                                 aria-label="Acciones del parcial"
                                 data-tooltip-follow="Acciones del parcial"
                                 className="p-0.5 rounded text-hint hover:text-accent hover:bg-[var(--accent-medium)] transition-colors flex-shrink-0">
-                                <MoreVertical size={15} />
+                                <MoreVertical size={ICONO.sm} />
                               </button>
                             </div>
                           </th>
@@ -6451,7 +6402,7 @@ export default function SubjectPage() {
                                   onBlur={() => savePeso(a)}
                                   readOnly={parcialCerrado(subject, p)}
                                   data-tooltip={parcialCerrado(subject, p) ? mensajeParcialCerrado(p) : `Peso de la actividad ${activityLabelById[a.id] || ''}`}
-                                  className="no-spinner w-full px-0 py-0.5 text-center text-[11px] font-semibold rounded border border-amber-300 bg-white text-amber-800 focus:outline-none focus:ring-1 focus:ring-amber-400 read-only:opacity-60 read-only:cursor-not-allowed" />
+                                  className="no-spinner w-full px-0 py-0.5 text-center text-[11px] font-semibold rounded-card border border-amber-300 bg-white text-amber-800 focus:outline-none focus:ring-1 focus:ring-amber-400 read-only:opacity-60 read-only:cursor-not-allowed" />
                               </th>
                             )),
                             <th key={`pw-${p}`} className={`w-14 px-1 py-1 text-center text-[11px] font-bold border-l border-outline-variant bg-amber-50 ${pesoTotalVivo(acts) === 10 ? 'text-emerald-600' : 'text-amber-700'}`}>
@@ -6461,7 +6412,7 @@ export default function SubjectPage() {
                                   aria-label={`Quitar la ponderación solo del Parcial ${p}`}
                                   data-tooltip={parcialCerrado(subject, p) ? mensajeParcialCerrado(p) : `Quitar la ponderación solo del Parcial ${p}`}
                                   className="p-0.5 text-amber-400 hover:text-amber-800 rounded transition-colors">
-                                  <X size={12} />
+                                  <X size={ICONO.xs} />
                                 </button>
                               </div>
                             </th>,
@@ -6555,7 +6506,7 @@ export default function SubjectPage() {
                                   }
                                   onClick={() => goToActivityFromGrades(`/activity/${a.id}`, { state: { openStudentId: s.id, returnTo: 'calificaciones' } })}
                                   onContextMenu={(e) => openGradeQuickEdit(e, gradeSubMap[`${s.id}-${a.id}`], a, s)}
-                                  className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradesCierre[ai] ? 'text-red-500' : grades[ai] == null ? 'text-slate-300' : 'text-on-surface'} ${hl || gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
+                                  className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradesCierre[ai] ? 'text-red-500' : grades[ai] == null ? 'text-hint' : 'text-on-surface'} ${hl || gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
                                 >
                                   {grades[ai] != null ? grades[ai] : '—'}
                                 </td>
@@ -6663,10 +6614,9 @@ export default function SubjectPage() {
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-semibold text-muted uppercase tracking-wide">Asistencias</p>
             {addDayLabel && (
-              <button type="button" onClick={handleAddDayClick}
-                className="flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
-                <CalendarPlus size={16} /> {addDayLabel}
-              </button>
+              <Button icon={CalendarPlus} onClick={handleAddDayClick}>
+                 {addDayLabel}
+              </Button>
             )}
           </div>
 
@@ -6678,11 +6628,11 @@ export default function SubjectPage() {
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
           <div className="flex bg-surface-container p-1 rounded-full w-fit">
             <button type="button" onClick={() => setShowAllParciales(false)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${!showAllParciales ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
+              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors min-h-control-sm ${!showAllParciales ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
               Parcial actual
             </button>
             <button type="button" onClick={() => setShowAllParciales(true)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${showAllParciales ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
+              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors min-h-control-sm ${showAllParciales ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
               Todo el curso
             </button>
           </div>
@@ -6718,21 +6668,16 @@ export default function SubjectPage() {
               caso imprimirlo. */}
           {attendanceParcialesAll.length > 0 && (
             <div className="relative flex">
-              <button type="button"
+              <Button variant="outline-accent" icon={FileSpreadsheet} busy={exportingAttendance} className="flex-1"
                 onClick={handleExportAttendance}
                 disabled={exportingAttendance}
-                data-tooltip="Descarga TODA la asistencia en una hoja de Excel"
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[var(--accent-light)] border border-accent rounded-full text-sm font-semibold text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
-              >
-                {exportingAttendance ? <Spinner size="sm" /> : <FileSpreadsheet size={17} />} Excel
-              </button>
-              <button type="button"
+                data-tooltip="Descarga TODA la asistencia en una hoja de Excel">
+                 Excel
+              </Button>
+              <Button variant="outline-accent" icon={MoreVertical} className="ml-1 !px-0 aspect-square"
                 onClick={() => setAttExportMenu((m) => !m)}
                 aria-label="Excel por parcial"
-                data-tooltip="Excel por parcial"
-                className="px-2 bg-[var(--accent-light)] border ml-1 border-accent rounded-full text-accent hover:bg-[var(--accent-medium)] transition-colors">
-                <MoreVertical size={16} />
-              </button>
+                data-tooltip="Excel por parcial"></Button>
               {attExportMenu && (
                 <>
                   <button type="button" className="fixed inset-0 z-30 border-none cursor-default bg-transparent" onClick={() => setAttExportMenu(false)} aria-label="Cerrar menú" />
@@ -6763,7 +6708,7 @@ export default function SubjectPage() {
               <button type="button"
                 onClick={() => setAttSortOn((v) => !v)}
                 data-tooltip={attSortOn ? 'Ordenado por mayor riesgo de inasistencia' : 'Ordenar por mayor riesgo de inasistencia'}
-                className={`px-3 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-colors ${attSortOn ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-surface-container text-muted hover:text-accent'}`}>
+                className={`px-3 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-colors min-h-control-sm ${attSortOn ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-surface-container text-muted hover:text-accent'}`}>
                 Ordenar por riesgo{attSortOn ? ` · ${attSortParcial == null ? 'General' : `P${attSortParcial}`}` : ''}
               </button>
               <button type="button"
@@ -6775,14 +6720,14 @@ export default function SubjectPage() {
                 }}
                 aria-label="Elegir parcial para ordenar asistencias"
                 data-tooltip="Elegir parcial (o general)"
-                className={`px-1.5 py-1.5 ml-1 rounded-full transition-colors ${attSortOn ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-surface-container text-muted hover:text-accent'}`}>
-                <MoreVertical size={15} />
+                className={`px-1.5 py-1.5 ml-1 rounded-full transition-colors min-h-control-sm ${attSortOn ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-surface-container text-muted hover:text-accent'}`}>
+                <MoreVertical size={ICONO.sm} />
               </button>
               {attSortOn && (
                 <button type="button" onClick={() => { setAttSortOn(false); setAttSortParcial(null) }}
                   aria-label="Volver al orden normal" data-tooltip="Volver al orden normal"
-                  className="p-2 text-hint hover:text-red-500 rounded">
-                  <X size={16} />
+                  className="size-control inline-flex items-center justify-center text-hint hover:text-red-500 rounded-full">
+                  <X size={ICONO.sm} />
                 </button>
               )}
             </div>
@@ -6854,14 +6799,14 @@ export default function SubjectPage() {
             {/* Se avisa al elegir el día, no al intentar guardar: enterarse
                 después de darle a "Agregar" obliga a volver a empezar. */}
             {avisoSinClase && (
-              <div className="rounded border border-amber-200 bg-amber-50 p-2.5 flex items-start gap-2">
-                <AlertTriangle size={17} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="rounded-card border border-amber-200 bg-amber-50 p-2.5 flex items-start gap-2">
+                <AlertTriangle size={ICONO.sm} className="text-amber-600 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-amber-800 leading-relaxed">{avisoSinClase}</p>
               </div>
             )}
             {!avisoSinClase && avisoAsueto && (
-              <div className="rounded border border-amber-200 bg-amber-50 p-2.5 flex items-start gap-2">
-                <AlertTriangle size={17} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="rounded-card border border-amber-200 bg-amber-50 p-2.5 flex items-start gap-2">
+                <AlertTriangle size={ICONO.sm} className="text-amber-600 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-amber-800 leading-relaxed">
                   Ese día lo marcaste como {avisoAsueto === 'asueto' ? 'día de asueto' : 'periodo vacacional'} — si hubo clase de reposición, puedes seguir y agregarlo de todas formas.
                 </p>
@@ -6869,13 +6814,12 @@ export default function SubjectPage() {
             )}
             <div className="flex gap-2 pt-1">
               <button type="button" onClick={() => setShowAddAttendance(false)}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
                 Cancelar
               </button>
-              <button type="submit" disabled={savingAttendance || !newAttendanceForm.fecha || !!avisoSinClase}
-                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
-                {savingAttendance ? <Spinner size="sm" /> : <CalendarPlus size={16} />} Agregar
-              </button>
+              <Button icon={CalendarPlus} busy={savingAttendance} className="flex-1" type="submit" disabled={savingAttendance || !newAttendanceForm.fecha || !!avisoSinClase}>
+                 Agregar
+              </Button>
             </div>
           </form>
         </div>
@@ -6898,15 +6842,15 @@ export default function SubjectPage() {
                 return (
                   <button key={dia.fecha} type="button" onClick={() => handleRestoreAttendanceDay(dia)}
                     disabled={restoringFecha === dia.fecha}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded border border-outline-variant text-sm hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-full border border-outline-variant text-sm hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60 min-h-control-sm">
                     <span>{d}/{mes}/{anio} — Parcial {dia.parcial}</span>
-                    {restoringFecha === dia.fecha ? <Spinner size="sm" /> : <CalendarPlus size={16} className="text-accent" />}
+                    {restoringFecha === dia.fecha ? <Spinner size="sm" /> : <CalendarPlus size={ICONO.sm} className="text-accent" />}
                   </button>
                 )
               })}
             </div>
             <button type="button" onClick={() => setShowRestoreAttendance(false)}
-              className="w-full mt-3 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+              className="w-full mt-3 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
               Cerrar
             </button>
           </div>
@@ -6926,13 +6870,12 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setDeleteAttendanceConfirm(null)}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
                 Cancelar
               </button>
-              <button type="button" onClick={handleDeleteAttendanceDay} disabled={deletingAttendance}
-                className="flex-1 py-2 rounded bg-red-500 text-white text-sm font-semibold hover:bg-red-600 disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
-                {deletingAttendance ? <Spinner size="sm" /> : <Trash2 size={16} />} Eliminar
-              </button>
+              <Button variant="danger" icon={Trash2} busy={deletingAttendance} className="flex-1" onClick={handleDeleteAttendanceDay} disabled={deletingAttendance}>
+                 Eliminar
+              </Button>
             </div>
           </div>
         </div>
@@ -7018,7 +6961,7 @@ export default function SubjectPage() {
                       <label htmlFor="att-motivo" className="block text-[9px] font-medium text-muted mb-1">Motivo ✍️</label>
                       <textarea id="att-motivo" value={reasonText} rows={2}
                         onChange={(e) => setReasonText(e.target.value)}
-                        className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none" />
+                        className="w-full px-3 py-2 rounded-card border border-outline-variant text-sm bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none" />
                     </div>
                   </div>
                 </div>
@@ -7030,10 +6973,10 @@ export default function SubjectPage() {
                   </button>
                   <button type="button" onClick={markPresenteFromModal}
                     className="py-2 rounded bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-1">
-                    <CheckIcon size={15} /> Asistencia
+                    <CheckIcon size={ICONO.sm} /> Asistencia
                   </button>
                   <button type="button" onClick={closeReasonModal}
-                    className="py-2 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+                    className="py-2 rounded-card border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
                     Salir
                   </button>
                 </div>
@@ -7049,16 +6992,16 @@ export default function SubjectPage() {
                   <label htmlFor="att-motivo" className="block text-sm font-medium text-muted mb-1.5">Motivo ✍️</label>
                   <textarea id="att-motivo" value={reasonText} rows={3}
                     onChange={(e) => setReasonText(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded border border-outline-variant text-base bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none" />
+                    className="w-full px-3 py-2.5 rounded-card border border-outline-variant text-base bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent resize-none" />
                 </div>
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={closeReasonModal}
-                    className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-base font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+                    className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-base font-semibold hover:bg-[var(--accent-tint)] transition-colors">
                     Salir
                   </button>
                   <button type="button" onClick={markPresenteFromModal}
                     className="flex-1 py-2.5 rounded bg-green-600 text-white text-base font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-1.5">
-                    <CheckIcon size={17} /> Asistencia
+                    <CheckIcon size={ICONO.sm} /> Asistencia
                   </button>
                   <button type="button" onClick={handleSaveReason}
                     disabled={reasonText.trim() === (reasonModal.original || '').trim()}
@@ -7106,11 +7049,11 @@ export default function SubjectPage() {
               >
                 <span className="w-8 h-8 rounded-full bg-accent text-white text-sm font-bold flex items-center justify-center flex-shrink-0">1</span>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-accent flex items-center gap-1.5"><Download size={16} className="flex-shrink-0" /> Plantilla Excel</p>
+                  <p className="text-sm font-semibold text-accent flex items-center gap-1.5"><Download size={ICONO.sm} className="flex-shrink-0" /> Plantilla Excel</p>
                   <p className="text-xs text-muted truncate">Descárgala y pega los datos</p>
                 </div>
               </button>
-              <ChevronRight size={18} className="hidden sm:block text-slate-300 flex-shrink-0 self-center" />
+              <ChevronRight size={ICONO.md} className="hidden sm:block text-hint flex-shrink-0 self-center" />
               </>)}
               <label
                 data-tooltip="Sube exactamente el archivo de nuestra plantilla de Excel del paso 1"
@@ -7119,13 +7062,13 @@ export default function SubjectPage() {
               >
                 <span className="w-8 h-8 rounded-full bg-accent text-white text-sm font-bold flex items-center justify-center flex-shrink-0">2</span>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-accent flex items-center gap-1.5">{parsingExcel ? <Spinner size="sm" /> : <Upload size={16} className="flex-shrink-0" />} Subir plantilla</p>
+                  <p className="text-sm font-semibold text-accent flex items-center gap-1.5">{parsingExcel ? <Spinner size="sm" /> : <Upload size={ICONO.sm} className="flex-shrink-0" />} Subir plantilla</p>
                   <p className="text-xs text-muted truncate">El archivo del paso 1, ya llenado</p>
                 </div>
                 <input type="file" accept=".xlsx,.xls" className="hidden" onChange={handleExcelFileSelected} disabled={parsingExcel} />
               </label>
               {!telefonoWeb.telefono && (<>
-              <ChevronRight size={18} className="hidden sm:block text-slate-300 flex-shrink-0 self-center" />
+              <ChevronRight size={ICONO.md} className="hidden sm:block text-hint flex-shrink-0 self-center" />
               <button
                 type="button"
                 onClick={() => setShowCredentialsModal(true)}
@@ -7133,7 +7076,7 @@ export default function SubjectPage() {
               >
                 <span className="w-8 h-8 rounded-full bg-accent text-white text-sm font-bold flex items-center justify-center flex-shrink-0">3</span>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-accent flex items-center gap-1.5"><KeyRound size={16} className="flex-shrink-0" /> Generar PDF con códigos</p>
+                  <p className="text-sm font-semibold text-accent flex items-center gap-1.5"><KeyRound size={ICONO.sm} className="flex-shrink-0" /> Generar PDF con códigos</p>
                   <p className="text-xs text-muted truncate">Accesos para tus estudiantes</p>
                 </div>
               </button>
@@ -7146,7 +7089,7 @@ export default function SubjectPage() {
               la Cloud Function lee este campo directo del documento de la
               asignatura. El push solo llega al celular donde esté instalada
               la app — se puede activar desde aquí o desde ahí. */}
-          <div className="flex items-start gap-3 p-3 bg-slate-50 rounded border border-outline-variant">
+          <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-card border border-outline-variant">
             <input
               type="checkbox"
               id="notificar-activacion"
@@ -7178,9 +7121,9 @@ export default function SubjectPage() {
               onClick={sortStudentsAlphabetically}
               disabled={groupStudents.length < 2}
               data-tooltip="Ordena la lista por apellido y nombre"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-accent text-sm font-medium text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
+              className="flex items-center gap-1.5 h-control-sm px-3 rounded-full border border-accent text-sm font-medium text-accent hover:bg-[var(--accent-medium)] transition-colors disabled:opacity-60"
             >
-              <ArrowUpDown size={16} />
+              <ArrowUpDown size={ICONO.sm} />
               Ordenar alfabéticamente
             </button>
           </div>
@@ -7216,10 +7159,10 @@ export default function SubjectPage() {
               aria-label="Agregar manualmente"
               data-tooltip-follow={atencionPestanas.alumnos ? 'Agrega tu primer estudiante' : 'Agregar manualmente'}
               className={atencionPestanas.alumnos
-                ? 'p-2.5 bg-red-600 text-white rounded-full animate-atencion motion-reduce:animate-none hover:bg-red-700 transition-colors'
-                : 'p-2.5 bg-accent text-white rounded-full hover:bg-accent-hover transition-colors'}
+                ? 'group size-control inline-flex items-center justify-center bg-red-600 text-white rounded-full animate-atencion motion-reduce:animate-none hover:bg-red-700 transition'
+                : 'group size-control inline-flex items-center justify-center bg-accent text-white rounded-full hover:bg-accent-hover transition active:scale-[0.94]'}
             >
-              <UserPlus size={20} />
+              <UserPlus size={ICONO.md} />
             </button>
           </div>
           {/* En la App no hay botón de editar por renglón — se toca el
@@ -7297,7 +7240,7 @@ export default function SubjectPage() {
                       <span className="font-mono text-accent font-semibold text-xs break-all">{s.username}</span>
                       {s.ocultaPorAlumno && (
                         <span
-                          className="leading-none bg-slate-200 text-slate-600 rounded-full text-[11px] px-1.5 py-0.5"
+                          className="leading-none bg-slate-200 text-muted rounded-full text-[11px] px-1.5 py-0.5"
                           data-tooltip={`Salió de la asignatura${s.ocultaPorAlumnoAt?.toDate ? ` el ${s.ocultaPorAlumnoAt.toDate().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}`}
                         >
                           salió
@@ -7315,7 +7258,7 @@ export default function SubjectPage() {
                     className="w-10 h-10 flex-shrink-0 flex items-center justify-center text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors duration-200"
                     aria-label="Editar estudiante"
                   >
-                    <Pencil size={16} />
+                    <Pencil size={ICONO.sm} />
                   </button>
                 </div>
               ) : (
@@ -7351,7 +7294,7 @@ export default function SubjectPage() {
                     // el docente debe poder notarlo de un vistazo. Pedido
                     // explícito, con la fecha en el tooltip.
                     <span
-                      className={`leading-none bg-slate-200 text-slate-600 rounded-full flex-shrink-0 ${IS_NATIVE_APP ? 'text-[9px] px-1 py-0.5' : 'text-[11px] px-1.5 py-0.5'}`}
+                      className={`leading-none bg-slate-200 text-muted rounded-full flex-shrink-0 ${IS_NATIVE_APP ? 'text-[9px] px-1 py-0.5' : 'text-[11px] px-1.5 py-0.5'}`}
                       data-tooltip={`Salió de la asignatura${s.ocultaPorAlumnoAt?.toDate ? ` el ${s.ocultaPorAlumnoAt.toDate().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}`}
                     >
                       salió
@@ -7371,7 +7314,7 @@ export default function SubjectPage() {
                       aria-label="Editar estudiante"
                       data-tooltip="Editar estudiante"
                     >
-                      <Pencil size={16} />
+                      <Pencil size={ICONO.sm} />
                     </button>
                   )}
                 </div>
@@ -7392,11 +7335,10 @@ export default function SubjectPage() {
                 Materiales permanentes de toda la asignatura (programa, reglamento, guías, presentaciones, enlaces, videos…), disponibles para tus estudiantes durante todo el semestre. No generan entrega ni calificación.
               </p>
             </InfoDisclosure>
-            <button type="button" onClick={openAddResource}
-              data-tooltip="Agregar recurso"
-              className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-sm font-medium rounded hover:bg-accent-hover transition-colors">
-              <Plus size={16} /> Agregar recurso
-            </button>
+            <Button icon={Plus} className="flex-shrink-0" onClick={openAddResource}
+              data-tooltip="Agregar recurso">
+               Agregar recurso
+            </Button>
           </div>
 
           {!resourcesLoaded || loadingResources ? (
@@ -7414,11 +7356,11 @@ export default function SubjectPage() {
                 return (
                   <div key={r.id} className="bg-surface-card border border-outline-variant rounded-card shadow-card">
                     <div className="flex items-center gap-3 px-3 py-2">
-                      <Icon size={28} className={`flex-shrink-0 ${color}`} />
+                      <Icon size={ICONO.lg} className={`flex-shrink-0 ${color}`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-on-surface truncate">{r.nombre}</p>
                         {r.descripcion && (
-                          <p className="text-xs text-slate-500 truncate">{r.descripcion}</p>
+                          <p className="text-xs text-muted truncate">{r.descripcion}</p>
                         )}
                         <p className="text-xs text-hint mt-0.5">
                           {isLink ? 'Enlace · ' : `${formatFileSize(r.tamano)}${r.tamano ? ' · ' : ''}`}{formatResourceDate(r.fechaPublicacion)}
@@ -7429,28 +7371,28 @@ export default function SubjectPage() {
                           aria-label="Vista previa"
                           data-tooltip="Vista previa"
                           className={`p-2 rounded transition-colors flex-shrink-0 ${isPreviewOpen ? 'text-accent bg-[var(--accent-medium)]' : 'text-hint hover:text-accent hover:bg-[var(--accent-medium)]'}`}>
-                          <FileSearch size={18} />
+                          <FileSearch size={ICONO.md} />
                         </button>
                       )}
                       <a href={isLink ? r.url : (isImageDeliveredPdf(r.url) ? pdfPageImageUrl(r.url, 1) : r.url)} target="_blank" rel="noreferrer"
                         aria-label={isLink ? 'Abrir enlace' : (isImageDeliveredPdf(r.url) ? 'Abrir página 1 en pestaña nueva' : 'Abrir en pestaña nueva')}
                         data-tooltip={isLink ? 'Abrir enlace' : (isImageDeliveredPdf(r.url) ? 'Abrir página 1 en pestaña nueva' : 'Abrir en pestaña nueva')}
                         className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-                        <ExternalLink size={18} />
+                        <ExternalLink size={ICONO.md} />
                       </a>
                       {!isLink && (
                         <a href={downloadUrl(r.url, r.nombreArchivo || r.nombre)} download={r.nombreArchivo || r.nombre} rel="noreferrer" aria-label="Descargar" data-tooltip="Descargar"
                           className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-                          <Download size={18} />
+                          <Download size={ICONO.md} />
                         </a>
                       )}
                       <button type="button" onClick={() => openEditResource(r)} aria-label="Editar" data-tooltip="Editar"
-                        className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
-                        <Pencil size={18} />
+                        className="size-control inline-flex items-center justify-center text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors flex-shrink-0">
+                        <Pencil size={ICONO.md} />
                       </button>
                       <button type="button" onClick={() => setDeleteResourceConfirm(r)} aria-label="Eliminar" data-tooltip="Eliminar"
-                        className="p-2 text-hint hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0">
-                        <Trash2 size={18} />
+                        className="size-control inline-flex items-center justify-center text-hint hover:text-red-500 hover:bg-red-50 rounded-full transition-colors flex-shrink-0">
+                        <Trash2 size={ICONO.md} />
                       </button>
                     </div>
                     {isPreviewOpen && !isLink && (
@@ -7521,7 +7463,7 @@ export default function SubjectPage() {
                     ? `${tipoActividad === 'entregable' ? 'Entregable' : tipoActividad === 'cuestionario' ? 'Cuestionario' : 'Examen'} — Parcial ${modalParcial}`
                     : 'Editar actividad'}
               </h3>
-              <button type="button" onClick={() => setShowModal(false)} aria-label="Cerrar" className="p-2 text-hint rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowModal(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
             </div>
 
             {/* ── Tipo picker (only on create, before choosing type) ──
@@ -7545,7 +7487,7 @@ export default function SubjectPage() {
                       <button key={opt.key} type="button" aria-label={opt.label} onClick={() => setMenuPaso(opt.key)}
                         className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${opt.iconBg}`}>
-                          <opt.Icon size={20} className={opt.iconColor} />
+                          <opt.Icon size={ICONO.md} className={opt.iconColor} />
                         </div>
                         <div>
                           <p className="font-semibold text-on-surface">{opt.label}</p>
@@ -7565,7 +7507,7 @@ export default function SubjectPage() {
                     <button type="button" onClick={() => elegirCreacion(menuPaso, 'manual')}
                       className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
                       <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-slate-100">
-                        <Pencil size={20} className="text-hint" />
+                        <Pencil size={ICONO.md} className="text-hint" />
                       </div>
                       <div>
                         <p className="font-semibold text-on-surface">Crear manualmente</p>
@@ -7575,7 +7517,7 @@ export default function SubjectPage() {
                     <button type="button" onClick={() => elegirCreacion(menuPaso, 'ia')}
                       className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
                       <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-[var(--accent-light)]">
-                        <Sparkles size={20} className="text-accent" />
+                        <Sparkles size={ICONO.md} className="text-accent" />
                       </div>
                       <div>
                         <p className="font-semibold text-on-surface">Generar con IA</p>
@@ -7596,7 +7538,7 @@ export default function SubjectPage() {
                       <button key={opt.key} type="button" aria-label={opt.label} onClick={() => setMenuPaso(opt.key)}
                         className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${opt.iconBg}`}>
-                          <opt.Icon size={20} className={opt.iconColor} />
+                          <opt.Icon size={ICONO.md} className={opt.iconColor} />
                         </div>
                         <div>
                           <p className="font-semibold text-on-surface">{opt.label}</p>
@@ -7614,7 +7556,7 @@ export default function SubjectPage() {
                     <button type="button" onClick={() => elegirCreacion(menuPaso, 'manual')}
                       className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
                       <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-slate-100">
-                        <Pencil size={20} className="text-hint" />
+                        <Pencil size={ICONO.md} className="text-hint" />
                       </div>
                       <div>
                         <p className="font-semibold text-on-surface">Crear manualmente</p>
@@ -7624,7 +7566,7 @@ export default function SubjectPage() {
                     <button type="button" onClick={() => elegirCreacion(menuPaso, 'ia')}
                       className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
                       <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-[var(--accent-light)]">
-                        <Sparkles size={20} className="text-accent" />
+                        <Sparkles size={ICONO.md} className="text-accent" />
                       </div>
                       <div>
                         <p className="font-semibold text-on-surface">Generar con IA</p>
@@ -7646,7 +7588,7 @@ export default function SubjectPage() {
                         onClick={() => { setShowModal(false); setCrearJuegoIA({ tipoJuego: opt.key }) }}
                         className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${opt.iconBg}`}>
-                          <opt.Icon size={20} className={opt.iconColor} />
+                          <opt.Icon size={ICONO.md} className={opt.iconColor} />
                         </div>
                         <div>
                           <p className="font-semibold text-on-surface">{opt.label}</p>
@@ -7658,7 +7600,7 @@ export default function SubjectPage() {
                       onClick={() => { setShowModal(false); setCrearVideoIA(true) }}
                       className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
                       <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-blue-100">
-                        <Sparkles size={20} className="text-blue-600" />
+                        <Sparkles size={ICONO.md} className="text-blue-600" />
                       </div>
                       <div>
                         <p className="font-semibold text-on-surface">Video interactivo</p>
@@ -7681,12 +7623,9 @@ export default function SubjectPage() {
                   Actividad <strong className="text-accent">{previewActividad}</strong>
                 </p>
             <form onSubmit={handleSaveActivity} className="space-y-2">
-              <div>
-                <label htmlFor="act-nombre" className="block text-sm font-medium text-muted mb-1">Nombre de la actividad</label>
-                <input id="act-nombre" type="text" value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
-                  required
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
-              </div>
+              <Input
+                label="Nombre de la actividad" id="act-nombre" type="text" value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
+                required />
               <div>
                 <p className="block text-sm font-medium text-muted mb-1">Instrucciones</p>
                 <RichTextEditor
@@ -7773,13 +7712,12 @@ export default function SubjectPage() {
                 </div>
               )}
 
-              <button type="submit" disabled={saving}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                {saving ? <Spinner size="sm" /> : modalMode === 'create' ? <Plus size={18} /> : <Pencil size={18} />}
+              <Button fullWidth type="submit" disabled={saving}>
+                {saving ? <Spinner size="sm" /> : modalMode === 'create' ? <Plus size={ICONO.md} /> : <Pencil size={ICONO.md} />}
                 {saving ? 'Guardando…' : modalMode === 'create'
                   ? (tipoActividad === 'cuestionario' || tipoActividad === 'examen') ? 'Crear y agregar preguntas' : 'Crear actividad'
                   : 'Guardar cambios'}
-              </button>
+              </Button>
               {/* Este modal solo CREA (openEdit manda al editor de pantalla
                   completa, que es donde vive "regresar a borrador" de algo ya
                   publicado), así que aquí nunca hay publishedAt. */}
@@ -7808,12 +7746,11 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setDuplicateConfirm(null)}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <button type="button" onClick={handleDuplicateActivity} disabled={duplicating}
-                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
-                {duplicating ? <Spinner size="sm" /> : <Copy size={16} />}
+                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+              <Button icon={Copy} busy={duplicating} className="flex-1" onClick={handleDuplicateActivity} disabled={duplicating}>
+                
                 {duplicating ? 'Duplicando…' : 'Duplicar'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -7833,7 +7770,7 @@ export default function SubjectPage() {
               {moveConfirm.changes.map((c) => (
                 <li key={c.id} className="flex items-center gap-1.5 min-w-0">
                   <span className="text-muted tabular-nums flex-shrink-0">{c.de}</span>
-                  <ChevronRight size={14} className="text-hint flex-shrink-0" />
+                  <ChevronRight size={ICONO.xs} className="text-hint flex-shrink-0" />
                   <span className="text-accent font-semibold tabular-nums flex-shrink-0">{c.hacia}</span>
                   <span className="truncate">{c.nombre}</span>
                 </li>
@@ -7841,7 +7778,7 @@ export default function SubjectPage() {
             </ul>
             {moveConfirm.changes.some((c) => c.publicada) && (
               <p className="text-sm text-amber-700 bg-amber-50 rounded px-2 py-1.5 mb-3 flex gap-1.5">
-                <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+                <AlertTriangle size={ICONO.xs} className="flex-shrink-0 mt-0.5" />
                 <span>
                   Ya están publicadas: tus estudiantes las conocen con el número que tienen hoy.
                   Avísale al grupo del cambio para que no entreguen en la actividad equivocada.
@@ -7850,12 +7787,11 @@ export default function SubjectPage() {
             )}
             <div className="flex gap-2">
               <button type="button" onClick={() => setMoveConfirm(null)} disabled={moving}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
-              <button type="button" onClick={() => applyMoveActivities(moveConfirm.a.parcial, moveConfirm.newList)} disabled={moving}
-                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
-                {moving ? <Spinner size="sm" /> : <ArrowUpDown size={16} />}
+                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
+              <Button icon={ArrowUpDown} busy={moving} className="flex-1" onClick={() => applyMoveActivities(moveConfirm.a.parcial, moveConfirm.newList)} disabled={moving}>
+                
                 {moving ? 'Moviendo…' : 'Mover'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -7877,18 +7813,17 @@ export default function SubjectPage() {
             )}
             <div className="flex gap-2">
               <button type="button" onClick={() => setPublishDraftConfirm(null)}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
               {/* Editar is the primary path — a draft usually still needs changes
                   (esp. duplicates); Publicar stays available as secondary */}
               <button type="button" onClick={publishDraftNow}
-                className="flex-1 py-2.5 rounded border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] flex items-center justify-center gap-1.5">
-                <Eye size={14} /> Publicar
+                className="flex-1 py-2.5 rounded-full border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-medium)] flex items-center justify-center gap-1.5 min-h-control">
+                <Eye size={ICONO.xs} /> Publicar
               </button>
-              <button type="button"
-                onClick={() => { const a = publishDraftConfirm; setPublishDraftConfirm(null); openEdit(a, activityLabelById[a.id]) }}
-                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover flex items-center justify-center gap-2">
-                <Pencil size={16} /> Editar
-              </button>
+              <Button icon={Pencil} className="flex-1"
+                onClick={() => { const a = publishDraftConfirm; setPublishDraftConfirm(null); openEdit(a, activityLabelById[a.id]) }}>
+                 Editar
+              </Button>
             </div>
           </div>
         </div>
@@ -7907,12 +7842,11 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setDeleteConfirm(null)}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <button type="button" onClick={handleDeleteActivity} disabled={deleting}
-                className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
-                {deleting ? <Spinner size="sm" /> : <Trash2 size={16} />}
+                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+              <Button variant="danger" icon={Trash2} busy={deleting} className="flex-1" onClick={handleDeleteActivity} disabled={deleting}>
+                
                 {deleting ? 'Eliminando…' : 'Eliminar'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -7927,16 +7861,13 @@ export default function SubjectPage() {
               <h3 className="text-lg font-semibold">
                 {materialModalMode === 'create' ? `Nuevo material de apoyo — Parcial ${materialParcial}` : 'Editar material de apoyo'}
               </h3>
-              <button type="button" onClick={() => setShowMaterialModal(false)} aria-label="Cerrar" className="p-2 text-hint rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowMaterialModal(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
             </div>
             <p className="text-sm text-hint -mt-2 mb-3">Este material queda solo en el Parcial {materialParcial} y no genera entrega ni número de actividad. Para materiales de toda la asignatura usa la pestaña Recursos.</p>
             <form onSubmit={handleSaveMaterial} className="space-y-2">
-              <div>
-                <label htmlFor="material-nombre" className="block text-sm font-medium text-muted mb-1">Nombre del material</label>
-                <input id="material-nombre" type="text" value={materialForm.nombre} onChange={(e) => setMaterialForm((f) => ({ ...f, nombre: e.target.value }))}
-                  required
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
-              </div>
+              <Input
+                label="Nombre del material" id="material-nombre" type="text" value={materialForm.nombre} onChange={(e) => setMaterialForm((f) => ({ ...f, nombre: e.target.value }))}
+                required />
               <div>
                 <p className="block text-sm font-medium text-muted mb-1">Descripción <span className="text-hint font-normal">(opcional)</span></p>
                 <RichTextEditor
@@ -7955,26 +7886,26 @@ export default function SubjectPage() {
                 {(materialExistingFiles.length > 0 || materialNewFiles.length > 0) && (
                   <div className="space-y-1 mt-2">
                     {materialExistingFiles.map((f, i) => (
-                      <div key={f.url || `existing-${f.nombre}-${i}`} className="flex items-center gap-2 px-2 py-1.5 rounded border border-outline-variant">
-                        <Paperclip size={16} className="text-hint flex-shrink-0" />
+                      <div key={f.url || `existing-${f.nombre}-${i}`} className="flex items-center gap-2 px-2 py-1.5 rounded-full border border-outline-variant">
+                        <Paperclip size={ICONO.sm} className="text-hint flex-shrink-0" />
                         <span className="text-sm text-on-surface truncate flex-1">{f.nombre}</span>
                         <span className="text-xs text-hint flex-shrink-0">{formatFileSize(f.tamano)}</span>
                         <button type="button" onClick={() => setMaterialExistingFiles((prev) => prev.filter((_, idx) => idx !== i))}
                           aria-label="Quitar archivo"
-                          className="p-2 text-hint hover:text-red-500 rounded flex-shrink-0">
-                          <X size={15} />
+                          className="size-control inline-flex items-center justify-center text-hint hover:text-red-500 rounded-full flex-shrink-0">
+                          <X size={ICONO.sm} />
                         </button>
                       </div>
                     ))}
                     {materialNewFiles.map((f, i) => (
-                      <div key={`new-${f.name}-${f.size}-${i}`} className="flex items-center gap-2 px-2 py-1.5 rounded border border-accent bg-[var(--accent-tint)]">
-                        <Paperclip size={16} className="text-accent flex-shrink-0" />
+                      <div key={`new-${f.name}-${f.size}-${i}`} className="flex items-center gap-2 px-2 py-1.5 rounded-full border border-accent bg-[var(--accent-tint)]">
+                        <Paperclip size={ICONO.sm} className="text-accent flex-shrink-0" />
                         <span className="text-sm text-on-surface truncate flex-1">{f.name}</span>
                         <span className="text-xs text-hint flex-shrink-0">{formatFileSize(f.size)}</span>
                         <button type="button" onClick={() => setMaterialNewFiles((prev) => prev.filter((_, idx) => idx !== i))}
                           aria-label="Quitar archivo"
-                          className="p-2 text-hint hover:text-red-500 rounded flex-shrink-0">
-                          <X size={15} />
+                          className="size-control inline-flex items-center justify-center text-hint hover:text-red-500 rounded-full flex-shrink-0">
+                          <X size={ICONO.sm} />
                         </button>
                       </div>
                     ))}
@@ -8004,11 +7935,10 @@ export default function SubjectPage() {
                 />
               </div>
 
-              <button type="submit" disabled={savingMaterial || !materialChanged}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                {savingMaterial ? <Spinner size="sm" /> : materialModalMode === 'create' ? <Plus size={18} /> : <Pencil size={18} />}
+              <Button fullWidth type="submit" disabled={savingMaterial || !materialChanged}>
+                {savingMaterial ? <Spinner size="sm" /> : materialModalMode === 'create' ? <Plus size={ICONO.md} /> : <Pencil size={ICONO.md} />}
                 {savingMaterial ? 'Guardando…' : materialModalMode === 'create' ? 'Crear material' : 'Guardar cambios'}
-              </button>
+              </Button>
             </form>
           </div>
         </div>
@@ -8025,12 +7955,11 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setDeleteMaterialConfirm(null)}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <button type="button" onClick={handleDeleteMaterial} disabled={deletingMaterial}
-                className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
-                {deletingMaterial ? <Spinner size="sm" /> : <Trash2 size={16} />}
+                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+              <Button variant="danger" icon={Trash2} busy={deletingMaterial} className="flex-1" onClick={handleDeleteMaterial} disabled={deletingMaterial}>
+                
                 {deletingMaterial ? 'Eliminando…' : 'Eliminar'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -8043,7 +7972,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Agregar estudiante</h3>
-              <button type="button" onClick={() => setShowAddStudent(false)} aria-label="Cerrar" className="p-2 text-hint rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowAddStudent(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
             </div>
             <form onSubmit={addStudent} className="space-y-3">
               {/* Antes solo tenían placeholder ("Prueba", "No tengo", "Pepito"
@@ -8063,7 +7992,7 @@ export default function SubjectPage() {
                   <label htmlFor={`add-student-${field}`} className="block text-sm font-medium text-muted mb-1">
                     {label} {optional && <span className="text-hint font-normal">(opcional)</span>}
                   </label>
-                  <input
+                  <Input
                     id={`add-student-${field}`}
                     type="text"
                     value={newStudent[field]}
@@ -8072,21 +8001,18 @@ export default function SubjectPage() {
                     // autoFocus intencional (solo en escritorio): primer campo del modal, se abre
                     // una sola vez por apertura — no hay nada más que esperar.
                     autoFocus={PUEDE_AUTOFOCUS && field === 'apellidoPaterno'}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   />
                 </div>
               ))}
               {IS_NATIVE_APP && (
                 <p className="text-sm text-muted text-center">Para subir a todo el grupo usa la plantilla de excel en la web</p>
               )}
-              <button
+              <Button fullWidth icon={Plus} busy={savingStudent}
                 type="submit"
-                disabled={savingStudent}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {savingStudent ? <Spinner size="sm" /> : <Plus size={18} />}
+                disabled={savingStudent}>
+                
                 Agregar estudiante
-              </button>
+              </Button>
             </form>
           </div>
         </div>
@@ -8099,7 +8025,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Editar estudiante</h3>
-              <button type="button" onClick={() => setStudentToEdit(null)} aria-label="Cerrar" className="p-2 text-hint rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setStudentToEdit(null)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
             </div>
             {studentToEdit.uid && (
               <p className="text-xs text-muted mb-3">
@@ -8137,13 +8063,12 @@ export default function SubjectPage() {
             </div>
             <form onSubmit={saveEditStudent} className="space-y-2">
               {['apellidoPaterno', 'apellidoMaterno', 'nombre'].map((field) => (
-                <input
+                <Input
                   key={field}
                   type="text"
                   value={editStudentForm[field]}
                   onChange={(e) => setEditStudentForm((f) => ({ ...f, [field]: e.target.value }))}
                   required={field !== 'apellidoMaterno'}
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   aria-label={
                     field === 'apellidoPaterno' ? 'Apellido paterno'
                       : field === 'apellidoMaterno' ? 'Apellido materno'
@@ -8158,24 +8083,22 @@ export default function SubjectPage() {
                   value={editStudentForm.comentarios}
                   onChange={(e) => setEditStudentForm((f) => ({ ...f, comentarios: e.target.value }))}
                   rows={3}
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
+                  className="w-full px-4 py-2.5 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
                 />
               </div>
-              <button
+              <Button fullWidth icon={Pencil} busy={savingStudent}
                 type="submit"
-                disabled={savingStudent || !editStudentChanged}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {savingStudent ? <Spinner size="sm" /> : <Pencil size={18} />}
+                disabled={savingStudent || !editStudentChanged}>
+                
                 Guardar cambios
-              </button>
+              </Button>
               <button
                 type="button"
                 onClick={requestResetFromEdit}
                 disabled={savingStudent}
-                className="w-full py-2.5 rounded border border-amber-200 text-amber-600 text-sm font-semibold hover:bg-amber-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-full border border-amber-200 text-amber-600 text-sm font-semibold hover:bg-amber-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2 min-h-control"
               >
-                <RotateCcw size={17} />
+                <RotateCcw size={ICONO.sm} />
                 Restablecer contraseña
               </button>
               {studentToEdit?.ocultaPorAlumno && (
@@ -8185,9 +8108,9 @@ export default function SubjectPage() {
                   type="button"
                   onClick={() => { handleAllowRejoin(studentToEdit); setStudentToEdit(null) }}
                   disabled={savingStudent}
-                  className="w-full py-2.5 rounded border border-accent-soft text-accent text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full py-2.5 rounded-full border border-accent-soft text-accent text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60 flex items-center justify-center gap-2 min-h-control"
                 >
-                  <LogIn size={17} />
+                  <LogIn size={ICONO.sm} />
                   Permitir reingreso — salió de la asignatura
                 </button>
               )}
@@ -8195,9 +8118,9 @@ export default function SubjectPage() {
                 type="button"
                 onClick={requestDeleteFromEdit}
                 disabled={savingStudent}
-                className="w-full py-2.5 rounded border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-full border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2 min-h-control"
               >
-                <Trash2 size={17} />
+                <Trash2 size={ICONO.sm} />
                 Eliminar estudiante
               </button>
             </form>
@@ -8211,7 +8134,7 @@ export default function SubjectPage() {
           <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setStudentToReset(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-2">
-              <KeyRound size={24} className="text-amber-500" />
+              <KeyRound size={ICONO.lg} className="text-amber-500" />
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Restablecer contraseña?</h3>
             <p className="text-sm text-muted text-center mt-2">
@@ -8231,7 +8154,7 @@ export default function SubjectPage() {
                 onClick={confirmResetStudentPassword}
                 className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded transition-colors flex items-center justify-center gap-2"
               >
-                <KeyRound size={18} />
+                <KeyRound size={ICONO.md} />
                 Restablecer
               </button>
             </div>
@@ -8245,7 +8168,7 @@ export default function SubjectPage() {
           <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !generatingCredentials && setShowCredentialsModal(false)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-2">
-              <KeyRound size={24} className="text-accent" />
+              <KeyRound size={ICONO.lg} className="text-accent" />
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">Descargar lista de acceso</h3>
             <p className="text-sm text-muted text-center mt-2">
@@ -8263,14 +8186,12 @@ export default function SubjectPage() {
               >
                 Cancelar
               </button>
-              <button type="button"
+              <Button icon={Download} busy={generatingCredentials} className="flex-1"
                 onClick={handleGenerateCredentials}
-                disabled={generatingCredentials}
-                className="flex-1 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
-              >
-                {generatingCredentials ? <Spinner size="sm" /> : <Download size={18} />}
+                disabled={generatingCredentials}>
+                
                 {generatingCredentials ? 'Descargando…' : 'Descargar lista'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -8279,7 +8200,7 @@ export default function SubjectPage() {
       {/* ── Activity-name tooltip ABOVE the number header (fixed → never clipped) ── */}
       {actTip && (
         <div
-          className="fixed z-[9999] -translate-x-1/2 -translate-y-full px-2 py-1 rounded border border-[#c0c0c0] bg-[#f5f5f5] text-[#111] text-[11px] max-w-xs shadow-lg pointer-events-none"
+          className="fixed z-[9999] -translate-x-1/2 -translate-y-full px-2 py-1 rounded-card border border-[#c0c0c0] bg-[#f5f5f5] text-[#111] text-[11px] max-w-xs shadow-lg pointer-events-none"
           style={{ left: actTip.x, top: actTip.y - 6 }}
         >
           <div className="font-medium">{actTip.text}</div>
@@ -8301,13 +8222,13 @@ export default function SubjectPage() {
               disabled={activityMenuIdx <= 0}
               onClick={() => { const a = activityMenu.a; setActivityMenu(null); requestMoveActivity(a, -1) }}
               className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-default">
-              <ArrowUp size={16} className="text-hint flex-shrink-0" /> Subir un lugar
+              <ArrowUp size={ICONO.sm} className="text-hint flex-shrink-0" /> Subir un lugar
             </button>
             <button type="button"
               disabled={activityMenuIdx < 0 || activityMenuIdx >= activityMenuSiblings.length - 1}
               onClick={() => { const a = activityMenu.a; setActivityMenu(null); requestMoveActivity(a, 1) }}
               className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left border-b border-outline-variant disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-default">
-              <ArrowDown size={16} className="text-hint flex-shrink-0" /> Bajar un lugar
+              <ArrowDown size={ICONO.sm} className="text-hint flex-shrink-0" /> Bajar un lugar
             </button>
             {/* Un juego sin confirmar no se puede duplicar: la copia nacería
                 sin la reserva de créditos del original (que nunca se copia) y
@@ -8317,12 +8238,12 @@ export default function SubjectPage() {
               data-tooltip={!esCopiable(activityMenu.a) ? 'Termina y confirma el juego para poder duplicarlo' : undefined}
               onClick={() => { const a = activityMenu.a; setActivityMenu(null); setDuplicateConfirm(a) }}
               className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-default">
-              <Copy size={16} className="text-hint flex-shrink-0" /> Duplicar como borrador
+              <Copy size={ICONO.sm} className="text-hint flex-shrink-0" /> Duplicar como borrador
             </button>
             <button type="button"
               onClick={() => { const a = activityMenu.a; setActivityMenu(null); setDeleteConfirm(a) }}
               className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left border-t border-outline-variant">
-              <Trash2 size={16} className="flex-shrink-0" /> Eliminar
+              <Trash2 size={ICONO.sm} className="flex-shrink-0" /> Eliminar
             </button>
           </div>
         </>
@@ -8352,22 +8273,21 @@ export default function SubjectPage() {
             </div>
             <div className="flex gap-1.5">
               <button type="button" onClick={() => setGradeQuickEdit(null)} disabled={savingQuickGrade}
-                className="flex-1 py-2 rounded border border-outline-variant text-muted text-xs font-medium hover:bg-surface transition-colors disabled:opacity-60">
+                className="flex-1 py-2 rounded-card border border-outline-variant text-muted text-xs font-medium hover:bg-surface transition-colors disabled:opacity-60">
                 Cancelar
               </button>
-              <button type="button" onClick={saveGradeQuickEdit} disabled={savingQuickGrade}
-                className="flex-1 py-2 rounded bg-accent text-white text-xs font-semibold hover:bg-accent-hover transition-colors disabled:opacity-60 flex items-center justify-center gap-1">
-                {savingQuickGrade ? <Spinner size="sm" /> : <CheckIcon size={13} />} Guardar
-              </button>
+              <Button icon={CheckIcon} busy={savingQuickGrade} className="flex-1" onClick={saveGradeQuickEdit} disabled={savingQuickGrade}>
+                 Guardar
+              </Button>
             </div>
             {gradeQuickEdit.subId && gradeQuickEdit.value !== '' && (
               <button
                 type="button"
                 onClick={clearGradeQuickEdit}
                 disabled={savingQuickGrade}
-                className="w-full py-2 rounded border border-outline-variant text-muted text-xs font-medium hover:bg-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-1"
+                className="w-full py-2 rounded-full border border-outline-variant text-muted text-xs font-medium hover:bg-surface transition-colors disabled:opacity-60 flex items-center justify-center gap-1 min-h-control-sm"
               >
-                <Trash2 size={12} />
+                <Trash2 size={ICONO.xs} />
                 Quitar calificación
               </button>
             )}
@@ -8403,7 +8323,7 @@ export default function SubjectPage() {
                 }}
                 className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left"
               >
-                <ClipboardCheck size={15} className="text-hint flex-shrink-0" />
+                <ClipboardCheck size={ICONO.sm} className="text-hint flex-shrink-0" />
                 Asignar calificación a no entregadas ({activityContextMenu.missingCount})
               </button>
             ) : (
@@ -8444,7 +8364,7 @@ export default function SubjectPage() {
                 Calificación a asignar
               </label>
               <div className="flex items-center gap-2">
-                <input
+                <Input
                   id="bulk-grade-input"
                   type="number"
                   min="0"
@@ -8455,7 +8375,7 @@ export default function SubjectPage() {
                   onKeyDown={(e) => { if (e.key === 'Enter') confirmBulkGradeNoEntregadas() }}
                   disabled={savingBulkGrade}
                   ref={(el) => el?.focus()}
-                  className="w-24 px-3 py-1.5 rounded border border-outline-variant text-center text-sm font-semibold text-on-surface bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className="w-24 py-1.5 text-center font-semibold text-on-surface"
                 />
                 <span className="text-sm text-muted">/ {bulkGradeModal.activity.maxCalif ?? 10}</span>
               </div>
@@ -8467,20 +8387,17 @@ export default function SubjectPage() {
                 type="button"
                 onClick={() => { setBulkGradeModal(null); setBulkGradeValue('') }}
                 disabled={savingBulkGrade}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors disabled:opacity-60"
+                className="flex-1 py-2.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-surface transition-colors disabled:opacity-60"
               >
                 Cancelar
               </button>
-              <button
-                type="button"
+              <Button className="flex-1"
                 onClick={confirmBulkGradeNoEntregadas}
-                disabled={savingBulkGrade || bulkGradeValue === ''}
-                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors flex items-center justify-center gap-1"
-              >
+                disabled={savingBulkGrade || bulkGradeValue === ''}>
                 {savingBulkGrade
                   ? <><Spinner size="sm" /> Guardando…</>
                   : `Asignar a ${bulkGradeModal.missingCount} estudiante${bulkGradeModal.missingCount !== 1 ? 's' : ''}`}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -8495,15 +8412,15 @@ export default function SubjectPage() {
               {importSrc && (
                 <button type="button" onClick={() => { setImportSrc(null); setImportSrcActs([]); setImportSel(new Set()) }}
                   aria-label="Volver"
-                  className="p-2 -ml-1 text-hint hover:text-accent rounded flex-shrink-0"><ArrowLeft size={18} /></button>
+                  className="size-control inline-flex items-center justify-center -ml-1 text-hint hover:text-accent rounded-full flex-shrink-0"><ArrowLeft size={ICONO.md} /></button>
               )}
               <div className="flex-1 min-w-0">
                 <h3 className="text-base font-semibold text-on-surface truncate">Traer al Parcial {importFor}</h3>
-                <p className="text-xs text-slate-500 truncate">
+                <p className="text-xs text-muted truncate">
                   {importSrc ? `De: ${subjectDisplayName(importSrc)}` : 'Elige de cuál de tus asignaturas'}
                 </p>
               </div>
-              <button type="button" onClick={() => !importing && setImportFor(null)} aria-label="Cerrar" className="p-2 text-hint rounded flex-shrink-0"><X size={20} /></button>
+              <button type="button" onClick={() => !importing && setImportFor(null)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full flex-shrink-0"><X size={ICONO.md} /></button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-3">
@@ -8516,15 +8433,15 @@ export default function SubjectPage() {
                   <div className="space-y-1.5">
                     {importSubjects.map((s) => (
                       <button key={s.id} type="button" onClick={() => pickImportSubject(s)}
-                        className="w-full flex items-center gap-3 p-3 rounded border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
+                        className="w-full flex items-center gap-3 p-3 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
                         <div className="w-8 h-8 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
-                          <SubjectIcon iconKey={s.icon} size={18} className="text-accent" />
+                          <SubjectIcon iconKey={s.icon} size={ICONO.md} className="text-accent" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-on-surface truncate">{subjectDisplayName(s)}</p>
                           {s.archived && <p className="text-xs text-amber-600">Archivada</p>}
                         </div>
-                        <ChevronRight size={18} className="text-slate-300 flex-shrink-0" />
+                        <ChevronRight size={ICONO.md} className="text-hint flex-shrink-0" />
                       </button>
                     ))}
                   </div>
@@ -8560,11 +8477,10 @@ export default function SubjectPage() {
             {importSrc && importSrcActs.length > 0 && (
               <div className="px-4 py-3 border-t border-outline-variant flex items-center gap-2">
                 <span className="text-xs text-muted flex-1">{importSel.size} seleccionada{importSel.size !== 1 ? 's' : ''}</span>
-                <button type="button" onClick={confirmImport} disabled={!importSel.size || importing}
-                  className="px-4 py-2.5 rounded bg-accent text-white text-sm font-semibold disabled:opacity-60 hover:bg-accent-hover transition-colors flex items-center gap-2">
-                  {importing ? <Spinner size="sm" /> : <Copy size={16} />}
+                <Button icon={Copy} busy={importing} onClick={confirmImport} disabled={!importSel.size || importing}>
+                  
                   {importing ? 'Trayendo…' : 'Traer como borrador'}
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -8591,7 +8507,7 @@ export default function SubjectPage() {
               <button type="button"
                 onClick={() => { const p = parcialMenu.p; setParcialMenu(null); setRevertParcialConfirm(p) }}
                 className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left rounded-card">
-                <RotateCcw size={16} className="text-amber-600 flex-shrink-0" /> Reabrir para atención de inquietudes
+                <RotateCcw size={ICONO.sm} className="text-amber-600 flex-shrink-0" /> Reabrir para atención de inquietudes
               </button>
             ) : (() => {
               const p = parcialMenu.p
@@ -8610,7 +8526,7 @@ export default function SubjectPage() {
                       onClick={() => { if (!atencionOk) return; setParcialMenu(null); setAtencionParcialConfirm(p) }}
                       data-tooltip={!atencionOk ? `La ponderación del Parcial ${p} suma ${totalAtencion} de 10 — debe sumar exactamente 10 para iniciar la atención de inquietudes` : undefined}
                       className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm transition-colors text-left rounded-card ${atencionOk ? 'text-on-surface hover:bg-[var(--accent-tint)]' : 'text-hint cursor-not-allowed'}`}>
-                      <MessageCircleQuestion size={16} className={`flex-shrink-0 ${atencionOk ? 'text-accent' : 'text-slate-300'}`} />
+                      <MessageCircleQuestion size={ICONO.sm} className={`flex-shrink-0 ${atencionOk ? 'text-accent' : 'text-hint'}`} />
                       <span className="flex-1">Iniciar atención de inquietudes</span>
                       {!atencionOk && <span className="text-[10px] font-semibold text-amber-600">{totalAtencion}/10</span>}
                     </button>
@@ -8619,7 +8535,7 @@ export default function SubjectPage() {
                     onClick={() => { setParcialMenu(null); requestCloseParcial(p) }}
                     data-tooltip={!sumOk ? `La ponderación del Parcial ${p} suma ${total} de 10 — ajústala hasta llegar a 10 para poder cerrar` : undefined}
                     className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left rounded-card">
-                    <Lock size={16} className="text-hint flex-shrink-0" />
+                    <Lock size={ICONO.sm} className="text-hint flex-shrink-0" />
                     <span className="flex-1">Cerrar definitivamente</span>
                     {!sumOk && <span className="text-[10px] font-semibold text-amber-600">{total}/10</span>}
                   </button>
@@ -8641,7 +8557,7 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2 mt-4">
               <button type="button" onClick={() => setConfirmRevertPonderacion(false)}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                className="flex-1 py-2.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
                 Cancelar
               </button>
               <button type="button" onClick={() => applyPonderacion(false)}
@@ -8664,7 +8580,7 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2 mt-4">
               <button type="button" onClick={() => setConfirmRevertParcial(null)}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                className="flex-1 py-2.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
                 Cancelar
               </button>
               <button type="button" onClick={() => applyParcialPonderacion(confirmRevertParcial, false)}
@@ -8692,10 +8608,9 @@ export default function SubjectPage() {
                   La ponderación del Parcial {closeParcialConfirm.p} suma <strong>{closeParcialConfirm.pondError.total} de 10</strong>.
                   Ajusta los pesos hasta que sumen 10 y vuelve a cerrar.
                 </p>
-                <button type="button" onClick={() => setCloseParcialConfirm(null)}
-                  className="w-full py-2.5 mt-4 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors">
+                <Button fullWidth className="mt-4" onClick={() => setCloseParcialConfirm(null)}>
                   Entendido
-                </button>
+                </Button>
               </>
             ) : closeParcialConfirm.ungraded > 0 ? (
               <>
@@ -8715,10 +8630,9 @@ export default function SubjectPage() {
                     <> (Las {closeParcialConfirm.missing.length} celdas sin entrega no cuentan aquí — esas se ponen en 0 solas al cerrar.)</>
                   )}
                 </p>
-                <button type="button" onClick={() => setCloseParcialConfirm(null)}
-                  className="w-full py-2.5 mt-4 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors">
+                <Button fullWidth className="mt-4" onClick={() => setCloseParcialConfirm(null)}>
                   Entendido
-                </button>
+                </Button>
               </>
             ) : (
               <>
@@ -8730,7 +8644,7 @@ export default function SubjectPage() {
                     </p>
                     <div className="flex items-center justify-center gap-2 mt-3">
                       <label htmlFor="close-parcial-grade" className="text-sm text-muted">Calificación para todas:</label>
-                      <input
+                      <Input
                         id="close-parcial-grade"
                         type="number"
                         min="0"
@@ -8739,7 +8653,7 @@ export default function SubjectPage() {
                         value={closeParcialGrade}
                         onChange={(e) => setCloseParcialGrade(e.target.value)}
                         disabled={closingParcial}
-                        className="w-20 px-3 py-1.5 rounded border border-outline-variant text-center text-sm font-semibold text-on-surface bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                        className="w-20 py-1.5 text-center font-semibold text-on-surface"
                       />
                       <span className="text-sm text-muted">/ {closeParcialConfirm.topeCalif ?? 10}</span>
                     </div>
@@ -8750,25 +8664,24 @@ export default function SubjectPage() {
                 {/* Sesiones del parcial — se propone la estimación del servidor; el docente confirma o ajusta */}
                 <div className="flex items-center justify-center gap-2 mt-3">
                   <label htmlFor="close-parcial-sesiones" className="text-sm text-muted">Sesiones del parcial:</label>
-                  <input
+                  <Input
                     id="close-parcial-sesiones"
                     type="number"
                     min="1"
                     value={closeParcialSesiones}
                     onChange={(e) => setCloseParcialSesiones(e.target.value)}
                     disabled={closingParcial}
-                    className="w-20 px-3 py-1.5 rounded border border-outline-variant text-center text-sm font-semibold text-on-surface bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    className="w-20 py-1.5 text-center font-semibold text-on-surface"
                   />
                 </div>
                 <div className="flex gap-2 mt-4">
                   <button type="button" onClick={() => setCloseParcialConfirm(null)} disabled={closingParcial}
-                    className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                    className="flex-1 py-2.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
                     Cancelar
                   </button>
-                  <button type="button" onClick={confirmCloseParcial} disabled={closingParcial}
-                    className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors">
+                  <Button className="flex-1" onClick={confirmCloseParcial} disabled={closingParcial}>
                     {closingParcial ? 'Cerrando…' : (closeParcialConfirm.missing.length > 0 ? `Cerrar y poner ${Math.min(Math.max(0, parseFloat(closeParcialGrade) || 0), closeParcialConfirm.topeCalif ?? 10)}` : 'Cerrar parcial')}
-                  </button>
+                  </Button>
                 </div>
               </>
             )}
@@ -8787,13 +8700,12 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2 mt-4">
               <button type="button" onClick={() => setRevertParcialConfirm(null)} disabled={revertingParcial}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                className="flex-1 py-2.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
                 Cancelar
               </button>
-              <button type="button" onClick={revertCloseParcial} disabled={revertingParcial}
-                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors">
+              <Button className="flex-1" onClick={revertCloseParcial} disabled={revertingParcial}>
                 {revertingParcial ? 'Reabriendo…' : 'Reabrir'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -8813,13 +8725,12 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2 mt-4">
               <button type="button" onClick={() => setAtencionParcialConfirm(null)} disabled={iniciandoAtencion}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+                className="flex-1 py-2.5 rounded-card border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
                 Cancelar
               </button>
-              <button type="button" onClick={confirmIniciarAtencion} disabled={iniciandoAtencion}
-                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 transition-colors">
+              <Button className="flex-1" onClick={confirmIniciarAtencion} disabled={iniciandoAtencion}>
                 {iniciandoAtencion ? 'Iniciando…' : 'Iniciar atención'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -8831,7 +8742,7 @@ export default function SubjectPage() {
           <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => !savingStudent && setLinkCandidate(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-2rem)] max-w-sm hoja rounded-card p-4 shadow-2xl">
             <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-2">
-              <UserPlus size={24} className="text-accent" />
+              <UserPlus size={ICONO.lg} className="text-accent" />
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Es el mismo estudiante?</h3>
             {linkCandidate.identity.parecido ? (
@@ -8876,14 +8787,12 @@ export default function SubjectPage() {
               </p>
             )}
             <div className="flex flex-col gap-2 mt-4">
-              <button type="button"
+              <Button fullWidth icon={CheckIcon} busy={savingStudent}
                 onClick={() => resolveLinkCandidate(true)}
-                disabled={savingStudent}
-                className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
-              >
-                {savingStudent ? <Spinner size="sm" /> : <CheckIcon size={18} />}
+                disabled={savingStudent}>
+                
                 Sí, es el mismo estudiante
-              </button>
+              </Button>
               <button type="button"
                 onClick={() => resolveLinkCandidate(false)}
                 disabled={savingStudent}
@@ -8913,13 +8822,13 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full sm:w-[calc(100%-2rem)] max-w-lg hoja rounded-card shadow-2xl flex flex-col max-h-[85vh]">
             <div className="p-4 border-b border-outline-variant flex-shrink-0 flex items-center justify-between">
               <h3 className="text-base font-semibold text-on-surface">Revisa antes de importar</h3>
-              <button type="button" onClick={() => !importingExcel && setExcelPreview(null)} aria-label="Cerrar" className="p-2 text-hint hover:text-muted rounded"><X size={18} /></button>
+              <button type="button" onClick={() => !importingExcel && setExcelPreview(null)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint hover:text-muted rounded-full"><X size={ICONO.md} /></button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {excelPreview.invalid.length > 0 && (
                 <div className="rounded-card border border-amber-300 bg-amber-50 p-3">
                   <p className="text-sm font-semibold text-amber-800 flex items-center gap-1.5">
-                    <AlertTriangle size={16} className="flex-shrink-0" /> {excelPreview.invalid.length} fila{excelPreview.invalid.length !== 1 ? 's' : ''} no se {excelPreview.invalid.length !== 1 ? 'pudieron' : 'pudo'} leer
+                    <AlertTriangle size={ICONO.sm} className="flex-shrink-0" /> {excelPreview.invalid.length} fila{excelPreview.invalid.length !== 1 ? 's' : ''} no se {excelPreview.invalid.length !== 1 ? 'pudieron' : 'pudo'} leer
                   </p>
                   <ul className="mt-1.5 space-y-0.5 text-xs text-amber-800">
                     {excelPreview.invalid.map((inv) => (
@@ -9012,15 +8921,14 @@ export default function SubjectPage() {
             </div>
             <div className="p-3 border-t border-outline-variant flex-shrink-0 flex gap-2">
               <button type="button" onClick={() => setExcelPreview(null)} disabled={importingExcel}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
+                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
                 Cancelar
               </button>
-              <button type="button" onClick={confirmExcelImport}
-                disabled={importingExcel || excelPreview.rows.every((r) => r.status === 'skip' || r.status === 'duplicate')}
-                className="flex-1 py-2.5 rounded bg-accent hover:bg-accent-hover text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                {importingExcel ? <Spinner size="sm" /> : <CheckIcon size={16} />}
+              <Button icon={CheckIcon} busy={importingExcel} className="flex-1" onClick={confirmExcelImport}
+                disabled={importingExcel || excelPreview.rows.every((r) => r.status === 'skip' || r.status === 'duplicate')}>
+                
                 {importingExcel ? 'Importando…' : 'Confirmar e importar'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -9032,19 +8940,17 @@ export default function SubjectPage() {
           <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setResetPwdResult(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-2">
-              <KeyRound size={24} className="text-green-600" />
+              <KeyRound size={ICONO.lg} className="text-green-600" />
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">Contraseña restablecida</h3>
             <p className="text-sm text-muted text-center mt-2">
               <strong>{studentFullName(resetPwdResult.student)}</strong>{' '}
               ya puede establecer una nueva contraseña desde la pantalla de acceso.
             </p>
-            <button type="button"
-              onClick={() => setResetPwdResult(null)}
-              className="w-full mt-4 py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold rounded transition-colors"
-            >
+            <Button fullWidth className="mt-4"
+              onClick={() => setResetPwdResult(null)}>
               Entendido
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -9055,7 +8961,7 @@ export default function SubjectPage() {
           <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setStudentToDelete(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-2">
-              <Trash2 size={24} className="text-red-500" />
+              <Trash2 size={ICONO.lg} className="text-red-500" />
             </div>
             <h3 className="text-lg font-semibold text-center text-on-surface">¿Eliminar estudiante?</h3>
             <p className="text-sm text-muted text-center mt-2">
@@ -9070,14 +8976,12 @@ export default function SubjectPage() {
               >
                 Cancelar
               </button>
-              <button type="button"
+              <Button variant="danger" icon={Trash2} busy={savingStudent} className="flex-1"
                 onClick={confirmDeleteStudent}
-                disabled={savingStudent}
-                className="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {savingStudent ? <Spinner size="sm" /> : <Trash2 size={18} />}
+                disabled={savingStudent}>
+                
                 Eliminar
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -9089,21 +8993,15 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-md hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Editar asignatura</h3>
-              <button type="button" onClick={() => setShowEditSubjectModal(false)} aria-label="Cerrar" className="p-2 text-hint rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowEditSubjectModal(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
             </div>
             <form onSubmit={handleEditSubject} className="space-y-2">
-              <div>
-                <label htmlFor="edit-subject-nombre" className="block text-sm font-medium text-muted mb-1">Asignatura</label>
-                <input id="edit-subject-nombre" type="text" value={editSubjectForm.nombre} onChange={(e) => setEditSubjectForm((f) => ({ ...f, nombre: e.target.value }))}
-                  required
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
-              </div>
-              <div>
-                <label htmlFor="edit-subject-grupo" className="block text-sm font-medium text-muted mb-1">Grupo</label>
-                <input id="edit-subject-grupo" type="text" value={editSubjectForm.grupo} onChange={(e) => setEditSubjectForm((f) => ({ ...f, grupo: e.target.value }))}
-                  required
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
-              </div>
+              <Input
+                label="Asignatura" id="edit-subject-nombre" type="text" value={editSubjectForm.nombre} onChange={(e) => setEditSubjectForm((f) => ({ ...f, nombre: e.target.value }))}
+                required />
+              <Input
+                label="Grupo" id="edit-subject-grupo" type="text" value={editSubjectForm.grupo} onChange={(e) => setEditSubjectForm((f) => ({ ...f, grupo: e.target.value }))}
+                required />
               <div>
                 <p className="block text-sm font-medium text-muted mb-1">
                   Fechas <span className="text-accent font-normal text-xs">(recomendado)</span>
@@ -9111,11 +9009,11 @@ export default function SubjectPage() {
                 <p className="text-sm text-muted mb-1.5">Con fechas de inicio y fin, los días para marcar asistencia se generan de forma automática y cada parcial queda organizado por periodo. Si tu escuela aún no define calendario, puedes dejarlo así y elegirlas después.</p>
                 <div className="space-y-2">
                   <div>
-                    <span className="block text-sm text-slate-500 mb-1">Inicio</span>
+                    <span className="block text-sm text-muted mb-1">Inicio</span>
                     <EFDateTimePicker mode="date" value={editSubjectForm.fechaInicio} onChange={v => setEditSubjectForm(f => ({ ...f, fechaInicio: v }))} />
                   </div>
                   <div>
-                    <span className="block text-sm text-slate-500 mb-1">Fin</span>
+                    <span className="block text-sm text-muted mb-1">Fin</span>
                     <EFDateTimePicker mode="date" value={editSubjectForm.fechaFin} onChange={v => setEditSubjectForm(f => ({ ...f, fechaFin: v }))}
                       minDateTime={editSubjectForm.fechaInicio ? addOneDay(editSubjectForm.fechaInicio) : undefined}
                       disabled={!editSubjectForm.fechaInicio} />
@@ -9148,11 +9046,10 @@ export default function SubjectPage() {
                 <p className="block text-sm font-medium text-muted mb-2">Icono de la asignatura</p>
                 <IconSelect value={editSubjectForm.icon} onChange={(ic) => setEditSubjectForm((f) => ({ ...f, icon: ic }))} />
               </div>
-              <button type="submit" disabled={editingSubject || !editSubjectChanged}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded disabled:opacity-60 flex items-center justify-center gap-2">
-                {editingSubject ? <Spinner size="sm" /> : <Pencil size={18} />}
+              <Button fullWidth icon={Pencil} busy={editingSubject} type="submit" disabled={editingSubject || !editSubjectChanged}>
+                
                 {editingSubject ? 'Guardando…' : 'Guardar cambios'}
-              </button>
+              </Button>
               {/* Aire bajo el botón: como hoja inferior en móvil quedaba pegado
                   al borde de la pantalla (y bajo el gesto de inicio). */}
               <div className="h-6 safe-bottom" />
@@ -9168,21 +9065,15 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-md hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Duplicar asignatura</h3>
-              <button type="button" onClick={() => setShowCopyModal(false)} aria-label="Cerrar" className="p-2 text-hint rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowCopyModal(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
             </div>
             <form onSubmit={handleCopySubject} className="space-y-2">
-              <div>
-                <label htmlFor="copy-subject-nombre" className="block text-sm font-medium text-muted mb-1">Asignatura</label>
-                <input id="copy-subject-nombre" type="text" value={copyForm.nombre} onChange={(e) => setCopyForm((f) => ({ ...f, nombre: e.target.value }))}
-                  required
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
-              </div>
-              <div>
-                <label htmlFor="copy-subject-grupo" className="block text-sm font-medium text-muted mb-1">Grupo</label>
-                <input id="copy-subject-grupo" type="text" value={copyForm.grupo} onChange={(e) => setCopyForm((f) => ({ ...f, grupo: e.target.value }))}
-                  required
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" />
-              </div>
+              <Input
+                label="Asignatura" id="copy-subject-nombre" type="text" value={copyForm.nombre} onChange={(e) => setCopyForm((f) => ({ ...f, nombre: e.target.value }))}
+                required />
+              <Input
+                label="Grupo" id="copy-subject-grupo" type="text" value={copyForm.grupo} onChange={(e) => setCopyForm((f) => ({ ...f, grupo: e.target.value }))}
+                required />
               <div>
                 <p className="block text-sm font-medium text-muted mb-1">
                   Fechas <span className="text-accent font-normal text-xs">(recomendado)</span>
@@ -9190,11 +9081,11 @@ export default function SubjectPage() {
                 <p className="text-sm text-muted mb-1.5">Con fechas de inicio y fin, los días para marcar asistencia se generan de forma automática y cada parcial queda organizado por periodo. Si tu escuela aún no define calendario, puedes dejarlo así y elegirlas después.</p>
                 <div className="space-y-2">
                   <div>
-                    <span className="block text-sm text-slate-500 mb-1">Inicio</span>
+                    <span className="block text-sm text-muted mb-1">Inicio</span>
                     <EFDateTimePicker mode="date" value={copyFechas.fechaInicio} onChange={v => setCopyFechas(f => ({ ...f, fechaInicio: v }))} />
                   </div>
                   <div>
-                    <span className="block text-sm text-slate-500 mb-1">Fin</span>
+                    <span className="block text-sm text-muted mb-1">Fin</span>
                     <EFDateTimePicker mode="date" value={copyFechas.fechaFin} onChange={v => setCopyFechas(f => ({ ...f, fechaFin: v }))}
                       minDateTime={copyFechas.fechaInicio ? addOneDay(copyFechas.fechaInicio) : undefined}
                       disabled={!copyFechas.fechaInicio} />
@@ -9209,20 +9100,19 @@ export default function SubjectPage() {
                 <p className="block text-sm font-medium text-muted mb-2">Icono de la asignatura</p>
                 <IconSelect value={copyForm.icon} onChange={(ic) => setCopyForm((f) => ({ ...f, icon: ic }))} />
               </div>
-              <label aria-label="Copiar lista de estudiantes" className="flex items-center gap-2 p-3 rounded border border-outline-variant cursor-pointer hover:bg-[var(--accent-tint)] transition-colors">
+              <label aria-label="Copiar lista de estudiantes" className="flex items-center gap-2 p-3 rounded-card border border-outline-variant cursor-pointer hover:bg-[var(--accent-tint)] transition-colors">
                 <input type="checkbox" checked={copyForm.keepStudents} onChange={(e) => setCopyForm((f) => ({ ...f, keepStudents: e.target.checked }))}
                   className="accent-[var(--accent)] w-4 h-4" />
                 <div>
                   <p className="text-sm font-medium text-on-surface">Copiar lista de estudiantes</p>
-                  <p className="text-sm text-slate-500">Conservan su mismo usuario y cuenta; quienes ya activaron verán esta asignatura al instante</p>
+                  <p className="text-sm text-muted">Conservan su mismo usuario y cuenta; quienes ya activaron verán esta asignatura al instante</p>
                 </div>
               </label>
-              <p className="text-sm text-slate-500">Se duplicarán todas las actividades. Las calificaciones y entregas no se copian.</p>
-              <button type="submit" disabled={copyingSubject}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded disabled:opacity-60 flex items-center justify-center gap-2">
-                {copyingSubject ? <Spinner size="sm" /> : <Copy size={18} />}
+              <p className="text-sm text-muted">Se duplicarán todas las actividades. Las calificaciones y entregas no se copian.</p>
+              <Button fullWidth icon={Copy} busy={copyingSubject} type="submit" disabled={copyingSubject}>
+                
                 {copyingSubject ? 'Duplicando…' : 'Duplicar asignatura'}
-              </button>
+              </Button>
               <div className="h-6 safe-bottom" />
             </form>
           </div>
@@ -9235,7 +9125,7 @@ export default function SubjectPage() {
           <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
             <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-2">
-              <Trash2 size={24} className="text-red-500" />
+              <Trash2 size={ICONO.lg} className="text-red-500" />
             </div>
             <h3 className="text-base font-semibold text-on-surface text-center mb-1">¿Eliminar asignatura?</h3>
             <p className="text-sm text-muted text-center mb-2">
@@ -9243,22 +9133,21 @@ export default function SubjectPage() {
               <strong>{subject?.nombre}</strong>. Esta acción <strong>no se puede deshacer</strong>.
             </p>
             <p className="text-xs text-muted mb-2">Escribe <strong>{subject?.nombre}</strong> para confirmar:</p>
-            <input
+            <Input
               type="text"
               value={deleteSubjectConfirmText}
               onChange={(e) => setDeleteSubjectConfirmText(e.target.value)}
-              className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 text-sm bg-surface mb-2"
+              className="focus-visible:ring-red-400 mb-2"
               aria-label={subject?.nombre}
             />
             <div className="flex gap-2">
               <button type="button" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <button type="button" onClick={handleDeleteSubject}
-                disabled={deletingSubject || deleteSubjectConfirmText !== subject?.nombre}
-                className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
-                {deletingSubject ? <Spinner size="sm" /> : <Trash2 size={16} />}
+                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+              <Button variant="danger" icon={Trash2} busy={deletingSubject} className="flex-1" onClick={handleDeleteSubject}
+                disabled={deletingSubject || deleteSubjectConfirmText !== subject?.nombre}>
+                
                 {deletingSubject ? 'Eliminando…' : 'Eliminar todo'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -9272,7 +9161,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-semibold">Archivar asignatura</h3>
-              <button type="button" onClick={() => !archiving && setShowArchiveModal(false)} aria-label="Cerrar" className="p-2 text-hint rounded"><X size={20} /></button>
+              <button type="button" onClick={() => !archiving && setShowArchiveModal(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
             </div>
             <p className="text-sm text-muted mb-3">
               Archivar solo la saca de tus asignaturas activas. <strong>No se borra nada</strong>:
@@ -9283,7 +9172,7 @@ export default function SubjectPage() {
                 de lo que veía el docente. Es literal lo que hace el código: su
                 dashboard filtra por `archived` y la manda a la sección
                 "Asignaturas archivadas", desde donde la puede seguir abriendo. */}
-            <div className="rounded border border-outline-variant bg-surface p-3 mb-3">
+            <div className="rounded-card border border-outline-variant bg-surface p-3 mb-3">
               <p className="text-sm font-semibold text-on-surface mb-1">Qué van a ver tus estudiantes</p>
               <ul className="text-sm text-muted space-y-0.5">
                 <li>• <strong>{subject?.nombre}</strong> sale de sus asignaturas y se va a «Asignaturas archivadas».</li>
@@ -9297,8 +9186,8 @@ export default function SubjectPage() {
                 dice dónde está — si la necesita, todavía está a tiempo de ir
                 por ella antes de archivar. */}
             {IS_NATIVE_APP ? (
-              <div className="flex items-start gap-2 p-3 mb-4 rounded border border-amber-200 bg-amber-50">
-                <AlertTriangle size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2 p-3 mb-4 rounded-card border border-amber-200 bg-amber-50">
+                <AlertTriangle size={ICONO.sm} className="text-amber-600 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-amber-900">¿Quieres el respaldo ZIP de las entregas?</p>
                   <p className="text-sm text-amber-800">Archiva desde la versión web para descargarlo. Aquí puedes archivar, pero el ZIP solo se guarda desde la computadora.</p>
@@ -9306,27 +9195,26 @@ export default function SubjectPage() {
               </div>
             ) : (
               <div className="space-y-2 mb-4">
-                <label className="flex items-start gap-2 p-3 rounded border border-outline-variant cursor-pointer hover:bg-[var(--accent-tint)] transition-colors">
+                <label className="flex items-start gap-2 p-3 rounded-card border border-outline-variant cursor-pointer hover:bg-[var(--accent-tint)] transition-colors">
                   <input type="checkbox" checked={archiveConZip} onChange={(e) => setArchiveConZip(e.target.checked)} className="mt-0.5 accent-[var(--accent)]" />
                   <div>
                     <p className="text-sm font-medium text-on-surface">Descargar también un respaldo ZIP</p>
-                    <p className="text-sm text-slate-500">Opcional — las entregas no se van a borrar</p>
+                    <p className="text-sm text-muted">Opcional — las entregas no se van a borrar</p>
                   </div>
                 </label>
               </div>
             )}
             <div className="flex gap-2">
               <button type="button" onClick={() => setShowArchiveModal(false)} disabled={archiving}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
-              <button type="button" onClick={handleArchiveConfirm} disabled={archiving}
-                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
-                {archiving ? <Spinner size="sm" /> : <Archive size={16} />}
+                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)] disabled:opacity-60">Cancelar</button>
+              <Button icon={Archive} busy={archiving} className="flex-1" onClick={handleArchiveConfirm} disabled={archiving}>
+                
                 {archiving
                   ? (zipDownloading
                       ? `Descargando ${zipProgress.done}/${zipProgress.total}…`
                       : 'Archivando…')
                   : 'Archivar'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -9339,7 +9227,7 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-md hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Desarchivar asignatura</h3>
-              <button type="button" onClick={() => setShowUnarchiveModal(false)} aria-label="Cerrar" className="p-2 text-hint rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowUnarchiveModal(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
             </div>
             <p className="text-sm text-muted mb-2">Puedes editar los datos y elegir cómo restaurar:</p>
 
@@ -9347,17 +9235,15 @@ export default function SubjectPage() {
               <div>
                 <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-1.5">Datos</p>
                 <div className="space-y-2">
-                  <input type="text" value={unarchiveEdits.nombre} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, nombre: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" aria-label="Asignatura" />
-                  <input type="text" value={unarchiveEdits.grupo} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, grupo: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface" aria-label="Grupo (ej: 1A)" />
+                  <Input type="text" value={unarchiveEdits.nombre} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, nombre: e.target.value }))} aria-label="Asignatura" />
+                  <Input type="text" value={unarchiveEdits.grupo} onChange={(e) => setUnarchiveEdits((f) => ({ ...f, grupo: e.target.value }))} aria-label="Grupo (ej: 1A)" />
                   <div className="space-y-2">
                     <div>
-                      <span className="block text-sm text-slate-500 mb-1">Inicio</span>
+                      <span className="block text-sm text-muted mb-1">Inicio</span>
                       <EFDateTimePicker mode="date" value={unarchiveEdits.fechaInicio} onChange={v => setUnarchiveEdits(f => ({ ...f, fechaInicio: v }))} />
                     </div>
                     <div>
-                      <span className="block text-sm text-slate-500 mb-1">Fin</span>
+                      <span className="block text-sm text-muted mb-1">Fin</span>
                       <EFDateTimePicker mode="date" value={unarchiveEdits.fechaFin} onChange={v => setUnarchiveEdits(f => ({ ...f, fechaFin: v }))}
                         minDateTime={unarchiveEdits.fechaInicio ? addOneDay(unarchiveEdits.fechaInicio) : undefined}
                         disabled={!unarchiveEdits.fechaInicio} />
@@ -9401,7 +9287,7 @@ export default function SubjectPage() {
                       <input type="radio" name="unarchiveStudents" value={val} checked={unarchiveStudents === val} onChange={() => setUnarchiveStudents(val)} className="accent-[var(--accent)]" />
                       <div>
                         <p className="text-sm font-medium text-on-surface">{label}</p>
-                        <p className="text-sm text-slate-500">{desc}</p>
+                        <p className="text-sm text-muted">{desc}</p>
                       </div>
                     </label>
                   ))}
@@ -9427,12 +9313,11 @@ export default function SubjectPage() {
 
             <div className="flex gap-2">
               <button type="button" onClick={() => setShowUnarchiveModal(false)}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <button type="button" onClick={handleUnarchiveConfirm} disabled={unarchivedSaving}
-                className="flex-1 py-2.5 rounded bg-accent text-white text-sm font-semibold hover:bg-accent-hover disabled:opacity-60 flex items-center justify-center gap-2">
-                {unarchivedSaving ? <Spinner size="sm" /> : null}
+                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+              <Button busy={unarchivedSaving} className="flex-1" onClick={handleUnarchiveConfirm} disabled={unarchivedSaving}>
+                
                 {unarchivedSaving ? 'Guardando…' : 'Desarchivar'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -9445,20 +9330,17 @@ export default function SubjectPage() {
           <div className="relative bg-surface-card w-[calc(100%-1rem)] sm:w-full max-w-sm hoja rounded-card p-4 drop-shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">{resourceModalMode === 'create' ? 'Agregar recurso' : 'Editar recurso'}</h3>
-              <button type="button" onClick={() => setShowResourceModal(false)} aria-label="Cerrar" className="p-2 text-hint rounded"><X size={20} /></button>
+              <button type="button" onClick={() => setShowResourceModal(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
             </div>
             <form onSubmit={handleSaveResource} className="space-y-2">
-              <div>
-                <label htmlFor="resource-nombre" className="block text-xs font-medium text-muted mb-1">Nombre del recurso</label>
-                <input
-                  id="resource-nombre"
-                  type="text"
-                  value={resourceForm.nombre}
-                  onChange={(e) => setResourceForm((f) => ({ ...f, nombre: e.target.value }))}
-                  required
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
-                />
-              </div>
+              <Input
+                label="Nombre del recurso"
+                id="resource-nombre"
+                type="text"
+                value={resourceForm.nombre}
+                onChange={(e) => setResourceForm((f) => ({ ...f, nombre: e.target.value }))}
+                required
+              />
               <div>
                 <label htmlFor="resource-descripcion" className="block text-xs font-medium text-muted mb-1">Descripción (opcional)</label>
                 <textarea
@@ -9466,7 +9348,7 @@ export default function SubjectPage() {
                   value={resourceForm.descripcion}
                   onChange={(e) => setResourceForm((f) => ({ ...f, descripcion: e.target.value }))}
                   rows={2}
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
+                  className="w-full px-4 py-2.5 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
                 />
               </div>
               <div>
@@ -9499,24 +9381,21 @@ export default function SubjectPage() {
               ) : (
                 <div>
                   <label htmlFor="resource-enlace" className="block text-xs font-medium text-muted mb-1">Enlace</label>
-                  <input
+                  <Input
                     id="resource-enlace"
                     type="text"
                     value={resourceForm.enlace}
                     onChange={(e) => setResourceForm((f) => ({ ...f, enlace: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
                   />
                   <p className="text-sm text-hint mt-1">Video de YouTube, documento de Google Drive, sitio externo, etc.</p>
                 </div>
               )}
-              <button
+              <Button fullWidth icon={Upload} busy={savingResource}
                 type="submit"
-                disabled={savingResource || !resourceChanged}
-                className="w-full py-2.5 bg-accent text-white font-semibold rounded transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {savingResource ? <Spinner size="sm" /> : <Upload size={18} />}
+                disabled={savingResource || !resourceChanged}>
+                
                 {savingResource ? 'Guardando…' : 'Guardar recurso'}
-              </button>
+              </Button>
             </form>
           </div>
         </div>
@@ -9533,12 +9412,11 @@ export default function SubjectPage() {
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={() => setDeleteResourceConfirm(null)}
-                className="flex-1 py-2.5 rounded border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <button type="button" onClick={handleDeleteResource} disabled={deletingResource}
-                className="flex-1 py-2 rounded bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2">
-                {deletingResource ? <Spinner size="sm" /> : <Trash2 size={16} />}
+                className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
+              <Button variant="danger" icon={Trash2} busy={deletingResource} className="flex-1" onClick={handleDeleteResource} disabled={deletingResource}>
+                
                 {deletingResource ? 'Eliminando…' : 'Eliminar'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

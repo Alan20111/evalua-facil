@@ -13,6 +13,8 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { formatHora12 } from '../../utils/formatHora'
 import { IS_NATIVE_APP } from '../../utils/platform'
+import { Button } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 // Mismo criterio y misma medida que la rejilla de 3 días/Semana en
 // CalendarPage: 14 px en la web, 10 en la app.
@@ -48,11 +50,11 @@ function HoraStepper({ value, onChange, minMin, maxMin, step = SNAP_MIN }) {
   return (
     <div className="flex items-center gap-1.5">
       <button type="button" onClick={() => onChange(minsToTime(Math.max(minMin, cur - step)))} disabled={cur <= minMin} className={btn} aria-label="−10 minutos">
-        <Minus size={14} />
+        <Minus size={ICONO.xs} />
       </button>
-      <span className="flex-1 text-center text-base font-semibold tabular-nums py-1.5 rounded border border-outline-variant bg-surface select-none">{formatHora12(value)}</span>
+      <span className="flex-1 text-center text-base font-semibold tabular-nums py-1.5 rounded-card border border-outline-variant bg-surface select-none">{formatHora12(value)}</span>
       <button type="button" onClick={() => onChange(minsToTime(Math.min(maxMin, cur + step)))} disabled={cur >= maxMin} className={btn} aria-label="+10 minutos">
-        <Plus size={14} />
+        <Plus size={ICONO.xs} />
       </button>
     </div>
   )
@@ -314,8 +316,8 @@ export default function ProgramarZonaSemanal({
             paddingTop: `calc(env(safe-area-inset-top, 0px) + ${IS_NATIVE_APP ? '0.75rem' : '1.5rem'})`,
           }}
         >
-          <button type="button" onClick={intentarSalir} className="p-2 text-muted hover:text-error rounded transition-colors" aria-label="Volver">
-            <ArrowLeft size={18} />
+          <button type="button" onClick={intentarSalir} className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full transition-colors" aria-label="Volver">
+            <ArrowLeft size={ICONO.md} />
           </button>
           <div className="min-w-0 flex-1">
             {/* 20 px en la web (pedido explícito); en la app se queda en text-sm,
@@ -338,7 +340,7 @@ export default function ProgramarZonaSemanal({
             </p>
           </div>
           <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ${completo ? 'bg-green-600 text-white' : 'bg-surface-card border border-outline-variant text-on-surface'}`}>
-            {completo && <Check size={14} />}
+            {completo && <Check size={ICONO.xs} />}
             {patrones.length}/{bloquesPorSemana} colocados
           </div>
         </div>
@@ -346,7 +348,7 @@ export default function ProgramarZonaSemanal({
         {/* Aviso cuando faltan bloques */}
         {!completo && (
           <div className="px-4 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-800 flex items-center gap-2 flex-shrink-0">
-            <AlertCircle size={14} className="flex-shrink-0 text-amber-500" />
+            <AlertCircle size={ICONO.xs} className="flex-shrink-0 text-amber-500" />
             Coloca {restantes} bloque{restantes === 1 ? '' : 's'} más para poder guardar.
           </div>
         )}
@@ -478,26 +480,20 @@ export default function ProgramarZonaSemanal({
           </span>
           {esModificar && !hayCambios ? (
             // Sin cambios: no hay nada que guardar. Solo salir (sin re-guardar).
-            <button
-              type="button"
-              onClick={() => onCancel?.()}
-              className="px-4 py-2.5 text-sm text-muted rounded-full border border-outline-variant hover:bg-surface transition-colors"
-            >
+            <Button variant="secondary"
+              onClick={() => onCancel?.()}>
               Salir sin modificar
-            </button>
+            </Button>
           ) : (
             <>
-              <button type="button" onClick={intentarSalir} className="px-3 py-2 text-sm text-muted rounded-full border border-outline-variant hover:bg-surface transition-colors">
+              <Button variant="secondary" onClick={intentarSalir}>
                 Cancelar
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button icon={Check}
                 onClick={guardar}
-                disabled={!completo}
-                className="px-4 py-2.5 bg-accent text-white rounded-full text-sm font-semibold disabled:opacity-60 flex items-center gap-2"
-              >
-                <Check size={15} /> {esModificar ? 'Guardar cambios' : 'Crear bloques'}
-              </button>
+                disabled={!completo}>
+                 {esModificar ? 'Guardar cambios' : 'Crear bloques'}
+              </Button>
             </>
           )}
         </div>
@@ -528,7 +524,7 @@ export default function ProgramarZonaSemanal({
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-xs p-4 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-on-surface text-sm">Colocar bloque</h3>
-              <button type="button" onClick={() => setPlacing(null)} className="p-2 text-muted hover:text-error" aria-label="Cerrar"><X size={16} /></button>
+              <button type="button" onClick={() => setPlacing(null)} className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full" aria-label="Cerrar"><X size={ICONO.sm} /></button>
             </div>
             <div className="space-y-1">
               <span className="text-xs text-muted">Día</span>
@@ -550,7 +546,7 @@ export default function ProgramarZonaSemanal({
             <div className="space-y-1">
               <span className="text-xs text-muted">Lugar (opcional)</span>
               <div className="flex items-center gap-2">
-                <MapPin size={14} className="text-muted flex-shrink-0" />
+                <MapPin size={ICONO.xs} className="text-muted flex-shrink-0" />
                 <input
                   type="text" value={placing.lugar || ''}
                   onChange={e => setPlacing(p => ({ ...p, lugar: e.target.value }))}
@@ -577,20 +573,17 @@ export default function ProgramarZonaSemanal({
                 <>
                   {invalido && (
                     <p className="text-sm text-error flex items-center gap-1">
-                      <AlertCircle size={13} /> Aquí se traslapa con un espacio ocupado o se sale del horario.
+                      <AlertCircle size={ICONO.xs} /> Aquí se traslapa con un espacio ocupado o se sale del horario.
                     </p>
                   )}
                   {recortado && (
                     <p className="text-xs text-amber-600">Solo caben {max} aquí; se colocarán {max}.</p>
                   )}
-                  <button
-                    type="button"
+                  <Button fullWidth icon={Plus}
                     onClick={confirmarColocar}
-                    disabled={invalido}
-                    className="w-full py-2.5 bg-accent text-white rounded-full text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
-                  >
-                    <Plus size={15} /> Colocar {Math.min(placing.count, Math.max(1, max))}
-                  </button>
+                    disabled={invalido}>
+                     Colocar {Math.min(placing.count, Math.max(1, max))}
+                  </Button>
                 </>
               )
             })()}
@@ -605,7 +598,7 @@ export default function ProgramarZonaSemanal({
           <div className="relative bg-surface-card rounded-card shadow-2xl w-full max-w-sm p-4 space-y-2">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-on-surface text-sm">Editar bloque</h3>
-              <button type="button" onClick={() => setEditing(null)} className="p-2 text-muted hover:text-error" aria-label="Cerrar"><X size={16} /></button>
+              <button type="button" onClick={() => setEditing(null)} className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full" aria-label="Cerrar"><X size={ICONO.sm} /></button>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -638,7 +631,7 @@ export default function ProgramarZonaSemanal({
             <div className="space-y-1">
               <span className="text-xs text-muted">Lugar (opcional)</span>
               <div className="flex items-center gap-2">
-                <MapPin size={14} className="text-muted flex-shrink-0" />
+                <MapPin size={ICONO.xs} className="text-muted flex-shrink-0" />
                 <input
                   type="text" value={editP.lugar}
                   onChange={e => updatePatron(editP.id, { lugar: e.target.value })}
@@ -677,7 +670,7 @@ export default function ProgramarZonaSemanal({
                 onClick={() => updatePatron(editP.id, { alarma: { ...editP.alarma, activa: !editP.alarma.activa } })}
                 className="flex items-center gap-2 text-sm font-medium text-on-surface"
               >
-                {editP.alarma?.activa ? <Bell size={15} className="text-accent" /> : <BellOff size={15} className="text-muted" />}
+                {editP.alarma?.activa ? <Bell size={ICONO.sm} className="text-accent" /> : <BellOff size={ICONO.sm} className="text-muted" />}
                 Alarma antes de la clase
               </button>
               <p className="text-[11px] text-muted">Suena solo con esta pantalla abierta en el navegador. Para el celular, usa “Antes de una clase” en Notificaciones.</p>
@@ -690,8 +683,8 @@ export default function ProgramarZonaSemanal({
                       options={ALARMA_SONIDOS.map(s => ({ value: s.id, label: s.label }))}
                       wrapperClassName="flex-1"
                     />
-                    <button type="button" onClick={() => reproducirSonido(editP.alarma.sonido || 'campana')} className="px-2 rounded border border-outline-variant text-accent hover:bg-[var(--accent-tint)]" aria-label="Probar">
-                      <Play size={13} />
+                    <button type="button" onClick={() => reproducirSonido(editP.alarma.sonido || 'campana')} className="px-2 rounded-card border border-outline-variant text-accent hover:bg-[var(--accent-tint)]" aria-label="Probar">
+                      <Play size={ICONO.xs} />
                     </button>
                   </div>
                   <input
@@ -710,26 +703,23 @@ export default function ProgramarZonaSemanal({
               <button
                 type="button"
                 onClick={() => borrarPatron(editP.id)}
-                className="flex items-center gap-1 px-2 py-1.5 text-xs text-error rounded border border-error/30 hover:bg-error/10 transition-colors"
+                className="flex items-center gap-1 px-2 py-1.5 text-xs text-error rounded-full border border-error/30 hover:bg-error/10 transition-colors min-h-control-sm"
               >
-                <Trash2 size={13} /> Borrar
+                <Trash2 size={ICONO.xs} /> Borrar
               </button>
               <button
                 type="button"
                 onClick={() => duplicarPatron(editP.id)}
                 disabled={restantes <= 0}
-                className="flex items-center gap-1 px-2 py-1.5 text-xs text-muted rounded border border-outline-variant hover:text-accent hover:border-accent transition-colors disabled:opacity-60"
+                className="flex items-center gap-1 px-2 py-1.5 text-xs text-muted rounded-full border border-outline-variant hover:text-accent hover:border-accent transition-colors disabled:opacity-60 min-h-control-sm"
                 data-tooltip={restantes <= 0 ? 'Ya no quedan bloques por colocar' : 'Copia en la hora siguiente'}
               >
-                <Copy size={13} /> Duplicar
+                <Copy size={ICONO.xs} /> Duplicar
               </button>
-              <button
-                type="button"
-                onClick={() => { setEditing(null); setRecienId(null) }}
-                className="flex-1 flex items-center justify-center gap-1 px-2 py-2 text-xs font-semibold text-white bg-accent rounded-full hover:bg-accent-hover transition-colors"
-              >
-                <Check size={13} /> Confirmar
-              </button>
+              <Button icon={Check} className="flex-1"
+                onClick={() => { setEditing(null); setRecienId(null) }}>
+                 Confirmar
+              </Button>
             </div>
           </div>
         </div>
@@ -747,9 +737,9 @@ export default function ProgramarZonaSemanal({
                 : `Colocaste ${patrones.length} de ${bloquesPorSemana} bloques. Si sales ahora se perderán.`}
             </p>
             <div className="flex gap-2">
-              <button type="button" onClick={() => setConfirmSalir(false)} className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface">
+              <Button variant="secondary" className="flex-1" onClick={() => setConfirmSalir(false)}>
                 Seguir aquí
-              </button>
+              </Button>
               <button type="button" onClick={() => { setConfirmSalir(false); onCancel?.() }} className="flex-1 py-2 rounded bg-error text-white text-sm font-semibold">
                 Salir
               </button>

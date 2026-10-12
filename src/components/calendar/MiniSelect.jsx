@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { ChevronDown } from 'lucide-react'
+import { Button } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 // Selector compacto reutilizado por los selectores de horas/días de la
 // Agenda (docente y alumno) — mismo look que el resto de la app, sin usar
@@ -19,14 +21,11 @@ export default function MiniSelect({ value, options, onChange }) {
 
   return (
     <div className="relative flex-1 min-w-0" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between gap-1 px-2 py-2 rounded-full border border-outline-variant bg-surface text-sm text-on-surface transition-colors"
-      >
+      <Button variant="secondary" fullWidth className="justify-between"
+        onClick={() => setOpen(v => !v)}>
         <span className="truncate">{selected?.label}</span>
-        <ChevronDown size={14} className={`text-muted flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
+        <ChevronDown size={ICONO.xs} className={`text-muted flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </Button>
       {open && (
         <div className="absolute right-0 top-full mt-1 z-10 bg-surface-card border border-outline-variant rounded-card shadow-lg py-1 w-full min-w-[8rem] max-h-56 overflow-y-auto">
           {options.map(o => (

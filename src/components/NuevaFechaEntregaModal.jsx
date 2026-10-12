@@ -10,6 +10,7 @@ import { fechaLimiteTimestamp } from '../utils/deadline'
 import { leerEntregasReales } from '../utils/extensiones'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
+import { Button } from './ui'
 
 // Shared by ActivityPage (grading view) and SubjectPage (activity editor):
 // extends a group's deadline, or gives specific students their own extension.
@@ -126,11 +127,11 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
         <h3 className="text-lg font-semibold text-center text-on-surface">Nueva fecha de entrega</h3>
         <div className="flex gap-2 mt-3 flex-shrink-0">
           <button type="button" onClick={() => setMode('todos')}
-            className={`flex-1 py-2.5 rounded-full text-sm font-medium border transition-colors ${mode === 'todos' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted hover:border-accent'}`}>
+            className={`flex-1 py-2.5 rounded-full text-sm font-medium border transition-colors min-h-control ${mode === 'todos' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted hover:border-accent'}`}>
             Para todos
           </button>
           <button type="button" onClick={() => setMode('algunos')}
-            className={`flex-1 py-2.5 rounded-full text-sm font-medium border transition-colors ${mode === 'algunos' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted hover:border-accent'}`}>
+            className={`flex-1 py-2.5 rounded-full text-sm font-medium border transition-colors min-h-control ${mode === 'algunos' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted hover:border-accent'}`}>
             Para algunos
           </button>
         </div>
@@ -184,22 +185,20 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
               <div className="mt-2">
                 <label htmlFor="motivo-extension" className="block text-sm font-medium text-muted mb-1">Motivo <span className="text-hint">(opcional)</span></label>
                 <textarea id="motivo-extension" value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={2}
-                  className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+                  className="w-full px-3 py-2 rounded-card border border-outline-variant text-sm bg-surface resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
               </div>
             </div>
           )}
         </div>
 
         <div className="flex gap-2 mt-4 flex-shrink-0">
-          <button type="button" onClick={onClose} disabled={saving}
-            className="flex-1 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+          <Button variant="secondary" className="flex-1" onClick={onClose} disabled={saving}>
             Cancelar
-          </button>
-          <button type="button" onClick={save}
-            disabled={saving || !date || (mode === 'algunos' && (selected.size === 0 || !conEntrega))}
-            className="flex-1 py-2.5 bg-accent text-white text-sm font-semibold rounded-full disabled:opacity-60 transition-colors">
+          </Button>
+          <Button className="flex-1" onClick={save}
+            disabled={saving || !date || (mode === 'algunos' && (selected.size === 0 || !conEntrega))}>
             {saving ? 'Guardando…' : 'Guardar'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

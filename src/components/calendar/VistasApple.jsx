@@ -7,6 +7,7 @@
 // resto del calendario de la app.
 import { useRef } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { IconButton } from '../ui'
 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 const MESES_CORTO = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
@@ -87,10 +88,7 @@ export function TiraSemana({ fecha, onElegir }) {
       onPointerCancel={() => { inicio.current = null }}
     >
       <div className="flex items-center gap-1">
-        <button type="button" onClick={() => onElegir(sumaDias(fecha, -7))} aria-label="Semana anterior"
-          className="p-2 rounded-full text-hint hover:text-accent hover:bg-[var(--accent-tint)] transition-colors flex-shrink-0">
-          <ChevronLeft size={18} />
-        </button>
+        <IconButton icon={ChevronLeft} label="Semana anterior" tooltip={false} onClick={() => onElegir(sumaDias(fecha, -7))} />
         <div className="grid grid-cols-7 flex-1 min-w-0" role="group" aria-label="Días de la semana">
           {dias.map((d, i) => {
             const elegido = mismoDia(d, fecha)
@@ -102,7 +100,7 @@ export function TiraSemana({ fecha, onElegir }) {
                 onClick={() => onElegir(d)}
                 aria-label={`${DIAS_LARGO[i]} ${d.getDate()} de ${MESES[d.getMonth()]}`}
                 aria-pressed={elegido}
-                className="flex flex-col items-center gap-1 py-1 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="flex flex-col items-center gap-1 py-1 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-accent min-h-control-sm"
               >
                 <span className={`text-[0.7rem] font-semibold ${i >= 5 ? 'text-hint' : 'text-muted'}`}>{LETRAS[i]}</span>
                 <span className={`w-9 h-9 flex items-center justify-center rounded-full text-base font-semibold tabular-nums transition-colors ${
@@ -114,10 +112,7 @@ export function TiraSemana({ fecha, onElegir }) {
             )
           })}
         </div>
-        <button type="button" onClick={() => onElegir(sumaDias(fecha, 7))} aria-label="Semana siguiente"
-          className="p-2 rounded-full text-hint hover:text-accent hover:bg-[var(--accent-tint)] transition-colors flex-shrink-0">
-          <ChevronRight size={18} />
-        </button>
+        <IconButton icon={ChevronRight} label="Semana siguiente" tooltip={false} onClick={() => onElegir(sumaDias(fecha, 7))} />
       </div>
       <p className="text-center text-sm font-semibold text-on-surface mt-2">
         {DIAS_LARGO[(fecha.getDay() + 6) % 7]}, {fecha.getDate()} {MESES_CORTO[fecha.getMonth()].toLowerCase()} {fecha.getFullYear()}

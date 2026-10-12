@@ -35,7 +35,8 @@ import {
   CalendarOff, Trash2, X, Minus, Columns3, Lock, LockOpen, Ban, Calendar,
 } from 'lucide-react'
 import { VistaAnio, TiraSemana } from '../../components/calendar/VistasApple'
-import { SkeletonList } from '../../components/ui'
+import { SkeletonList, Button, IconButton } from '../../components/ui'
+import { ICONO } from '../../config/iconos'
 
 // ─── Date helpers ──────────────────────────────────────────────────────────
 
@@ -138,7 +139,7 @@ export function EventPill({ ev, compact, onClick, movable }) {
       style={{ background: ev.bg, color: ev.text }}
     >
       <span className="flex items-start gap-1 w-full">
-        <Icon size={13} className="flex-shrink-0 mt-0.5" />
+        <Icon size={ICONO.xs} className="flex-shrink-0 mt-0.5" />
         {dot && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5 ${ev.estado.tono === 'vencida' ? 'bg-red-500' : 'bg-amber-400'}`} />}
         {/* Nunca se corta el nombre: crece a los renglones que necesite —
             así "(Publicada)"/"(Cierre)" siempre queda visible completo. */}
@@ -246,7 +247,7 @@ export function AgendaView({
       {/* Aviso de día de asueto o de vacaciones */}
       {(vacacionDia || asuetoDia) && (
         <div className="px-3 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-800 flex items-center gap-2">
-          <CalendarOff size={14} className="flex-shrink-0 text-amber-600" />
+          <CalendarOff size={ICONO.xs} className="flex-shrink-0 text-amber-600" />
           {vacacionDia ? 'Periodo de vacaciones' : 'Día de asueto'} — sin {alcanceAsuetoTexto(vacacionDia || asuetoDia).toLowerCase()}.
         </div>
       )}
@@ -394,12 +395,12 @@ export function AgendaView({
                     {sub && total < 3 && <span className={`block ${IS_NATIVE_APP ? GRID_ITEM_TEXT : 'text-xs'} opacity-75 leading-tight truncate`}>{sub}</span>}
                     {it.kind === 'bloque' && it.b.alarma?.activa && (
                       <span className="inline-flex items-center gap-1 text-[10px] opacity-70 leading-tight">
-                        <Bell size={10} /> {it.b.alarma.minutosAntes} min antes
+                        <Bell size={ICONO.xs} /> {it.b.alarma.minutosAntes} min antes
                       </span>
                     )}
                     {it.ev?.tipo === 'deadline' && (
                       <span className="inline-flex items-center gap-1 text-[10px] opacity-80 leading-tight">
-                        {it.ev.cierraEnFecha ? <Lock size={13} /> : <LockOpen size={13} />}
+                        {it.ev.cierraEnFecha ? <Lock size={ICONO.xs} /> : <LockOpen size={ICONO.xs} />}
                         {it.ev.estado?.label}
                       </span>
                     )}
@@ -823,8 +824,8 @@ export function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEn
                     >
                       <span className={`flex items-start gap-1 ${GRID_ITEM_TEXT} font-normal leading-tight`}>
                         {ev.tipo === 'deadline' && (ev.cierraEnFecha
-                          ? <Lock size={12} className="flex-shrink-0 opacity-90 mt-0.5" />
-                          : <LockOpen size={12} className="flex-shrink-0 opacity-90 mt-0.5" />)}
+                          ? <Lock size={ICONO.xs} className="flex-shrink-0 opacity-90 mt-0.5" />
+                          : <LockOpen size={ICONO.xs} className="flex-shrink-0 opacity-90 mt-0.5" />)}
                         <span className="break-words">{ev.titulo}</span>
                       </span>
                       {ev.tipo === 'deadline' && (
@@ -1813,9 +1814,7 @@ export default function CalendarPage() {
   // dos layouts distintos (nativo vs. web) sin duplicar el marcado.
   const dateNav = (
     <div className="relative flex items-center gap-1">
-      <button type="button" onClick={prev} aria-label="Anterior" className="p-2 rounded-full hover:bg-[var(--accent-tint)] text-muted transition-colors">
-        <ChevronLeft size={16} />
-      </button>
+      <IconButton icon={ChevronLeft} label="Anterior" tooltip={false} onClick={prev} />
       <button
         type="button"
         onClick={() => {
@@ -1828,9 +1827,7 @@ export default function CalendarPage() {
       >
         {navLabel()}
       </button>
-      <button type="button" onClick={next} aria-label="Siguiente" className="p-2 rounded-full hover:bg-[var(--accent-tint)] text-muted transition-colors">
-        <ChevronRight size={16} />
-      </button>
+      <IconButton icon={ChevronRight} label="Siguiente" tooltip={false} onClick={next} />
 
       {/* Mini calendario para saltar a una fecha */}
       {showDatePicker && (
@@ -1843,14 +1840,14 @@ export default function CalendarPage() {
           />
           <div className="absolute left-0 top-12 z-30 origin-top-left animate-dialogo motion-reduce:animate-none bg-surface-card border border-outline-variant rounded-card shadow-lg p-3 w-64">
             <div className="flex items-center justify-between mb-2">
-              <button type="button" onClick={() => setPickerMonth(m => addMonths(m, -1))} className="p-2 rounded-full hover:bg-[var(--accent-tint)] text-muted">
-                <ChevronLeft size={15} />
+              <button type="button" onClick={() => setPickerMonth(m => addMonths(m, -1))} className="size-control inline-flex items-center justify-center rounded-full hover:bg-[var(--accent-tint)] text-muted">
+                <ChevronLeft size={ICONO.sm} />
               </button>
               <span className="text-sm font-semibold text-on-surface">
                 {MESES[pickerMonth.getMonth()]} {pickerMonth.getFullYear()}
               </span>
-              <button type="button" onClick={() => setPickerMonth(m => addMonths(m, 1))} className="p-2 rounded-full hover:bg-[var(--accent-tint)] text-muted">
-                <ChevronRight size={15} />
+              <button type="button" onClick={() => setPickerMonth(m => addMonths(m, 1))} className="size-control inline-flex items-center justify-center rounded-full hover:bg-[var(--accent-tint)] text-muted">
+                <ChevronRight size={ICONO.sm} />
               </button>
             </div>
             <div className="grid grid-cols-7 mb-1">
@@ -1889,20 +1886,17 @@ export default function CalendarPage() {
       ref={hoyBtnRef}
       type="button"
       onClick={goToday}
-      className="text-sm font-semibold px-4 py-2 rounded-full bg-surface-card shadow-card text-on-surface hover:bg-[var(--accent-tint)] transition-colors"
+      className="text-sm font-semibold px-4 py-2 rounded-full bg-surface-card shadow-card text-on-surface hover:bg-[var(--accent-tint)] transition-colors min-h-control-sm"
     >
       Hoy
     </button>
   )
 
   const eventoBtn = (
-    <button
-      type="button"
-      onClick={() => openNewEvent(null)}
-      className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-accent text-white text-sm font-semibold hover:bg-accent-hover transition-colors"
-    >
-      <Plus size={16} /> Evento
-    </button>
+    <Button icon={Plus}
+      onClick={() => openNewEvent(null)}>
+       Evento
+    </Button>
   )
 
   const viewSwitcher = (
@@ -1914,9 +1908,9 @@ export default function CalendarPage() {
           key={id}
           onClick={() => changeView(id)}
           aria-pressed={view === id}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${view === id ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'}`}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors min-h-control-sm ${view === id ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'}`}
         >
-          <Icon size={14} />{label}
+          <Icon size={ICONO.xs} />{label}
         </button>
       ))}
     </div>
@@ -2002,26 +1996,23 @@ export default function CalendarPage() {
                 <button
                   type="button"
                   onClick={() => changeView(view === 'mes' ? 'anio' : 'mes')}
-                  className="flex items-center gap-1 pl-2 pr-4 py-2 rounded-full bg-surface-card shadow-barra text-base font-semibold text-on-surface"
+                  className="flex items-center gap-1 pl-2 pr-4 py-2 rounded-full bg-surface-card shadow-barra text-base font-semibold text-on-surface min-h-control-sm"
                 >
-                  <ChevronLeft size={20} />
+                  <ChevronLeft size={ICONO.md} />
                   {view === 'mes' ? currentDate.getFullYear() : MESES[currentDate.getMonth()]}
                 </button>
               )}
               <div className="flex items-center gap-1 px-1 py-1 rounded-full bg-surface-card shadow-barra">
                 {hourRangeBtn}
-                <button type="button" onClick={() => openNewEvent(null)} aria-label="Nuevo evento"
-                  className="p-2.5 rounded-full text-on-surface hover:bg-[var(--accent-tint)] transition-colors">
-                  <Plus size={20} />
-                </button>
+                <IconButton icon={Plus} label="Nuevo evento" tooltip={false} onClick={() => openNewEvent(null)} />
               </div>
             </div>
             {view === 'anio' && (
               <div className="flex items-center justify-between px-1 mb-1">
                 <h1 className="text-4xl font-bold text-accent tabular-nums">{currentDate.getFullYear()}</h1>
                 <span className="flex">
-                  <button type="button" onClick={prev} aria-label="Año anterior" className="p-2 rounded-full text-muted hover:bg-[var(--accent-tint)]"><ChevronLeft size={20} /></button>
-                  <button type="button" onClick={next} aria-label="Año siguiente" className="p-2 rounded-full text-muted hover:bg-[var(--accent-tint)]"><ChevronRight size={20} /></button>
+                  <IconButton icon={ChevronLeft} label="Año anterior" tooltip={false} onClick={prev} />
+                  <IconButton icon={ChevronRight} label="Año siguiente" tooltip={false} onClick={next} />
                 </span>
               </div>
             )}
@@ -2029,8 +2020,8 @@ export default function CalendarPage() {
               <div className="flex items-center justify-between px-1 mb-1">
                 <h1 className="text-3xl font-bold text-on-surface">{MESES[currentDate.getMonth()]}</h1>
                 <span className="flex">
-                  <button type="button" onClick={prev} aria-label="Mes anterior" className="p-2 rounded-full text-muted hover:bg-[var(--accent-tint)]"><ChevronLeft size={20} /></button>
-                  <button type="button" onClick={next} aria-label="Mes siguiente" className="p-2 rounded-full text-muted hover:bg-[var(--accent-tint)]"><ChevronRight size={20} /></button>
+                  <IconButton icon={ChevronLeft} label="Mes anterior" tooltip={false} onClick={prev} />
+                  <IconButton icon={ChevronRight} label="Mes siguiente" tooltip={false} onClick={next} />
                 </span>
               </div>
             )}
@@ -2044,14 +2035,14 @@ export default function CalendarPage() {
             <div className="fixed z-30 left-3 right-3 flex items-center justify-between pointer-events-none"
               style={{ bottom: 'calc(var(--barra-alto) + 1.25rem + env(safe-area-inset-bottom, 0px))' }}>
               <button ref={hoyBtnRef} type="button" onClick={goToday}
-                className="pointer-events-auto px-5 py-2.5 rounded-full bg-surface-card shadow-barra text-base font-semibold text-on-surface">
+                className="pointer-events-auto px-5 py-2.5 rounded-full bg-surface-card shadow-barra text-base font-semibold text-on-surface min-h-control">
                 Hoy
               </button>
               <div className="pointer-events-auto flex items-center gap-1 p-1 rounded-full bg-surface-card shadow-barra" role="group" aria-label="Vista del calendario">
                 {VIEWS.filter((v) => v.id !== 'semana').map(({ id, label, Icon }) => (
                   <button key={id} type="button" onClick={() => changeView(id)} aria-label={label} aria-pressed={view === id}
                     className={`p-2.5 rounded-full transition-colors ${view === id ? 'bg-accent text-white' : 'text-on-surface hover:bg-[var(--accent-tint)]'}`}>
-                    <Icon size={20} />
+                    <Icon size={ICONO.md} />
                   </button>
                 ))}
               </div>
@@ -2075,58 +2066,50 @@ export default function CalendarPage() {
                 computadora: en el teléfono (web) el horario es de consulta. */}
             {!soloConsulta && (
             <div className="flex flex-wrap items-center gap-2 mb-4">
-              <button
-                type="button"
+              <Button variant="secondary" icon={CalendarOff}
                 onClick={() => setShowAsuetos(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-outline-variant text-sm text-muted hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors"
+               
                 data-tooltip="Marca días sin clases, eventos y/o actividades"
-                data-tooltip-pos="bottom"
-              >
-                <CalendarOff size={15} /> Días de asueto
+                data-tooltip-pos="bottom">
+                 Días de asueto
                 {asuetos.length > 0 && (
                   <span className="ml-0.5 text-xs px-1.5 rounded-full bg-amber-500 text-white">{asuetos.length}</span>
                 )}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button variant="secondary" icon={CalendarRange}
                 onClick={() => setShowVacaciones(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-outline-variant text-sm text-muted hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors"
+               
                 data-tooltip="Marca un periodo sin clases, eventos y/o actividades"
-                data-tooltip-pos="bottom"
-              >
-                <CalendarRange size={15} /> Vacaciones
+                data-tooltip-pos="bottom">
+                 Vacaciones
                 {vacaciones.length > 0 && (
                   <span className="ml-0.5 text-xs px-1.5 rounded-full bg-amber-500 text-white">{vacaciones.length}</span>
                 )}
-              </button>
+              </Button>
 
               <div className="flex-1" />
 
-              <button
-                type="button"
+              <Button variant="secondary" icon={CalendarClock}
                 onClick={() => setShowModificarPicker(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] transition-colors"
+               
                 data-tooltip={(totalBloquesFueraDeRango + totalBloquesEnAsueto) > 0
                   ? `${totalBloquesFueraDeRango + totalBloquesEnAsueto} bloque(s) necesitan revisión (rango o asueto/vacaciones)`
                   : 'Modificar bloques de clase por asignatura'}
-                data-tooltip-pos="bottom"
-              >
-                <CalendarClock size={15} /> Modificar bloques
+                data-tooltip-pos="bottom">
+                 Modificar bloques
                 {(totalBloquesFueraDeRango + totalBloquesEnAsueto) > 0 && (
                   <span className="ml-0.5 flex items-center gap-0.5 text-xs px-1.5 rounded-full bg-amber-500 text-white">
-                    <AlertTriangle size={10} /> {totalBloquesFueraDeRango + totalBloquesEnAsueto}
+                    <AlertTriangle size={ICONO.xs} /> {totalBloquesFueraDeRango + totalBloquesEnAsueto}
                   </span>
                 )}
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button icon={CalendarPlus}
                 onClick={() => openProgramar()}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-accent text-white text-sm font-medium hover:bg-accent-hover transition-colors"
+               
                 data-tooltip="Programar bloques de clase por asignatura"
-                data-tooltip-pos="bottom"
-              >
-                <CalendarPlus size={15} /> Programar bloques
-              </button>
+                data-tooltip-pos="bottom">
+                 Programar bloques
+              </Button>
             </div>
             )}
           </>
@@ -2254,11 +2237,11 @@ export default function CalendarPage() {
         {/* Legend — solo laptop (en el teléfono no hace falta). */}
         {!movil && (
         <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted px-1">
-          <span className="flex items-center gap-1"><CalendarPlus size={12} /> Bloques de clase (Semana/Mes)</span>
-          <span className="flex items-center gap-1"><Send size={12} /> Publicación</span>
-          <span className="flex items-center gap-1"><CalendarDays size={12} /> Evento personal</span>
-          <span className="flex items-center gap-1"><Lock size={14} /> Fecha límite — ya no recibe tarde</span>
-          <span className="flex items-center gap-1"><LockOpen size={14} /> Sigue recibiendo tarde</span>
+          <span className="flex items-center gap-1"><CalendarPlus size={ICONO.xs} /> Bloques de clase (Semana/Mes)</span>
+          <span className="flex items-center gap-1"><Send size={ICONO.xs} /> Publicación</span>
+          <span className="flex items-center gap-1"><CalendarDays size={ICONO.xs} /> Evento personal</span>
+          <span className="flex items-center gap-1"><Lock size={ICONO.xs} /> Fecha límite — ya no recibe tarde</span>
+          <span className="flex items-center gap-1"><LockOpen size={ICONO.xs} /> Sigue recibiendo tarde</span>
         </div>
         )}
       </div>
@@ -2325,10 +2308,10 @@ export default function CalendarPage() {
           <div className={`relative bg-surface-card hoja rounded-card shadow-2xl w-[calc(100%-1rem)] sm:w-full max-w-sm p-4 space-y-3 ${IS_NATIVE_APP ? '' : 'pb-6'}`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <CalendarClock size={18} className="text-accent" />
+                <CalendarClock size={ICONO.md} className="text-accent" />
                 <h2 className="font-semibold text-on-surface">Modificar bloques por asignatura</h2>
               </div>
-              <button type="button" onClick={() => setShowModificarPicker(false)} aria-label="Cerrar" className="p-2 text-muted hover:text-error rounded"><Plus size={18} className="rotate-45" /></button>
+              <button type="button" onClick={() => setShowModificarPicker(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full"><Plus size={ICONO.md} className="rotate-45" /></button>
             </div>
             {subjectsConBloques.length === 0 ? (
               <p className="text-sm text-muted py-4 text-center">
@@ -2362,7 +2345,7 @@ export default function CalendarPage() {
                       >
                         {/* Los íconos del banco se pintan con currentColor, así
                             que toman el tono de la asignatura sin más. */}
-                        <SubjectIcon iconKey={s.icon} size={18} className="flex-shrink-0" />
+                        <SubjectIcon iconKey={s.icon} size={ICONO.md} className="flex-shrink-0" />
                         <span className="text-sm font-medium truncate flex-1">{subjectDisplayName(s)}</span>
                         <span className="text-xs opacity-75 flex-shrink-0">{n} bloque(s)</span>
                       </button>
@@ -2379,7 +2362,7 @@ export default function CalendarPage() {
                             onClick={() => setConfirmLimpiarRango(s.id)}
                             className="w-full flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border-t border-amber-200 text-xs text-amber-800 hover:bg-amber-100 transition-colors text-left"
                           >
-                            <AlertTriangle size={12} className="flex-shrink-0" />
+                            <AlertTriangle size={ICONO.xs} className="flex-shrink-0" />
                             {fuera.length} bloque(s) quedaron fuera del rango actual — tócalo para quitarlos
                           </button>
                         )
@@ -2393,7 +2376,7 @@ export default function CalendarPage() {
                                 : `del ${formatLongDate(t.desde)} al ${formatLongDate(t.hasta)}`).join(' y ')}?
                             </span>
                             <button type="button" onClick={() => setConfirmGenerarFaltantes(null)} className="text-xs text-muted px-2 py-1">Cancelar</button>
-                            <button type="button" onClick={() => generarBloquesFaltantes(s.id)} className="text-xs bg-accent text-white rounded px-2.5 py-1 font-medium">Generar</button>
+                            <Button onClick={() => generarBloquesFaltantes(s.id)}>Generar</Button>
                           </div>
                         ) : (
                           <button
@@ -2401,7 +2384,7 @@ export default function CalendarPage() {
                             onClick={() => setConfirmGenerarFaltantes(s.id)}
                             className="w-full flex items-center gap-1.5 px-3 py-1.5 bg-[var(--accent-tint)] border-t border-accent-soft text-xs text-accent hover:brightness-95 transition-[filter] text-left"
                           >
-                            <CalendarClock size={12} className="flex-shrink-0" />
+                            <CalendarClock size={ICONO.xs} className="flex-shrink-0" />
                             {/* El conteo son clases REALES de esta asignatura
                                 (sus días de horario, sin asuetos), no días
                                 hábiles sueltos del calendario. */}
@@ -2424,7 +2407,7 @@ export default function CalendarPage() {
                             onClick={() => setConfirmLimpiarAsueto(s.id)}
                             className="w-full flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border-t border-amber-200 text-xs text-amber-800 hover:bg-amber-100 transition-colors text-left"
                           >
-                            <AlertTriangle size={12} className="flex-shrink-0" />
+                            <AlertTriangle size={ICONO.xs} className="flex-shrink-0" />
                             {enAsueto.length} bloque(s) caen en día de asueto o vacaciones — tócalo para quitarlos
                           </button>
                         )
@@ -2501,8 +2484,8 @@ export default function CalendarPage() {
                 <span className="text-xs font-semibold text-muted uppercase tracking-wide">Cambiar la hora (el mismo día)</span>
                 <div className="flex items-center gap-1.5">
                   <button type="button" onClick={() => stepHora(-5)}
-                    className="px-2 py-1.5 rounded border border-outline-variant text-accent hover:bg-[var(--accent-tint)] transition-colors" aria-label="−5 minutos">
-                    <Minus size={14} />
+                    className="px-2 py-1.5 rounded-card border border-outline-variant text-accent hover:bg-[var(--accent-tint)] transition-colors" aria-label="−5 minutos">
+                    <Minus size={ICONO.xs} />
                   </button>
                   <input
                     type="time" value={hora} step={60}
@@ -2510,26 +2493,23 @@ export default function CalendarPage() {
                     className={`${inputCls} flex-1 text-base font-semibold tabular-nums`}
                   />
                   <button type="button" onClick={() => stepHora(5)}
-                    className="px-2 py-1.5 rounded border border-outline-variant text-accent hover:bg-[var(--accent-tint)] transition-colors" aria-label="+5 minutos">
-                    <Plus size={14} />
+                    className="px-2 py-1.5 rounded-card border border-outline-variant text-accent hover:bg-[var(--accent-tint)] transition-colors" aria-label="+5 minutos">
+                    <Plus size={ICONO.xs} />
                   </button>
                 </div>
                 <p className="text-xs text-muted">Termina a las <strong className="text-on-surface">{formatHora12(addMinutesToTime(hora, durMin))}</strong></p>
                 {seEncima && (
                   <p className="text-sm text-error flex items-center gap-1">
-                    <AlertTriangle size={13} className="flex-shrink-0" /> A esa hora se encima con otra clase. Elige otra hora.
+                    <AlertTriangle size={ICONO.xs} className="flex-shrink-0" /> A esa hora se encima con otra clase. Elige otra hora.
                   </p>
                 )}
               </div>
 
-              <button
-                type="button"
+              <Button fullWidth
                 onClick={() => confirmPendingMove()}
-                disabled={!cambioHora || seEncima}
-                className="w-full py-2.5 bg-accent text-white rounded-full text-sm font-semibold hover:bg-accent-hover transition-colors disabled:opacity-45"
-              >
+                disabled={!cambioHora || seEncima}>
                 {seEncima ? 'Se encima con otra clase' : cambioHora ? `Mover a las ${fmtHour(hora)}` : 'Ajusta la hora para mover'}
-              </button>
+              </Button>
               </>)}
 
               {soloBorrar && !cancelada && (
@@ -2541,7 +2521,7 @@ export default function CalendarPage() {
                 <button
                   type="button"
                   onClick={() => reactivarBloqueUnico(b)}
-                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-accent-soft text-accent text-sm hover:bg-[var(--accent-tint)] transition-colors"
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-accent-soft text-accent text-sm hover:bg-[var(--accent-tint)] transition-colors min-h-control"
                 >
                   Reactivar esta clase
                 </button>
@@ -2551,9 +2531,9 @@ export default function CalendarPage() {
                 <button
                   type="button"
                   onClick={() => cancelarBloqueUnico(b)}
-                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-amber-300 text-amber-700 text-sm hover:bg-amber-50 transition-colors"
+                  className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-amber-300 text-amber-700 text-sm hover:bg-amber-50 transition-colors min-h-control"
                 >
-                  <Ban size={14} /> Cancelar esta clase (no se impartirá)
+                  <Ban size={ICONO.xs} /> Cancelar esta clase (no se impartirá)
                 </button>
 
                 {/* ELIMINAR: el bloque se creó por error, no debió existir. */}
@@ -2567,9 +2547,9 @@ export default function CalendarPage() {
                   <button
                     type="button"
                     onClick={() => setPendingMove(pm => ({ ...pm, confirmDel: true }))}
-                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-error/30 text-error text-sm hover:bg-error/10 transition-colors"
+                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-error/30 text-error text-sm hover:bg-error/10 transition-colors min-h-control"
                   >
-                    <Trash2 size={14} /> Eliminar esta clase (se creó por error)
+                    <Trash2 size={ICONO.xs} /> Eliminar esta clase (se creó por error)
                   </button>
                 )}
               </>)}
@@ -2580,13 +2560,10 @@ export default function CalendarPage() {
                   : <>Esto solo afecta a <strong className="text-on-surface">esta clase</strong>. Para mover también las clases siguientes, o reacomodar todo el horario, entra a <strong className="text-on-surface">Modificar bloques</strong>.</>}
               </p>
 
-              <button
-                type="button"
-                onClick={() => setPendingMove(null)}
-                className="w-full py-2.5 rounded-full border border-outline-variant text-muted text-sm hover:bg-surface transition-colors"
-              >
+              <Button variant="secondary" fullWidth
+                onClick={() => setPendingMove(null)}>
                 Cancelar
-              </button>
+              </Button>
             </div>
           </div>
         )
@@ -2631,10 +2608,10 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
       <div className="relative bg-surface-card hoja rounded-card shadow-2xl w-[calc(100%-1rem)] sm:w-full max-w-md max-h-[92vh] flex flex-col">
         <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-outline-variant flex-shrink-0">
           <div className="flex items-center gap-2">
-            <CalendarOff size={18} className="text-amber-600" />
+            <CalendarOff size={ICONO.md} className="text-amber-600" />
             <h2 className="font-semibold text-on-surface">Días de asueto</h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="Cerrar" className="p-2 text-muted hover:text-error rounded"><X size={18} /></button>
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full"><X size={ICONO.md} /></button>
         </div>
 
         <div className="overflow-y-auto flex-1 p-4 space-y-4">
@@ -2655,14 +2632,14 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button" onClick={setTodo}
-                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${todo ? 'bg-amber-500 text-white border-amber-500' : 'border-outline-variant text-muted hover:bg-amber-50'}`}
+                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors min-h-control-sm ${todo ? 'bg-amber-500 text-white border-amber-500' : 'border-outline-variant text-muted hover:bg-amber-50'}`}
                 >
                   Todo
                 </button>
                 {TIPOS_ASUETO.map(t => (
                   <button
                     key={t.id} type="button" onClick={() => toggle(t.id)}
-                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${alcance[t.id] ? 'bg-amber-100 text-amber-800 border-amber-300' : 'border-outline-variant text-muted hover:bg-surface'}`}
+                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors min-h-control-sm ${alcance[t.id] ? 'bg-amber-100 text-amber-800 border-amber-300' : 'border-outline-variant text-muted hover:bg-surface'}`}
                   >
                     {alcance[t.id] ? '✓ ' : ''}{t.label}
                   </button>
@@ -2674,7 +2651,7 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
               type="button" onClick={add} disabled={!fecha || !algo}
               className="w-full py-2 bg-amber-600 text-white rounded text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2 hover:bg-amber-700 transition-colors"
             >
-              <Plus size={15} /> Agregar día de asueto
+              <Plus size={ICONO.sm} /> Agregar día de asueto
             </button>
           </div>
 
@@ -2687,17 +2664,17 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
               <p className="text-sm text-muted py-2">Aún no has marcado ningún día de asueto.</p>
             ) : lista.map(a => (
               <div key={a.id} className="flex items-center gap-2 px-3 py-2 rounded-card border border-outline-variant bg-amber-50/50">
-                <CalendarOff size={15} className="text-amber-600 flex-shrink-0" />
+                <CalendarOff size={ICONO.sm} className="text-amber-600 flex-shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-on-surface">{fmt(a.fecha)}</p>
                   <p className="text-xs text-muted">Sin: {alcanceAsuetoTexto(a)}</p>
                 </div>
                 <button
                   type="button" onClick={() => onRemove(a.id)}
-                  className="p-2 text-muted hover:text-error rounded transition-colors flex-shrink-0"
+                  className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full transition-colors flex-shrink-0"
                   data-tooltip="Quitar" aria-label="Quitar"
                 >
-                  <Trash2 size={15} />
+                  <Trash2 size={ICONO.sm} />
                 </button>
               </div>
             ))}
@@ -2705,9 +2682,9 @@ function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
         </div>
 
         <div className="border-t border-outline-variant px-4 py-3 flex justify-end flex-shrink-0">
-          <button type="button" onClick={onClose} className="px-4 py-2.5 text-sm text-muted rounded-full border border-outline-variant hover:bg-surface transition-colors">
+          <Button variant="secondary" onClick={onClose}>
             Cerrar
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -2752,10 +2729,10 @@ function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
       <div className="relative bg-surface-card hoja rounded-card shadow-2xl w-[calc(100%-1rem)] sm:w-full max-w-md max-h-[92vh] flex flex-col">
         <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-outline-variant flex-shrink-0">
           <div className="flex items-center gap-2">
-            <CalendarRange size={18} className="text-amber-600" />
+            <CalendarRange size={ICONO.md} className="text-amber-600" />
             <h2 className="font-semibold text-on-surface">Vacaciones</h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="Cerrar" className="p-2 text-muted hover:text-error rounded"><X size={18} /></button>
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full"><X size={ICONO.md} /></button>
         </div>
 
         <div className="overflow-y-auto flex-1 p-4 space-y-4">
@@ -2785,14 +2762,14 @@ function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button" onClick={setTodo}
-                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${todo ? 'bg-amber-500 text-white border-amber-500' : 'border-outline-variant text-muted hover:bg-amber-50'}`}
+                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors min-h-control-sm ${todo ? 'bg-amber-500 text-white border-amber-500' : 'border-outline-variant text-muted hover:bg-amber-50'}`}
                 >
                   Todo
                 </button>
                 {TIPOS_ASUETO.map(t => (
                   <button
                     key={t.id} type="button" onClick={() => toggle(t.id)}
-                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${alcance[t.id] ? 'bg-amber-100 text-amber-800 border-amber-300' : 'border-outline-variant text-muted hover:bg-surface'}`}
+                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors min-h-control-sm ${alcance[t.id] ? 'bg-amber-100 text-amber-800 border-amber-300' : 'border-outline-variant text-muted hover:bg-surface'}`}
                   >
                     {alcance[t.id] ? '✓ ' : ''}{t.label}
                   </button>
@@ -2804,7 +2781,7 @@ function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
               type="button" onClick={add} disabled={!rangoValido || !algo}
               className="w-full py-2 bg-amber-600 text-white rounded text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2 hover:bg-amber-700 transition-colors"
             >
-              <Plus size={15} /> Agregar periodo de vacaciones
+              <Plus size={ICONO.sm} /> Agregar periodo de vacaciones
             </button>
           </div>
 
@@ -2817,17 +2794,17 @@ function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
               <p className="text-sm text-muted py-2">Aún no has marcado ningún periodo de vacaciones.</p>
             ) : lista.map(v => (
               <div key={v.id} className="flex items-center gap-2 px-3 py-2 rounded-card border border-outline-variant bg-amber-50/50">
-                <CalendarRange size={15} className="text-amber-600 flex-shrink-0" />
+                <CalendarRange size={ICONO.sm} className="text-amber-600 flex-shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-on-surface">{fmt(v.fechaInicio)} – {fmt(v.fechaFin)}</p>
                   <p className="text-xs text-muted">Sin: {alcanceAsuetoTexto(v)}</p>
                 </div>
                 <button
                   type="button" onClick={() => onRemove(v.id)}
-                  className="p-2 text-muted hover:text-error rounded transition-colors flex-shrink-0"
+                  className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full transition-colors flex-shrink-0"
                   data-tooltip="Quitar" aria-label="Quitar"
                 >
-                  <Trash2 size={15} />
+                  <Trash2 size={ICONO.sm} />
                 </button>
               </div>
             ))}
@@ -2835,9 +2812,9 @@ function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
         </div>
 
         <div className="border-t border-outline-variant px-4 py-3 flex justify-end flex-shrink-0">
-          <button type="button" onClick={onClose} className="px-4 py-2.5 text-sm text-muted rounded-full border border-outline-variant hover:bg-surface transition-colors">
+          <Button variant="secondary" onClick={onClose}>
             Cerrar
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -12,7 +12,8 @@ import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
 import { ChevronDown, ChevronUp } from 'lucide-react'
-import { SkeletonText } from '../ui'
+import { SkeletonText, Button } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 const VACIO = {
   temasDomina: '',
@@ -124,7 +125,7 @@ export default function AutoanalisisDocenteSection({ subjectId, docenteId }) {
               </p>
             )}
           </div>
-          {abierta ? <ChevronUp size={18} className="text-muted flex-shrink-0" /> : <ChevronDown size={18} className="text-muted flex-shrink-0" />}
+          {abierta ? <ChevronUp size={ICONO.md} className="text-muted flex-shrink-0" /> : <ChevronDown size={ICONO.md} className="text-muted flex-shrink-0" />}
         </button>
         <label className="flex items-center gap-1.5 text-xs text-on-surface cursor-pointer select-none flex-shrink-0 pt-0.5">
           <input
@@ -149,7 +150,7 @@ export default function AutoanalisisDocenteSection({ subjectId, docenteId }) {
                 <label htmlFor={`autoanalisis-${campo}`} className="block text-sm text-on-surface mb-1">{texto}</label>
                 <textarea
                   id={`autoanalisis-${campo}`}
-                  className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y"
+                  className="w-full px-4 py-2.5 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y"
                   rows={2}
                   value={respuestas[campo]}
                   onChange={(e) => setRespuestas((prev) => ({ ...prev, [campo]: e.target.value }))}
@@ -158,15 +159,12 @@ export default function AutoanalisisDocenteSection({ subjectId, docenteId }) {
               </div>
             ))}
           </div>
-          <button
-            type="button"
+          <Button className="mt-3"
             onClick={guardar}
-            disabled={guardando || sonIguales(respuestas, guardado)}
-            className="mt-3 px-4 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center gap-2"
-          >
+            disabled={guardando || sonIguales(respuestas, guardado)}>
             {guardando && <Spinner size="sm" />}
             {guardando ? 'Guardando…' : 'Guardar'}
-          </button>
+          </Button>
         </>
       )}
     </div>
