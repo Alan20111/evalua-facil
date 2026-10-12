@@ -65,6 +65,7 @@ const VISTAS = {
     { nombre: 'duplicar-asignatura', url: `/subject/${semilla.ids[0]}`, abrir: 'Duplicar esta asignatura (con o sin la lista de estudiantes)' },
     { nombre: 'nueva-actividad', url: `/subject/${semilla.ids[0]}`, abrir: 'Agregar actividad' },
     // El editor de entregable es una pantalla completa, no un diálogo.
+    { nombre: 'nueva-evaluacion', url: `/subject/${semilla.ids[0]}`, abrir: ['Agregar actividad', 'Evaluación', 'Cuestionario', /^Crear manualmente/], captura: '.fixed.inset-0.z-50' },
     { nombre: 'nuevo-entregable', url: `/subject/${semilla.ids[0]}`, abrir: ['Agregar actividad', 'Entregable', /^Crear manualmente/], captura: '.fixed.inset-0.z-50' },
     { nombre: 'actividad', url: `/activity/${semilla.actividad}` },
     { nombre: 'calendario', url: '/calendario' },
