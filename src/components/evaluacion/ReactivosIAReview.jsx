@@ -53,7 +53,7 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
     <div className="fixed inset-0 z-menu bg-surface overflow-y-auto">
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg safe-top">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <IconButton icon={ArrowLeft} label="Volver" tooltip={false} className="-ml-2" onClick={onClose} disabled={guardando} />
+          <IconButton icon={ArrowLeft} label="Volver" tooltip={false} variant="onColor" className="-ml-2" onClick={onClose} disabled={guardando} />
           <div className="flex-1 min-w-0">
             <p className="text-xs text-white/70 uppercase tracking-wide">Reactivos generados</p>
             <h1 className="text-xl font-extrabold text-white truncate">Revisa antes de agregarlos</h1>

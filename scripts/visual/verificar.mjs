@@ -63,6 +63,9 @@ const VISTAS = {
     { nombre: 'editar-asignatura', url: `/subject/${semilla.ids[0]}`, abrir: 'Editar los datos de la asignatura (nombre, grupo, color, icono…)' },
     // En el teléfono (web) no hay «Duplicar»: la vista se salta sola.
     { nombre: 'duplicar-asignatura', url: `/subject/${semilla.ids[0]}`, abrir: 'Duplicar esta asignatura (con o sin la lista de estudiantes)' },
+    { nombre: 'nueva-actividad', url: `/subject/${semilla.ids[0]}`, abrir: 'Agregar actividad' },
+    // El editor de entregable es una pantalla completa, no un diálogo.
+    { nombre: 'nuevo-entregable', url: `/subject/${semilla.ids[0]}`, abrir: ['Agregar actividad', 'Entregable', /^Crear manualmente/], captura: '.fixed.inset-0.z-50' },
     { nombre: 'actividad', url: `/activity/${semilla.actividad}` },
     { nombre: 'calendario', url: '/calendario' },
     { nombre: 'perfil', url: '/profile', pestanas: true },
@@ -95,8 +98,8 @@ async function entrar(page, correo) {
   }, { correo, clave: CLAVE })
 }
 
-async function auditar(page) {
-  return page.evaluate(() => {
+async function auditar(page, captura = 'main') {
+  return page.evaluate((captura) => {
     // Alturas permitidas = las variables CSS reales de la página (cambian en
     // táctil): control-sm, control, control-lg y la píldora de pestaña
     // segmentada (control − 0.5rem, va dentro de una barra de un control).
@@ -105,7 +108,8 @@ async function auditar(page) {
     const alturas = [v('--control-sm'), v('--control'), v('--control-lg'), v('--control') - 0.5 * raiz]
     const malos = []
     const CAMPOS = 'input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]):not([type=color])'
-    for (const e of document.querySelectorAll(`main button, main ${CAMPOS}, main select, [role=dialog] button, [role=dialog] ${CAMPOS}, [role=dialog] select`)) {
+    const raices = ['main', '[role=dialog]', captura]
+    for (const e of new Set(document.querySelectorAll(raices.flatMap((r) => [`${r} button`, `${r} ${CAMPOS}`, `${r} select`]).join(', ')))) {
       if (!e.offsetParent || e.getAttribute('role') === 'switch') continue
       // Muestras de color o ícono: celdas fijas de 2.5rem en su propia
       // rejilla (REJILLA_MUESTRAS, DESIGN_SYSTEM §6.7) — no son controles.
@@ -126,7 +130,7 @@ async function auditar(page) {
       if (radio > 0 && radio < h / 2 - 1 && radio < 20) malos.push({ tipo: 'esquina', h, radio, nombre })
     }
     return malos
-  })
+  }, captura)
 }
 
 // El celular va en su propio navegador con el puntero táctil fijado en Blink.
@@ -159,14 +163,25 @@ for (const [vp, opts] of Object.entries(VIEWPORTS)) {
       await page.waitForTimeout(800)
       // Formularios en hoja (fase 3): se abre con su botón y se captura el
       // diálogo en lugar de la página.
-      if (v.abrir) {
-        const boton = page.getByRole('button', { name: v.abrir, exact: true }).and(page.locator(':visible')).first()
-        if (!(await boton.count())) { console.log(`– ${vp}/${v.nombre}: no hay botón «${v.abrir}» en esta vista, se salta`); continue }
+      // `abrir`: uno o varios botones que se tocan en orden (p. ej. el
+      // menú de «Nueva actividad» y luego el tipo). Si falta alguno en esta
+      // vista (el teléfono no tiene todo), la vista se salta.
+      const captura = v.captura || (v.abrir ? '[role=dialog]' : 'main')
+      let saltar = false
+      for (const nombreBoton of [v.abrir || []].flat()) {
+        // Texto exacto, o una expresión regular cuando el botón lleva también
+        // su descripción dentro (el nombre accesible es todo el texto).
+        const boton = page.getByRole('button', { name: nombreBoton, exact: typeof nombreBoton === 'string' }).and(page.locator(':visible')).first()
+        if (!(await boton.count())) { console.log(`– ${vp}/${v.nombre}: no hay botón «${nombreBoton}» en esta vista, se salta`); saltar = true; break }
         await boton.click({ timeout: 5000 })
         // El ratón se queda donde estaba el botón: sin esto, lo que caiga
         // debajo dentro de la hoja sale con su estilo de «pasar encima».
         await page.mouse.move(0, 0)
-        await page.waitForSelector('[role=dialog]', { timeout: 5000 })
+        await page.waitForTimeout(500)
+      }
+      if (saltar) continue
+      if (v.abrir) {
+        await page.waitForSelector(captura, { timeout: 5000 })
         await page.waitForTimeout(600)
       }
       const tomas = [['', null]]
@@ -181,7 +196,7 @@ for (const [vp, opts] of Object.entries(VIEWPORTS)) {
           await page.waitForTimeout(700)
         }
         const clave = `${vp}/${v.nombre}${sufijo ? '-' + sufijo.replace(/[^\wáéíóúñ]+/gi, '_') : ''}`
-        const html = normalizar(await page.locator(v.abrir ? '[role=dialog]' : 'main').first().innerHTML().catch(() => ''))
+        const html = normalizar(await page.locator(captura).last().innerHTML().catch(() => ''))
         const refArchivo = path.join(REF, clave + '.html')
         fs.mkdirSync(path.dirname(refArchivo), { recursive: true })
         if (ESCRIBIR_REF) fs.writeFileSync(refArchivo, html)
@@ -193,12 +208,12 @@ for (const [vp, opts] of Object.entries(VIEWPORTS)) {
             console.log(`✖ ${clave} — difiere en ${i}:\n    antes: …${ref.slice(Math.max(0, i - 50), i + 70)}…\n    ahora: …${html.slice(Math.max(0, i - 50), i + 70)}…`)
           } else console.log(`✓ ${clave}`)
         }
-        for (const m of await auditar(page)) auditoria.push({ vista: clave, ...m })
+        for (const m of await auditar(page, captura)) auditoria.push({ vista: clave, ...m })
         fs.mkdirSync(path.join(CAP, vp), { recursive: true })
         await page.screenshot({ path: path.join(CAP, clave + '.png'), fullPage: true })
         if (v.abrir) {
           // La hoja se desplaza por dentro: segunda captura con su pie.
-          await page.evaluate(() => { for (const el of document.querySelectorAll('[role=dialog], [role=dialog] *')) if (el.scrollHeight > el.clientHeight + 4 && getComputedStyle(el).overflowY !== 'visible') el.scrollTop = el.scrollHeight })
+          await page.evaluate((sel) => { const raiz = [...document.querySelectorAll(sel)].pop(); for (const el of [raiz, ...raiz.querySelectorAll('*')]) if (el.scrollHeight > el.clientHeight + 4 && getComputedStyle(el).overflowY !== 'visible') el.scrollTop = el.scrollHeight }, captura)
           await page.waitForTimeout(300)
           await page.screenshot({ path: path.join(CAP, clave + '-pie.png') })
         }

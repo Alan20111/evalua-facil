@@ -1009,7 +1009,7 @@ export default function EvaluacionEditor({
       {/* ── Header ── */}
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg safe-top">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <IconButton icon={ArrowLeft} label="Volver" tooltip={false} className="-ml-2" onClick={onClose} />
+          <IconButton icon={ArrowLeft} label="Volver" tooltip={false} variant="onColor" className="-ml-2" onClick={onClose} />
           <div className="flex-1 min-w-0">
             {contextLine && <p className="text-xl font-bold text-white truncate">{contextLine}</p>}
             <p className="text-xs text-white/70 uppercase tracking-wide">{tipoLabel} — Parcial {parcial}</p>

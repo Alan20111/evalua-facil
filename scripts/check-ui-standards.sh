@@ -150,7 +150,7 @@ ratchet "Duración cruda (duration-NNN → duration-rapida/estandar/lenta) — �
 ratchet "transition-all (anima de más; usa transition-colors/transform) — §2.5" \
   '(^|[^a-z-])transition-all' 0 'components/ui/'
 ratchet "Casilla/opción a mano (type=checkbox|radio fuera de ui/) — §3" \
-  'type="(checkbox|radio)"' 57 'components/ui/|pages/dev/'
+  'type="(checkbox|radio)"' 53 'components/ui/|pages/dev/'
 ratchet "z-index con número (z-[NN] → z-contenido/barra/menu/hoja/aviso/tope) — §2.4" \
   'z-\[[0-9]+\]' 12 'components/ui/'
 

@@ -440,7 +440,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved, ia
     <div className="fixed inset-0 z-menu bg-surface overflow-y-auto">
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg safe-top">
         <div className="px-4 py-3 flex items-center gap-3">
-          <IconButton icon={ArrowLeft} label="Volver" tooltip={false} className="-ml-2" onClick={requestClose} />
+          <IconButton icon={ArrowLeft} label="Volver" tooltip={false} variant="onColor" className="-ml-2" onClick={requestClose} />
           <div className="flex-1 min-w-0">
             <p className="text-xs text-white/70 uppercase tracking-wide">Banco de rúbricas</p>
             <h1 className="text-2xl font-extrabold text-white truncate">

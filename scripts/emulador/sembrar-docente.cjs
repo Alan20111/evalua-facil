@@ -26,7 +26,7 @@ const CLAVE = 'PruebaEmu-2026!'
   // una actividad en la primera materia
   const a = await db.collection('activities').add({
     asignaturaId: ids[0], docenteId: uid, parcial: 1, tipo: 'tarea', titulo: 'Tarea 1', nombre: 'Tarea 1', maxCalif: 10,
-    descripcion: '<p>Resuelve los ejercicios.</p>', publicado: true, createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    instrucciones: '<p>Resuelve los ejercicios.</p>', publicado: true, createdAt: admin.firestore.FieldValue.serverTimestamp(),
   })
   // estudiantes de la primera materia
   // Número de lista distinto para cada uno (el 1 es Ana López, la alumna de
@@ -37,7 +37,7 @@ const CLAVE = 'PruebaEmu-2026!'
   // Segunda actividad publicada y un alumno de prueba inscrito en 2 asignaturas
   await db.collection('activities').add({
     asignaturaId: ids[0], docenteId: uid, parcial: 1, tipo: 'tarea', titulo: 'Tarea 2', nombre: 'Tarea 2', maxCalif: 10,
-    descripcion: '<p>Lee el capítulo 2.</p>', publicado: true, createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    instrucciones: '<p>Lee el capítulo 2.</p>', publicado: true, createdAt: admin.firestore.FieldValue.serverTimestamp(),
   })
   const al = await auth.createUser({ email: 'anlo.cbtis255@evalua.local', password: CLAVE, emailVerified: true })
   for (const [k, i] of [[0, 1], [2, 2]]) {
