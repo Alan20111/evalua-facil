@@ -134,6 +134,45 @@ function prepararCompras(compras, { origenesVenta = [ORIGEN_VENTA] } = {}) {
   return { aceptadas, inconsistencias }
 }
 
+// Regla ÚNICA de qué es una venta contable entre las completadas: importe y
+// créditos positivos (se exigen los dos para que ingresos y créditos salgan del
+// mismo conjunto). La usan resumenCompras y comprasContables, así que ningún
+// desglose (p. ej. por zona) puede aplicar un criterio distinto.
+function evaluarCompletada(doc) {
+  if (!esPositivo(doc.montoMXN)) return { ok: false, motivo: MOTIVO.IMPORTE_INVALIDO }
+  if (!esPositivo(doc.creditos)) return { ok: false, motivo: MOTIVO.CREDITOS_INVALIDOS }
+  return { ok: true, centavos: aCentavos(doc.montoMXN), resolucion: leerFecha(doc.resueltoEn) }
+}
+
+/**
+ * Las ventas contables UNA POR UNA, con el mismo criterio que resumenCompras
+ * (mismo filtro de origen, estado, id repetido, importe y créditos). Sirve para
+ * desglosar los totales (por zona, por docente…) sin recalcular las reglas:
+ * suma(centavos) === resumenCompras(...).ingresosMXN * 100.
+ *
+ * `fecha` es la de `resueltoEn` o null si falta o es inválida; `motivoSinFecha`
+ * dice cuál de las dos. La compra sin fecha SIGUE siendo contable.
+ */
+export function comprasContables(compras, opciones = {}) {
+  const { aceptadas } = prepararCompras(compras, opciones)
+  const contables = []
+  aceptadas.forEach(({ id, doc, estado }) => {
+    if (estado !== ESTADO.COMPLETADO) return
+    const v = evaluarCompletada(doc)
+    if (!v.ok) return
+    contables.push({
+      id,
+      docenteId: textoLimpio(doc.docenteId),
+      centavos: v.centavos,
+      creditos: doc.creditos,
+      fecha: v.resolucion.estado === 'ok' ? v.resolucion.fecha : null,
+      motivoSinFecha: v.resolucion.estado === 'ok' ? null
+        : v.resolucion.estado === 'ausente' ? MOTIVO.SIN_FECHA_RESOLUCION : MOTIVO.FECHA_RESOLUCION_INVALIDA,
+    })
+  })
+  return contables
+}
+
 /**
  * Resumen completo de ventas de créditos.
  *
@@ -158,25 +197,20 @@ export function resumenCompras(compras, opciones = {}) {
     if (estado === ESTADO.PENDIENTE) { pendientes++; return }
     if (estado === ESTADO.RECHAZADO) { rechazadas++; return }
 
-    // Completada: solo es venta contable si importe y créditos son válidos. Se
-    // exigen los dos para que ingresos y créditos salgan del mismo conjunto.
-    if (!esPositivo(doc.montoMXN)) {
-      inconsistencias.push({ id, motivo: MOTIVO.IMPORTE_INVALIDO })
-      completadasExcluidas++
-      return
-    }
-    if (!esPositivo(doc.creditos)) {
-      inconsistencias.push({ id, motivo: MOTIVO.CREDITOS_INVALIDOS })
+    // Completada: solo es venta contable si importe y créditos son válidos (la
+    // regla vive en evaluarCompletada, compartida con comprasContables).
+    const v = evaluarCompletada(doc)
+    if (!v.ok) {
+      inconsistencias.push({ id, motivo: v.motivo })
       completadasExcluidas++
       return
     }
 
-    const centavos = aCentavos(doc.montoMXN)
+    const { centavos, resolucion } = v
     contables++
     centavosTotal += centavos
     creditosTotal += doc.creditos
 
-    const resolucion = leerFecha(doc.resueltoEn)
     if (resolucion.estado !== 'ok') {
       // Es dinero real: entra en el total, pero no se le inventa un mes.
       inconsistencias.push({
