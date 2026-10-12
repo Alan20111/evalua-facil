@@ -146,7 +146,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
   const inputCell = EDITOR_INPUT_CELL
 
   return (
-    <div className="fixed inset-0 z-[70] bg-surface overflow-y-auto">
+    <div className="fixed inset-0 z-menu bg-surface overflow-y-auto">
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg safe-top">
         <div className="px-4 py-3 flex items-center gap-3">
           <IconButton icon={ArrowLeft} label="Volver" tooltip={false} className="-ml-2" onClick={requestClose} />
@@ -225,7 +225,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
                           aria-label={`Nombre del criterio ${i + 1}`}
                           className={`w-full min-w-0 text-base font-semibold text-on-surface resize-none ${inputCell}`} />
                         {i >= MIN_CRITERIOS && (
-                          <IconButton icon={Trash2} label={`Eliminar criterio ${i + 1}`} variant="danger" tooltip={false} onClick={() => removeCriterio(i)}
+                          <IconButton icon={Trash2} effect="balanceo" label={`Eliminar criterio ${i + 1}`} variant="danger" tooltip={false} onClick={() => removeCriterio(i)}
                             data-tooltip="Eliminar criterio" />
                         )}
                       </div>

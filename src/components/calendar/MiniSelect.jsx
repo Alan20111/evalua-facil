@@ -27,7 +27,7 @@ export default function MiniSelect({ value, options, onChange }) {
         <ChevronDown size={ICONO.xs} className={`text-muted flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </Button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 z-10 bg-surface-card border border-outline-variant rounded-card shadow-lg py-1 w-full min-w-[8rem] max-h-56 overflow-y-auto">
+        <div className="absolute right-0 top-full mt-1 z-10 bg-surface-card border border-outline-variant rounded-card shadow-lg py-1 w-full min-w-[8rem] max-h-56 overflow-y-auto animate-menu origin-top-right motion-reduce:animate-none">
           {options.map(o => (
             <button
               key={o.value}

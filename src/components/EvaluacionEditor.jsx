@@ -1528,7 +1528,7 @@ export default function EvaluacionEditor({
                             disabled={seccionesCtl.secciones[seccionesCtl.secciones.length - 1]?.id === grupo.seccion.id || seccionesCtl.guardando} />
                           <IconButton icon={Pencil} label="Editar sección" tooltip={false} onClick={(e) => { e.stopPropagation(); setFocusSectionId(null); seccionesCtl.setEditando(grupo.seccion) }}
                             disabled={seccionesCtl.guardando} />
-                          <IconButton icon={Trash2} label="Eliminar sección" tooltip={false} onClick={(e) => { e.stopPropagation(); seccionesCtl.setPorBorrar(grupo.seccion) }} />
+                          <IconButton icon={Trash2} effect="balanceo" label="Eliminar sección" tooltip={false} onClick={(e) => { e.stopPropagation(); seccionesCtl.setPorBorrar(grupo.seccion) }} />
                         </div>
                       )}
                       {!isSeccion && seccionesCtl.secciones.length > 0 && grupo.preguntas.length > 0 && (
@@ -1602,7 +1602,7 @@ export default function EvaluacionEditor({
                                     <button type="button" aria-label="Editar" onClick={() => openEditPregunta(p)}
                                       className={`p-1 rounded-full ${editingPreguntaId === p.id ? 'text-accent' : 'text-hint hover:text-accent'}`} data-tooltip="Editar"><Pencil size={ICONO.xs} /></button>
                                     <IconButton icon={Copy} label="Duplicar" tooltip={false} onClick={() => handleDuplicatePregunta(p)} data-tooltip="Duplicar" />
-                                    <IconButton icon={Trash2} label="Eliminar" tooltip={false} onClick={() => handleDeletePregunta(p.id)} data-tooltip="Eliminar" />
+                                    <IconButton icon={Trash2} effect="balanceo" label="Eliminar" tooltip={false} onClick={() => handleDeletePregunta(p.id)} data-tooltip="Eliminar" />
                                   </div>
                                 </div>
                               </div>
@@ -1894,7 +1894,7 @@ export default function EvaluacionEditor({
                       />
                     )}
                     <div className="flex gap-2">
-                      <Button icon={Plus} className="flex-1" onClick={() => { setGlowId(null); setSeccionDestino(null); setShowPreguntaForm(true) }}>
+                      <Button icon={Plus} iconEffect="gira90" className="flex-1" onClick={() => { setGlowId(null); setSeccionDestino(null); setShowPreguntaForm(true) }}>
                          Crear reactivo nuevo
                       </Button>
                       <Button variant="outline-accent" icon={Library} className="flex-1" onClick={() => { setShowBanco(true); loadBanco(); setSelectedBancoIds(new Set()) }}>
@@ -1903,7 +1903,7 @@ export default function EvaluacionEditor({
                     </div>
                     {/* OP-09: solo en la web, igual que la generación de rúbrica/cotejo. */}
                     {!IS_NATIVE_APP && (
-                      <Button variant="outline-accent" fullWidth icon={Sparkles} onClick={pedirReactivosIA}>
+                      <Button variant="outline-accent" fullWidth icon={Sparkles} iconEffect="destello" onClick={pedirReactivosIA}>
                          Generar reactivos con IA
                       </Button>
                     )}
@@ -2056,7 +2056,7 @@ export default function EvaluacionEditor({
                             <div className="flex gap-1 flex-shrink-0">
                               <IconButton icon={Pencil} label="Editar" tooltip={false} onClick={() => openEditBanco(item)} />
                               <IconButton icon={Copy} label="Duplicar" tooltip={false} onClick={() => handleDuplicateBancoItem(item)} />
-                              <IconButton icon={Trash2} label="Eliminar" tooltip={false} onClick={() => handleDeleteBancoItem(item.id)} />
+                              <IconButton icon={Trash2} effect="balanceo" label="Eliminar" tooltip={false} onClick={() => handleDeleteBancoItem(item.id)} />
                             </div>
                           </div>
                           {item.opciones && Array.isArray(item.opciones) && (
@@ -2102,7 +2102,7 @@ export default function EvaluacionEditor({
         />
       )}
 
-      {/* "Nueva fecha de entrega" — z-[60] para quedar sobre el editor (z-50) */}
+      {/* "Nueva fecha de entrega" — z-aviso para quedar sobre el editor (z-50) */}
       {newDateOpen && currentActivityId && (
         <NuevaFechaEntregaModal
           activityId={currentActivityId}

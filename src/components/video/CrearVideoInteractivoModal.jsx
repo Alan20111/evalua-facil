@@ -193,7 +193,7 @@ export default function CrearVideoInteractivoModal({
           <div role="alert" className="p-3 rounded-card border border-amber-200 bg-amber-50 space-y-2">
             <p className="text-sm text-amber-900">{fallo.message}</p>
             {fallo.reintentable && (
-              <Button variant="outline-accent" icon={RotateCcw} className="min-h-[2.75rem]" onClick={reintentarMismaClave} disabled={trabajando}>
+              <Button variant="outline-accent" icon={RotateCcw} iconEffect="gira" className="min-h-[2.75rem]" onClick={reintentarMismaClave} disabled={trabajando}>
                  Reintentar sin volver a cobrar
               </Button>
             )}

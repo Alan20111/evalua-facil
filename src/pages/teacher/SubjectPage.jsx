@@ -762,11 +762,11 @@ const AttendanceTable = memo(function AttendanceTable({
       {filteredAttendanceStudents.map((s, i) => {
         const total = countPresence(attendanceAllRecords, s.id, null, todayISO)
         return (
-        <tr key={s.id} className={`group border-t border-outline-variant transition-colors duration-200 hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? '' : 'bg-slate-50'}`}>
-          <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-hint border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
+        <tr key={s.id} className={`group border-t border-outline-variant transition-colors duration-estandar hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? '' : 'bg-slate-50'}`}>
+          <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center text-hint border-r border-outline-variant transition-colors duration-estandar group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}`}>
             {s.orden}
           </td>
-          <td style={estiloNombreH} className={`sticky left-8 z-10 ${nameColW} px-2 py-1 ${compactaH ? 'text-[13px]' : esSimple ? 'text-[12px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant ${variante === 'movil-v' ? 'break-words' : compactaH ? 'whitespace-nowrap' : 'truncate'} transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}${conObservaciones ? (esMovil ? ' select-none' : ' [@media(pointer:coarse)]:select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent') : ''}`}
+          <td style={estiloNombreH} className={`sticky left-8 z-10 ${nameColW} px-2 py-1 ${compactaH ? 'text-[13px]' : esSimple ? 'text-[12px]' : 'text-sm'} font-medium text-on-surface border-r border-outline-variant ${variante === 'movil-v' ? 'break-words' : compactaH ? 'whitespace-nowrap' : 'truncate'} transition-colors duration-estandar group-hover:bg-[var(--accent-tint-solid)] ${i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50'}${conObservaciones ? (esMovil ? ' select-none' : ' [@media(pointer:coarse)]:select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent') : ''}`}
             // "Ver bitácora": clic derecho, pulsación larga (táctil) y, en la
             // web, también teclado — el nombre recibe foco (una parada de Tab
             // por estudiante) y abre el menú con la tecla Menú o Shift+F10.
@@ -953,7 +953,7 @@ function ExportSplitButton({ label, Icon, onMain, mainDisabled, mainTooltip, men
         aria-expanded={open}
         data-tooltip={menuTooltip}></Button>
       {open && (
-        <div className="absolute z-40 top-full mt-1 right-0 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden">
+        <div className="absolute z-40 top-full mt-1 right-0 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden animate-menu origin-top-right motion-reduce:animate-none">
           <div className="px-3 py-2 text-xs font-semibold text-muted border-b border-outline-variant">{menuLabel}</div>
           {parciales.map((p) => (
             <button key={p} type="button"
@@ -1012,7 +1012,7 @@ function EstadoFiltroHeader({ value, onChange, open, setOpen, total, activos }) 
         <ChevronDown size={IS_NATIVE_APP ? 10 : 12} className={`flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="absolute z-40 top-full mt-1 left-0 w-36 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden normal-case">
+        <div className="absolute z-40 top-full mt-1 left-0 w-36 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden normal-case animate-menu origin-top-left motion-reduce:animate-none">
           {ESTADO_FILTRO_OPCIONES.map((o) => (
             <button
               key={o.value}
@@ -2537,7 +2537,7 @@ export default function SubjectPage() {
   const [menuAsistencia, setMenuAsistencia] = useState(null)
   const [observacionModal, setObservacionModal] = useState(null) // { id, record?, student, fecha, original, sobreBitacora }
   const [bitacoraStudent, setBitacoraStudent] = useState(null)
-  // Asistencias se ve a pantalla completa (capa fija z-[70]) en la app nativa y
+  // Asistencias se ve a pantalla completa (capa fija z-menu) en la app nativa y
   // en Tomar lista del teléfono: ahí estas ventanas tienen que ir por encima.
   const modalesSobreCapaCompleta = IS_NATIVE_APP || tomarListaMovil
   // Esc (EscKeyHandler) y el botón atrás cierran la ventana de hasta arriba;
@@ -5531,7 +5531,7 @@ export default function SubjectPage() {
     <>
       <button type="button" onClick={copyAccessCode}
         data-tooltip={IS_NATIVE_APP ? 'Copiar código de acceso para estudiantes' : 'Copiar'}
-        className={`flex items-center gap-2 px-2 py-1.5 rounded transition-all duration-200 flex-shrink-0 font-mono font-bold text-2xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
+        className={`flex items-center gap-2 px-2 py-1.5 rounded transition duration-estandar flex-shrink-0 font-mono font-bold text-2xl ${copiedCode ? 'text-emerald-600 bg-emerald-50' : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
         {copiedCode
           ? <><CheckIcon size={ICONO.md} className="animate-pop motion-reduce:animate-none flex-shrink-0" /><span>Copiado</span></>
           : <span>{subject?.accessCode}</span>}
@@ -5588,7 +5588,7 @@ export default function SubjectPage() {
         className="size-control inline-flex items-center justify-center text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors disabled:opacity-40 flex-shrink-0">
         {subject?.archived ? <ArchiveRestore size={ICONO.md} /> : <Archive size={ICONO.md} />}
       </button>
-      <IconButton icon={Trash2} label="Eliminar la asignatura permanentemente (no se puede deshacer)" variant="danger" tooltip={false} onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
+      <IconButton icon={Trash2} effect="balanceo" label="Eliminar la asignatura permanentemente (no se puede deshacer)" variant="danger" tooltip={false} onClick={() => { setDeleteSubjectConfirmText(''); setShowDeleteSubjectConfirm(true) }}
        
         data-tooltip="Eliminar la asignatura permanentemente (no se puede deshacer)" data-tooltip-pos="left" />
     </>
@@ -5849,7 +5849,7 @@ export default function SubjectPage() {
                             // eslint-disable-next-line jsx-a11y/no-static-element-interactions
                             <div
                               key={`dz-${p}-${vizIdx}`}
-                              className={`w-full rounded transition-all duration-75 ${
+                              className={`w-full rounded transition-[height,background-color] duration-rapida ${
                                 !isDragging
                                   ? 'h-2 pointer-events-none'
                                   : isActive
@@ -5895,7 +5895,7 @@ export default function SubjectPage() {
                                       draggable={arrastrable || undefined}
                                       onDragStart={arrastrable ? (e) => { e.dataTransfer.effectAllowed = 'move'; setDragDraftId(a.id) } : undefined}
                                       onDragEnd={arrastrable ? () => { setDragDraftId(null); setDropZoneActive(null) } : undefined}
-                                      className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)]'}${dragDraftId === a.id ? ' opacity-40' : ''}`}>
+                                      className={`flex items-center gap-1 w-full rounded border bg-surface-card transition-colors duration-estandar ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)]'}${dragDraftId === a.id ? ' opacity-40' : ''}`}>
                                       {arrastrable && (
                                         <div
                                           className="pl-2 py-2 text-hint hover:text-slate-500 cursor-grab active:cursor-grabbing flex-shrink-0"
@@ -6015,7 +6015,7 @@ export default function SubjectPage() {
                                       draggable={!IS_NATIVE_APP}
                                       onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; setDragMatId(m.id) }}
                                       onDragEnd={() => { setDragMatId(null); setDropZoneActive(null) }}
-                                      className={`w-full rounded border bg-surface-card transition-colors duration-200 ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent'} ${isBeingDragged ? 'opacity-40' : ''}`}
+                                      className={`w-full rounded border bg-surface-card transition-colors duration-estandar ${isHidden ? 'border-outline-variant opacity-60' : 'border-outline-variant hover:border-accent'} ${isBeingDragged ? 'opacity-40' : ''}`}
                                     >
                                       <div className="flex items-center gap-1">
                                         {!IS_NATIVE_APP && (
@@ -6056,7 +6056,7 @@ export default function SubjectPage() {
                                           <IconButton icon={Eye} label="Ocultar a estudiantes" tooltip={false} onClick={(e) => { e.stopPropagation(); hideMaterial(m) }} data-tooltip="Ocultar a estudiantes" />
                                         )}
                                         <IconButton icon={Pencil} label="Editar" tooltip={false} className="mr-0.5" onClick={() => openEditMaterial(m)} data-tooltip="Editar" />
-                                        <IconButton icon={Trash2} label="Eliminar" variant="danger" tooltip={false} className="mr-1" onClick={() => setDeleteMaterialConfirm(m)} data-tooltip="Eliminar" />
+                                        <IconButton icon={Trash2} effect="balanceo" label="Eliminar" variant="danger" tooltip={false} className="mr-1" onClick={() => setDeleteMaterialConfirm(m)} data-tooltip="Eliminar" />
                                       </div>
                                       {isExpanded && (
                                         <div className="border-t border-outline-variant px-3 py-2 ml-9">
@@ -6162,7 +6162,7 @@ export default function SubjectPage() {
                 {/* Análisis integral con IA: junto a Excel/PDF porque parte de
                     lo mismo que ellos — los resultados de toda la asignatura.
                     No ejecuta nada al pulsarlo: abre la configuración. */}
-                <Button variant="outline-accent" icon={Sparkles} className="flex-1 min-w-0" onClick={() => setAnalisisAsignaturaAbierto(true)}
+                <Button variant="outline-accent" icon={Sparkles} iconEffect="destello" className="flex-1 min-w-0" onClick={() => setAnalisisAsignaturaAbierto(true)}
                   data-tooltip="Elige parciales y fuentes; la IA prepara un informe del grupo. No modifica calificaciones.">
                    <span className="truncate">Analizar asignatura con IA</span>
                 </Button>
@@ -6220,7 +6220,7 @@ export default function SubjectPage() {
                         <Button variant="outline-accent" icon={MoreVertical} className="ml-1 !px-0 aspect-square" onClick={() => setRankingExportMenu((m) => (m === kind ? null : kind))}
                           aria-label="Elegir parcial del documento" data-tooltip="Elegir parcial (o general)"></Button>
                         {rankingExportMenu === kind && (
-                          <div className="absolute right-0 top-full mt-1 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg py-1 min-w-[180px]">
+                          <div className="absolute right-0 top-full mt-1 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg py-1 min-w-[180px] animate-menu origin-top-right motion-reduce:animate-none">
                             <button type="button" onClick={() => doExportRanking(kind, null)}
                               className="w-full text-left px-3 py-1.5 text-xs text-on-surface hover:bg-[var(--accent-tint)]">
                               General (promedio final)
@@ -6253,7 +6253,7 @@ export default function SubjectPage() {
                           data-tooltip="Volver al orden normal" />
                       )}
                       {gradeSortMenuOpen && (
-                        <div className="absolute right-0 top-full mt-1 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg py-1 min-w-[170px]">
+                        <div className="absolute right-0 top-full mt-1 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg py-1 min-w-[170px] animate-menu origin-top-right motion-reduce:animate-none">
                           <button type="button" onClick={() => { setGradeSortParcial(null); setGradeSortOn(true); setGradeSortMenuOpen(false) }}
                             className={`w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--accent-tint)] ${gradeSortParcial == null ? 'font-bold text-accent' : 'text-on-surface'}`}>
                             General (promedio final)
@@ -6444,18 +6444,18 @@ export default function SubjectPage() {
                               onContextMenu={(e) => openActivityContextMenu(e, a)}
                               onMouseEnter={(e) => { const r = e.currentTarget.getBoundingClientRect(); setActTip({ text: a.nombre, hint: 'Clic derecho para asignar calificación a quienes no entregaron', x: r.left + r.width / 2, y: r.top }) }}
                               onMouseLeave={() => setActTip(null)}
-                              className={`w-9 px-0.5 py-1.5 font-semibold text-on-surface text-center border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradeHeaderColBg(colIndexByKey[`act-${a.id}`])}`}>
+                              className={`w-9 px-0.5 py-1.5 font-semibold text-on-surface text-center border-l border-outline-variant transition-colors duration-estandar cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradeHeaderColBg(colIndexByKey[`act-${a.id}`])}`}>
                               {/* Tooltip is a fixed-positioned element (below), so the
                                   table's scroll container can't clip it — always ABOVE. */}
                               <span className="block truncate">{activityLabelById[a.id] || a.nombre}</span>
                             </th>
                           )),
-                          <th key={`avg-${p}`} data-col={colIndexByKey[`avg-${p}`]} className={`w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap transition-colors duration-200 ${gradeHeaderColBg(colIndexByKey[`avg-${p}`])}`}>
+                          <th key={`avg-${p}`} data-col={colIndexByKey[`avg-${p}`]} className={`w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap transition-colors duration-estandar ${gradeHeaderColBg(colIndexByKey[`avg-${p}`])}`}>
                             Prom.
                           </th>,
                         ])}
                         {showFinalCol && (
-                          <th data-col={colIndexByKey.final} className={`w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap transition-colors duration-200 ${gradeHeaderColBg(colIndexByKey.final)}`}>
+                          <th data-col={colIndexByKey.final} className={`w-14 px-1.5 py-1.5 font-semibold text-muted text-center border-l border-outline-variant whitespace-nowrap transition-colors duration-estandar ${gradeHeaderColBg(colIndexByKey.final)}`}>
                             Prom.
                           </th>
                         )}
@@ -6467,14 +6467,14 @@ export default function SubjectPage() {
                         const hl = gradeTopIds.has(s.id) ? 'bg-green-100' : gradeBottomIds.has(s.id) ? 'bg-orange-100' : ''
                         const stripeBg = i % 2 === 0 ? 'bg-surface-card' : 'bg-slate-50/50'
                         return (
-                        <tr key={s.id} data-row={i} className={`group border-t border-outline-variant transition-colors duration-200 hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
-                          <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${gradeSortOn ? 'font-bold text-accent' : 'text-hint'} ${hl || stripeBg}`}>
+                        <tr key={s.id} data-row={i} className={`group border-t border-outline-variant transition-colors duration-estandar hover:bg-[var(--accent-tint)] ${i % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
+                          <td className={`sticky left-0 z-10 w-8 px-1 py-1 text-center border-r border-outline-variant transition-colors duration-estandar group-hover:bg-[var(--accent-tint-solid)] ${gradeSortOn ? 'font-bold text-accent' : 'text-hint'} ${hl || stripeBg}`}>
                             {gradeSortOn ? i + 1 : s.orden}
                           </td>
                           {/* data-tooltip goes on an INNER span, never on this td:
                               [data-tooltip] forces position:relative, which would
                               override `sticky` and let left-8 shove the cell right */}
-                          <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 text-sm font-medium text-on-surface border-r border-outline-variant transition-colors duration-200 group-hover:bg-[var(--accent-tint-solid)] ${hl || stripeBg}`}>
+                          <td className={`sticky left-8 z-10 w-[210px] px-2 py-1 text-sm font-medium text-on-surface border-r border-outline-variant transition-colors duration-estandar group-hover:bg-[var(--accent-tint-solid)] ${hl || stripeBg}`}>
                             <span
                               className="block truncate"
                               data-tooltip={
@@ -6506,18 +6506,18 @@ export default function SubjectPage() {
                                   }
                                   onClick={() => goToActivityFromGrades(`/activity/${a.id}`, { state: { openStudentId: s.id, returnTo: 'calificaciones' } })}
                                   onContextMenu={(e) => openGradeQuickEdit(e, gradeSubMap[`${s.id}-${a.id}`], a, s)}
-                                  className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-200 cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradesCierre[ai] ? 'text-red-500' : grades[ai] == null ? 'text-hint' : 'text-on-surface'} ${hl || gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
+                                  className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-estandar cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradesCierre[ai] ? 'text-red-500' : grades[ai] == null ? 'text-hint' : 'text-on-surface'} ${hl || gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
                                 >
                                   {grades[ai] != null ? grades[ai] : '—'}
                                 </td>
                               )),
-                              <td key={`avg-${p}`} data-col={colIndexByKey[`avg-${p}`]} className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant transition-colors duration-200 ${gradeColor(pd?.avg ?? null)} ${hl || gradeBodyCellBg(colIndexByKey[`avg-${p}`], i)}`}>
+                              <td key={`avg-${p}`} data-col={colIndexByKey[`avg-${p}`]} className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant transition-colors duration-estandar ${gradeColor(pd?.avg ?? null)} ${hl || gradeBodyCellBg(colIndexByKey[`avg-${p}`], i)}`}>
                                 {pd?.avg != null ? pd.avg : '—'}
                               </td>,
                             ]
                           })}
                           {showFinalCol && (
-                            <td data-col={colIndexByKey.final} className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant transition-colors duration-200 ${gradeColor(finalAvg)} ${hl || gradeBodyCellBg(colIndexByKey.final, i)}`}>
+                            <td data-col={colIndexByKey.final} className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant transition-colors duration-estandar ${gradeColor(finalAvg)} ${hl || gradeBodyCellBg(colIndexByKey.final, i)}`}>
                               {finalAvg !== null ? finalAvg : '—'}
                             </td>
                           )}
@@ -6548,7 +6548,7 @@ export default function SubjectPage() {
            izquierda de la tabla para no gastar un renglón propio; los estados
            vacíos usan una barra simple. Sin Buscar y sin Totales; encabezado y
            nombre inmovilizados, solo scrollean los datos. */
-        <div className="fixed inset-0 z-[70] bg-surface flex flex-col safe-top">
+        <div className="fixed inset-0 z-menu bg-surface flex flex-col safe-top">
           {loadingAttendance ? (
             <>{nativeAttBar}<SkeletonList rows={8} className="flex-1 p-4" /></>
           ) : totalStudents === 0 ? (
@@ -6580,7 +6580,7 @@ export default function SubjectPage() {
            ambas orientaciones para que React conserve el scroll.
            Safe-area a los lados (muesca/cámara en horizontal) y abajo
            (indicador de inicio del iPhone). */
-        <div className="fixed inset-0 z-[70] bg-surface flex flex-col safe-top"
+        <div className="fixed inset-0 z-menu bg-surface flex flex-col safe-top"
           style={{ paddingLeft: 'env(safe-area-inset-left, 0px)', paddingRight: 'env(safe-area-inset-right, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
           {loadingAttendance ? (
             <>{tomarListaMovilBar}<SkeletonList rows={8} className="flex-1 p-4" /></>
@@ -6681,7 +6681,7 @@ export default function SubjectPage() {
               {attExportMenu && (
                 <>
                   <button type="button" className="fixed inset-0 z-30 border-none cursor-default bg-transparent" onClick={() => setAttExportMenu(false)} aria-label="Cerrar menú" />
-                  <div className="absolute z-40 top-full mt-1 right-0 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden">
+                  <div className="absolute z-40 top-full mt-1 right-0 w-52 bg-surface-card border border-outline-variant rounded-card shadow-2xl overflow-hidden animate-menu origin-top-right motion-reduce:animate-none">
                     <div className="px-3 py-2 text-xs font-semibold text-muted border-b border-outline-variant">Excel de un parcial</div>
                     {attendanceParcialesAll.map((g) => (
                       <button key={g.parcial} type="button"
@@ -6872,7 +6872,7 @@ export default function SubjectPage() {
                 className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
                 Cancelar
               </button>
-              <Button variant="danger" icon={Trash2} busy={deletingAttendance} className="flex-1" onClick={handleDeleteAttendanceDay} disabled={deletingAttendance}>
+              <Button variant="danger" icon={Trash2} iconEffect="balanceo" busy={deletingAttendance} className="flex-1" onClick={handleDeleteAttendanceDay} disabled={deletingAttendance}>
                  Eliminar
               </Button>
             </div>
@@ -6889,7 +6889,7 @@ export default function SubjectPage() {
           en horizontal tapa la mitad inferior). */}
       {/* Menú, observación y bitácora — las cuatro experiencias del docente.
           Sobre la capa de pantalla completa de Asistencias (app y teléfono
-          web, z-[70]) los modales necesitan ir más arriba. */}
+          web, z-menu) los modales necesitan ir más arriba. */}
       <>
         <MenuContextualAsistencia menu={menuAsistencia} onClose={cerrarMenuAsistencia} />
         {bitacoraStudent && (
@@ -7220,7 +7220,7 @@ export default function SubjectPage() {
                 // código · salió · estado] [Editar 36px] — todo dentro del ancho.
                 <div
                   key={s.id}
-                  className={`flex items-center gap-2 px-3 py-1 leading-tight transition-colors duration-200 hover:bg-[var(--accent-tint-strong)] ${i > 0 ? 'border-t border-outline-variant' : ''}`}
+                  className={`flex items-center gap-2 px-3 py-1 leading-tight transition-colors duration-estandar hover:bg-[var(--accent-tint-strong)] ${i > 0 ? 'border-t border-outline-variant' : ''}`}
                 >
                   <div className="w-9 h-9 rounded-full bg-accent-light overflow-hidden flex items-center justify-center flex-shrink-0">
                     {s.photoURL ? (
@@ -7251,7 +7251,7 @@ export default function SubjectPage() {
                   </div>
                   <button type="button"
                     onClick={() => openEditStudent(s)}
-                    className="w-10 h-10 flex-shrink-0 flex items-center justify-center text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors duration-200"
+                    className="w-10 h-10 flex-shrink-0 flex items-center justify-center text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors duration-estandar"
                     aria-label="Editar estudiante"
                   >
                     <Pencil size={ICONO.sm} />
@@ -7261,7 +7261,7 @@ export default function SubjectPage() {
                 <div
                   key={s.id}
                   onClick={IS_NATIVE_APP ? () => openEditStudent(s) : undefined}
-                  className={`flex items-center gap-2 px-3 py-0.5 leading-tight transition-colors duration-200 hover:bg-[var(--accent-tint-strong)] ${i > 0 ? 'border-t border-outline-variant' : ''} ${IS_NATIVE_APP ? 'cursor-pointer' : ''}`}
+                  className={`flex items-center gap-2 px-3 py-0.5 leading-tight transition-colors duration-estandar hover:bg-[var(--accent-tint-strong)] ${i > 0 ? 'border-t border-outline-variant' : ''} ${IS_NATIVE_APP ? 'cursor-pointer' : ''}`}
                 >
                   {!IS_NATIVE_APP && (
                     <div className="w-24 h-24 rounded-full bg-accent-light overflow-hidden flex items-center justify-center flex-shrink-0">
@@ -7306,7 +7306,7 @@ export default function SubjectPage() {
                   {!IS_NATIVE_APP && (
                     <button type="button"
                       onClick={() => openEditStudent(s)}
-                      className="w-9 flex-shrink-0 p-2 flex items-center justify-center text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors duration-200"
+                      className="w-9 flex-shrink-0 p-2 flex items-center justify-center text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors duration-estandar"
                       aria-label="Editar estudiante"
                       data-tooltip="Editar estudiante"
                     >
@@ -7331,7 +7331,7 @@ export default function SubjectPage() {
                 Materiales permanentes de toda la asignatura (programa, reglamento, guías, presentaciones, enlaces, videos…), disponibles para tus estudiantes durante todo el semestre. No generan entrega ni calificación.
               </p>
             </InfoDisclosure>
-            <Button icon={Plus} className="flex-shrink-0" onClick={openAddResource}
+            <Button icon={Plus} iconEffect="gira90" className="flex-shrink-0" onClick={openAddResource}
               data-tooltip="Agregar recurso">
                Agregar recurso
             </Button>
@@ -7825,10 +7825,10 @@ export default function SubjectPage() {
       )}
 
       {/* ── Delete activity confirmation ── */}
-      {/* z-[60]: puede abrirse desde dentro del editor de borradores (z-50),
+      {/* z-aviso: puede abrirse desde dentro del editor de borradores (z-50),
           igual que NuevaFechaEntregaModal — sin esto quedaba tapado detrás. */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
+        <div className="fixed inset-0 z-aviso flex items-center justify-center px-4">
           <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setDeleteConfirm(null)} aria-label="Cerrar" />
           <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
             <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar actividad?</h3>
@@ -7838,7 +7838,7 @@ export default function SubjectPage() {
             <div className="flex gap-2">
               <button type="button" onClick={() => setDeleteConfirm(null)}
                 className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <Button variant="danger" icon={Trash2} busy={deleting} className="flex-1" onClick={handleDeleteActivity} disabled={deleting}>
+              <Button variant="danger" icon={Trash2} iconEffect="balanceo" busy={deleting} className="flex-1" onClick={handleDeleteActivity} disabled={deleting}>
                 
                 {deleting ? 'Eliminando…' : 'Eliminar'}
               </Button>
@@ -7951,7 +7951,7 @@ export default function SubjectPage() {
             <div className="flex gap-2">
               <button type="button" onClick={() => setDeleteMaterialConfirm(null)}
                 className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <Button variant="danger" icon={Trash2} busy={deletingMaterial} className="flex-1" onClick={handleDeleteMaterial} disabled={deletingMaterial}>
+              <Button variant="danger" icon={Trash2} iconEffect="balanceo" busy={deletingMaterial} className="flex-1" onClick={handleDeleteMaterial} disabled={deletingMaterial}>
                 
                 {deletingMaterial ? 'Eliminando…' : 'Eliminar'}
               </Button>
@@ -8002,7 +8002,7 @@ export default function SubjectPage() {
               {IS_NATIVE_APP && (
                 <p className="text-sm text-muted text-center">Para subir a todo el grupo usa la plantilla de excel en la web</p>
               )}
-              <Button fullWidth icon={Plus} busy={savingStudent}
+              <Button fullWidth icon={Plus} iconEffect="gira90" busy={savingStudent}
                 type="submit"
                 disabled={savingStudent}>
                 
@@ -8181,7 +8181,7 @@ export default function SubjectPage() {
               >
                 Cancelar
               </button>
-              <Button icon={Download} busy={generatingCredentials} className="flex-1"
+              <Button icon={Download} iconEffect="empujaAbajo" busy={generatingCredentials} className="flex-1"
                 onClick={handleGenerateCredentials}
                 disabled={generatingCredentials}>
                 
@@ -8276,7 +8276,7 @@ export default function SubjectPage() {
               </Button>
             </div>
             {gradeQuickEdit.subId && gradeQuickEdit.value !== '' && (
-              <Button variant="secondary" fullWidth icon={Trash2} className="min-h-control-sm"
+              <Button variant="secondary" fullWidth icon={Trash2} iconEffect="balanceo" className="min-h-control-sm"
                 onClick={clearGradeQuickEdit}
                 disabled={savingQuickGrade}>
                 
@@ -8968,7 +8968,7 @@ export default function SubjectPage() {
               >
                 Cancelar
               </button>
-              <Button variant="danger" icon={Trash2} busy={savingStudent} className="flex-1"
+              <Button variant="danger" icon={Trash2} iconEffect="balanceo" busy={savingStudent} className="flex-1"
                 onClick={confirmDeleteStudent}
                 disabled={savingStudent}>
                 
@@ -9135,7 +9135,7 @@ export default function SubjectPage() {
             <div className="flex gap-2">
               <button type="button" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }}
                 className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <Button variant="danger" icon={Trash2} busy={deletingSubject} className="flex-1" onClick={handleDeleteSubject}
+              <Button variant="danger" icon={Trash2} iconEffect="balanceo" busy={deletingSubject} className="flex-1" onClick={handleDeleteSubject}
                 disabled={deletingSubject || deleteSubjectConfirmText !== subject?.nombre}>
                 
                 {deletingSubject ? 'Eliminando…' : 'Eliminar todo'}
@@ -9382,7 +9382,7 @@ export default function SubjectPage() {
                   <p className="text-sm text-hint mt-1">Video de YouTube, documento de Google Drive, sitio externo, etc.</p>
                 </div>
               )}
-              <Button fullWidth icon={Upload} busy={savingResource}
+              <Button fullWidth icon={Upload} iconEffect="empujaArriba" busy={savingResource}
                 type="submit"
                 disabled={savingResource || !resourceChanged}>
                 
@@ -9405,7 +9405,7 @@ export default function SubjectPage() {
             <div className="flex gap-2">
               <button type="button" onClick={() => setDeleteResourceConfirm(null)}
                 className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-sm font-medium hover:bg-[var(--accent-tint)]">Cancelar</button>
-              <Button variant="danger" icon={Trash2} busy={deletingResource} className="flex-1" onClick={handleDeleteResource} disabled={deletingResource}>
+              <Button variant="danger" icon={Trash2} iconEffect="balanceo" busy={deletingResource} className="flex-1" onClick={handleDeleteResource} disabled={deletingResource}>
                 
                 {deletingResource ? 'Eliminando…' : 'Eliminar'}
               </Button>
@@ -9452,7 +9452,7 @@ export default function SubjectPage() {
       )}
 
       {/* "Nueva fecha de entrega" opened from within the entregable editor above —
-          z-[60] so it renders on top of the editor's z-50. */}
+          z-aviso so it renders on top of the editor's z-50. */}
       {entregableEditor && newDateOpen && (
         <NuevaFechaEntregaModal
           activityId={entregableEditor.activityId}

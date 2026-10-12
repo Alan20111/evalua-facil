@@ -46,11 +46,11 @@ export default function Catalogo() {
 
         <Seccion titulo="Botones — misma altura">
           <Fila>
-            <Button icon={Plus}>Primario</Button>
+            <Button icon={Plus} iconEffect="gira90">Primario</Button>
             <Button variant="secondary">Secundario</Button>
             <Button variant="outline-accent">Contorno</Button>
             <Button variant="ghost">Fantasma</Button>
-            <Button variant="danger" icon={Trash2}>Eliminar</Button>
+            <Button variant="danger" icon={Trash2} iconEffect="balanceo">Eliminar</Button>
             <Button variant="danger-outline">Eliminar cuenta</Button>
           </Fila>
           <Fila>
@@ -64,12 +64,12 @@ export default function Catalogo() {
           <Fila>
             <IconButton icon={Pencil} label="Editar" />
             <IconButton icon={Copy} label="Copiar" />
-            <IconButton icon={Trash2} label="Eliminar" variant="danger" />
-            <IconButton icon={Plus} label="Agregar" variant="accent" />
+            <IconButton icon={Trash2} effect="balanceo" label="Eliminar" variant="danger" />
+            <IconButton icon={Plus} effect="gira90" label="Agregar" variant="accent" />
             <IconButton icon={Settings} label="Ajustes" size="sm" />
             <Input aria-label="Junto a un campo" className="max-w-[12rem]" />
           </Fila>
-          <Button variant="cta-dashed" icon={Plus}>Nueva asignatura</Button>
+          <Button variant="cta-dashed" icon={Plus} iconEffect="gira90">Nueva asignatura</Button>
         </Seccion>
 
         <Seccion titulo="Pestañas">
@@ -179,7 +179,7 @@ export default function Catalogo() {
         </Seccion>
 
         <Seccion titulo="Estado vacío">
-          <EmptyState icon={Inbox} title="Aún no hay entregas" action={<Button icon={Plus}>Crear actividad</Button>}>
+          <EmptyState icon={Inbox} title="Aún no hay entregas" action={<Button icon={Plus} iconEffect="gira90">Crear actividad</Button>}>
             Cuando tus estudiantes entreguen, aparecerán aquí.
           </EmptyState>
         </Seccion>

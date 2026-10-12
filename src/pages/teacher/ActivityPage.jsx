@@ -1291,7 +1291,7 @@ export default function ActivityPage() {
   // ternario de abajo (evaluación y entregable/observación) para que
   // funcione desde cualquiera de los dos tipos.
   const deleteActivityModal = deleteConfirm && activity && (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
+    <div className="fixed inset-0 z-aviso flex items-center justify-center px-4">
       <button type="button" className="absolute inset-0 bg-black/40 animate-velo border-none cursor-default" onClick={() => setDeleteConfirm(false)} aria-label="Cerrar" />
       <div className="relative bg-surface-card rounded-card p-4 shadow-2xl w-full max-w-sm">
         <h3 className="text-base font-semibold text-on-surface mb-1">¿Eliminar actividad?</h3>
@@ -1300,7 +1300,7 @@ export default function ActivityPage() {
         </p>
         <div className="flex gap-2">
           <Button variant="secondary" className="flex-1" onClick={() => setDeleteConfirm(false)}>Cancelar</Button>
-          <Button variant="danger" icon={Trash2} busy={deletingActivity} className="flex-1" onClick={handleDeleteActivity} disabled={deletingActivity}>
+          <Button variant="danger" icon={Trash2} iconEffect="balanceo" busy={deletingActivity} className="flex-1" onClick={handleDeleteActivity} disabled={deletingActivity}>
             
             {deletingActivity ? 'Eliminando…' : 'Eliminar'}
           </Button>
@@ -1518,14 +1518,14 @@ export default function ActivityPage() {
             <div className="mx-4 mt-3 rounded-card border border-outline-variant">
               <p className="px-3 pt-2 text-[11px] text-muted">La IA propone; tú decides.</p>
               <div className="p-2 pt-1.5 space-y-1.5">
-                <Button variant="outline-accent" fullWidth icon={Sparkles}
+                <Button variant="outline-accent" fullWidth icon={Sparkles} iconEffect="destello"
                   onClick={contarEntregasIA}
                   data-tooltip="Genera propuestas de calificación con IA para las entregas pendientes.">
                   
                   Calificar
                 </Button>
                 {hayVersionDistinta && (
-                  <Button variant="secondary" fullWidth icon={Sparkles}
+                  <Button variant="secondary" fullWidth icon={Sparkles} iconEffect="destello"
                     onClick={contarRecalificarIA}
                     data-tooltip="La rúbrica o lista de cotejo cambió desde la última evaluación con IA. Genera una nueva propuesta con la versión actual y consume créditos.">
                     
@@ -1987,7 +1987,7 @@ export default function ActivityPage() {
                       )
                     })()}
                     {puedeCalificarConIA && (
-                      <Button variant="outline-accent" fullWidth icon={Sparkles}
+                      <Button variant="outline-accent" fullWidth icon={Sparkles} iconEffect="destello"
                         onClick={() => abrirCalificarIA()}>
                         
                         {labelCalificarConIA}
@@ -2575,7 +2575,7 @@ export default function ActivityPage() {
                   )
                 })()}
                 {puedeCalificarConIA && !IS_NATIVE_APP && (
-                  <Button variant="outline-accent" fullWidth icon={Sparkles}
+                  <Button variant="outline-accent" fullWidth icon={Sparkles} iconEffect="destello"
                     onClick={() => abrirCalificarIA()}>
                     
                     {labelCalificarConIA}
@@ -2997,7 +2997,7 @@ export default function ActivityPage() {
       )}
 
       {/* Nueva fecha de entrega: for the whole group or for selected students.
-          Renders above the EntregableEditor (its z-[60] > editor's z-50) when opened from it. */}
+          Renders above the EntregableEditor (its z-aviso > editor's z-50) when opened from it. */}
       {newDateOpen && (
         <NuevaFechaEntregaModal
           activityId={activityId}

@@ -858,7 +858,7 @@ export default function StudentSubjectPage() {
                   : `Descarga en un ZIP los ${misArchivos.length} archivos que entregaste, ordenados por parcial.`}
                 {' '}Es tu trabajo — guárdalo donde quieras.
               </p>
-              <Button variant="outline-accent" fullWidth icon={Download} busy={zipping}
+              <Button variant="outline-accent" fullWidth icon={Download} iconEffect="empujaAbajo" busy={zipping}
                 onClick={descargarMisEntregas}
                 disabled={zipping}>
                 
@@ -1050,8 +1050,8 @@ export default function StudentSubjectPage() {
                             lista de este alumno (ver avisoOcultos). */}
                         {guardado ? (
                           <>
-                            <IconButton icon={RotateCcw} label="Regresar a Todos" tooltip={false} className="-m-1" onClick={() => toggleAvisoGuardado(a)} data-tooltip="Regresar a Todos" data-tooltip-pos="bottom" />
-                            <IconButton icon={Trash2} label="Eliminar" variant="danger" tooltip={false} className="-m-1" onClick={() => setDeleteAvisoConfirm(a)} data-tooltip="Eliminar" data-tooltip-pos="bottom" />
+                            <IconButton icon={RotateCcw} effect="gira" label="Regresar a Todos" tooltip={false} className="-m-1" onClick={() => toggleAvisoGuardado(a)} data-tooltip="Regresar a Todos" data-tooltip-pos="bottom" />
+                            <IconButton icon={Trash2} effect="balanceo" label="Eliminar" variant="danger" tooltip={false} className="-m-1" onClick={() => setDeleteAvisoConfirm(a)} data-tooltip="Eliminar" data-tooltip-pos="bottom" />
                           </>
                         ) : (
                           <IconButton icon={Bookmark} label="Guardar" tooltip={false} className="-m-1" onClick={() => toggleAvisoGuardado(a)} data-tooltip="Guardar" data-tooltip-pos="bottom" />
@@ -1076,7 +1076,7 @@ export default function StudentSubjectPage() {
                 </p>
                 <div className="flex gap-2">
                   <Button variant="secondary" className="flex-1" onClick={() => setDeleteAvisoConfirm(null)} disabled={deletingAviso}>Cancelar</Button>
-                  <Button variant="danger" icon={Trash2} busy={deletingAviso} className="flex-1" onClick={handleEliminarAviso} disabled={deletingAviso}>
+                  <Button variant="danger" icon={Trash2} iconEffect="balanceo" busy={deletingAviso} className="flex-1" onClick={handleEliminarAviso} disabled={deletingAviso}>
                     
                     {deletingAviso ? 'Eliminando…' : 'Eliminar'}
                   </Button>

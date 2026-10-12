@@ -521,7 +521,7 @@ export default function EvaluacionRunner() {
             </span>
           </div>
           <div className="w-full h-1.5 bg-surface-container rounded-full mb-4 overflow-hidden">
-            <div className="h-full bg-accent transition-all" style={{ width: `${((idx + 1) / preguntas.length) * 100}%` }} />
+            <div className="h-full bg-accent transition" style={{ width: `${((idx + 1) / preguntas.length) * 100}%` }} />
           </div>
 
           <div className="bg-surface-card rounded-card p-4 shadow-card mb-4">

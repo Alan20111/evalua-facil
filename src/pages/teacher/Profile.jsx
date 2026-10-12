@@ -454,7 +454,7 @@ export default function Profile() {
                     </div>
 
                     {showPwdForm && (
-                      <form onSubmit={requestPwdChange} className="mt-2 space-y-2">
+                      <form onSubmit={requestPwdChange} className="mt-2 space-y-2 animate-aparece motion-reduce:animate-none">
                         <PasswordInput
                           label="Contraseña actual" id="prof-pwd-actual" value={currentPwd} onChange={(e) => setCurrentPwd(e.target.value)}
                           required autoComplete="current-password" />

@@ -130,7 +130,7 @@ export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstado
               onError={(mensaje) => toast(mensaje, 'error')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)] disabled:opacity-60"
             />
-            <Button variant="danger-outline" icon={Trash2}
+            <Button variant="danger-outline" icon={Trash2} iconEffect="balanceo"
               onClick={() => setConfirmarQuitar(true)}>
                Quitar
             </Button>
@@ -146,7 +146,7 @@ export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstado
       ) : (
         <>
           <input ref={inputRef} type="file" accept={PLANEACION_ACCEPT} className="hidden" onChange={onArchivoSeleccionado} />
-          <Button variant="secondary" icon={Upload} busy={subiendo}
+          <Button variant="secondary" icon={Upload} iconEffect="empujaArriba" busy={subiendo}
             onClick={() => inputRef.current?.click()}
             disabled={subiendo}>
             

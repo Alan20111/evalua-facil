@@ -828,7 +828,7 @@ export default function ChatAsistente() {
           rows={1}
           className="flex-1 w-full px-4 py-2.5 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none max-h-32 disabled:opacity-60"
         />
-        <Button icon={Send} busy={enviando}
+        <Button icon={Send} iconEffect="despega" busy={enviando}
           type="submit"
           disabled={enviando || !mensaje.trim() || sinCreditos || limiteAlcanzado}>
           

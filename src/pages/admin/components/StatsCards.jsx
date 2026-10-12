@@ -176,7 +176,7 @@ function BarChart({ items, labelKey, valueKey, maxBars = 10, format = (v) => v }
             </span>
             <div className="flex-1 h-6 bg-surface-container rounded overflow-hidden">
               <div
-                className="h-full bg-accent rounded transition-all"
+                className="h-full bg-accent rounded transition-[width] duration-estandar ease-firma"
                 style={{ width: `${(item[valueKey] / max) * 100}%` }}
               />
             </div>

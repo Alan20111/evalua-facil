@@ -118,7 +118,7 @@ export default function PlaneacionPropiaCard({
           onElegido={onElegirReemplazo}
           onInvalido={onArchivoInvalido}
         />
-        <Button variant="secondary" icon={Sparkles}
+        <Button variant="secondary" icon={Sparkles} iconEffect="destello"
           onClick={onGenerarIA}
           disabled={subiendo}>
           

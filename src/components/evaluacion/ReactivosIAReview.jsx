@@ -50,7 +50,7 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
   }
 
   return (
-    <div className="fixed inset-0 z-[70] bg-surface overflow-y-auto">
+    <div className="fixed inset-0 z-menu bg-surface overflow-y-auto">
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg safe-top">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
           <IconButton icon={ArrowLeft} label="Volver" tooltip={false} className="-ml-2" onClick={onClose} disabled={guardando} />

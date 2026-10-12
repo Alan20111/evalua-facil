@@ -93,7 +93,7 @@ export default function RevisionVideoModal({
           role="dialog" + aria-modal es el patrón de la guía WAI-ARIA para diálogos propios, el mismo de ui/Modal.jsx; esta ventana ocupa
           toda la pantalla (lleva el video) y por eso no puede ser el Modal de max-w-3xl. */}
       <div role="dialog" aria-modal="true" aria-label="Revisión de las preguntas del video" data-testid="ventana-revision"
-        className="fixed top-0 left-0 w-full h-dvh z-[70] bg-surface flex flex-col">
+        className="fixed top-0 left-0 w-full h-dvh z-menu bg-surface flex flex-col">
         <header className="px-3 py-2 border-b border-outline-variant bg-surface-card space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-base font-bold text-on-surface" data-testid="indicador-pregunta">Pregunta {pos} de {visibles.length}</h2>
@@ -162,7 +162,7 @@ export default function RevisionVideoModal({
               )}
 
               {editando && (
-                <div className="space-y-2 rounded-card border border-outline-variant bg-surface-card p-3" data-testid="panel-edicion">
+                <div className="space-y-2 rounded-card border border-outline-variant bg-surface-card p-3 animate-aparece motion-reduce:animate-none" data-testid="panel-edicion">
                   <label className="block text-xs font-medium text-muted" htmlFor="rv-enun">Pregunta</label>
                   <textarea id="rv-enun" value={item.enunciado} rows={3} disabled={trabajando || sinPermiso}
                     onChange={(e) => setCampos(item.id, { enunciado: e.target.value })}

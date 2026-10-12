@@ -142,13 +142,13 @@ ratchet "Botón primario a mano (bg-accent hover:bg-accent-hover text-white → 
 ratchet "Ícono fuera de la escala 14/16/20/24/40 (config/iconos.js) — §2.3" \
   'size=\{([0-9]|1[0-35789]|2[1-35-9]|3[0-9])\}' 4 'components/ui/'
 ratchet "Duración cruda (duration-NNN → duration-rapida/estandar/lenta) — §2.5" \
-  '(^|[^a-z-])duration-[0-9]+' 21 'components/ui/'
+  '(^|[^a-z-])duration-[0-9]+' 0 'components/ui/'
 ratchet "transition-all (anima de más; usa transition-colors/transform) — §2.5" \
-  '(^|[^a-z-])transition-all' 12 'components/ui/'
+  '(^|[^a-z-])transition-all' 0 'components/ui/'
 ratchet "Casilla/opción a mano (type=checkbox|radio fuera de ui/) — §3" \
   'type="(checkbox|radio)"' 60 'components/ui/'
 ratchet "z-index con número (z-[NN] → z-contenido/barra/menu/hoja/aviso/tope) — §2.4" \
-  'z-\[[0-9]+\]' 49 'components/ui/'
+  'z-\[[0-9]+\]' 17 'components/ui/'
 
 echo ""
 # Esqueletos de carga: deben medir lo mismo que su pantalla real

@@ -447,3 +447,51 @@ def limpiar_imports(s):
     if re.search(r"^import \{ ICONO \} from '[^']+'\n", s, re.M) and 'ICONO.' not in s:
         s = re.sub(r"^import \{ ICONO \} from '[^']+'\n", '', s, flags=re.M)
     return s
+
+# ── Pasada 8: movimiento (PLAN_NORMALIZACION_UI §6) ────────────────────────
+# · duraciones crudas → tokens; transition-all → la propiedad que de verdad
+#   cambia (width en barras, gap, height) o `transition`.
+# · z-[60|70|90] → z-aviso | z-menu | z-tope.
+# · Menús desplegables a mano (absolute + sombra) → crecen desde su lado.
+# · Íconos de acción → su microanimación (iconEffect / effect).
+EFECTO_ICONO = {'Plus': 'gira90', 'Trash2': 'balanceo', 'Download': 'empujaAbajo', 'Upload': 'empujaArriba',
+                'RefreshCw': 'gira', 'Sparkles': 'destello', 'Send': 'despega', 'RotateCcw': 'gira'}
+
+def pasada8(s):
+    n = {'duraciones': 0, 'transition_all': 0, 'zindex': 0, 'menus': 0, 'efectos': 0}
+    for viejo, nuevo in (('duration-75', 'duration-rapida'), ('duration-100', 'duration-rapida'), ('duration-150', 'duration-rapida'),
+                         ('duration-200', 'duration-estandar'), ('duration-300', 'duration-estandar'), ('duration-500', 'duration-lenta')):
+        k = len(re.findall(r'(?<![\w:\[-])' + viejo + r'(?![\w-])', s)); n['duraciones'] += k
+        s = re.sub(r'(?<![\w:\[-])' + viejo + r'(?![\w-])', nuevo, s)
+    def ta(m):
+        n['transition_all'] += 1
+        cls = m.group(0)
+        if 'h-full' in cls and ('width' in cls or 'rounded' in cls): return cls.replace('transition-all', 'transition-[width] duration-estandar ease-firma')
+        if 'group-hover:gap' in cls: return cls.replace('transition-all', 'transition-[gap]')
+        if re.search(r"'h-\d", cls) or 'h-2 ' in cls: return cls.replace('transition-all', 'transition-[height,background-color]')
+        return cls.replace('transition-all', 'transition')
+    s = re.sub(r'className=(?:"[^"]*\btransition-all\b[^"]*"|\{`[^`]*\btransition-all\b[^`]*`\})', ta, s, flags=re.S)
+    for viejo, nuevo in (('z-[60]', 'z-aviso'), ('z-[70]', 'z-menu'), ('z-[90]', 'z-tope')):
+        k = s.count(viejo); n['zindex'] += k; s = s.replace(viejo, nuevo)
+    def menu(m):
+        cls = m.group(1)
+        if 'animate-' in cls: return m.group(0)
+        origen = 'origin-top-left' if re.search(r'\bleft-0\b', cls) and not re.search(r'\bright-0\b', cls) else 'origin-top-right'
+        n['menus'] += 1
+        return f'className="{cls} animate-menu {origen} motion-reduce:animate-none"'
+    s = re.sub(r'className="(absolute [^"]*(?:top-full|mt-1|top-\d+|bottom-full)[^"]*(?:rounded-card|rounded)[^"]*shadow[^"]*)"', menu, s)
+    out = []; pos = 0
+    for m in re.finditer(r'<(Button|IconButton)\b', s):
+        if m.start() < pos: continue
+        fin = fin_tag(s, m.start())
+        if fin < 0: continue
+        tag = s[m.start():fin + 1]
+        im = re.search(r'icon=\{(\w+)\}', tag)
+        if im and im.group(1) in EFECTO_ICONO and 'Effect=' not in tag and 'effect=' not in tag:
+            prop = 'iconEffect' if m.group(1) == 'Button' else 'effect'
+            tag = tag.replace(im.group(0), f'{im.group(0)} {prop}="{EFECTO_ICONO[im.group(1)]}"', 1)
+            n['efectos'] += 1
+        out.append(s[pos:m.start()]); out.append(tag); pos = fin + 1
+    out.append(s[pos:])
+    s = ''.join(out)
+    return s, n

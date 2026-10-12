@@ -223,7 +223,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
                 key={c.id}
                 type="button"
                 onClick={() => setColor(c.id)}
-                className={`w-6 h-6 rounded-full border-2 transition-all ${color === c.id ? 'border-on-surface scale-110' : 'border-transparent'}`}
+                className={`w-6 h-6 rounded-full border-2 transition ${color === c.id ? 'border-on-surface scale-110' : 'border-transparent'}`}
                 style={{ background: c.bg }}
                 data-tooltip={c.label}
                 aria-label={c.label}
