@@ -52,6 +52,7 @@ import DiagnosticoGrupoSection from './DiagnosticoGrupoSection'
 import PlaneacionInicialSection from './PlaneacionInicialSection'
 import ProgramaEstudiosSection from './ProgramaEstudiosSection'
 import { SkeletonText } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 // Las fuentes generales del curso: lista + botón para subir hasta
 // MAX_FUENTES a la vez, con un tope de MAX_FUENTES_POR_GRUPO documentos
@@ -71,8 +72,8 @@ function GrupoFuentes({ titulo, descripcion, fuentes, onAgregar, onEliminar, onV
           {descripcion && <p className="text-sm text-muted mt-0.5">{descripcion}</p>}
         </div>
         {fuentes.length < MAX_FUENTES_POR_GRUPO ? (
-          <label className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-dashed border-outline-variant text-xs sm:text-sm text-accent cursor-pointer hover:bg-[var(--accent-tint)] flex-shrink-0">
-            {subiendo ? <Spinner size="sm" /> : <Paperclip size={14} />}
+          <label className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-dashed border-outline-variant text-xs sm:text-sm text-accent cursor-pointer hover:bg-[var(--accent-tint)] flex-shrink-0">
+            {subiendo ? <Spinner size="sm" /> : <Paperclip size={ICONO.xs} />}
             Agregar fuentes
             <input
               type="file"
@@ -97,8 +98,8 @@ function GrupoFuentes({ titulo, descripcion, fuentes, onAgregar, onEliminar, onV
       ) : (
         <div className="space-y-1.5">
           {fuentes.map((f) => (
-            <div key={f.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded border border-outline-variant bg-surface text-sm">
-              <FileText size={14} className="text-muted flex-shrink-0" />
+            <div key={f.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-outline-variant bg-surface text-sm">
+              <FileText size={ICONO.xs} className="text-muted flex-shrink-0" />
               <span className="flex-1 min-w-0 truncate">{f.nombre}</span>
               <span className="text-xs text-muted uppercase flex-shrink-0">{f.tipo}</span>
               {/* Ver y Descargar (1-sep-2026): hasta hoy el nombre era un
@@ -114,7 +115,7 @@ function GrupoFuentes({ titulo, descripcion, fuentes, onAgregar, onEliminar, onV
                 aria-label={`Ver ${f.nombre}`}
                 className="p-0.5 text-muted hover:text-accent flex-shrink-0"
               >
-                <Eye size={14} />
+                <Eye size={ICONO.xs} />
               </button>
               <BotonDescargarArchivo
                 url={f.url}
@@ -130,7 +131,7 @@ function GrupoFuentes({ titulo, descripcion, fuentes, onAgregar, onEliminar, onV
                 className="p-0.5 text-muted hover:text-red-500 flex-shrink-0"
                 aria-label={`Eliminar ${f.nombre}`}
               >
-                {eliminandoId === f.id ? <Spinner size="sm" /> : <Trash2 size={14} />}
+                {eliminandoId === f.id ? <Spinner size="sm" /> : <Trash2 size={ICONO.xs} />}
               </button>
             </div>
           ))}

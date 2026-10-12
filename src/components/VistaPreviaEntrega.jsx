@@ -32,7 +32,7 @@ function useObjectUrl(file) {
 
 function Aviso({ children }) {
   return (
-    <p className="text-xs text-muted bg-surface rounded border border-outline-variant px-3 py-2">{children}</p>
+    <p className="text-xs text-muted bg-surface rounded-card border border-outline-variant px-3 py-2">{children}</p>
   )
 }
 

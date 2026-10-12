@@ -352,3 +352,75 @@ def correr5(archivos):
         if s2 != s:
             open(f, 'w').write(s2)
         print(f, n)
+
+# ── Pasada 6: botones de ícono por CLASE (los que no pudo tomar la 5) ──────
+# Toda clase de botón con p-2/p-1.5 + text-hint (o text-muted) es un botón de
+# solo ícono: pasa a medir una altura de control y queda redondo. Sirve
+# también para className con plantilla, porque solo toca los tokens fijos.
+def pasada6(s):
+    n = 0
+    def arreglar(cls):
+        toks = cls.split()
+        if not any(t in ('p-2', 'p-1.5') for t in toks): return None
+        if not any(t in ('text-hint', 'text-muted') for t in toks): return None
+        if any(t.startswith(('w-', 'h-', 'size-', 'absolute', 'px-', 'py-')) for t in toks): return None
+        nuevos = []
+        for t in toks:
+            if t in ('p-2', 'p-1.5'):
+                nuevos += ['size-control', 'inline-flex', 'items-center', 'justify-center']
+            elif t == 'rounded':
+                nuevos.append('rounded-full')
+            else:
+                nuevos.append(t)
+        if 'rounded-full' not in nuevos: nuevos.append('rounded-full')
+        return ' '.join(dict.fromkeys(nuevos))
+    out = []; pos = 0
+    for m in re.finditer(r'<button\b', s):
+        if m.start() < pos: continue
+        fin = fin_tag(s, m.start())
+        if fin < 0: continue
+        tag = s[m.start():fin + 1]
+        cm = re.search(r'className=(?:"([^"]*)"|\{`([^`$]*)`\})', tag)
+        if not cm: continue
+        cls = cm.group(1) if cm.group(1) is not None else cm.group(2)
+        nuevo_cls = arreglar(cls)
+        if not nuevo_cls: continue
+        nuevo_tag = tag[:cm.start()] + (f'className="{nuevo_cls}"' if cm.group(1) is not None else f'className={{`{nuevo_cls}`}}') + tag[cm.end():]
+        out.append(s[pos:m.start()]); out.append(nuevo_tag); pos = fin + 1; n += 1
+    out.append(s[pos:])
+    return ''.join(out), n
+
+# ── Pasada 7: altura mínima del contrato en botones píldora ────────────────
+# Botón con rounded-full y relleno vertical: py-1/1.5/2 → + min-h-control-sm,
+# py-2.5/3 → + min-h-control. Es ALTURA MÍNIMA (no fija): uno de un renglón
+# queda exacto en la escala y uno de dos renglones puede crecer sin cortarse.
+def pasada7(s):
+    n = 0
+    def arreglar(cls):
+        toks = cls.split()
+        if 'rounded-full' not in toks: return None
+        if any(t.startswith(('h-', 'min-h-', 'size-', 'w-')) and not t.startswith('w-full') for t in toks): return None
+        if any(t.startswith('min-h') or t.startswith('h-') for t in toks): return None
+        if any(t in ('py-1', 'py-1.5', 'py-2') for t in toks): extra = 'min-h-control-sm'
+        elif any(t in ('py-2.5', 'py-3') for t in toks): extra = 'min-h-control'
+        else: return None
+        return cls.rstrip() + ' ' + extra
+    out = []; pos = 0
+    for m in re.finditer(r'<button\b', s):
+        if m.start() < pos: continue
+        fin = fin_tag(s, m.start())
+        if fin < 0: continue
+        tag = s[m.start():fin + 1]
+        cm = re.search(r'className=(?:"([^"]*)"|\{`([^`]*?)(\$\{|`))', tag)
+        if not cm: continue
+        if cm.group(1) is not None:
+            nuevo = arreglar(cm.group(1))
+            if not nuevo: continue
+            nuevo_tag = tag[:cm.start(1)] + nuevo + tag[cm.end(1):]
+        else:
+            nuevo = arreglar(cm.group(2))
+            if not nuevo: continue
+            nuevo_tag = tag[:cm.start(2)] + nuevo + (' ' if cm.group(3) == '${' else '') + tag[cm.end(2):]
+        out.append(s[pos:m.start()]); out.append(nuevo_tag); pos = fin + 1; n += 1
+    out.append(s[pos:])
+    return ''.join(out), n

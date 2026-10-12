@@ -1,4 +1,5 @@
 import { Scale } from 'lucide-react'
+import { ICONO } from '../config/iconos'
 
 // "Sin calificación" — para un diagnóstico, una encuesta o un repaso: el
 // estudiante lo contesta y el docente ve todo, pero no vale para la boleta.
@@ -15,7 +16,7 @@ import { Scale } from 'lucide-react'
 //                     contar, solo lo que cada quien contestó.
 export default function SinCalificacionConfig({ sinCalificacion, ponderarReactivos, onChange }) {
   return (
-    <div className="rounded border border-outline-variant p-3 space-y-2">
+    <div className="rounded-card border border-outline-variant p-3 space-y-2">
       {/* El texto va DIRECTO dentro del label (no anidado en otro span): así lo
           reconoce el lector de pantalla y la regla de accesibilidad. La
           explicación va debajo, alineada con el texto. */}
@@ -37,7 +38,7 @@ export default function SinCalificacionConfig({ sinCalificacion, ponderarReactiv
       {sinCalificacion && (
         <div className="ml-6 pl-3 border-l-2 border-outline-variant space-y-2">
           <p className="text-xs font-medium text-muted flex items-center gap-1.5">
-            <Scale size={13} className="text-accent" /> ¿Los reactivos tendrán ponderación?
+            <Scale size={ICONO.xs} className="text-accent" /> ¿Los reactivos tendrán ponderación?
           </p>
           <div>
             <label htmlFor="ponderar-si" className="flex items-center gap-2 text-sm text-on-surface cursor-pointer">

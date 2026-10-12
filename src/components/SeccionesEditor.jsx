@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Plus, Pencil, Trash2, ChevronUp, ChevronDown, X, FolderOpen } from 'lucide-react'
 import ConfirmModal from './ConfirmModal'
+import { Input, Button, IconButton } from './ui'
+import { ICONO } from '../config/iconos'
 
 // Piezas de interfaz de las SECCIONES de una evaluación, compartidas por los
 // dos lugares donde se arman los reactivos: EvaluacionEditor (pantalla
@@ -29,18 +31,15 @@ export function SeccionForm({ inicial, onGuardar, onCancelar, guardando }) {
       <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>
         {esNueva ? 'Nueva sección' : 'Editando sección'}
       </p>
-      <div>
-        <label htmlFor="seccion-nombre" className="block text-sm font-medium text-muted mb-1">Nombre de la sección</label>
-        <input
-          id="seccion-nombre"
-          type="text"
-          value={nombre}
-          onChange={(e) => setNombre(e.target.value)}
-          required
-          maxLength={120}
-          className="w-full px-3 py-2 rounded-full border border-outline-variant text-sm bg-surface"
-        />
-      </div>
+      <Input
+        label="Nombre de la sección"
+        id="seccion-nombre"
+        type="text"
+        value={nombre}
+        onChange={(e) => setNombre(e.target.value)}
+        required
+        maxLength={120}
+      />
       <div>
         <label htmlFor="seccion-descripcion" className="block text-sm font-medium text-muted mb-1">
           Descripción <span className="text-hint font-normal">(opcional)</span>
@@ -51,18 +50,16 @@ export function SeccionForm({ inicial, onGuardar, onCancelar, guardando }) {
           onChange={(e) => setDescripcion(e.target.value)}
           rows={2}
           maxLength={400}
-          className="w-full px-3 py-2 rounded border border-outline-variant text-sm bg-surface"
+          className="w-full px-3 py-2 rounded-card border border-outline-variant text-sm bg-surface"
         />
       </div>
       <div className="flex gap-2">
-        <button type="submit" disabled={guardando || !nombre.trim()}
-          className="flex-1 py-2.5 rounded-full bg-accent text-white text-sm font-semibold disabled:opacity-60">
+        <Button className="flex-1" type="submit" disabled={guardando || !nombre.trim()}>
           {guardando ? 'Guardando…' : esNueva ? 'Crear sección' : 'Guardar'}
-        </button>
-        <button type="button" onClick={onCancelar} disabled={guardando}
-          className="px-4 py-2.5 rounded-full border border-outline-variant text-sm text-muted hover:bg-surface transition-colors">
+        </Button>
+        <Button variant="secondary" onClick={onCancelar} disabled={guardando}>
           Cancelar
-        </button>
+        </Button>
       </div>
     </form>
   )
@@ -78,7 +75,7 @@ export function SeccionHeader({
   return (
     <div className="rounded-card px-3 py-2" style={{ background: 'var(--accent-light)', border: '1px solid var(--accent-soft)' }}>
       <div className="flex items-start gap-2">
-        <FolderOpen size={17} className="text-accent flex-shrink-0 mt-0.5" />
+        <FolderOpen size={ICONO.sm} className="text-accent flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-on-surface break-words">
             {seccion.nombre}
@@ -91,32 +88,20 @@ export function SeccionHeader({
           )}
         </div>
         <div className="flex items-center gap-0.5 flex-shrink-0">
-          <button type="button" onClick={() => onMover('up')} disabled={disabled || primera}
-            aria-label="Subir sección" data-tooltip="Subir sección"
-            className="p-2 text-hint hover:text-accent rounded-full disabled:opacity-40">
-            <ChevronUp size={16} />
-          </button>
-          <button type="button" onClick={() => onMover('down')} disabled={disabled || ultima}
-            aria-label="Bajar sección" data-tooltip="Bajar sección"
-            className="p-2 text-hint hover:text-accent rounded-full disabled:opacity-40">
-            <ChevronDown size={16} />
-          </button>
-          <button type="button" onClick={onEditar} disabled={disabled}
-            aria-label="Editar sección" data-tooltip="Editar sección"
-            className="p-2 text-hint hover:text-accent rounded-full disabled:opacity-40">
-            <Pencil size={15} />
-          </button>
-          <button type="button" onClick={onEliminar} disabled={disabled}
-            aria-label="Eliminar sección" data-tooltip="Eliminar sección"
-            className="p-2 text-hint hover:text-error rounded-full disabled:opacity-40">
-            <Trash2 size={15} />
-          </button>
+          <IconButton icon={ChevronUp} label="Subir sección" tooltip={false} onClick={() => onMover('up')} disabled={disabled || primera}
+            data-tooltip="Subir sección" />
+          <IconButton icon={ChevronDown} label="Bajar sección" tooltip={false} onClick={() => onMover('down')} disabled={disabled || ultima}
+            data-tooltip="Bajar sección" />
+          <IconButton icon={Pencil} label="Editar sección" tooltip={false} onClick={onEditar} disabled={disabled}
+            data-tooltip="Editar sección" />
+          <IconButton icon={Trash2} label="Eliminar sección" tooltip={false} onClick={onEliminar} disabled={disabled}
+            data-tooltip="Eliminar sección" />
         </div>
       </div>
       {onAgregarReactivo && (
         <button type="button" onClick={onAgregarReactivo} disabled={disabled}
-          className="mt-1.5 w-full flex items-center justify-center gap-1.5 py-2 rounded-full border border-dashed border-accent-soft text-accent text-xs font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-40">
-          <Plus size={14} /> Agregar reactivo a esta sección
+          className="mt-1.5 w-full flex items-center justify-center gap-1.5 py-2 rounded-full border border-dashed border-accent-soft text-accent text-xs font-semibold hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-40 min-h-control-sm">
+          <Plus size={ICONO.xs} /> Agregar reactivo a esta sección
         </button>
       )}
     </div>
@@ -135,7 +120,7 @@ export function ConfirmarBorrarSeccion({ seccion, total, borrando, onConfirm, on
         : 'La sección está vacía, no se pierde ningún reactivo.'}
       confirmLabel="Eliminar sección"
       confirmingLabel="Eliminando…"
-      confirmIcon={<Trash2 size={16} />}
+      confirmIcon={<Trash2 size={ICONO.sm} />}
       danger
       busy={borrando}
       onConfirm={onConfirm}
@@ -147,10 +132,9 @@ export function ConfirmarBorrarSeccion({ seccion, total, borrando, onConfirm, on
 // Botón "+ Agregar sección" — el punto de entrada de toda la funcionalidad.
 export function BotonAgregarSeccion({ onClick, disabled }) {
   return (
-    <button type="button" onClick={onClick} disabled={disabled}
-      className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-full border border-accent text-accent text-sm font-medium hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60">
-      <Plus size={15} /> Agregar sección
-    </button>
+    <Button variant="outline-accent" fullWidth icon={Plus} onClick={onClick} disabled={disabled}>
+       Agregar sección
+    </Button>
   )
 }
 
@@ -180,8 +164,6 @@ export function SelectorSeccion({ id, secciones, valor, onChange }) {
 // Cerrar el formulario de sección desde el encabezado de la lista.
 export function CerrarFormulario({ onClick }) {
   return (
-    <button type="button" onClick={onClick} aria-label="Cancelar" className="p-2 text-hint hover:text-muted rounded-full">
-      <X size={18} />
-    </button>
+    <IconButton icon={X} label="Cancelar" tooltip={false} onClick={onClick} />
   )
 }

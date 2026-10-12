@@ -11,14 +11,14 @@ import { doc, onSnapshot, serverTimestamp } from 'firebase/firestore'
 import { setDoc } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
-import Spinner from '../Spinner'
 import ConfirmModal from '../ConfirmModal'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { FilePreviewModal } from '../AttachmentList'
 import BotonDescargarArchivo from '../BotonDescargarArchivo'
 import { PLANEACION_ACCEPT, extensionPlaneacion, validarArchivoPlaneacion } from '../../utils/planeacionVigente'
 import { Upload, Trash2, FileText, CheckCircle2, Eye } from 'lucide-react'
-import { SkeletonText } from '../ui'
+import { SkeletonText, Button } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstadoCargado }) {
   const toast = useToast()
@@ -106,9 +106,9 @@ export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstado
 
       {programaEstudios ? (
         <>
-          <div className="flex items-center gap-1.5 p-2 rounded border border-green-200 bg-green-50 text-sm">
-            <CheckCircle2 size={14} className="text-green-600 flex-shrink-0" />
-            <FileText size={14} className="text-muted flex-shrink-0" />
+          <div className="flex items-center gap-1.5 p-2 rounded-card border border-green-200 bg-green-50 text-sm">
+            <CheckCircle2 size={ICONO.xs} className="text-green-600 flex-shrink-0" />
+            <FileText size={ICONO.xs} className="text-muted flex-shrink-0" />
             <strong className="truncate min-w-0 flex-1">{programaEstudios.nombre}</strong>
             <span className="text-xs text-muted uppercase flex-shrink-0">{programaEstudios.tipo}</span>
           </div>
@@ -119,27 +119,21 @@ export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstado
               de descarga que la planeación propia — nada nuevo, y así las dos
               secciones se comportan igual. */}
           <div className="flex flex-wrap items-center gap-2 mt-2">
-            <button
-              type="button"
-              onClick={() => setVerArchivo(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)]"
-            >
-              <Eye size={14} />
+            <Button variant="secondary" icon={Eye}
+              onClick={() => setVerArchivo(true)}>
+              
               Ver
-            </button>
+            </Button>
             <BotonDescargarArchivo
               url={programaEstudios.url}
               nombre={programaEstudios.nombre}
               onError={(mensaje) => toast(mensaje, 'error')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)] disabled:opacity-60"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)] disabled:opacity-60"
             />
-            <button
-              type="button"
-              onClick={() => setConfirmarQuitar(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-red-300 text-red-700 text-sm hover:bg-red-50"
-            >
-              <Trash2 size={14} /> Quitar
-            </button>
+            <Button variant="danger-outline" icon={Trash2}
+              onClick={() => setConfirmarQuitar(true)}>
+               Quitar
+            </Button>
           </div>
           {verArchivo && (
             <FilePreviewModal
@@ -152,15 +146,12 @@ export default function ProgramaEstudiosSection({ subjectId, docenteId, onEstado
       ) : (
         <>
           <input ref={inputRef} type="file" accept={PLANEACION_ACCEPT} className="hidden" onChange={onArchivoSeleccionado} />
-          <button
-            type="button"
+          <Button variant="secondary" icon={Upload} busy={subiendo}
             onClick={() => inputRef.current?.click()}
-            disabled={subiendo}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
-          >
-            {subiendo ? <Spinner size="sm" /> : <Upload size={14} />}
+            disabled={subiendo}>
+            
             Subir programa de estudios (PDF o Word)
-          </button>
+          </Button>
         </>
       )}
 

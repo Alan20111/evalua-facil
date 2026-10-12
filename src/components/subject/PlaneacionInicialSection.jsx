@@ -39,7 +39,8 @@ import { uploadToCloudinary } from '../../utils/cloudinary'
 import { apiUrl } from '../../utils/apiBase'
 import { saveBlob } from '../../utils/exportGuard'
 import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ThumbsUp, Eye, Lock, X, Monitor, Save, AlertTriangle } from 'lucide-react'
-import { Skeleton, SkeletonList, SkeletonText } from '../ui'
+import { Skeleton, SkeletonList, SkeletonText, Button, IconButton } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 const CLAVES_MOMENTO = MOMENTOS.map((m) => m.clave)
 const FUENTES_VACIAS = ['', '', '', '', '']
@@ -101,7 +102,7 @@ function extraerContenido(obj) {
 function RequisitoItem({ ok, texto }) {
   return (
     <li className={`flex items-center gap-1.5 text-xs ${ok ? 'text-green-700' : 'text-muted'}`}>
-      {ok ? <CheckCircle2 size={14} /> : <Circle size={14} />}
+      {ok ? <CheckCircle2 size={ICONO.xs} /> : <Circle size={ICONO.xs} />}
       {texto}
     </li>
   )
@@ -148,7 +149,7 @@ function InsumosOpcionales({
     [`Diagnóstico de conocimientos${hayConocimientos ? '' : ' (sin resultados todavía)'}`, incluirDiagConocimientos],
   ]
   return (
-    <fieldset className="mb-2 p-2.5 rounded border border-outline-variant">
+    <fieldset className="mb-2 p-2.5 rounded-card border border-outline-variant">
       <legend className="text-sm text-on-surface px-1">Insumos a incluir</legend>
       <p className="text-sm text-muted mb-1.5">
         Tu Perfil IA y el programa de estudios siempre se usan. Los demás se marcan más abajo,
@@ -157,7 +158,7 @@ function InsumosOpcionales({
       </p>
       {resumen.map(([texto, checked]) => (
         <div key={texto} className="flex items-center gap-2 py-0.5 text-sm text-on-surface">
-          {checked ? <CheckCircle2 size={14} className="text-green-600 flex-shrink-0" /> : <Circle size={14} className="text-muted flex-shrink-0" />}
+          {checked ? <CheckCircle2 size={ICONO.xs} className="text-green-600 flex-shrink-0" /> : <Circle size={ICONO.xs} className="text-muted flex-shrink-0" />}
           <span className={checked ? '' : 'text-muted'}>{texto}</span>
         </div>
       ))}
@@ -173,7 +174,7 @@ function InsumosOpcionales({
 // falta.
 function SelectorCantidadSecuencias({ modo, onCambiarModo, cantidad, onCambiarCantidad, disabled }) {
   return (
-    <fieldset className="mb-2 p-2.5 rounded border border-outline-variant" disabled={disabled}>
+    <fieldset className="mb-2 p-2.5 rounded-card border border-outline-variant" disabled={disabled}>
       <legend className="text-sm text-on-surface px-1">¿Cuántas Secuencias Didácticas quieres por parcial?</legend>
       <label className="flex items-center gap-2 py-0.5 text-sm text-on-surface cursor-pointer">
         <input type="radio" name="modoCantidadSecuencias" checked={modo === 'ia'} onChange={() => onCambiarModo('ia')} />
@@ -186,7 +187,7 @@ function SelectorCantidadSecuencias({ modo, onCambiarModo, cantidad, onCambiarCa
           type="number" min={1} max={12} value={cantidad}
           onChange={(e) => onCambiarCantidad(Math.max(1, Math.min(12, Number(e.target.value) || 1)))}
           onFocus={() => onCambiarModo('manual')}
-          className="w-16 px-1.5 py-0.5 rounded border border-outline-variant text-sm bg-transparent"
+          className="w-16 px-1.5 py-0.5 rounded-card border border-outline-variant text-sm bg-transparent"
         />
       </label>
     </fieldset>
@@ -375,22 +376,12 @@ function RevisionPantallaCompleta({ titulo, onCerrar, cerrarTexto = null, accion
         <div className="flex items-center gap-2 flex-shrink-0">
           {acciones}
           {cerrarTexto ? (
-            <button
-              type="button"
-              onClick={onCerrar}
-              className="flex-shrink-0 px-3 py-2 rounded-full border border-outline-variant text-sm text-muted hover:bg-[var(--accent-tint)] hover:text-on-surface"
-            >
+            <Button variant="secondary" className="flex-shrink-0"
+              onClick={onCerrar}>
               {cerrarTexto}
-            </button>
+            </Button>
           ) : (
-            <button
-              type="button"
-              onClick={onCerrar}
-              aria-label="Cerrar"
-              className="p-1.5 rounded-full text-muted hover:bg-[var(--accent-tint)] hover:text-on-surface"
-            >
-              <X size={18} />
-            </button>
+            <IconButton icon={X} label="Cerrar" tooltip={false} onClick={onCerrar} />
           )}
         </div>
       </div>
@@ -411,7 +402,7 @@ function RevisionPantallaCompleta({ titulo, onCerrar, cerrarTexto = null, accion
 function AvisoRevisionDesktop() {
   return (
     <div className="mt-3 pt-2 border-t border-outline-variant flex items-start gap-2 text-sm text-amber-700">
-      <Monitor size={16} className="flex-shrink-0 mt-0.5" />
+      <Monitor size={ICONO.sm} className="flex-shrink-0 mt-0.5" />
       <p>Ya se generó — para revisarla, corregirla y aceptarla/descargarla, abre Evalúa Fácil desde una computadora.</p>
     </div>
   )
@@ -467,10 +458,10 @@ function SelectorDeCamino({ generando, subiendoArchivo, onElegirIA, onElegirArch
           type="button"
           onClick={onElegirIA}
           disabled={generando}
-          className="flex flex-col items-start gap-1 p-3 rounded border border-dashed border-outline-variant text-left hover:bg-[var(--accent-tint)] disabled:opacity-60"
+          className="flex flex-col items-start gap-1 p-3 rounded-card border border-dashed border-outline-variant text-left hover:bg-[var(--accent-tint)] disabled:opacity-60"
         >
           <span className="flex items-center gap-1.5 font-medium text-accent">
-            {generando ? <Spinner size="sm" /> : <Sparkles size={16} />}
+            {generando ? <Spinner size="sm" /> : <Sparkles size={ICONO.sm} />}
             Que Evalúa Fácil la genere
           </span>
           <span className="text-sm text-muted">
@@ -1246,16 +1237,13 @@ function Planeacion({
                 esto escondía la pestaña entera, y con ella el camino de subir
                 la planeación propia, que no usa IA para nada. */}
             {!vigenteIA && (
-              <button
-                type="button"
+              <Button variant="secondary"
                 onClick={() => (nuncaAprobado ? onPago() : setConfirmando(true))}
                 disabled={bloqueada || !perfilIACompleto}
-                title={!perfilIACompleto ? 'Completa tu Perfil para IA del docente para generar con Evalúa Fácil' : bloqueada ? 'Tu planeación se está generando — aparecerá aquí al terminar' : undefined}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
-              >
-                {bloqueada ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={14} /> : pendiente ? <RotateCcw size={14} /> : <Sparkles size={14} />}
+                title={!perfilIACompleto ? 'Completa tu Perfil para IA del docente para generar con Evalúa Fácil' : bloqueada ? 'Tu planeación se está generando — aparecerá aquí al terminar' : undefined}>
+                {bloqueada ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={ICONO.xs} /> : pendiente ? <RotateCcw size={ICONO.xs} /> : <Sparkles size={ICONO.xs} />}
                 {pendiente ? 'Generar de nuevo (con IA)' : 'Generar mi planeación'}
-              </button>
+              </Button>
             )}
             {/* La salida hacia el otro camino: subir la propia deja el dato
                 escrito y, con él, los insumos de IA dejan de montarse. */}
@@ -1269,31 +1257,25 @@ function Planeacion({
               <button
                 type="button"
                 onClick={() => abrirVistaPrevia()}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-green-600 text-green-700 text-sm hover:bg-green-50"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-green-600 text-green-700 text-sm hover:bg-green-50 min-h-control-sm"
               >
-                <ThumbsUp size={14} />
+                <ThumbsUp size={ICONO.xs} />
                 Vista previa y edición
               </button>
             )}
             {vigenteIA && (
-              <button
-                type="button"
-                onClick={() => abrirVistaPrevia()}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)]"
-              >
-                <Eye size={14} />
+              <Button variant="secondary" icon={Eye}
+                onClick={() => abrirVistaPrevia()}>
+                
                 Vista previa
-              </button>
+              </Button>
             )}
             {vigenteIA && (
-              <button
-                type="button"
-                onClick={() => setConfirmarReiniciar(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-red-300 text-red-700 text-sm hover:bg-red-50"
-              >
-                <AlertTriangle size={14} />
+              <Button variant="danger-outline" icon={AlertTriangle}
+                onClick={() => setConfirmarReiniciar(true)}>
+                
                 Generar de nuevo
-              </button>
+              </Button>
             )}
           </div>
 
@@ -1307,16 +1289,13 @@ function Planeacion({
             <div className="flex flex-wrap items-center gap-2 mt-2">
               <span className="text-xs text-muted">Descargar por parcial:</span>
               {(porParcialAceptado || []).map((p) => (
-                <button
+                <Button
                   key={p.numero}
-                  type="button"
                   onClick={() => descargarParcial(p.numero)}
-                  disabled={descargandoParcial === p.numero}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-accent text-white text-xs hover:bg-accent-hover disabled:opacity-60"
-                >
-                  {descargandoParcial === p.numero ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={12} /> : <Download size={12} />}
+                  disabled={descargandoParcial === p.numero}>
+                  {descargandoParcial === p.numero ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={ICONO.xs} /> : <Download size={ICONO.xs} />}
                   Parcial {p.numero}
-                </button>
+                </Button>
               ))}
             </div>
           )}
@@ -1353,13 +1332,13 @@ function Planeacion({
                 type="button"
                 onClick={guardar}
                 disabled={!sinGuardar || guardando}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm disabled:opacity-60 ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm disabled:opacity-60 min-h-control-sm ${
                   sinGuardar
                     ? 'bg-amber-500 text-white hover:bg-amber-600'
                     : 'border border-outline-variant text-on-surface hover:bg-[var(--accent-tint)]'
                 }`}
               >
-                {guardando ? <Spinner size="sm" /> : <Save size={14} />}
+                {guardando ? <Spinner size="sm" /> : <Save size={ICONO.xs} />}
                 {sinGuardar ? 'Guardar cambios' : 'Guardado'}
               </button>
               <button
@@ -1374,13 +1353,13 @@ function Planeacion({
                 }}
                 disabled={aceptando}
                 title={parcialesConPonderacionMal.length ? 'Corrige la ponderación de cada parcial a exactamente 100% antes de aceptar' : undefined}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm disabled:opacity-60 ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm disabled:opacity-60 min-h-control-sm ${
                   parcialesConPonderacionMal.length
                     ? 'border border-outline-variant text-muted hover:bg-[var(--accent-tint)]'
                     : 'bg-accent text-white hover:bg-accent-hover'
                 }`}
               >
-                {aceptando ? <Spinner size="sm" /> : <ThumbsUp size={14} />}
+                {aceptando ? <Spinner size="sm" /> : <ThumbsUp size={ICONO.xs} />}
                 Aceptar esta planeación como la de mi asignatura
               </button>
             </>

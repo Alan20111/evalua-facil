@@ -22,6 +22,8 @@ import BotonDescargarArchivo from '../BotonDescargarArchivo'
 import { formatFileSize } from '../../utils/formatBytes'
 import Spinner from '../Spinner'
 import { PLANEACION_ACCEPT, validarArchivoPlaneacion } from '../../utils/planeacionVigente'
+import { Button } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 // Botón + input oculto para elegir la planeación propia. Valida ANTES de
 // devolver el archivo, así que el componente padre solo recibe archivos que
@@ -84,8 +86,8 @@ export default function PlaneacionPropiaCard({
         {fecha && ` · ${fecha.toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`}
       </p>
 
-      <div className="flex items-center gap-2 p-2.5 rounded border border-green-200 bg-green-50 text-sm">
-        <FileText size={16} className="text-muted flex-shrink-0" />
+      <div className="flex items-center gap-2 p-2.5 rounded-card border border-green-200 bg-green-50 text-sm">
+        <FileText size={ICONO.sm} className="text-muted flex-shrink-0" />
         <span className="min-w-0 flex-1">
           <strong className="block truncate text-on-surface">{archivo?.nombre}</strong>
           <span className="text-xs text-muted uppercase">
@@ -95,14 +97,11 @@ export default function PlaneacionPropiaCard({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mt-2">
-        <button
-          type="button"
-          onClick={() => setVerArchivo(true)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)]"
-        >
-          <Eye size={14} />
+        <Button variant="secondary" icon={Eye}
+          onClick={() => setVerArchivo(true)}>
+          
           Ver
-        </button>
+        </Button>
         {/* Mismo botón que usa el programa de estudios y el visor compartido: la
             diferencia web/app vive en un solo lugar (BotonDescargarArchivo),
             no repetida en cada tarjeta. */}
@@ -110,7 +109,7 @@ export default function PlaneacionPropiaCard({
           url={archivo?.url}
           nombre={archivo?.nombre}
           onError={onError}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)] disabled:opacity-60"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-outline-variant text-on-surface text-sm hover:bg-[var(--accent-tint)] disabled:opacity-60"
         />
         <SelectorArchivoPlaneacion
           label="Reemplazar archivo"
@@ -119,15 +118,12 @@ export default function PlaneacionPropiaCard({
           onElegido={onElegirReemplazo}
           onInvalido={onArchivoInvalido}
         />
-        <button
-          type="button"
+        <Button variant="secondary" icon={Sparkles}
           onClick={onGenerarIA}
-          disabled={subiendo}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-outline-variant text-accent text-sm hover:bg-[var(--accent-tint)] disabled:opacity-60"
-        >
-          <Sparkles size={14} />
+          disabled={subiendo}>
+          
           Generar planeación con Evalúa Fácil
-        </button>
+        </Button>
       </div>
 
       <p className="text-sm text-muted mt-2">

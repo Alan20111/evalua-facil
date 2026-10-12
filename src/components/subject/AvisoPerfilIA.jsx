@@ -11,11 +11,12 @@
 // en functions/ia.js). Esto solo evita que el docente lo descubra a golpes.
 import { Link } from 'react-router-dom'
 import { Sparkles } from 'lucide-react'
+import { ICONO } from '../../config/iconos'
 
 export default function AvisoPerfilIA({ que = 'generar con Evalúa Fácil' }) {
   return (
-    <div className="flex items-start gap-2 p-2.5 rounded border border-amber-200 bg-amber-50 text-sm text-amber-800">
-      <Sparkles size={14} className="flex-shrink-0 mt-0.5" />
+    <div className="flex items-start gap-2 p-2.5 rounded-card border border-amber-200 bg-amber-50 text-sm text-amber-800">
+      <Sparkles size={ICONO.xs} className="flex-shrink-0 mt-0.5" />
       <p>
         Para {que} necesitas completar tu <strong>Perfil para IA del docente</strong> — se llena una sola vez y
         sirve para todas tus asignaturas.{' '}

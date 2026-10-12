@@ -74,7 +74,7 @@ export function EsqueletoAsignaturaDocente({ parciales = 3 }) {
           </div>
           <div data-esq="subj-doc-pestanas" className="flex gap-1 mt-2 bg-surface-container p-1 rounded-full overflow-x-auto">
             {['Actividades', 'Estudiantes', 'Clase'].map((t, i) => (
-              <span key={t} data-esq="subj-doc-pestana" className={cn('flex-1 whitespace-nowrap px-3 py-2 text-sm font-medium rounded-full flex justify-center', i === 0 && 'bg-surface-card')}>
+              <span key={t} data-esq="subj-doc-pestana" className={cn('flex-1 whitespace-nowrap px-3 h-[calc(var(--control)-0.5rem)] text-sm font-medium rounded-full flex justify-center', i === 0 && 'bg-surface-card')}>
                 <SkeletonLine texto="text-sm" className="w-20" />
               </span>
             ))}
@@ -113,7 +113,7 @@ export function EsqueletoAsignaturaDocente({ parciales = 3 }) {
                   <div data-esq="subj-doc-parcial-cuerpo" className="border-t border-outline-variant pr-4 py-2">
                     <div data-esq="subj-doc-parcial-lista" className="ml-3 pl-3 border-l-2 border-accent-soft space-y-1.5">
                       {[0, 1, 2].map((k) => (
-                        <div key={k} data-esq="subj-doc-cta" className="w-full py-2.5 border border-dashed border-accent-soft rounded-full text-sm font-medium flex items-center justify-center gap-2">
+                        <div key={k} data-esq="subj-doc-cta" className="w-full h-control border border-dashed border-accent-soft rounded-full text-sm font-medium flex items-center justify-center gap-2">
                           <SkeletonLine texto="text-sm" className="w-40" />
                         </div>
                       ))}

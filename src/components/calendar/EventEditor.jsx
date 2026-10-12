@@ -11,6 +11,8 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { refreshTeacherReminders } from '../../utils/localReminders'
 import { subjectDisplayName } from '../../utils/subjectName'
+import { Input, Button } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 export const EVENT_COLORS = [
   { id: 'slate',  bg: '#f1f5f9', text: '#475569', label: 'Gris' },
@@ -206,8 +208,8 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
             que se desplaza). */}
         <div className="flex items-center justify-between px-4 pt-4 pb-2 flex-shrink-0">
           <h2 className="font-semibold text-on-surface">{isNew ? 'Nuevo evento' : 'Editar evento'}</h2>
-          <button type="button" onClick={onClose} aria-label="Cerrar" className="p-2 text-muted hover:text-error rounded transition-colors">
-            <X size={18} />
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full transition-colors">
+            <X size={ICONO.md} />
           </button>
         </div>
 
@@ -235,7 +237,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
               <button
                 type="button"
                 onClick={() => setTipo('personal')}
-                className={`flex-1 py-1.5 text-sm font-semibold rounded-full transition-colors ${
+                className={`flex-1 py-1.5 text-sm font-semibold rounded-full transition-colors min-h-control-sm ${
                   tipo === 'personal' ? 'bg-surface-card text-accent shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'
                 }`}
               >
@@ -244,7 +246,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
               <button
                 type="button"
                 onClick={() => setTipo('academico')}
-                className={`flex-1 py-1.5 text-sm font-semibold rounded-full transition-colors ${
+                className={`flex-1 py-1.5 text-sm font-semibold rounded-full transition-colors min-h-control-sm ${
                   tipo === 'academico' ? 'bg-surface-card text-accent shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'
                 }`}
               >
@@ -266,7 +268,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
             )}
           </div>
 
-          <input
+          <Input
             type="text"
             value={contenido.titulo}
             onChange={e => patchContenido({ titulo: e.target.value })}
@@ -278,7 +280,6 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
                con edge-to-edge + insets del teclado cambiando a mitad de la
                animación de entrada del modal. */
             required
-            className="w-full px-3 py-2 rounded-full border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface"
           />
 
           <textarea
@@ -286,7 +287,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
             onChange={e => patchContenido({ descripcion: e.target.value })}
             aria-label="Descripción (opcional)"
             rows={2}
-            className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
+            className="w-full px-3 py-2 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-none"
           />
 
           <div className="space-y-1">
@@ -296,7 +297,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
               value={contenido.notas}
               onChange={e => patchContenido({ notas: e.target.value })}
               rows={3}
-              className="w-full px-3 py-2 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y"
+              className="w-full px-3 py-2 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y"
             />
           </div>
 
@@ -331,21 +332,20 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
                 </button>
               ) : (
                 <button type="button" onClick={() => setConfirmDelete(true)}
-                  className="p-2 text-muted hover:text-error rounded transition-colors" data-tooltip="Eliminar" aria-label="Eliminar">
-                  <Trash2 size={18} />
+                  className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full transition-colors" data-tooltip="Eliminar" aria-label="Eliminar">
+                  <Trash2 size={ICONO.md} />
                 </button>
               )
             )}
             {!isNew && !confirmDelete && (
               <button type="button" onClick={handleDuplicate} disabled={saving}
-                className="p-2 text-muted hover:text-accent rounded transition-colors" data-tooltip="Duplicar" aria-label="Duplicar">
-                <Copy size={18} />
+                className="size-control inline-flex items-center justify-center text-muted hover:text-accent rounded-full transition-colors" data-tooltip="Duplicar" aria-label="Duplicar">
+                <Copy size={ICONO.md} />
               </button>
             )}
-            <button type="submit" disabled={saving || !eventChanged}
-              className="flex-1 py-2.5 bg-accent text-white font-semibold rounded-full text-sm disabled:opacity-60 flex items-center justify-center gap-2">
+            <Button className="flex-1" type="submit" disabled={saving || !eventChanged}>
               {saving ? <Spinner size="sm" /> : isNew ? 'Crear evento' : 'Guardar cambios'}
-            </button>
+            </Button>
           </div>
         </form>
       </div>

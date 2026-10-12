@@ -9,6 +9,8 @@ import { formatLongDate } from '../../utils/dateRange'
 import Select from '../ui/Select'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
+import { Button } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 // Ventana de configuración de una programación (paso 1 de 2).
 //
@@ -137,13 +139,13 @@ export default function ProgramarBloquesModal({
         <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-outline-variant flex-shrink-0"
           style={esModificar ? { background: '#fef3c7' } : undefined}>
           <div className="flex items-center gap-2 min-w-0">
-            {esModificar ? <Pencil size={18} className="text-amber-600" /> : <CalendarPlus size={18} className="text-accent" />}
+            {esModificar ? <Pencil size={ICONO.md} className="text-amber-600" /> : <CalendarPlus size={ICONO.md} className="text-accent" />}
             <h2 className="font-semibold text-on-surface truncate">
               {esModificar ? `Modificar bloques de ${subjectName}` : 'Programar bloques de clase por asignatura'}
             </h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="Cerrar" className="p-2 text-muted hover:text-error rounded transition-colors">
-            <ArrowRight size={18} className="rotate-90 md:rotate-0 hidden" />
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full transition-colors">
+            <ArrowRight size={ICONO.md} className="rotate-90 md:rotate-0 hidden" />
             <span className="text-xl leading-none">×</span>
           </button>
         </div>
@@ -155,7 +157,7 @@ export default function ProgramarBloquesModal({
           {esModificar ? (
             <div className="space-y-1.5">
               {label('Asignatura')}
-              <div className="px-2.5 py-2 rounded border border-outline-variant bg-surface text-sm text-on-surface font-medium">
+              <div className="px-2.5 py-2 rounded-card border border-outline-variant bg-surface text-sm text-on-surface font-medium">
                 {subjectName}
               </div>
               <p className="text-sm text-muted">Estás modificando toda esta asignatura. Al guardar se reemplazan sus bloques de clases que muevas, para todo el rango de fechas.</p>
@@ -191,8 +193,8 @@ export default function ProgramarBloquesModal({
             {fechasDelCurso ? (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="px-2.5 py-2 rounded border border-outline-variant bg-surface text-sm text-on-surface font-medium">{formatLongDate(fechaInicio)}</div>
-                  <div className="px-2.5 py-2 rounded border border-outline-variant bg-surface text-sm text-on-surface font-medium">{formatLongDate(fechaFin)}</div>
+                  <div className="px-2.5 py-2 rounded-card border border-outline-variant bg-surface text-sm text-on-surface font-medium">{formatLongDate(fechaInicio)}</div>
+                  <div className="px-2.5 py-2 rounded-card border border-outline-variant bg-surface text-sm text-on-surface font-medium">{formatLongDate(fechaFin)}</div>
                 </div>
                 <p className="text-sm text-muted">Son las fechas de inicio y fin del curso — se cambian editando la asignatura, no aquí.</p>
               </>
@@ -272,7 +274,7 @@ export default function ProgramarBloquesModal({
               independiente de "Continuar" (como las demás casillas
               "Notificarme cuando..." de la app). El aviso en sí usa la
               anticipación y el sonido que ya configuraste en Notificaciones. */}
-          <div className="flex items-start gap-3 p-3 bg-slate-50 rounded border border-outline-variant">
+          <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-card border border-outline-variant">
             <input
               type="checkbox"
               id="notificar-clase"
@@ -303,9 +305,9 @@ export default function ProgramarBloquesModal({
                 <button
                   type="button"
                   onClick={() => setConfirmDel(true)}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-full text-sm text-error border border-error/30 hover:bg-error/10 transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-full text-sm text-error border border-error/30 hover:bg-error/10 transition-colors min-h-control-sm"
                 >
-                  <Trash2 size={15} /> Borrar toda la programación de esta asignatura
+                  <Trash2 size={ICONO.sm} /> Borrar toda la programación de esta asignatura
                 </button>
               )}
             </div>
@@ -317,21 +319,18 @@ export default function ProgramarBloquesModal({
         {/* Footer */}
         <div className="border-t border-outline-variant px-4 py-3 flex items-center gap-3 flex-shrink-0">
           <span className="text-xs text-muted flex-1">{sinDisponibles ? '' : 'Paso 1 de 2 · configuración'}</span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-3 py-2 text-sm text-muted rounded-full border border-outline-variant hover:bg-surface transition-colors"
-          >
+          <Button variant="secondary"
+            onClick={onClose}>
             {sinDisponibles ? 'Cerrar' : 'Cancelar'}
-          </button>
+          </Button>
           {!sinDisponibles && (
             <button
               type="button"
               onClick={handleContinue}
               disabled={faltanFechasCurso}
-              className={`px-4 py-2.5 text-white rounded-full text-sm font-semibold flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${esModificar ? 'bg-amber-600 hover:bg-amber-700' : 'bg-accent hover:bg-accent-hover'}`}
+              className={`px-4 py-2.5 text-white rounded-full text-sm font-semibold flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed min-h-control ${esModificar ? 'bg-amber-600 hover:bg-amber-700' : 'bg-accent hover:bg-accent-hover'}`}
             >
-              Continuar <ArrowRight size={15} />
+              Continuar <ArrowRight size={ICONO.sm} />
             </button>
           )}
         </div>

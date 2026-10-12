@@ -10,7 +10,7 @@ import { setDoc } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
-import { SkeletonText } from '../ui'
+import { SkeletonText, Button } from '../ui'
 
 const PREGUNTA = '¿Qué quieres agregar que consideres relevante para que la planeación didáctica pueda ser realmente utilizada durante este curso?'
 const MAX_LARGO = 500
@@ -93,21 +93,18 @@ export default function ConsideracionesSection({ subjectId, docenteId }) {
       <label htmlFor="consideraciones-texto" className="block text-sm text-on-surface mt-1.5 mb-1">{PREGUNTA}</label>
       <textarea
         id="consideraciones-texto"
-        className="w-full px-4 py-2.5 rounded border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y"
+        className="w-full px-4 py-2.5 rounded-card border border-outline-variant focus:outline-none focus-visible:ring-2 focus-visible:ring-accent text-sm bg-surface resize-y"
         rows={2}
         value={texto}
         onChange={(e) => setTexto(e.target.value)}
         maxLength={MAX_LARGO}
       />
-      <button
-        type="button"
+      <Button className="mt-2"
         onClick={guardar}
-        disabled={guardando || texto.trim() === guardado}
-        className="mt-2 px-4 py-2.5 bg-accent hover:bg-accent-hover text-white text-sm font-semibold rounded-full transition-colors disabled:opacity-60 flex items-center gap-2"
-      >
+        disabled={guardando || texto.trim() === guardado}>
         {guardando && <Spinner size="sm" />}
         {guardando ? 'Guardando…' : 'Guardar'}
-      </button>
+      </Button>
     </div>
   )
 }

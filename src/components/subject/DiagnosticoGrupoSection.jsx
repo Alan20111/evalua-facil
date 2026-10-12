@@ -20,14 +20,14 @@ import { collection, query, where, onSnapshot, serverTimestamp, doc } from 'fire
 import { addDoc, deleteDoc, setDoc } from '../../utils/firestoreGuard'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
-import Spinner from '../Spinner'
 import ConfirmacionCreditosModal from '../ConfirmacionCreditosModal'
 import ConfirmModal from '../ConfirmModal'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import useDiagnosticoEstado from '../../hooks/useDiagnosticoEstado'
 import AvisoPerfilIA from './AvisoPerfilIA'
 import { Sparkles, ClipboardList, ExternalLink, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
-import { SkeletonText } from '../ui'
+import { SkeletonText, Button } from '../ui'
+import { ICONO } from '../../config/iconos'
 
 function millisDe(ts) {
   return ts?.toMillis?.() || 0
@@ -205,17 +205,14 @@ function DiagnosticoActividadBloque({
           ) : (
             <div className="space-y-1.5">
               {actividades.map((a) => (
-                <button
+                <Button variant="secondary" fullWidth icon={ClipboardList} className="text-left"
                   key={a.id}
-                  type="button"
-                  onClick={() => navigate(`/activity/${a.id}`)}
-                  className="w-full flex items-center gap-2 px-2.5 py-2 rounded-full border border-outline-variant bg-surface text-sm text-left hover:border-accent"
-                >
-                  <ClipboardList size={14} className="text-accent flex-shrink-0" />
+                  onClick={() => navigate(`/activity/${a.id}`)}>
+                  
                   <span className="flex-1 min-w-0 truncate">{a.nombre}</span>
                   <span className="text-xs text-muted flex-shrink-0">{a.oculta ? 'Borrador' : 'Publicado'}</span>
-                  <ExternalLink size={13} className="text-muted flex-shrink-0" />
-                </button>
+                  <ExternalLink size={ICONO.xs} className="text-muted flex-shrink-0" />
+                </Button>
               ))}
             </div>
           )}
@@ -228,16 +225,13 @@ function DiagnosticoActividadBloque({
               docente quiere uno distinto, lo elimina desde Actividades y
               este botón reaparece solo. */}
           {actividades.length === 0 ? (
-            <button
-              type="button"
+            <Button variant="secondary" icon={Sparkles} busy={generando}
               onClick={() => setConfirmando(true)}
               disabled={generando || !perfilIACompleto}
-              title={!perfilIACompleto ? 'Completa tu Perfil para IA del docente para generar los diagnósticos' : undefined}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-full border border-dashed border-outline-variant text-sm text-accent hover:bg-[var(--accent-tint)] disabled:opacity-60"
-            >
-              {generando ? <Spinner size="sm" /> : <Sparkles size={14} />}
+              title={!perfilIACompleto ? 'Completa tu Perfil para IA del docente para generar los diagnósticos' : undefined}>
+              
               Generar cuestionario de diagnóstico
-            </button>
+            </Button>
           ) : estadoDiagnostico === 'completado' ? (
             <p className="text-sm text-green-700">
               Diagnóstico completado — este es el que usa la Planeación Didáctica Inicial.
@@ -344,7 +338,7 @@ function DiagnosticosLegadoBloque({ subjectId }) {
         onClick={() => setAbierto((v) => !v)}
         className="flex items-center gap-1.5 text-sm font-semibold text-on-surface"
       >
-        {abierto ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        {abierto ? <ChevronUp size={ICONO.xs} /> : <ChevronDown size={ICONO.xs} />}
         Diagnósticos del formato anterior ({historial.length})
       </button>
       <p className="text-sm text-muted mt-0.5">
@@ -353,7 +347,7 @@ function DiagnosticosLegadoBloque({ subjectId }) {
       {abierto && (
         <div className="mt-2 space-y-1.5">
           {historial.map((h) => (
-            <div key={h.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded border border-outline-variant bg-surface text-sm">
+            <div key={h.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-outline-variant bg-surface text-sm">
               <span className="flex-1 min-w-0 truncate">
                 {h.tipo === 'contexto' ? 'Diagnóstico de contexto' : 'Diagnóstico de conocimientos'}
                 {h.generadoEn?.toDate && ` · ${h.generadoEn.toDate().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}`}
@@ -365,7 +359,7 @@ function DiagnosticosLegadoBloque({ subjectId }) {
                 data-tooltip="Eliminar"
                 className="p-1 text-muted hover:text-red-500 flex-shrink-0"
               >
-                <Trash2 size={14} />
+                <Trash2 size={ICONO.xs} />
               </button>
             </div>
           ))}

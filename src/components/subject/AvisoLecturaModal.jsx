@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { avisoEmoji, formatAvisoFecha } from '../../utils/avisos'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
+import { Button } from '../ui'
 
 // Lectura obligatoria de avisos pendientes — pedido explícito: nada de cerrar,
 // omitir, "más tarde", X, deslizar o botón atrás. La única salida es leer el
@@ -46,10 +47,9 @@ export default function AvisoLecturaModal({ avisos, teacherNames = {}, subjectNa
         <p className="text-xs text-hint mb-6">
           {formatAvisoFecha(aviso.fechaCreacion)}{teacherName ? ` · ${teacherName}` : ''}
         </p>
-        <button type="button" onClick={handleEntendido} disabled={confirming}
-          className="w-full px-4 py-2.5 bg-accent text-white text-sm font-semibold rounded-full hover:bg-accent-hover transition-colors disabled:opacity-60">
+        <Button fullWidth onClick={handleEntendido} disabled={confirming}>
           {confirming ? 'Guardando…' : 'Entendido'}
-        </button>
+        </Button>
       </div>
     </div>
   )
