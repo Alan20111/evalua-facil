@@ -484,7 +484,7 @@ que quede transversal.
 | 0. Contrato | ✅ | #1566 |
 | 1. Librería | ✅ `ui/` completa y `/dev/componentes` | #1567, #1568 |
 | 2. Migración | ✅ olas 2.1 a 2.11 | #1569, #1578–#1583 (y escala de letra #1577) |
-| 3. Selección y preselección | ⏳ en curso, pantalla por pantalla (ver «Fase 3 — pantallas») | #1590, este PR |
+| 3. Selección y preselección | ⏳ en curso, pantalla por pantalla (ver «Fase 3 — pantallas») | #1590, #1591, este PR |
 | 4. Movimiento | ✅ despliegues y microanimaciones, casillas nativas con aspecto `ui/` y 53 modales a `ui/Modal` | #1584, #1585, #1586 |
 | 5. Monolitos | ✅ sin cambio visual (mismo HTML en todas las pestañas) | #1587, #1588 |
 | 6. Verificación y candados | ✅ `npm run test:visual` y candados al mínimo | este PR |
@@ -517,6 +517,8 @@ app. Cada una se mide con `node scripts/visual/verificar.mjs --vista=<nombre>`.
 | **Nueva asignatura** ✅ | Fechas, parciales y fechas por parcial del **ciclo vigente**: la asignatura activa más reciente cuyo curso no ha terminado, con la nota «Tomadas de «…»». Color: el primero que no usa ninguna asignatura activa, entre los que pasan contraste AA como texto (azul, morado, rosa, grafito). Si no hay de dónde tomarlos, no se inventan (`utils/asignaturaNueva.js`). | Colores, bolitas e íconos marcan lo elegido con el mismo aro de 2 px con separación y `aria-pressed`. Íconos con nombre en español. | Foco en «Asignatura» (solo con mouse). «Crear asignatura» se apaga y dice qué falta. Las fechas fijas por parcial miden lo mismo que el selector de al lado. |
 
 | **Editar, Duplicar y Desarchivar asignatura** ✅ | Ya llegan con los datos de la asignatura. Desarchivar propone «Conservar» en estudiantes y actividades (nunca lo destructivo). | Duplicar: casilla de `ui/Checkbox` en su tarjeta. Desarchivar: opciones de `ui/Radio` en tarjetas `rounded-card` (antes `rounded`, esquinas a medias). | Igual que Nueva: X con `IconButton`, pie fijo con botón grande y `MotivoApagado` («Falta el grupo.», «Aún no hay cambios que guardar.»), fechas con nombre accesible. Desarchivar gana etiquetas visibles en Asignatura, Grupo y Número de parciales, y «Cancelar» pasa a `Button`. |
+
+| **Nueva actividad** (menú de tipo y editor de entregable/observación) ✅ | El parcial ya viene puesto: es el del botón «Agregar actividad» que se tocó. El tipo NO se preselecciona: cambia todo lo que sigue y adivinarlo mal cuesta más que elegirlo. Archivos permitidos sigue en «Imágenes» y la fecha límite en «Sin fecha límite». | Las 4 casillas del editor pasan a `ui/Checkbox`. | Foco en «Nombre de la actividad». «Crear actividad» se apaga y dice qué falta (nombre, instrucciones). El menú usa una sola pieza (`OpcionCreacion` con `IconTile`), con la descripción siempre en `text-sm` y «Volver» como `Button quiet`. «Ver cómo vería el estudiante», «Salir» y «Eliminar actividad» pasan a `Button`. La flecha «Volver» de los 7 editores de pantalla completa vuelve a ser blanca sobre el encabezado azul (`IconButton variant="onColor"`): desde #1582 salía gris. La barra del editor de texto usa botones `control-sm` redondos (eran de 26.8 px con `rounded`) y en el teléfono sigue cabiendo en dos renglones. |
 
 `ui/MotivoApagado` es la pieza que dice por qué el botón principal de un
 formulario está apagado (§5.2, regla 6). Va en el pie fijo, bajo el botón.

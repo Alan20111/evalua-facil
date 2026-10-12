@@ -52,8 +52,10 @@ node scripts/visual/verificar.mjs --vista=nueva-asignatura
 ```
 
 Las hojas de formulario se capturan con `abrir`: la vista entra a su página,
-toca el botón con ese nombre y compara el HTML del diálogo en vez del de
-`main`. Además deja `<vista>-pie.png` con la hoja desplazada hasta abajo. En
+toca el botón con ese nombre (o varios, en orden; una expresión regular si el
+botón lleva su descripción dentro) y compara el HTML del diálogo en vez del de
+`main`. Con `captura` se elige otro contenedor (p. ej. un editor de pantalla
+completa, que no es un diálogo); la auditoría de alturas también lo recorre. Además deja `<vista>-pie.png` con la hoja desplazada hasta abajo. En
 las capturas se oculta el aviso «Activa las notificaciones», que tapaba el pie.
 
 Al comparar se **reutilizan** los datos sembrados (`test/visual/.semilla.json`):
@@ -69,7 +71,7 @@ y vuelve a tomar la referencia.
 
 | Rol | Vistas |
 |-----|--------|
-| Docente | tablero, «Nueva asignatura», asignatura (+ cada pestaña), «Editar asignatura», «Duplicar asignatura» (solo compu: el teléfono no tiene ese botón), actividad, calendario, perfil (+ cada pestaña), notificaciones, catálogo `/dev/componentes` |
+| Docente | tablero, «Nueva asignatura», asignatura (+ cada pestaña), «Editar asignatura», «Duplicar asignatura» (solo compu: el teléfono no tiene ese botón), «Nueva actividad» (menú) y el editor de entregable nuevo, actividad, calendario, perfil (+ cada pestaña), notificaciones, catálogo `/dev/componentes` |
 | Alumno | tablero, perfil (+ cada pestaña), agenda |
 
 La asignatura y la actividad **del alumno** no se pueden ver en local: leen de

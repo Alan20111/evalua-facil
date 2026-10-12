@@ -4,7 +4,6 @@ import { collection, doc, serverTimestamp } from 'firebase/firestore'
 import { addDoc, updateDoc } from '../utils/firestoreGuard'
 import { db } from '../firebase'
 import { useToast } from './Toast'
-import Spinner from './Spinner'
 import VisibilitySelect from './VisibilitySelect'
 import RichTextEditor from './RichTextEditor'
 import FileTypeSelect from './FileTypeSelect'
@@ -32,8 +31,8 @@ import { minDeadline, isoLocalFromDate } from '../utils/nowIso'
 import { groupExtensions } from '../utils/extensiones'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
-import { IS_NATIVE_APP } from '../utils/platform'
-import { Input, Button, IconButton } from './ui'
+import { IS_NATIVE_APP, PUEDE_AUTOFOCUS } from '../utils/platform'
+import { Input, Button, Checkbox, IconButton, MotivoApagado } from './ui'
 import { ICONO } from '../config/iconos'
 
 const MAX_ATTACH = 15 * 1024 * 1024
@@ -188,6 +187,13 @@ export default function EntregableEditor({
     || JSON.stringify({ ...form, notificarDocente: null }) !== JSON.stringify({ ...initialForm, notificarDocente: null })
     || newFiles.length > 0
     || existingFiles.length !== (initialExistingFiles || []).length
+  // Lo obligatorio que falta: el botón principal se apaga y lo dice
+  // (PLAN_NORMALIZACION_UI §5.2, regla 6) en vez de dejar que el globo del
+  // navegador o un aviso suelto lo cuenten al tocarlo.
+  const faltan = [
+    !form.nombre.trim() && 'el nombre de la actividad',
+    !isObservacion && !htmlToPlainText(form.instrucciones) && 'las instrucciones',
+  ].filter(Boolean)
 
   function addFiles(files) {
     const tooBig = files.find((f) => f.size > MAX_ATTACH)
@@ -454,7 +460,7 @@ export default function EntregableEditor({
       {/* Header */}
       <header className="sticky top-0 z-10 bg-accent text-white shadow-lg safe-top">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <IconButton icon={ArrowLeft} label="Volver" tooltip={false} className="-ml-2" onClick={onClose} />
+          <IconButton icon={ArrowLeft} label="Volver" tooltip={false} variant="onColor" className="-ml-2" onClick={onClose} />
           <div className="flex-1 min-w-0">
             {contextLine && <p className="text-xl font-bold text-white truncate">{contextLine}</p>}
             <p className="text-xs text-white/70 uppercase tracking-wide">{tipoLabel} — Parcial {parcial}</p>
@@ -479,20 +485,22 @@ export default function EntregableEditor({
           <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
             <Input
               label="Nombre de la actividad" id="ent-nombre" type="text" value={form.nombre} onChange={(e) => setForm((f) => ({ ...f, nombre: e.target.value }))}
-              required />
+              required
+              // Actividad nueva: se entra a escribirle nombre. Solo con mouse
+              // (en táctil abriría el teclado de golpe — ver PUEDE_AUTOFOCUS).
+              // eslint-disable-next-line jsx-a11y/no-autofocus
+              autoFocus={isNew && PUEDE_AUTOFOCUS} />
 
             {/* Default apagado: el docente elige, actividad por actividad,
                 cuáles quiere que le avisen. El push solo llega al celular
                 donde tenga instalada la app — se puede configurar desde
                 aquí o desde ahí, da igual dónde se edite la actividad. */}
             <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-card border border-outline-variant">
-              <input
-                type="checkbox"
+              <Checkbox
                 id="ent-notificar-docente"
                 checked={form.notificarDocente ?? false}
                 onChange={(e) => handleToggleNotificar(e.target.checked)}
                 disabled={savingNotificar}
-                className="mt-1"
               />
               <div className="flex-1">
                 <label htmlFor="ent-notificar-docente" className="text-sm font-medium text-on-surface cursor-pointer">
@@ -517,15 +525,11 @@ export default function EntregableEditor({
                 comentario de cada entrega, en el panel de calificar). Cambiar
                 esto aquí NUNCA sobrescribe ni borra las excepciones ya
                 guardadas por estudiante. */}
-            <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.comentarioVisibleAlumno !== false}
-                onChange={(e) => setForm((f) => ({ ...f, comentarioVisibleAlumno: e.target.checked }))}
-                className="w-4 h-4 rounded-card border-outline-variant text-accent focus:ring-accent"
-              />
-              Permitir que cada estudiante pueda ver el comentario que el docente le otorga al calificarlo
-            </label>
+            <Checkbox
+              checked={form.comentarioVisibleAlumno !== false}
+              onChange={(e) => setForm((f) => ({ ...f, comentarioVisibleAlumno: e.target.checked }))}
+              label="Permitir que cada estudiante pueda ver el comentario que el docente le otorga al calificarlo"
+            />
 
             <div>
               <label className="block text-sm font-medium text-muted mb-1">
@@ -609,15 +613,11 @@ export default function EntregableEditor({
                       Kike) — SOLO decide si el alumno la ve en su pantalla;
                       el docente y la IA la siguen usando igual para calificar
                       en cualquier caso, esto no las oculta ni las desactiva. */}
-                  <label className="flex items-center gap-2 text-sm text-on-surface cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={form.rubricaVisibleAlumno !== false}
-                      onChange={(e) => setForm((f) => ({ ...f, rubricaVisibleAlumno: e.target.checked }))}
-                      className="w-4 h-4 rounded-card border-outline-variant text-accent focus:ring-accent"
-                    />
-                    Permitir que los estudiantes vean {esCotejo(form.rubrica) ? 'la lista de cotejo' : 'la rúbrica'}
-                  </label>
+                  <Checkbox
+                    checked={form.rubricaVisibleAlumno !== false}
+                    onChange={(e) => setForm((f) => ({ ...f, rubricaVisibleAlumno: e.target.checked }))}
+                    label={`Permitir que los estudiantes vean ${esCotejo(form.rubrica) ? 'la lista de cotejo' : 'la rúbrica'}`}
+                  />
                 </>
               ) : (
                 <div className="space-y-2">
@@ -704,12 +704,10 @@ export default function EntregableEditor({
                       se lea como parte de esa misma opción, no como una aparte. */}
                   {form.fechaLimite && (
                     <div className="flex items-start gap-3 px-3 py-2.5 ml-4 border-l-2 border-outline-variant">
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         id="cerrarEntregasEnFecha"
                         checked={form.cerrarEntregasEnFecha ?? true}
                         onChange={(e) => setForm(f => ({ ...f, cerrarEntregasEnFecha: e.target.checked }))}
-                        className="mt-0.5"
                         data-tooltip="Desactivar para recibir tarde"
                       />
                       <label htmlFor="cerrarEntregasEnFecha" className="text-sm text-on-surface cursor-pointer">
@@ -766,11 +764,9 @@ export default function EntregableEditor({
           </div>
 
           {/* Vista previa: la actividad exactamente como la verá el estudiante */}
-          <button type="button" onClick={() => setPreview((v) => !v)}
-            className="w-full py-2 text-sm text-accent font-medium flex items-center justify-center gap-1.5 hover:underline">
-            {preview ? <EyeOff size={ICONO.sm} /> : <Eye size={ICONO.sm} />}
+          <Button variant="ghost" fullWidth icon={preview ? EyeOff : Eye} onClick={() => setPreview((v) => !v)}>
             {preview ? 'Ocultar vista del estudiante' : 'Ver cómo vería el estudiante esta actividad'}
-          </button>
+          </Button>
           {preview && (
             <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
               <h2 className="text-lg font-bold text-on-surface">{form.nombre || `${isObservacion ? 'Observación' : 'Entregable'} sin nombre`}</h2>
@@ -810,10 +806,13 @@ export default function EntregableEditor({
             </Button>
           ) : (
             <>
-              <Button fullWidth type="submit" disabled={saving || (!wasDraft && !isDirty)}>
-                {saving ? <Spinner size="sm" /> : isNew ? <Plus size={ICONO.md} /> : <Pencil size={ICONO.md} />}
-                {saving ? 'Guardando…' : isNew ? 'Crear actividad' : wasDraft ? (form.visibilidadMode === 'schedule' ? 'Guardar con la fecha programada' : 'Guardar y publicar ahora') : 'Guardar cambios'}
-              </Button>
+              <div>
+                <Button fullWidth type="submit" icon={isNew ? Plus : Pencil} busy={saving}
+                  disabled={faltan.length > 0 || (!wasDraft && !isDirty)}>
+                  {saving ? 'Guardando…' : isNew ? 'Crear actividad' : wasDraft ? (form.visibilidadMode === 'schedule' ? 'Guardar con la fecha programada' : 'Guardar y publicar ahora') : 'Guardar cambios'}
+                </Button>
+                <MotivoApagado faltan={faltan} sinCambios={!wasDraft && !isDirty} />
+              </div>
               {/* También cuando ya está publicada: una actividad se puede
                   regresar a borrador. Ahí sí se pregunta antes, porque deja de
                   verse para los estudiantes (ver confirmDraft). */}
@@ -828,18 +827,15 @@ export default function EntregableEditor({
           )}
           {!isNew && (
             // With no changes, exiting is the natural action — it takes the primary style
-            <button type="button" onClick={onClose} disabled={saving}
-              className={`w-full py-2.5 font-medium rounded-full transition-colors disabled:opacity-60 min-h-control ${(!isDirty && (!wasDraft || form.visibilidadMode === 'hide'))
-                ? 'bg-accent text-white font-semibold hover:bg-accent-hover'
-                : 'border border-outline-variant text-muted hover:bg-surface-container'}`}>
+            <Button fullWidth onClick={onClose} disabled={saving}
+              variant={(!isDirty && (!wasDraft || form.visibilidadMode === 'hide')) ? 'primary' : 'secondary'}>
               {isDirty ? 'Salir sin guardar cambios' : 'Salir'}
-            </button>
+            </Button>
           )}
           {!isNew && onDeleteActivity && (
-            <button type="button" onClick={onDeleteActivity} disabled={saving}
-              className="w-full py-2.5 text-error font-medium rounded-card hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5">
-              <Trash2 size={ICONO.sm} /> Eliminar actividad
-            </button>
+            <Button variant="danger-outline" fullWidth icon={Trash2} onClick={onDeleteActivity} disabled={saving}>
+              Eliminar actividad
+            </Button>
           )}
           <div className="h-6 safe-bottom" />
         </form>

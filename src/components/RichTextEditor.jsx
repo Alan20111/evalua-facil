@@ -28,7 +28,12 @@ import { ICONO } from '../config/iconos'
 // hover lives in each button's "not active" branch below, never in this base
 // constant — TOOLBAR_BTN_ACTIVE already supplies its own background, and a
 // shared hover here would visibly tint an already-active button on rollover.
-const TOOLBAR_BTN = 'p-1.5 rounded transition-colors disabled:opacity-40'
+// Barra de herramientas = zona densa: botones de ícono de alto control-sm,
+// círculo completo (PLAN_NORMALIZACION_UI §2.1/§2.2; antes p-1.5 rounded,
+// 26.8 px y esquinas a medias). Van pegados (sin gap) y con separadores
+// angostos: el propio círculo ya da el aire, y así en un teléfono de 375 px
+// la barra sigue cabiendo en dos renglones con los botones a tamaño táctil.
+const TOOLBAR_BTN = 'size-control-sm inline-flex items-center justify-center flex-shrink-0 rounded-full transition-colors disabled:opacity-40'
 const TOOLBAR_BTN_HOVER = 'hover:bg-[var(--accent-tint)]'
 const TOOLBAR_BTN_ACTIVE = 'bg-accent-light text-accent'
 
@@ -220,7 +225,7 @@ export default function RichTextEditor({ value, onChange, etiqueta, attachments,
 
   return (
     <div className="border border-outline-variant rounded bg-surface-card overflow-hidden">
-      <div className="flex items-center gap-0.5 flex-wrap p-1.5 border-b border-outline-variant bg-surface">
+      <div className="flex items-center flex-wrap p-1 border-b border-outline-variant bg-surface">
         <button type="button" data-tooltip="Negrita" aria-label="Negrita"
           className={`${TOOLBAR_BTN} ${editor.isActive('bold') ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
           onClick={() => editor.chain().focus().toggleBold().run()}>
@@ -250,7 +255,7 @@ export default function RichTextEditor({ value, onChange, etiqueta, attachments,
           </>
         )}
 
-        <span className="w-px h-5 bg-outline-variant mx-1" />
+        <span aria-hidden="true" className="w-px h-5 bg-outline-variant mx-0.5" />
 
         <button type="button" data-tooltip="Lista con viñetas" aria-label="Lista con viñetas"
           className={`${TOOLBAR_BTN} ${editor.isActive('bulletList') ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
@@ -263,7 +268,7 @@ export default function RichTextEditor({ value, onChange, etiqueta, attachments,
           <ListOrdered size={ICONO.sm} />
         </button>
 
-        <span className="w-px h-5 bg-outline-variant mx-1" />
+        <span aria-hidden="true" className="w-px h-5 bg-outline-variant mx-0.5" />
 
         <button type="button" data-tooltip="Alinear a la izquierda" aria-label="Alinear a la izquierda"
           className={`${TOOLBAR_BTN} ${editor.isActive({ textAlign: 'left' }) ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
@@ -283,7 +288,7 @@ export default function RichTextEditor({ value, onChange, etiqueta, attachments,
 
         {!simple && (
           <>
-            <span className="w-px h-5 bg-outline-variant mx-1" />
+            <span aria-hidden="true" className="w-px h-5 bg-outline-variant mx-0.5" />
 
             <button type="button" data-tooltip="Insertar enlace" aria-label="Insertar enlace"
               className={`${TOOLBAR_BTN} ${editor.isActive('link') ? TOOLBAR_BTN_ACTIVE : `text-muted ${TOOLBAR_BTN_HOVER}`}`}
@@ -302,7 +307,7 @@ export default function RichTextEditor({ value, onChange, etiqueta, attachments,
 
         {!simple && onAttachFiles && (
           <>
-            <span className="w-px h-5 bg-outline-variant mx-1" />
+            <span aria-hidden="true" className="w-px h-5 bg-outline-variant mx-0.5" />
             <button type="button" data-tooltip="Adjuntar archivo" aria-label="Adjuntar archivo" className={`${TOOLBAR_BTN} ${TOOLBAR_BTN_HOVER} text-muted`} onClick={pickAttachFiles}>
               <Paperclip size={ICONO.sm} />
             </button>

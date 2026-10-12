@@ -1,8 +1,9 @@
 // Parte del render de SubjectPage.jsx (fase 5 de PLAN_NORMALIZACION_UI:
 // dividir sin cambio visual). Recibe lo que usa del componente principal por
 // el contexto Asignatura.
+import { useId } from 'react'
 import { AlertTriangle, Archive, ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, Check as CheckIcon, ChevronRight, ClipboardCheck, Copy, Download, Eye, FileText, Gamepad2, GraduationCap, KeyRound, ListChecks, Lock, LogIn, MessageCircleQuestion, Paperclip, Pencil, Plus, RotateCcw, Sparkles, Trash2, Upload, UserPlus, X } from 'lucide-react'
-import { Button, Checkbox, IconButton, Input, Modal, MotivoApagado, Radio, SkeletonList } from '../../../components/ui'
+import { Button, Checkbox, IconButton, IconTile, Input, Modal, MotivoApagado, Radio, SkeletonList } from '../../../components/ui'
 import EFDateTimePicker from '../../../components/EFDateTimePicker'
 import FileDropzone from '../../../components/FileDropzone'
 import FileTypeSelect from '../../../components/FileTypeSelect'
@@ -26,6 +27,35 @@ import { studentFullName } from '../../../utils/studentSearch'
 import { subjectDisplayName } from '../../../utils/subjectName'
 import { subjectPaletteProps } from '../../../utils/subjectPalette'
 import { useAsignatura } from './contexto'
+
+// Opción del menú «Nueva actividad»: tarjeta con fondo de ícono, título y
+// descripción. Una sola pieza para todas las opciones (antes eran doce copias
+// a mano con fondos de ícono de 2.5rem fuera de la escala y la descripción a
+// veces en text-xs y a veces en text-sm). El nombre accesible es el título;
+// la descripción se anuncia aparte.
+function OpcionCreacion({ icon, tone = 'accent', label, desc, onClick }) {
+  const idDesc = useId()
+  return (
+    <button type="button" aria-label={label} aria-describedby={idDesc} onClick={onClick}
+      className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
+      <IconTile icon={icon} tone={tone} />
+      <div>
+        <p className="font-semibold text-on-surface">{label}</p>
+        <p id={idDesc} className="text-sm text-muted mt-0.5">{desc}</p>
+      </div>
+    </button>
+  )
+}
+
+// «Volver» dentro del menú por pasos: el botón discreto de la librería
+// (variante quiet, la de «Atrás»), no un enlace de texto chico.
+function BotonVolverMenu({ onClick }) {
+  return (
+    <Button variant="quiet" size="sm" icon={ArrowLeft} className="-ml-3 mb-2" onClick={onClick}>
+      Volver
+    </Button>
+  )
+}
 
 export default function ModalesAsignatura() {
   const {
@@ -263,7 +293,7 @@ export default function ModalesAsignatura() {
                     ? `${tipoActividad === 'entregable' ? 'Entregable' : tipoActividad === 'cuestionario' ? 'Cuestionario' : 'Examen'} — Parcial ${modalParcial}`
                     : 'Editar actividad'}
               </h3>
-              <button type="button" onClick={() => setShowModal(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
+              <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-2" onClick={() => setShowModal(false)} />
             </div>
 
             {/* ── Tipo picker (only on create, before choosing type) ──
@@ -279,134 +309,67 @@ export default function ModalesAsignatura() {
                   <>
                     <p className="text-sm text-muted mb-3">¿Qué quieres que haga tu estudiante?</p>
                     {[
-                      { key: 'entregable', label: 'Entregable', desc: 'El estudiante entrega uno o varios archivos.', Icon: FileText, iconColor: 'text-hint', iconBg: 'bg-slate-100' },
-                      { key: 'evaluacion', label: 'Evaluación', desc: 'Cuestionarios y exámenes con reactivos y calificación.', Icon: ListChecks, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100' },
-                      { key: 'observacion', label: 'Observación', desc: 'Tú observas y calificas el desempeño del estudiante.', Icon: ClipboardCheck, iconColor: 'text-amber-600', iconBg: 'bg-amber-100' },
-                      { key: 'interactiva', label: 'Actividad interactiva', desc: 'El estudiante realiza una actividad directamente en Evalúa Fácil, generada con IA.', Icon: Gamepad2, iconColor: 'text-accent', iconBg: 'bg-[var(--accent-light)]' },
-                    ].map((opt) => (
-                      <button key={opt.key} type="button" aria-label={opt.label} onClick={() => setMenuPaso(opt.key)}
-                        className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${opt.iconBg}`}>
-                          <opt.Icon size={ICONO.md} className={opt.iconColor} />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-on-surface">{opt.label}</p>
-                          <p className="text-xs text-muted mt-0.5">{opt.desc}</p>
-                        </div>
-                      </button>
+                      { key: 'entregable', label: 'Entregable', desc: 'El estudiante entrega uno o varios archivos.', icon: FileText, tone: 'neutral' },
+                      { key: 'evaluacion', label: 'Evaluación', desc: 'Cuestionarios y exámenes con reactivos y calificación.', icon: ListChecks, tone: 'success' },
+                      { key: 'observacion', label: 'Observación', desc: 'Tú observas y calificas el desempeño del estudiante.', icon: ClipboardCheck, tone: 'warning' },
+                      { key: 'interactiva', label: 'Actividad interactiva', desc: 'El estudiante realiza una actividad directamente en Evalúa Fácil, generada con IA.', icon: Gamepad2, tone: 'accent' },
+                    ].map(({ key, ...opt }) => (
+                      <OpcionCreacion key={key} {...opt} onClick={() => setMenuPaso(key)} />
                     ))}
                   </>
                 )}
 
                 {(menuPaso === 'entregable' || menuPaso === 'observacion') && (
                   <>
-                    <button type="button" onClick={() => setMenuPaso(null)} className="text-xs text-accent hover:underline mb-2">← Volver</button>
+                    <BotonVolverMenu onClick={() => setMenuPaso(null)} />
                     <p className="text-sm text-muted mb-3">
                       {menuPaso === 'entregable' ? 'El estudiante entrega uno o varios archivos.' : 'Tú observas y calificas el desempeño del estudiante.'}
                     </p>
-                    <button type="button" onClick={() => elegirCreacion(menuPaso, 'manual')}
-                      className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-slate-100">
-                        <Pencil size={ICONO.md} className="text-hint" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-on-surface">Crear manualmente</p>
-                        <p className="text-xs text-muted mt-0.5">Tú defines instrucciones y configuración.</p>
-                      </div>
-                    </button>
-                    <button type="button" onClick={() => elegirCreacion(menuPaso, 'ia')}
-                      className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-[var(--accent-light)]">
-                        <Sparkles size={ICONO.md} className="text-accent" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-on-surface">Generar con IA</p>
-                        <p className="text-sm text-muted mt-0.5">Describe qué quieres y el asistente genera la actividad completa.</p>
-                      </div>
-                    </button>
+                    <OpcionCreacion icon={Pencil} tone="neutral" label="Crear manualmente" desc="Tú defines instrucciones y configuración."
+                      onClick={() => elegirCreacion(menuPaso, 'manual')} />
+                    <OpcionCreacion icon={Sparkles} label="Generar con IA" desc="Describe qué quieres y el asistente genera la actividad completa."
+                      onClick={() => elegirCreacion(menuPaso, 'ia')} />
                   </>
                 )}
 
                 {menuPaso === 'evaluacion' && (
                   <>
-                    <button type="button" onClick={() => setMenuPaso(null)} className="text-xs text-accent hover:underline mb-2">← Volver</button>
+                    <BotonVolverMenu onClick={() => setMenuPaso(null)} />
                     <p className="text-sm text-muted mb-3">Cuestionarios y exámenes con reactivos y calificación.</p>
                     {[
-                      { key: 'cuestionario', label: 'Cuestionario', desc: 'Preguntas con calificación automática, abiertas o con archivo. Ideal para práctica o aprendizaje.', Icon: ListChecks, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100' },
-                      { key: 'examen', label: 'Examen', desc: 'Preguntas con calificación automática, abiertas o con archivo. Para evaluación formal.', Icon: GraduationCap, iconColor: 'text-accent', iconBg: 'bg-[var(--accent-light)]' },
-                    ].map((opt) => (
-                      <button key={opt.key} type="button" aria-label={opt.label} onClick={() => setMenuPaso(opt.key)}
-                        className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${opt.iconBg}`}>
-                          <opt.Icon size={ICONO.md} className={opt.iconColor} />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-on-surface">{opt.label}</p>
-                          <p className="text-xs text-muted mt-0.5">{opt.desc}</p>
-                        </div>
-                      </button>
+                      { key: 'cuestionario', label: 'Cuestionario', desc: 'Preguntas con calificación automática, abiertas o con archivo. Ideal para práctica o aprendizaje.', icon: ListChecks, tone: 'success' },
+                      { key: 'examen', label: 'Examen', desc: 'Preguntas con calificación automática, abiertas o con archivo. Para evaluación formal.', icon: GraduationCap, tone: 'accent' },
+                    ].map(({ key, ...opt }) => (
+                      <OpcionCreacion key={key} {...opt} onClick={() => setMenuPaso(key)} />
                     ))}
                   </>
                 )}
 
                 {(menuPaso === 'cuestionario' || menuPaso === 'examen') && (
                   <>
-                    <button type="button" onClick={() => setMenuPaso('evaluacion')} className="text-xs text-accent hover:underline mb-2">← Volver</button>
+                    <BotonVolverMenu onClick={() => setMenuPaso('evaluacion')} />
                     <p className="text-sm text-muted mb-3">{menuPaso === 'cuestionario' ? 'Cuestionario' : 'Examen'}: reactivos con calificación automática.</p>
-                    <button type="button" onClick={() => elegirCreacion(menuPaso, 'manual')}
-                      className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-slate-100">
-                        <Pencil size={ICONO.md} className="text-hint" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-on-surface">Crear manualmente</p>
-                        <p className="text-xs text-muted mt-0.5">Tú agregas los reactivos uno por uno.</p>
-                      </div>
-                    </button>
-                    <button type="button" onClick={() => elegirCreacion(menuPaso, 'ia')}
-                      className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-[var(--accent-light)]">
-                        <Sparkles size={ICONO.md} className="text-accent" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-on-surface">Generar con IA</p>
-                        <p className="text-sm text-muted mt-0.5">Describe qué quieres evaluar y el asistente genera los reactivos.</p>
-                      </div>
-                    </button>
+                    <OpcionCreacion icon={Pencil} tone="neutral" label="Crear manualmente" desc="Tú agregas los reactivos uno por uno."
+                      onClick={() => elegirCreacion(menuPaso, 'manual')} />
+                    <OpcionCreacion icon={Sparkles} label="Generar con IA" desc="Describe qué quieres evaluar y el asistente genera los reactivos."
+                      onClick={() => elegirCreacion(menuPaso, 'ia')} />
                   </>
                 )}
 
                 {menuPaso === 'interactiva' && (
                   <>
-                    <button type="button" onClick={() => setMenuPaso(null)} className="text-xs text-accent hover:underline mb-2">← Volver</button>
+                    <BotonVolverMenu onClick={() => setMenuPaso(null)} />
                     <p className="text-sm text-muted mb-3">El estudiante resuelve el juego directamente en Evalúa Fácil.</p>
                     {[
-                      { key: 'crucigrama', label: 'Crucigrama', desc: 'Describe el tema y el asistente propone las palabras para armar un crucigrama.', Icon: Sparkles, iconColor: 'text-accent', iconBg: 'bg-[var(--accent-light)]' },
-                      { key: 'sopa_letras', label: 'Sopa de letras', desc: 'Describe el tema y el asistente propone las palabras para armar una sopa de letras.', Icon: Sparkles, iconColor: 'text-emerald-600', iconBg: 'bg-emerald-100' },
-                    ].map((opt) => (
-                      <button key={opt.key} type="button" aria-label={opt.label}
-                        onClick={() => { setShowModal(false); setCrearJuegoIA({ tipoJuego: opt.key }) }}
-                        className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${opt.iconBg}`}>
-                          <opt.Icon size={ICONO.md} className={opt.iconColor} />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-on-surface">{opt.label}</p>
-                          <p className="text-xs text-muted mt-0.5">{opt.desc}</p>
-                        </div>
-                      </button>
+                      { key: 'crucigrama', label: 'Crucigrama', desc: 'Describe el tema y el asistente propone las palabras para armar un crucigrama.', tone: 'accent' },
+                      { key: 'sopa_letras', label: 'Sopa de letras', desc: 'Describe el tema y el asistente propone las palabras para armar una sopa de letras.', tone: 'success' },
+                    ].map(({ key, ...opt }) => (
+                      <OpcionCreacion key={key} icon={Sparkles} {...opt}
+                        onClick={() => { setShowModal(false); setCrearJuegoIA({ tipoJuego: key }) }} />
                     ))}
-                    <button type="button" aria-label="Video interactivo"
-                      onClick={() => { setShowModal(false); setCrearVideoIA(true) }}
-                      className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-blue-100">
-                        <Sparkles size={ICONO.md} className="text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-on-surface">Video interactivo</p>
-                        <p className="text-sm text-muted mt-0.5">Pega un video de YouTube y el asistente propone preguntas que se hacen en el momento justo del video.</p>
-                      </div>
-                    </button>
+                    <OpcionCreacion icon={Sparkles} label="Video interactivo"
+                      desc="Pega un video de YouTube y el asistente propone preguntas que se hacen en el momento justo del video."
+                      onClick={() => { setShowModal(false); setCrearVideoIA(true) }} />
                     <p className="text-xs text-muted text-center pt-2">Próximamente más actividades interactivas</p>
                   </>
                 )}
