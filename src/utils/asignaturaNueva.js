@@ -29,16 +29,12 @@ export function cicloVigente(asignaturas, hoy = hoyLocal()) {
   return elegida
 }
 
-// Solo se PRESELECCIONAN colores cuyo acento se lee como texto chico sobre
-// blanco (contraste ≥ 4.5:1, WCAG AA): azul 5.2, morado 5.4, rosa 4.7 y
-// grafito 7.6. Naranja (2.8), verde (3.3) y turquesa (2.5) siguen a un toque,
-// pero no se ofrecen solos.
-const LEGIBLES = new Set(['default', 'purple', 'rose', 'slate'])
-
-// El primer color legible que todavía no usa ninguna asignatura activa, para
-// que la nueva se distinga en la barra lateral. Si ya están todos ocupados, el
-// azul de siempre.
+// El primer color que todavía no usa ninguna asignatura activa, para que la
+// nueva se distinga en la barra lateral. Desde oct-2026 todos los acentos de la
+// paleta pasan contraste AA como texto sobre blanco (naranja, verde y turquesa
+// se oscurecieron a su tono 700), así que cualquiera puede proponerse. Si ya
+// están todos ocupados, el azul de siempre.
 export function paletaLibre(asignaturas) {
   const usadas = new Set((asignaturas || []).filter((s) => !s.archived).map((s) => s.colorPalette || 'default'))
-  return PALETTES.find((p) => LEGIBLES.has(p.key) && !usadas.has(p.key))?.key || 'default'
+  return PALETTES.find((p) => !usadas.has(p.key))?.key || 'default'
 }

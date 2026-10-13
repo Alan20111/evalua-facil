@@ -17,7 +17,7 @@ export default function Landing() {
         </div>
 
         <div className="grid sm:grid-cols-2 gap-3">
-          {/* Landing no tiene rol activo (data-role) — estos colores literales representan cada rol antes de que el usuario elija, deben coincidir a mano con --accent de cada rol (#2563EB docente / #F97316 alumno) si esos tokens cambian */}
+          {/* Landing no tiene rol activo (data-role) — estos colores literales representan cada rol antes de que el usuario elija, deben coincidir a mano con --accent de cada rol (#2563EB docente / #C2410C alumno) si esos tokens cambian */}
           {/* Docente */}
           <Link
             to="/docente"
@@ -36,10 +36,10 @@ export default function Landing() {
             to="/alumno"
             className="group bg-surface-card rounded-card shadow-card hover:shadow-card-hover transition-shadow p-4 text-center"
           >
-            <EstudianteIcon className="w-14 h-14 mx-auto mb-3 text-orange-600" />
+            <EstudianteIcon className="w-14 h-14 mx-auto mb-3 text-orange-700" />
             <h2 className="text-lg font-bold text-on-surface">Soy Estudiante</h2>
             <p className="text-sm text-muted mt-1">Entra a tus asignaturas y entregas</p>
-            <span className="mt-3 inline-flex items-center gap-1 text-orange-600 font-semibold text-sm group-hover:gap-2 transition-[gap]">
+            <span className="mt-3 inline-flex items-center gap-1 text-orange-700 font-semibold text-sm group-hover:gap-2 transition-[gap]">
               Entrar <ChevronRight size={ICONO.md} />
             </span>
           </Link>

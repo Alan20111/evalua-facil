@@ -24,7 +24,7 @@ El producto es **una sola UI con dos personalidades** controladas por `data-role
 | | Docente (`data-role='docente'`) | Alumno (`data-role='alumno'`) |
 |---|---|---|
 | Metáfora | Herramienta de productividad desktop (Notion/Airtable) | App móvil nativa (cards redondeadas) |
-| Acento | Azul eléctrico `#2563EB` | Naranja `#F97316` |
+| Acento | Azul eléctrico `#2563EB` | Naranja `#C2410C` (orange-700; antes `#F97316`, que no pasaba AA) |
 | Radio estándar | `0.5rem` (8px) | `1rem` (16px) |
 | Radio de card | `0.875rem` (14px) | `2rem` (32px) |
 | Tipografía | Escala reducida (~-1.5%, ver §3) | Escala compartida base |
@@ -51,8 +51,8 @@ El producto es **una sola UI con dos personalidades** controladas por `data-role
 
 | Token | Docente | Alumno |
 |---|---|---|
-| `--accent` | `#2563EB` | `#F97316` |
-| `--accent-hover` | `#1D4ED8` | `#EA580C` |
+| `--accent` | `#2563EB` | `#C2410C` |
+| `--accent-hover` | `#1D4ED8` | `#9A3412` |
 | `--accent-light` | `#DBEAFE` | `#FFEDD5` |
 
 ### 2.3 Lavados de hover (derivados de `--accent` vía color-mix)
@@ -68,11 +68,13 @@ El producto es **una sola UI con dos personalidades** controladas por `data-role
 | Key | Label | Accent | Hover | Light | bg badge | text badge |
 |---|---|---|---|---|---|---|
 | `default` | Azul | `#2563EB` | `#1D4ED8` | `#DBEAFE` | `#DBEAFE` | `#1D4ED8` |
-| `orange` | Naranja | `#F97316` | `#EA580C` | `#FFEDD5` | `#FFEDD5` | `#C2410C` |
+| `orange` | Naranja | `#C2410C` | `#9A3412` | `#FFEDD5` | `#FFEDD5` | `#C2410C` |
 | `purple` | Morado | `#9333EA` | `#7E22CE` | `#F3E8FF` | `#F3E8FF` | `#7E22CE` |
-| `green` | Verde | `#16A34A` | `#15803D` | `#DCFCE7` | `#DCFCE7` | `#15803D` |
+| `green` | Verde | `#15803D` | `#166534` | `#DCFCE7` | `#DCFCE7` | `#15803D` |
 | `rose` | Rosa | `#E11D48` | `#BE123C` | `#FFE4E6` | `#FFE4E6` | `#BE123C` |
-| `teal` | Teal | `#14B8A6` | `#0D9488` | `#CCFBF1` | `#CCFBF1` | `#0D9488` |
+| `teal` | Turquesa | `#0F766E` | `#115E59` | `#CCFBF1` | `#CCFBF1` | `#0F766E` |
+
+Desde oct-2026 todos los acentos pasan **AA (≥ 4.5:1) como texto sobre blanco y con texto blanco encima**: naranja, verde y turquesa se oscurecieron a su tono 700 (antes 2.5–3.3:1). Cualquier color nuevo de la paleta debe cumplirlo.
 
 Colores de evento de calendario (`EVENT_COLORS`, catálogo paralelo — **desalineado**, ver §10): añade `slate` (`#F1F5F9`/`#475569`) y `blue`, renombra rose → "Rojo".
 

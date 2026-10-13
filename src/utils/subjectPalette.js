@@ -7,11 +7,11 @@
 // index.css y con SUBJECT_PALETTE de abajo.
 export const PALETTES = [
   { key: 'default', label: 'Azul', color: '#2563eb' },
-  { key: 'orange', label: 'Naranja', color: '#f97316' },
+  { key: 'orange', label: 'Naranja', color: '#c2410c' },
   { key: 'purple', label: 'Morado', color: '#9333ea' },
-  { key: 'green', label: 'Verde', color: '#16a34a' },
+  { key: 'green', label: 'Verde', color: '#15803d' },
   { key: 'rose', label: 'Rosa', color: '#e11d48' },
-  { key: 'teal', label: 'Turquesa', color: '#14b8a6' },
+  { key: 'teal', label: 'Turquesa', color: '#0f766e' },
   { key: 'slate', label: 'Grafito', color: '#475569' },
 ]
 
@@ -23,7 +23,7 @@ export const SUBJECT_PALETTE = {
   purple:  { bg: '#f3e8ff', text: '#7e22ce' },
   green:   { bg: '#dcfce7', text: '#15803d' },
   rose:    { bg: '#ffe4e6', text: '#be123c' },
-  teal:    { bg: '#ccfbf1', text: '#0d9488' },
+  teal:    { bg: '#ccfbf1', text: '#0f766e' },
   slate:   { bg: '#e2e8f0', text: '#334155' },
 }
 
