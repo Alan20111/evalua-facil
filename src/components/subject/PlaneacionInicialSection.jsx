@@ -1338,7 +1338,7 @@ function Planeacion({
                 disabled={!sinGuardar || guardando}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm disabled:opacity-60 min-h-control-sm ${
                   sinGuardar
-                    ? 'bg-amber-500 text-white hover:bg-amber-600'
+                    ? 'bg-amber-700 text-white hover:bg-amber-800'
                     : 'border border-outline-variant text-on-surface hover:bg-[var(--accent-tint)]'
                 }`}
               >

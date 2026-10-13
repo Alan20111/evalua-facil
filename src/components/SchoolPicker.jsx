@@ -282,7 +282,7 @@ export default function SchoolPicker({ onSelect, onClose, saving = false }) {
                 type="button"
                 disabled={saving}
                 onClick={openCustomForm}
-                className="w-full flex items-center gap-2 px-4 py-2 rounded text-sm font-medium text-accent hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
+                className="w-full flex items-center gap-2 px-4 min-h-control rounded-full text-sm font-medium text-accent hover:bg-[var(--accent-tint)] transition-colors disabled:opacity-60"
               >
                 <Plus size={ICONO.md} className="flex-shrink-0" />
                 <span className="truncate">¿No la encuentras? Agregar «{search.trim()}»</span>

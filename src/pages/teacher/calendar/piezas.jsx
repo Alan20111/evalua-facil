@@ -807,7 +807,7 @@ export function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button" onClick={setTodo}
-                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors min-h-control-sm ${todo ? 'bg-amber-500 text-white border-amber-500' : 'border-outline-variant text-muted hover:bg-amber-50'}`}
+                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors min-h-control-sm ${todo ? 'bg-amber-700 text-white border-amber-500' : 'border-outline-variant text-muted hover:bg-amber-50'}`}
                 >
                   Todo
                 </button>
@@ -824,7 +824,7 @@ export function AsuetoManager({ asuetos, onAdd, onRemove, onClose }) {
             </div>
             <button
               type="button" onClick={add} disabled={!fecha || !algo}
-              className="w-full py-2 bg-amber-600 text-white rounded text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2 hover:bg-amber-700 transition-colors"
+              className="w-full min-h-control py-2 bg-amber-700 hover:bg-amber-800 text-white rounded-full text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2 hover:bg-amber-700 transition-colors"
             >
               <Plus size={ICONO.sm} /> Agregar día de asueto
             </button>
@@ -928,7 +928,7 @@ export function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button" onClick={setTodo}
-                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors min-h-control-sm ${todo ? 'bg-amber-500 text-white border-amber-500' : 'border-outline-variant text-muted hover:bg-amber-50'}`}
+                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors min-h-control-sm ${todo ? 'bg-amber-700 text-white border-amber-500' : 'border-outline-variant text-muted hover:bg-amber-50'}`}
                 >
                   Todo
                 </button>
@@ -945,7 +945,7 @@ export function VacacionManager({ vacaciones, onAdd, onRemove, onClose }) {
             </div>
             <button
               type="button" onClick={add} disabled={!rangoValido || !algo}
-              className="w-full py-2 bg-amber-600 text-white rounded text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2 hover:bg-amber-700 transition-colors"
+              className="w-full min-h-control py-2 bg-amber-700 hover:bg-amber-800 text-white rounded-full text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2 hover:bg-amber-700 transition-colors"
             >
               <Plus size={ICONO.sm} /> Agregar periodo de vacaciones
             </button>

@@ -4999,15 +4999,15 @@ export default function SubjectPage() {
                 <div className="w-32 flex-none flex flex-col gap-2">
                   <button type="button" onClick={handleSaveReason}
                     disabled={reasonText.trim() === (reasonModal.original || '').trim()}
-                    className="py-2 rounded bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors">
+                    className="min-h-control py-2 rounded-full bg-amber-700 text-white text-sm font-semibold hover:bg-amber-800 disabled:opacity-60 disabled:cursor-not-allowed transition-colors">
                     Guardar
                   </button>
                   <button type="button" onClick={markPresenteFromModal}
-                    className="py-2 rounded bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-1">
+                    className="min-h-control py-2 rounded-full bg-green-700 text-white text-sm font-semibold hover:bg-green-800 transition-colors flex items-center justify-center gap-1">
                     <CheckIcon size={ICONO.sm} /> Asistencia
                   </button>
                   <button type="button" onClick={closeReasonModal}
-                    className="py-2 rounded-card border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+                    className="min-h-control py-2 rounded-full border border-outline-variant text-muted text-sm font-semibold hover:bg-[var(--accent-tint)] transition-colors">
                     Salir
                   </button>
                 </div>
@@ -5027,16 +5027,16 @@ export default function SubjectPage() {
                 </div>
                 <div className="flex gap-2 pt-1">
                   <button type="button" onClick={closeReasonModal}
-                    className="flex-1 py-2.5 rounded-card border border-outline-variant text-muted text-base font-semibold hover:bg-[var(--accent-tint)] transition-colors">
+                    className="flex-1 min-h-control py-2.5 rounded-full border border-outline-variant text-muted text-base font-semibold hover:bg-[var(--accent-tint)] transition-colors">
                     Salir
                   </button>
                   <button type="button" onClick={markPresenteFromModal}
-                    className="flex-1 py-2.5 rounded bg-green-600 text-white text-base font-semibold hover:bg-green-700 transition-colors flex items-center justify-center gap-1.5">
+                    className="flex-1 min-h-control py-2.5 rounded-full bg-green-700 text-white text-base font-semibold hover:bg-green-800 transition-colors flex items-center justify-center gap-1.5">
                     <CheckIcon size={ICONO.sm} /> Asistencia
                   </button>
                   <button type="button" onClick={handleSaveReason}
                     disabled={reasonText.trim() === (reasonModal.original || '').trim()}
-                    className="flex-1 py-2.5 rounded bg-amber-500 text-white text-base font-semibold hover:bg-amber-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors">
+                    className="flex-1 min-h-control py-2.5 rounded-full bg-amber-700 text-white text-base font-semibold hover:bg-amber-800 disabled:opacity-60 disabled:cursor-not-allowed transition-colors">
                     Guardar
                   </button>
                 </div>

@@ -543,10 +543,9 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                     className="w-full px-3 py-2 border border-outline-variant rounded-card bg-surface text-sm resize-none" />
                 </div>
                 <div className="flex justify-end gap-2 mt-4">
-                  <button type="button" onClick={() => setStep(null)}
-                    className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
+                  <Button variant="quiet" onClick={() => setStep(null)}>
                     Cancelar
-                  </button>
+                  </Button>
                   <Button type="submit" disabled={saving}>
                     {saving ? 'Guardando…' : 'Publicar'}
                   </Button>
@@ -659,10 +658,9 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                   </div>
                 </div>
                 <div className="flex justify-end gap-2 mt-4">
-                  <button type="button" onClick={() => setStep('plantillas')}
-                    className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
+                  <Button variant="quiet" onClick={() => setStep('plantillas')}>
                     Cancelar
-                  </button>
+                  </Button>
                   <Button type="submit" disabled={savingPlantilla}>
                     {savingPlantilla ? 'Guardando…' : 'Guardar'}
                   </Button>
@@ -750,10 +748,9 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
             <h3 className="text-lg font-bold mb-2">¿Deseas eliminar este aviso?</h3>
             <p className="text-sm text-muted mb-4">Se eliminará permanentemente, junto con el avance de lectura registrado.</p>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setDeleteConfirm(null)}
-                className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
+              <Button variant="quiet" onClick={() => setDeleteConfirm(null)}>
                 Cancelar
-              </button>
+              </Button>
               <Button variant="danger" onClick={handleDelete} disabled={deleting}>
                 {deleting ? 'Eliminando…' : 'Eliminar'}
               </Button>
@@ -767,10 +764,9 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
             <h3 className="text-lg font-bold mb-2">¿Eliminar esta plantilla?</h3>
             <p className="text-sm text-muted mb-4">&ldquo;<strong>{deletePlantillaConfirm.label}</strong>&rdquo; ya no aparecerá al crear un aviso nuevo. Los avisos ya publicados con ella no cambian.</p>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setDeletePlantillaConfirm(null)}
-                className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
+              <Button variant="quiet" onClick={() => setDeletePlantillaConfirm(null)}>
                 Cancelar
-              </button>
+              </Button>
               <Button variant="danger" onClick={handleDeletePlantilla}>
                 Eliminar
               </Button>

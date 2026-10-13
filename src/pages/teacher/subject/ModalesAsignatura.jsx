@@ -828,7 +828,7 @@ export default function ModalesAsignatura() {
                 type="button"
                 onClick={requestResetFromEdit}
                 disabled={savingStudent}
-                className="w-full py-2.5 rounded-full border border-amber-200 text-amber-600 text-sm font-semibold hover:bg-amber-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2 min-h-control"
+                className="w-full py-2.5 rounded-full border border-amber-300 text-amber-700 text-sm font-semibold hover:bg-amber-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2 min-h-control"
               >
                 <RotateCcw size={ICONO.sm} />
                 Restablecer contraseña
@@ -846,15 +846,13 @@ export default function ModalesAsignatura() {
                   Permitir reingreso — salió de la asignatura
                 </button>
               )}
-              <button
-                type="button"
+              <Button variant="danger-outline" fullWidth
                 onClick={requestDeleteFromEdit}
                 disabled={savingStudent}
-                className="w-full py-2.5 rounded-full border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition-colors disabled:opacity-60 flex items-center justify-center gap-2 min-h-control"
               >
                 <Trash2 size={ICONO.sm} />
                 Eliminar estudiante
-              </button>
+              </Button>
             </form>
           </Modal>
       )}
@@ -873,15 +871,14 @@ export default function ModalesAsignatura() {
               El alumno podrá crear una nueva contraseña desde la pantalla de acceso.
             </p>
             <div className="flex gap-2 mt-4">
-              <button type="button"
+              <Button variant="secondary" className="flex-1"
                 onClick={() => setStudentToReset(null)}
-                className="flex-1 py-2 bg-surface-container hover:bg-[var(--accent-tint)] text-muted font-semibold rounded transition-colors"
               >
                 Cancelar
-              </button>
+              </Button>
               <button type="button"
                 onClick={confirmResetStudentPassword}
-                className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded transition-colors flex items-center justify-center gap-2"
+                className="flex-1 min-h-control py-2 bg-amber-700 hover:bg-amber-800 text-white font-semibold rounded-full transition-colors flex items-center justify-center gap-2"
               >
                 <KeyRound size={ICONO.md} />
                 Restablecer
@@ -905,13 +902,12 @@ export default function ModalesAsignatura() {
               Cada estudiante elige su propia contraseña la primera vez que entra. No se generan claves temporales.
             </p>
             <div className="flex gap-2 mt-4">
-              <button type="button"
+              <Button variant="secondary" className="flex-1"
                 onClick={() => setShowCredentialsModal(false)}
                 disabled={generatingCredentials}
-                className="flex-1 py-2 bg-surface-container hover:bg-[var(--accent-tint)] text-muted font-semibold rounded transition-colors disabled:opacity-60"
               >
                 Cancelar
-              </button>
+              </Button>
               <Button icon={Download} iconEffect="empujaAbajo" busy={generatingCredentials} className="flex-1"
                 onClick={handleGenerateCredentials}
                 disabled={generatingCredentials}>
@@ -1237,7 +1233,7 @@ export default function ModalesAsignatura() {
                 Cancelar
               </Button>
               <button type="button" onClick={() => applyPonderacion(false)}
-                className="flex-1 py-2 rounded bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors">
+                className="flex-1 py-2 rounded bg-amber-700 text-white text-sm font-semibold hover:bg-amber-800 transition-colors">
                 Sí, promedio simple
               </button>
             </div>
@@ -1256,7 +1252,7 @@ export default function ModalesAsignatura() {
                 Cancelar
               </Button>
               <button type="button" onClick={() => applyParcialPonderacion(confirmRevertParcial, false)}
-                className="flex-1 py-2 rounded bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors">
+                className="flex-1 py-2 rounded bg-amber-700 text-white text-sm font-semibold hover:bg-amber-800 transition-colors">
                 Sí, promedio simple
               </button>
             </div>
@@ -1450,13 +1446,12 @@ export default function ModalesAsignatura() {
                 
                 Sí, es el mismo estudiante
               </Button>
-              <button type="button"
+              <Button variant="secondary" fullWidth
                 onClick={() => resolveLinkCandidate(false)}
                 disabled={savingStudent}
-                className="w-full py-2 bg-surface-container hover:bg-[var(--accent-tint)] text-muted font-semibold rounded transition-colors disabled:opacity-60"
               >
                 No, es otro estudiante (cuenta nueva)
-              </button>
+              </Button>
               <button type="button"
                 onClick={() => setLinkCandidate(null)}
                 disabled={savingStudent}
@@ -1617,12 +1612,11 @@ export default function ModalesAsignatura() {
               ({studentToDelete.username}). Esta acción no se puede deshacer.
             </p>
             <div className="flex gap-2 mt-4">
-              <button type="button"
+              <Button variant="secondary" className="flex-1"
                 onClick={() => setStudentToDelete(null)}
-                className="flex-1 py-2 bg-surface-container hover:bg-[var(--accent-tint)] text-muted font-semibold rounded transition-colors"
               >
                 Cancelar
-              </button>
+              </Button>
               <Button variant="danger" icon={Trash2} iconEffect="balanceo" busy={savingStudent} className="flex-1"
                 onClick={confirmDeleteStudent}
                 disabled={savingStudent}>

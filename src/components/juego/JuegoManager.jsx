@@ -188,10 +188,9 @@ export default function JuegoManager({
             El cobro de los créditos apartados no se aplica.
           </p>
           <div className="flex gap-2 flex-shrink-0">
-            <button type="button" onClick={() => setConfirmandoCancelar(false)} disabled={cancelando}
-              className="px-3 py-1.5 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors disabled:opacity-60">
+            <Button variant="quiet" onClick={() => setConfirmandoCancelar(false)} disabled={cancelando}>
               No, seguir editando
-            </button>
+            </Button>
             <button type="button" onClick={handleEliminarBorrador} disabled={cancelando}
               className="px-3 py-1.5 bg-error text-white text-sm font-medium rounded hover:opacity-90 transition-colors disabled:opacity-60">
               {cancelando ? 'Eliminando…' : 'Sí, eliminar'}

@@ -316,14 +316,12 @@ function TarjetaPropuesta({ propuesta, contextoVigente, esLaVigente, ejecutando,
               a ninguna función) — "confirmar" sigue siendo el único gesto
               que de verdad ejecuta algo. */}
           {esAplicarIA && (
-            <button
-              type="button"
+            <Button variant="quiet" size="sm"
               onClick={onCancelar}
               disabled={ejecutando || bloqueado}
-              className="px-3 py-1.5 text-xs font-medium text-muted hover:bg-surface-container rounded transition-colors disabled:opacity-60"
             >
               Cancelar
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -693,7 +691,7 @@ export default function ChatAsistente() {
           confirmarBorrar ? (
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <button type="button" onClick={() => setConfirmarBorrar(false)} className="text-xs text-muted px-2 py-2">Cancelar</button>
-              <button type="button" onClick={borrarConversacion} className="text-xs bg-error text-white rounded px-2.5 py-2 font-medium flex-shrink-0">Sí, borrar</button>
+              <Button variant="danger" size="sm" onClick={borrarConversacion}>Sí, borrar</Button>
             </div>
           ) : (
             <button

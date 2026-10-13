@@ -323,7 +323,7 @@ export default function ProgramarZonaSemanal({
                 lleva su propio tamaño, así que no la arrastra. */}
             <p className={`font-semibold text-on-surface truncate flex items-center gap-1.5 ${IS_NATIVE_APP ? 'text-sm' : 'text-[20px]'}`}>
               {esModificar && (
-                <span className={`inline-flex items-center gap-1 rounded bg-amber-500 text-white font-bold uppercase tracking-wide flex-shrink-0 ${
+                <span className={`inline-flex items-center gap-1 rounded bg-amber-700 text-white font-bold uppercase tracking-wide flex-shrink-0 ${
                   IS_NATIVE_APP ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-[18px]'
                 }`}>
                   <Pencil size={IS_NATIVE_APP ? 10 : 16} /> Modificando
@@ -450,7 +450,7 @@ export default function ProgramarZonaSemanal({
                           }}
                         >
                           {esReciente && (
-                            <span className="absolute top-0.5 right-0.5 text-[9px] font-bold px-1 rounded bg-amber-500 text-white">nuevo</span>
+                            <span className="absolute top-0.5 right-0.5 text-[9px] font-bold px-1 rounded bg-amber-700 text-white">nuevo</span>
                           )}
                           <span className={`block ${ZONA_TITLE} font-semibold leading-tight truncate`}>
                             {subjectDisplayName(subj)}

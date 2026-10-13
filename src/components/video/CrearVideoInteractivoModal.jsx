@@ -129,10 +129,9 @@ export default function CrearVideoInteractivoModal({
       className="max-h-[90dvh] overflow-y-auto"
       footer={(
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={cerrar} disabled={trabajando}
-            className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
+          <Button variant="quiet" onClick={cerrar} disabled={trabajando}>
             {fallo?.actividadId ? 'Cerrar' : 'Cancelar'}
-          </button>
+          </Button>
           {!(fallo && fallo.reintentable) && (
             <Button onClick={pedirConfirmacion} disabled={trabajando || total === 0}>
               {trabajando ? <><Spinner size="sm" /> Generando…</> : 'Continuar'}

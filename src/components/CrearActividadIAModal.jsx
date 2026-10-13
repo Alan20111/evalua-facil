@@ -121,10 +121,9 @@ export default function CrearActividadIAModal({
         </p>
 
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={() => { if (!trabajando) onClose?.() }} disabled={trabajando}
-            className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
+          <Button variant="quiet" onClick={() => { if (!trabajando) onClose?.() }} disabled={trabajando}>
             Cancelar
-          </button>
+          </Button>
           <Button onClick={handleGenerar} disabled={trabajando}>
             {trabajando ? 'Generando…' : 'Generar con IA'}
           </Button>

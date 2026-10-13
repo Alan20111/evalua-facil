@@ -129,7 +129,7 @@ export default function SopaDeLetrasBoard({
               onTouchStart={() => handleDown(r, c)}
               style={{ fontSize: `clamp(9px, calc(min(100vw, 28rem) / ${size} * 0.52), 1.5rem)` }}
               className={`flex items-center justify-center font-semibold border border-outline-variant
-                ${enc ? 'bg-accent text-white' : sol ? 'bg-emerald-500 text-white' : sel ? 'bg-[var(--accent-tint)] text-accent' : 'bg-surface text-on-surface'}`}>
+                ${enc ? 'bg-accent text-white' : sol ? 'bg-emerald-700 text-white' : sel ? 'bg-[var(--accent-tint)] text-accent' : 'bg-surface text-on-surface'}`}>
               {letra}
             </button>
           )
