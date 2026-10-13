@@ -314,7 +314,7 @@ export default function DayView({
                         {formatHora12(horaIni)}
                       </span>
                       {horaFin && (
-                        <span style={{ display: 'block', opacity: 0.7, lineHeight: 1.2, fontSize: IS_NATIVE_APP ? 9 : 11, whiteSpace: 'nowrap' }}>
+                        <span style={{ display: 'block', lineHeight: 1.2, fontSize: IS_NATIVE_APP ? 9 : 11, whiteSpace: 'nowrap' }}>
                           {formatHora12(horaFin)}
                         </span>
                       )}
@@ -343,7 +343,7 @@ export default function DayView({
                     {/* Subtítulo — solo cuando cabe (≤2 carriles) */}
                     {sub && total < 3 && (
                       <span style={{
-                        display: 'block', opacity: 0.75, lineHeight: 1.2,
+                        display: 'block', lineHeight: 1.2,
                         fontSize: IS_NATIVE_APP ? 10 : 11,
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                       }}>
@@ -352,14 +352,14 @@ export default function DayView({
                     )}
                     {/* Badge de estado para actividades con fecha límite */}
                     {it.kind === 'event' && it.ev.tipo === 'deadline' && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: '10px', opacity: 0.85, lineHeight: 1.2, marginTop: 2 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: '10px', lineHeight: 1.2, marginTop: 2 }}>
                         {it.ev.cierraEnFecha ? <Lock size={ICONO.xs} /> : <LockOpen size={ICONO.xs} />}
                         {it.ev.estado?.label}
                       </span>
                     )}
                     {/* Badge de alarma en bloques de clase */}
                     {it.kind === 'bloque' && it.b.alarma?.activa && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: '10px', opacity: 0.7, lineHeight: 1.2, marginTop: 2 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: '10px', lineHeight: 1.2, marginTop: 2 }}>
                         <Bell size={ICONO.xs} /> {it.b.alarma.minutosAntes} min antes
                       </span>
                     )}

@@ -89,10 +89,16 @@ y vuelve a tomar la referencia.
 | Rol | Vistas |
 |-----|--------|
 | Docente | tablero, «Nueva asignatura», asignatura (+ cada pestaña), «Editar asignatura», «Duplicar asignatura» (solo compu: el teléfono no tiene ese botón), «Nueva actividad» (menú) y el editor de entregable nuevo, actividad, calendario, perfil (+ cada pestaña), notificaciones, catálogo `/dev/componentes` |
-| Alumno | tablero, perfil (+ cada pestaña), agenda |
+| Alumno | tablero, asignatura (+ cada pestaña), actividad, perfil (+ cada pestaña), agenda |
 
-La asignatura y la actividad **del alumno** no se pueden ver en local: leen de
-la API serverless (`/api/content`), que no corre con Vite.
+La asignatura y la actividad **del alumno** leen de la API serverless
+(`/api/subject/content`). En local las sirve el plugin `apiLocal` de
+`vite.config.js`: con `VITE_EMULADORES=1`, el servidor de Vite atiende
+`/api/<carpeta>/<acción>` con **los mismos manejadores de Vercel**
+(`api/<carpeta>/[action].js`), y el Admin SDK se conecta a los emuladores
+(`api/_lib/firebaseAdmin.js`, solo con proyectos `demo-*`). No es un simulacro:
+es la API real contra datos de prueba. Nunca corre en producción, porque el
+plugin solo existe en `vite` (serve) y con esa variable.
 
 ## Trampas conocidas
 

@@ -80,6 +80,10 @@ const VISTAS = {
   ],
   alumno: [
     { nombre: 'alumno-tablero', url: '/alumno/dashboard' },
+    // Leen de /api/subject/content: en local las sirve el plugin apiLocal de
+    // vite.config.js contra los emuladores.
+    { nombre: 'alumno-asignatura', url: `/alumno/materia/${semilla.ids[0]}`, pestanas: true },
+    { nombre: 'alumno-actividad', url: `/alumno/actividad/${semilla.actividad}` },
     { nombre: 'alumno-perfil', url: '/alumno/perfil', pestanas: true },
     { nombre: 'alumno-agenda', url: '/alumno/agenda' },
   ],

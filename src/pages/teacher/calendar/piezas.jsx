@@ -43,10 +43,10 @@ export function EventPill({ ev, compact, onClick, movable }) {
             así "(Publicada)"/"(Cierre)" siempre queda visible completo. */}
         <span className="break-words leading-tight">{ev.titulo}</span>
         {!compact && ev.timeStr && (
-          <span className="ml-auto flex-shrink-0 opacity-70 pl-1">{fmtHour(ev.timeStr)}</span>
+          <span className="ml-auto flex-shrink-0 pl-1">{fmtHour(ev.timeStr)}</span>
         )}
       </span>
-      {materia && <span className={`block truncate opacity-80 leading-tight ${IS_NATIVE_APP ? 'text-[10px]' : 'text-[11px]'}`}>{materia}</span>}
+      {materia && <span className={`block truncate leading-tight ${IS_NATIVE_APP ? 'text-[10px]' : 'text-[11px]'}`}>{materia}</span>}
     </button>
   )
 }
@@ -280,7 +280,7 @@ export function AgendaView({
                   {total < 3 && (
                     <div className={`flex-shrink-0 text-right pl-1 pr-1.5 py-1.5 border-r ${IS_NATIVE_APP ? 'w-16' : 'w-[72px]'}`} style={{ borderColor: `${fg}22` }}>
                       <span className={`block font-bold leading-tight whitespace-nowrap ${DIA_HOUR_INI_TEXT}`}>{fmtHour(horaIni)}</span>
-                      {horaFin && <span className={`block opacity-70 leading-tight whitespace-nowrap ${DIA_HOUR_FIN_TEXT}`}>{fmtHour(horaFin)}</span>}
+                      {horaFin && <span className={`block leading-tight whitespace-nowrap ${DIA_HOUR_FIN_TEXT}`}>{fmtHour(horaFin)}</span>}
                     </div>
                   )}
                   {/* Evento y descripción a la derecha */}
@@ -289,14 +289,14 @@ export function AgendaView({
                       <span className={`block font-bold leading-tight whitespace-nowrap ${DIA_HOUR_INI_TEXT}`}>{fmtHour(horaIni)}</span>
                     )}
                     <span className={`block ${DIA_ITEM_TEXT} font-semibold leading-tight ${total >= 3 ? 'truncate' : 'break-words'} ${it.kind === 'bloque' && it.b.cancelada ? 'line-through' : ''}`}>{titulo}</span>
-                    {sub && total < 3 && <span className={`block ${IS_NATIVE_APP ? GRID_ITEM_TEXT : 'text-xs'} opacity-75 leading-tight truncate`}>{sub}</span>}
+                    {sub && total < 3 && <span className={`block ${IS_NATIVE_APP ? GRID_ITEM_TEXT : 'text-xs'} leading-tight truncate`}>{sub}</span>}
                     {it.kind === 'bloque' && it.b.alarma?.activa && (
-                      <span className="inline-flex items-center gap-1 text-[10px] opacity-70 leading-tight">
+                      <span className="inline-flex items-center gap-1 text-[10px] leading-tight">
                         <Bell size={ICONO.xs} /> {it.b.alarma.minutosAntes} min antes
                       </span>
                     )}
                     {it.ev?.tipo === 'deadline' && (
-                      <span className="inline-flex items-center gap-1 text-[10px] opacity-80 leading-tight">
+                      <span className="inline-flex items-center gap-1 text-[10px] leading-tight">
                         {it.ev.cierraEnFecha ? <Lock size={ICONO.xs} /> : <LockOpen size={ICONO.xs} />}
                         {it.ev.estado?.label}
                       </span>
@@ -684,7 +684,7 @@ export function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEn
                     >
                       <span className={`block ${GRID_ITEM_TEXT} font-normal leading-tight truncate ${b.cancelada ? 'line-through' : ''}`}>{subjectDisplayName(subj)}</span>
                       {b.cancelada && <span className={`block ${GRID_ITEM_TEXT} leading-tight truncate`}>Cancelada</span>}
-                      {!b.cancelada && b.lugar && <span className={`block ${GRID_ITEM_TEXT} opacity-70 leading-tight truncate`}>{b.lugar}</span>}
+                      {!b.cancelada && b.lugar && <span className={`block ${GRID_ITEM_TEXT} leading-tight truncate`}>{b.lugar}</span>}
                     </div>
                   )
                 })}
@@ -720,7 +720,7 @@ export function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEn
                         <span className={`block text-[10px] opacity-90 leading-tight truncate font-medium ${ev.estado?.tono === 'vencida' ? 'text-red-100' : ''}`}>{ev.estado.label}</span>
                       )}
                       {ev.subtitulo && (
-                        <span className="block text-[10px] opacity-75 leading-tight truncate">{ev.subtitulo}</span>
+                        <span className="block text-[10px] leading-tight truncate">{ev.subtitulo}</span>
                       )}
                     </button>
                   )
@@ -747,7 +747,7 @@ export function WeekView({ weekStart, events, bloques, subjects, dayStart, dayEn
             }}
           >
             <span className={`block ${GRID_ITEM_TITLE} font-semibold leading-tight truncate`}>{titulo}</span>
-            <span className={`block ${GRID_ITEM_TEXT} opacity-80 leading-tight`}>{horas}</span>
+            <span className={`block ${GRID_ITEM_TEXT} leading-tight`}>{horas}</span>
           </div>
         )
       })()}
