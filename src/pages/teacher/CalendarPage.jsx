@@ -55,10 +55,15 @@ export default function CalendarPage() {
   // Entra donde el docente lo dejó la última vez (vista y fecha) — pedido
   // explícito: no siempre debe aterrizar en Hoy/Día. "Hoy" sigue disponible
   // como botón para volver rápido a la fecha actual.
-  const [view, setView] = useState(() => {
+  const [vistaGuardada, setView] = useState(() => {
     const raw = localStorage.getItem('cal_view')
     return VIEWS.some((v) => v.id === raw) ? raw : 'agenda'
   })
+  // En el teléfono no hay Semana (siete columnas no caben): si quedó guardada
+  // de la laptop, se ve 3 días. Se DERIVA al pintar, sin un efecto que
+  // corrija el estado (eso daba un render de más); la preferencia guardada
+  // sigue siendo Semana para cuando vuelva a la laptop.
+  const view = movil && vistaGuardada === 'semana' ? '3dias' : vistaGuardada
   const [currentDate, setCurrentDate] = useState(() => {
     const raw = localStorage.getItem('cal_current_date')
     const d = raw ? new Date(raw) : null
@@ -67,12 +72,6 @@ export default function CalendarPage() {
   useEffect(() => {
     localStorage.setItem('cal_current_date', currentDate.toISOString())
   }, [currentDate])
-
-  // En el teléfono no hay Semana (siete columnas no caben): si quedó guardada
-  // de la laptop, se abre 3 días.
-  useEffect(() => {
-    if (movil && view === 'semana') setView('3dias')
-  }, [movil, view])
 
   // Foco inicial en el botón "Hoy" al entrar a Horario (web y app).
   const hoyBtnRef = useRef(null)
@@ -1054,7 +1053,8 @@ export default function CalendarPage() {
 
   const viewSwitcher = (
     // Control segmentado (Apple): cápsula gris con la opción elegida en blanco.
-    <div className="flex items-center gap-1 bg-surface-container rounded-full p-1" role="group" aria-label="Vista del calendario">
+    <fieldset className="flex items-center gap-1 bg-surface-container rounded-full p-1">
+      <legend className="sr-only">Vista del calendario</legend>
       {VIEWS.map(({ id, label, Icon }) => (
         <button
           type="button"
@@ -1066,7 +1066,7 @@ export default function CalendarPage() {
           <Icon size={ICONO.xs} />{label}
         </button>
       ))}
-    </div>
+    </fieldset>
   )
 
   const hourRangeBtn = (
@@ -1181,14 +1181,15 @@ export default function CalendarPage() {
                 className="pointer-events-auto px-5 py-2.5 rounded-full bg-surface-card shadow-barra text-base font-semibold text-on-surface min-h-control">
                 Hoy
               </button>
-              <div className="pointer-events-auto flex items-center gap-1 p-1 rounded-full bg-surface-card shadow-barra" role="group" aria-label="Vista del calendario">
+              <fieldset className="pointer-events-auto flex items-center gap-1 p-1 rounded-full bg-surface-card shadow-barra">
+                <legend className="sr-only">Vista del calendario</legend>
                 {VIEWS.filter((v) => v.id !== 'semana').map(({ id, label, Icon }) => (
                   <button key={id} type="button" onClick={() => changeView(id)} aria-label={label} aria-pressed={view === id}
                     className={`size-[calc(var(--control)-0.5rem)] flex items-center justify-center rounded-full transition-colors ${view === id ? 'bg-accent text-white' : 'text-on-surface hover:bg-[var(--accent-tint)]'}`}>
                     <Icon size={ICONO.md} />
                   </button>
                 ))}
-              </div>
+              </fieldset>
             </div>
           </>
         ) : (

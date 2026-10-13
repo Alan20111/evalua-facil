@@ -496,7 +496,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
             {step === 'picker' ? (
               <>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-semibold">¿Qué deseas comunicar?</h3>
+                  <h3 className="text-lg font-bold">¿Qué deseas comunicar?</h3>
                   <div className="flex items-center gap-1">
                     <button type="button" onClick={() => setStep('plantillas')}
                       data-tooltip="Editar tus plantillas"
@@ -531,7 +531,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
               <form onSubmit={handleSave}>
                 <div className="flex items-center gap-2 mb-4">
                   <span className="text-2xl flex-shrink-0" aria-hidden="true">{form.emoji}</span>
-                  <h3 className="text-lg font-semibold flex-1">{form.titulo || 'Nuevo aviso'}</h3>
+                  <h3 className="text-lg font-bold flex-1">{form.titulo || 'Nuevo aviso'}</h3>
                   <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-1" onClick={() => setStep(null)} data-tooltip="Cerrar" />
                 </div>
                 <div>
@@ -577,7 +577,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                   <button type="button" onClick={() => setStep('picker')} aria-label="Regresar" className="size-control inline-flex items-center justify-center -ml-1 text-muted hover:text-accent rounded-full">
                     <ArrowLeft size={ICONO.md} />
                   </button>
-                  <h3 className="text-lg font-semibold flex-1">Tus plantillas</h3>
+                  <h3 className="text-lg font-bold flex-1">Tus plantillas</h3>
                   <Button icon={Plus} iconEffect="gira90" onClick={() => openPlantillaForm(null)}>
                      Nueva
                   </Button>
@@ -629,7 +629,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                   <button type="button" onClick={() => setStep('plantillas')} aria-label="Regresar" className="size-control inline-flex items-center justify-center -ml-1 text-muted hover:text-accent rounded-full">
                     <ArrowLeft size={ICONO.md} />
                   </button>
-                  <h3 className="text-lg font-semibold flex-1">{plantillaForm.id ? 'Editar plantilla' : 'Nueva plantilla'}</h3>
+                  <h3 className="text-lg font-bold flex-1">{plantillaForm.id ? 'Editar plantilla' : 'Nueva plantilla'}</h3>
                   <IconButton icon={X} label="Cerrar" tooltip={false} onClick={() => setStep(null)} data-tooltip="Cerrar" />
                 </div>
                 <div className="space-y-3">
@@ -676,7 +676,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
       {detailAviso && (
         <Modal open onClose={() => setDetailAviso(null)} variant="sheet" size="lg" z={40} padding="p-4" ariaLabel="Detalle del aviso">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold">Detalle del aviso</h3>
+              <h3 className="text-lg font-bold">Detalle del aviso</h3>
               <button type="button" onClick={() => setDetailAviso(null)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-muted hover:text-accent rounded-full">
                 <X size={ICONO.md} />
               </button>
@@ -747,7 +747,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
       {/* ── Confirmación de borrado de aviso ── */}
       {deleteConfirm && (
         <Modal open onClose={() => setDeleteConfirm(null)} variant="centered" padding="p-4" ariaLabel="¿Deseas eliminar este aviso?">
-            <h3 className="text-lg font-semibold mb-2">¿Deseas eliminar este aviso?</h3>
+            <h3 className="text-lg font-bold mb-2">¿Deseas eliminar este aviso?</h3>
             <p className="text-sm text-muted mb-4">Se eliminará permanentemente, junto con el avance de lectura registrado.</p>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setDeleteConfirm(null)}
@@ -764,7 +764,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
       {/* ── Confirmación de borrado de plantilla ── */}
       {deletePlantillaConfirm && (
         <Modal open onClose={() => setDeletePlantillaConfirm(null)} variant="centered" padding="p-4" ariaLabel="¿Eliminar esta plantilla?">
-            <h3 className="text-lg font-semibold mb-2">¿Eliminar esta plantilla?</h3>
+            <h3 className="text-lg font-bold mb-2">¿Eliminar esta plantilla?</h3>
             <p className="text-sm text-muted mb-4">&ldquo;<strong>{deletePlantillaConfirm.label}</strong>&rdquo; ya no aparecerá al crear un aviso nuevo. Los avisos ya publicados con ella no cambian.</p>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setDeletePlantillaConfirm(null)}

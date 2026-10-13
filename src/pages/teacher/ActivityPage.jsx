@@ -102,6 +102,9 @@ export default function ActivityPage() {
   // cambia después). En cuanto se toca, o si la entrega ya traía una
   // excepción propia, se guarda el valor explícito siempre.
   const comentarioVisibleEsExcepcionRef = useRef(false)
+  // Momento en que se abrió la página: el render debe ser puro (sin
+  // Date.now()), y «ya publicada» no necesita cambiar mientras está abierta.
+  const [abiertaEn] = useState(() => Date.now())
   // Nivel elegido por criterio cuando la actividad tiene rúbrica (null = sin elegir)
   const [rubricEval, setRubricEval] = useState(null)
   // "Ver rúbrica": ventana flotante sobrepuesta que abre abajo del botón,
@@ -221,12 +224,6 @@ export default function ActivityPage() {
   // Parcial cerrado: no grade can be changed until the teacher reverts the close.
   const parcialCerrado = activity?.parcial != null && esParcialCerrado(subject, activity.parcial)
 
-  // Guard on currentUser + depend on it — mismo patrón que SubjectPage: en un
-  // cold load Firebase Auth puede no haber restaurado la sesión todavía y el
-  // guard de propiedad (docenteId !== currentUser.uid) expulsaría a un docente
-  // legítimo antes de tiempo.
-  useEffect(() => { if (currentUser) loadAll() }, [activityId, currentUser])
-
   // Evaluaciones de IA persistidas por el servidor — tanto 'pendiente' (de
   // un lote sin aplicar todavía) como 'aplicada' (23-ago-2026, pedido de
   // Kike: "toda evaluación realizada por IA debe quedar consultable
@@ -248,27 +245,6 @@ export default function ActivityPage() {
     return unsub
   }, [activityId])
 
-  // Coming from a grade-table cell: open that student's grading view once the
-  // data is committed (openGrade reads `submissions`/`activity` from state).
-  // While pendingOpenId is set we keep showing the spinner (see the loading
-  // guard below) so the list never flashes before the grading view opens.
-  // Evaluaciones are excluded: EvaluacionManager owns opening that student's
-  // answer review itself (via its own `openStudentId` prop) — calling
-  // openGrade here too would ALSO mount this page's generic grading overlay
-  // (the "Evaluación — la calificación proviene del intento…" panel), which
-  // briefly flashes before EvaluacionManager's own review view covers it.
-  useEffect(() => {
-    if (loading || !pendingOpenId) return
-    const st = students.find((s) => s.id === pendingOpenId)
-    // Clear it in the same commit that opens the grading view, so pendingOpenId
-    // turning false and `selected` turning true happen together (no list flash).
-    setPendingOpenId(null)
-    if (st && !isEvaluacion && !esJuego) {
-      setNavList(students)
-      openGrade(st)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, pendingOpenId, students])
 
   async function loadAll() {
     setLoading(true)
@@ -380,6 +356,42 @@ export default function ActivityPage() {
   }
 
   // Entry point from the student list: freezes the navigation order.
+  // Guard on currentUser + depend on it — mismo patrón que SubjectPage: en un
+  // cold load Firebase Auth puede no haber restaurado la sesión todavía y el
+  // guard de propiedad (docenteId !== currentUser.uid) expulsaría a un docente
+  // legítimo antes de tiempo.
+  // Va DESPUÉS de loadAll y openGrade: el React Compiler pide declarar una
+  // función antes de usarla en un efecto.
+  // loadAll arranca una lectura de Firestore (sistema externo) y marca
+  // `loading` al empezar: es el caso que la regla sí admite.
+  // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
+  useEffect(() => { if (currentUser) loadAll() }, [activityId, currentUser])
+
+  // Coming from a grade-table cell: open that student's grading view once the
+  // data is committed (openGrade reads `submissions`/`activity` from state).
+  // While pendingOpenId is set we keep showing the spinner (see the loading
+  // guard below) so the list never flashes before the grading view opens.
+  // Evaluaciones are excluded: EvaluacionManager owns opening that student's
+  // answer review itself (via its own `openStudentId` prop) — calling
+  // openGrade here too would ALSO mount this page's generic grading overlay
+  // (the "Evaluación — la calificación proviene del intento…" panel), which
+  // briefly flashes before EvaluacionManager's own review view covers it.
+  useEffect(() => {
+    if (loading || !pendingOpenId) return
+    const st = students.find((s) => s.id === pendingOpenId)
+    // Clear it in the same commit that opens the grading view, so pendingOpenId
+    // turning false and `selected` turning true happen together (no list flash).
+    // Intencional: limpiar la intención de abrir en el MISMO commit que abre
+    // la vista de calificar (no es estado derivable — viene de la navegación).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPendingOpenId(null)
+    if (st && !isEvaluacion && !esJuego) {
+      setNavList(students)
+      openGrade(st)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, pendingOpenId, students])
+
   function openGradeFromList(student) {
     setNavList(filtered)
     openGrade(student)
@@ -981,7 +993,7 @@ export default function ActivityPage() {
   // Already published? The "Nueva fecha límite de entrega" action lives in the
   // editor and is offered once the activity is published (a student may fall
   // behind the group deadline and need their own extension).
-  const isPublished = !!activity?.publishedAt && new Date(withDefaultTime(activity.publishedAt, '00:00:00')).getTime() <= Date.now()
+  const isPublished = !!activity?.publishedAt && new Date(withDefaultTime(activity.publishedAt, '00:00:00')).getTime() <= abiertaEn
 
   // Merges the result of NuevaFechaEntregaModal into local activity state.
   function applyNewDateResult(result) {
