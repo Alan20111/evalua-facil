@@ -286,7 +286,7 @@ export default function ModalesAsignatura() {
       {showModal && (
         <Modal open onClose={() => setShowModal(false)} variant="sheet" size="3xl" z={40} padding="p-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">
+              <h3 className="text-lg font-bold">
                 {modalMode === 'create' && !tipoActividad
                   ? `Nueva actividad — Parcial ${modalParcial}`
                   : modalMode === 'create'
@@ -600,10 +600,10 @@ export default function ModalesAsignatura() {
       {showMaterialModal && (
         <Modal open onClose={() => setShowMaterialModal(false)} variant="sheet" size="3xl" z={40} padding="p-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">
+              <h3 className="text-lg font-bold">
                 {materialModalMode === 'create' ? `Nuevo material de apoyo — Parcial ${materialParcial}` : 'Editar material de apoyo'}
               </h3>
-              <button type="button" onClick={() => setShowMaterialModal(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
+              <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-2" onClick={() => setShowMaterialModal(false)} />
             </div>
             <p className="text-sm text-hint -mt-2 mb-3">Este material queda solo en el Parcial {materialParcial} y no genera entrega ni número de actividad. Para materiales de toda la asignatura usa la pestaña Recursos.</p>
             <form onSubmit={handleSaveMaterial} className="space-y-2">
@@ -706,8 +706,8 @@ export default function ModalesAsignatura() {
       {showAddStudent && (
         <Modal open onClose={() => setShowAddStudent(false)} variant="sheet" z={40} padding="p-4" ariaLabel="Agregar estudiante">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Agregar estudiante</h3>
-              <button type="button" onClick={() => setShowAddStudent(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
+              <h3 className="text-lg font-bold">Agregar estudiante</h3>
+              <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-2" onClick={() => setShowAddStudent(false)} />
             </div>
             <form onSubmit={addStudent} className="space-y-3">
               {/* Antes solo tenían placeholder ("Prueba", "No tengo", "Pepito"
@@ -756,8 +756,8 @@ export default function ModalesAsignatura() {
       {studentToEdit && (
         <Modal open onClose={() => setStudentToEdit(null)} variant="sheet" z={40} padding="p-4" ariaLabel="Editar estudiante">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Editar estudiante</h3>
-              <button type="button" onClick={() => setStudentToEdit(null)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
+              <h3 className="text-lg font-bold">Editar estudiante</h3>
+              <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-2" onClick={() => setStudentToEdit(null)} />
             </div>
             {studentToEdit.uid && (
               <p className="text-xs text-muted mb-3">
@@ -865,7 +865,7 @@ export default function ModalesAsignatura() {
             <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto mb-2">
               <KeyRound size={ICONO.lg} className="text-amber-500" />
             </div>
-            <h3 className="text-lg font-semibold text-center text-on-surface">¿Restablecer contraseña?</h3>
+            <h3 className="text-lg font-bold text-center text-on-surface">¿Restablecer contraseña?</h3>
             <p className="text-sm text-muted text-center mt-2">
               Se autorizará el restablecimiento de contraseña de{' '}
               <strong>{studentFullName(studentToReset)}</strong>{' '}
@@ -896,7 +896,7 @@ export default function ModalesAsignatura() {
             <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-2">
               <KeyRound size={ICONO.lg} className="text-accent" />
             </div>
-            <h3 className="text-lg font-semibold text-center text-on-surface">Descargar lista de acceso</h3>
+            <h3 className="text-lg font-bold text-center text-on-surface">Descargar lista de acceso</h3>
             <p className="text-sm text-muted text-center mt-2">
               Se descargará un PDF con el <strong>usuario</strong> de cada estudiante y el
               <strong> código de la clase</strong> para que puedan entrar por primera vez.
@@ -1228,7 +1228,7 @@ export default function ModalesAsignatura() {
       {/* ── Revertir ponderación (todos los parciales) ── */}
       {confirmRevertPonderacion && (
         <Modal open onClose={() => setConfirmRevertPonderacion(false)} variant="sheet" z={40} padding="p-4" ariaLabel="¿Volver a promedio simple?">
-            <h3 className="text-lg font-semibold text-center text-on-surface">¿Volver a promedio simple?</h3>
+            <h3 className="text-lg font-bold text-center text-on-surface">¿Volver a promedio simple?</h3>
             <p className="text-sm text-muted text-center mt-2">
               Al menos una actividad ya tiene ponderación. Los pesos capturados se borrarán y todas las actividades valdrán lo mismo.
             </p>
@@ -1247,7 +1247,7 @@ export default function ModalesAsignatura() {
       {/* ── Revertir ponderación de UN parcial ── */}
       {confirmRevertParcial != null && (
         <Modal open onClose={() => setConfirmRevertParcial(null)} variant="sheet" z={40} padding="p-4">
-            <h3 className="text-lg font-semibold text-center text-on-surface">¿Parcial {confirmRevertParcial} con promedio simple?</h3>
+            <h3 className="text-lg font-bold text-center text-on-surface">¿Parcial {confirmRevertParcial} con promedio simple?</h3>
             <p className="text-sm text-muted text-center mt-2">
               El Parcial {confirmRevertParcial} ya tiene pesos capturados. Se borrarán y ese parcial usará promedio simple.
             </p>
@@ -1266,7 +1266,7 @@ export default function ModalesAsignatura() {
       {/* ── Cerrar parcial: requires everything graded; no-entregas → 0 on proceed ── */}
       {closeParcialConfirm && (
         <Modal open onClose={() => setCloseParcialConfirm(null)} variant="sheet" z={40} padding="p-4" busy={closingParcial}>
-            <h3 className="text-lg font-semibold text-center text-on-surface">Cerrar definitivamente el Parcial {closeParcialConfirm.p}</h3>
+            <h3 className="text-lg font-bold text-center text-on-surface">Cerrar definitivamente el Parcial {closeParcialConfirm.p}</h3>
             <p className="text-sm text-muted text-center mt-2">
               Para cerrar el parcial, <strong>todas las calificaciones deben estar puestas</strong>.
             </p>
@@ -1359,7 +1359,7 @@ export default function ModalesAsignatura() {
       {/* ── Reabrir el parcial: vuelve a atención de inquietudes y borra las calificaciones del cierre ── */}
       {revertParcialConfirm != null && (
         <Modal open onClose={() => setRevertParcialConfirm(null)} variant="sheet" z={40} padding="p-4" busy={revertingParcial}>
-            <h3 className="text-lg font-semibold text-center text-on-surface">¿Reabrir el Parcial {revertParcialConfirm} para atención de inquietudes?</h3>
+            <h3 className="text-lg font-bold text-center text-on-surface">¿Reabrir el Parcial {revertParcialConfirm} para atención de inquietudes?</h3>
             <p className="text-sm text-muted text-center mt-2">
               Tus estudiantes siguen viendo su resultado y podrás corregir calificaciones. Las calificaciones que se pusieron al cerrar se eliminarán: esas no entregas volverán a quedar <strong>solo sin entrega</strong>, como antes de cerrar. Las calificaciones que pusiste a mano no se tocan.
             </p>
@@ -1377,7 +1377,7 @@ export default function ModalesAsignatura() {
       {/* ── Iniciar atención de inquietudes: publica el resultado del parcial ── */}
       {atencionParcialConfirm != null && (
         <Modal open onClose={() => setAtencionParcialConfirm(null)} variant="sheet" z={40} padding="p-4" busy={iniciandoAtencion}>
-            <h3 className="text-lg font-semibold text-center text-on-surface">¿Iniciar la atención de inquietudes del Parcial {atencionParcialConfirm}?</h3>
+            <h3 className="text-lg font-bold text-center text-on-surface">¿Iniciar la atención de inquietudes del Parcial {atencionParcialConfirm}?</h3>
             <p className="text-sm text-muted text-center mt-2">
               {ponderacionActivaEnParcial(subject, atencionParcialConfirm)
                 ? <>Tus estudiantes podrán ver <strong>los pesos de las actividades y su calificación ponderada</strong> del parcial para revisarla. Una vez publicada ya no vuelve a ocultarse.</>
@@ -1401,7 +1401,7 @@ export default function ModalesAsignatura() {
             <div className="w-12 h-12 rounded-full bg-accent-light flex items-center justify-center mx-auto mb-2">
               <UserPlus size={ICONO.lg} className="text-accent" />
             </div>
-            <h3 className="text-lg font-semibold text-center text-on-surface">¿Es el mismo estudiante?</h3>
+            <h3 className="text-lg font-bold text-center text-on-surface">¿Es el mismo estudiante?</h3>
             {linkCandidate.identity.parecido ? (
               // Nombre PARECIDO: aquí la diferencia entre los dos nombres ES
               // la pregunta, así que se enseñan los dos, uno debajo del otro.
@@ -1592,7 +1592,7 @@ export default function ModalesAsignatura() {
             <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-2">
               <KeyRound size={ICONO.lg} className="text-green-600" />
             </div>
-            <h3 className="text-lg font-semibold text-center text-on-surface">Contraseña restablecida</h3>
+            <h3 className="text-lg font-bold text-center text-on-surface">Contraseña restablecida</h3>
             <p className="text-sm text-muted text-center mt-2">
               <strong>{studentFullName(resetPwdResult.student)}</strong>{' '}
               ya puede establecer una nueva contraseña desde la pantalla de acceso.
@@ -1610,7 +1610,7 @@ export default function ModalesAsignatura() {
             <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-2">
               <Trash2 size={ICONO.lg} className="text-red-500" />
             </div>
-            <h3 className="text-lg font-semibold text-center text-on-surface">¿Eliminar estudiante?</h3>
+            <h3 className="text-lg font-bold text-center text-on-surface">¿Eliminar estudiante?</h3>
             <p className="text-sm text-muted text-center mt-2">
               Se eliminará a{' '}
               <strong>{studentFullName(studentToDelete)}</strong>{' '}
@@ -1636,7 +1636,7 @@ export default function ModalesAsignatura() {
       {showEditSubjectModal && (
         <Modal open onClose={() => setShowEditSubjectModal(false)} variant="sheet" size="md" padding="p-4" className="overflow-x-hidden" ariaLabel="Editar asignatura">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Editar asignatura</h3>
+              <h3 className="text-lg font-bold">Editar asignatura</h3>
               <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-2" onClick={() => setShowEditSubjectModal(false)} />
             </div>
             <form onSubmit={handleEditSubject} className="space-y-2">
@@ -1707,7 +1707,7 @@ export default function ModalesAsignatura() {
       {showCopyModal && (
         <Modal open onClose={() => setShowCopyModal(false)} variant="sheet" size="md" padding="p-4" className="overflow-x-hidden" ariaLabel="Duplicar asignatura">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Duplicar asignatura</h3>
+              <h3 className="text-lg font-bold">Duplicar asignatura</h3>
               <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-2" onClick={() => setShowCopyModal(false)} />
             </div>
             <form onSubmit={handleCopySubject} className="space-y-2">
@@ -1797,8 +1797,8 @@ export default function ModalesAsignatura() {
       {showArchiveModal && (
         <Modal open onClose={() => setShowArchiveModal(false)} variant="sheet" padding="p-4" busy={archiving} ariaLabel="Archivar asignatura">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-semibold">Archivar asignatura</h3>
-              <button type="button" onClick={() => !archiving && setShowArchiveModal(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
+              <h3 className="text-lg font-bold">Archivar asignatura</h3>
+              <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-2" onClick={() => !archiving && setShowArchiveModal(false)} />
             </div>
             <p className="text-sm text-muted mb-3">
               Archivar solo la saca de tus asignaturas activas. <strong>No se borra nada</strong>:
@@ -1861,7 +1861,7 @@ export default function ModalesAsignatura() {
       {showUnarchiveModal && (
         <Modal open onClose={() => setShowUnarchiveModal(false)} variant="sheet" size="md" padding="p-4" className="overflow-x-hidden" ariaLabel="Desarchivar asignatura">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Desarchivar asignatura</h3>
+              <h3 className="text-lg font-bold">Desarchivar asignatura</h3>
               <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-2" onClick={() => setShowUnarchiveModal(false)} />
             </div>
             <p className="text-sm text-muted mb-2">Puedes editar los datos y elegir cómo restaurar:</p>
@@ -1960,8 +1960,8 @@ export default function ModalesAsignatura() {
       {showResourceModal && (
         <Modal open onClose={() => setShowResourceModal(false)} variant="sheet" z={40} padding="p-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">{resourceModalMode === 'create' ? 'Agregar recurso' : 'Editar recurso'}</h3>
-              <button type="button" onClick={() => setShowResourceModal(false)} aria-label="Cerrar" className="size-control inline-flex items-center justify-center text-hint rounded-full"><X size={ICONO.md} /></button>
+              <h3 className="text-lg font-bold">{resourceModalMode === 'create' ? 'Agregar recurso' : 'Editar recurso'}</h3>
+              <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-2" onClick={() => setShowResourceModal(false)} />
             </div>
             <form onSubmit={handleSaveResource} className="space-y-2">
               <Input

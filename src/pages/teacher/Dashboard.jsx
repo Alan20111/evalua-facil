@@ -548,7 +548,7 @@ export default function TeacherDashboard() {
       {showSubjectModal && (
         <Modal open onClose={() => setShowSubjectModal(false)} variant="sheet" size="md" z={40} padding="p-4" className="overflow-x-hidden" ariaLabel="Nueva asignatura">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-on-surface">Nueva asignatura</h3>
+              <h3 className="text-lg font-bold text-on-surface">Nueva asignatura</h3>
               <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-2" onClick={() => setShowSubjectModal(false)} />
             </div>
             <form onSubmit={handleCreateSubject} className="space-y-2">

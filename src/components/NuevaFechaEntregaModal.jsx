@@ -122,7 +122,7 @@ export default function NuevaFechaEntregaModal({ activityId, students, onClose, 
 
   return (
     <Modal open onClose={() => onClose()} variant="sheet" size="md" z={60} padding="p-4" className="flex flex-col" busy={saving} ariaLabel="Nueva fecha de entrega">
-        <h3 className="text-lg font-semibold text-center text-on-surface">Nueva fecha de entrega</h3>
+        <h3 className="text-lg font-bold text-center text-on-surface">Nueva fecha de entrega</h3>
         <div className="flex gap-2 mt-3 flex-shrink-0">
           <button type="button" onClick={() => setMode('todos')}
             className={`flex-1 py-2.5 rounded-full text-sm font-medium border transition-colors min-h-control ${mode === 'todos' ? 'border-accent bg-[var(--accent-tint)] text-accent' : 'border-outline-variant text-muted hover:border-accent'}`}>

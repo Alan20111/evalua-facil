@@ -95,7 +95,7 @@ export default function LinkAccountModal({ onClose }) {
 
         {step === 'email' && (
           <>
-            <h3 className="text-lg font-semibold text-on-surface mb-1 pr-6">Acceso desde otra computadora</h3>
+            <h3 className="text-lg font-bold text-on-surface mb-1 pr-6">Acceso desde otra computadora</h3>
             <p className="text-sm text-muted mb-4 leading-relaxed">
               Escribe el mismo correo con el que te registraste mediante Google para crear una contraseña y poder iniciar sesión sin utilizar Google. Solo tendrás que hacerlo una vez.
             </p>

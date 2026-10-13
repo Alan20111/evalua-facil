@@ -666,7 +666,7 @@ export default function StudentDashboard() {
       {subjectToRemove && (
         <Modal open onClose={() => setSubjectToRemove(null)} variant="sheet" z={40} padding="p-5" busy={removing} ariaLabel="Quitar de mis archivadas">
             <div className="flex items-center justify-between gap-2 mb-3">
-              <h3 className="text-lg font-semibold text-on-surface truncate">Quitar de mis archivadas</h3>
+              <h3 className="text-lg font-bold text-on-surface truncate">Quitar de mis archivadas</h3>
               <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-2" onClick={() => !removing && setSubjectToRemove(null)} />
             </div>
             <p className="text-sm text-muted mb-3 leading-relaxed">

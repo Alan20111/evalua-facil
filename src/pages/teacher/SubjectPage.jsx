@@ -4961,7 +4961,7 @@ export default function SubjectPage() {
               // nombres largos) y textos más grandes que en la app, donde el
               // modal comparte columna angosta con el teclado en horizontal.
               <div>
-                <h3 className="text-lg font-semibold text-on-surface">Justificar falta</h3>
+                <h3 className="text-lg font-bold text-on-surface">Justificar falta</h3>
                 <p className="text-sm text-muted mt-0.5">
                   {reasonModal.studentName} ·{' '}
                   {(() => { const { dia, mes, anio } = fmtAttDateParts(reasonModal.fecha); return `${dia}/${mes}/${anio}` })()}
