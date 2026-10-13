@@ -610,10 +610,13 @@ contraste del naranja del alumno.
   | Avisos (toasts) | `emerald-500`, `amber-500`, `red-500` (2.1–3.8:1) | tono 700/600 |
 
   Nuevo candado: `text-white/50|60|70` en 0.
-- **Lo que queda: 35 casos, todos del naranja del alumno (`#f97316`).** El
-  blanco sobre naranja da 2.8:1 y el naranja sobre blanco igual. Es el color de
-  identidad del rol, así que cambiarlo lo decide el usuario, junto con la tarea
-  de oscurecer las paletas naranja, verde y turquesa.
+- **Naranja del alumno y paletas (aprobado por el usuario con vista previa, 13-oct-2026): 35 → 0.**
+  El naranja del rol y las paletas naranja, verde y turquesa pasan a su tono
+  700 (`#c2410c` 5.2:1, `#15803d` 5.0:1, `#0f766e` 5.5:1; también ≥ 4.5:1
+  sobre su fondo claro). Las píldoras translúcidas del encabezado de la Agenda
+  del alumno pasan a `bg-white/5` con aro y texto blanco sólido.
+  «Nueva asignatura» vuelve a proponer cualquier color libre.
+  **Resultado: axe en 0 en todas las vistas.**
 
 **Teclado.** El recorrido con Tab en todas las vistas da 0 controles sin
 indicador de foco visible.

@@ -18,7 +18,7 @@ export const EVENT_COLORS = [
   { id: 'orange', bg: '#ffedd5', text: '#c2410c', label: 'Naranja' },
   { id: 'purple', bg: '#f3e8ff', text: '#7e22ce', label: 'Morado' },
   { id: 'rose',   bg: '#ffe4e6', text: '#be123c', label: 'Rojo' },
-  { id: 'teal',   bg: '#ccfbf1', text: '#0d9488', label: 'Turquesa' },
+  { id: 'teal',   bg: '#ccfbf1', text: '#0f766e', label: 'Turquesa' },
 ]
 
 // Contenido de UN tipo de evento. Personal y académico son tipos distintos, no

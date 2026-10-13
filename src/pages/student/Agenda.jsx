@@ -445,7 +445,7 @@ export default function Agenda() {
               md+ (la web) vuelve a compartir renglón. */}
           <div className="flex items-center gap-1 min-w-0 w-full md:w-auto md:flex-1">
             <IconButton icon={ArrowLeft} label="Regresar" variant="onColor" tooltip={false} className="md:hidden -ml-2" onClick={goBack} />
-            <div className="flex gap-0.5 bg-white/10 p-1 rounded-full min-w-0 overflow-x-auto">
+            <div className="flex gap-0.5 bg-white/5 ring-1 ring-white/30 p-1 rounded-full min-w-0 overflow-x-auto">
               {VIEWS.map((v) => (
                 <button
                   key={v.id}
@@ -453,7 +453,7 @@ export default function Agenda() {
                   onClick={() => changeView(v.id)}
                   aria-pressed={view === v.id}
                   className={`flex items-center gap-1 h-control-sm px-3 ${btnText} font-semibold rounded-full whitespace-nowrap transition-colors ${
-                    view === v.id ? 'bg-white text-accent' : 'text-white/95 hover:bg-white/10'
+                    view === v.id ? 'bg-white text-accent' : 'text-white hover:bg-white/10'
                   }`}
                 >
                   <v.Icon size={IS_NATIVE_APP ? 14 : 16} /> {v.label}
@@ -468,7 +468,7 @@ export default function Agenda() {
           <button
             type="button"
             onClick={() => openNewEvent(toDateStr(currentDate))}
-            className={`group flex items-center gap-1.5 h-control-sm px-3 rounded-full bg-white/15 hover:bg-white/25 ${btnTextLg} font-medium transition active:scale-[0.97]`}
+            className={`group flex items-center gap-1.5 h-control-sm px-3 rounded-full bg-white/5 ring-1 ring-white/30 hover:bg-white/10 ${btnTextLg} font-medium transition active:scale-[0.97]`}
           >
             <Animado efecto="gira90"><Plus size={ICONO.sm} /></Animado> Evento
           </button>
@@ -479,7 +479,7 @@ export default function Agenda() {
               <button
                 type="button"
                 {...props}
-                className={`flex items-center gap-1.5 h-control-sm px-3 rounded-full bg-white/15 hover:bg-white/25 ${btnText} font-medium transition-colors`}
+                className={`flex items-center gap-1.5 h-control-sm px-3 rounded-full bg-white/5 ring-1 ring-white/30 hover:bg-white/10 ${btnText} font-medium transition-colors`}
                 data-tooltip="Horas visibles de tu día (Agenda y Semana)"
                 data-tooltip-pos="bottom"
               >
