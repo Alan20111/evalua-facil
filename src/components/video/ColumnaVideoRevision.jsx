@@ -20,7 +20,7 @@ import { ICONO } from '../../config/iconos'
 //   duracionSeg  largo guardado del video; si falta se toma del reproductor (solo como tope visual, no se guarda)
 const ESPERA_SALTO_MS = 1500
 
-export default function ColumnaVideoRevision({ videoId, duracionSeg, idioma = null, item, items, disabled = false, onCambiar, onSoltar, onIr }) {
+export default function ColumnaVideoRevision({ videoId, duracionSeg, idioma = null, sinSaltarA = null, item, items, disabled = false, onCambiar, onSoltar, onIr }) {
   const contenedorRef = useRef(null)
   const sostenidoRef = useRef(null) // {seg, hasta}: el marcador se queda en lo que eligió el docente mientras el video llega ahí
   const baseRef = useRef(0) // desde dónde se reproduce: las preguntas anteriores ya cuentan como pasadas
@@ -44,8 +44,10 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, idioma = nu
   const yt = useYouTubePlayer({ videoId, contenedorRef, inicioSeg: Number.isInteger(seg) ? seg : 0, controlesNativos })
 
   // Al cambiar de pregunta el video va a su momento (en pausa). Es un efecto sobre el reproductor, no estado de la pantalla.
+  // Excepción: si se llegó a esta pregunta APROBANDO la anterior (`sinSaltarA`), el video no se toca: sigue reproduciendo o en pausa donde estaba.
   useEffect(() => {
     if (!yt.listo || !Number.isInteger(item.timestampSeg)) return
+    if (item.id === sinSaltarA) return
     sostenidoRef.current = { seg: item.timestampSeg, hasta: Date.now() + ESPERA_SALTO_MS }
     marcarSalto(item.timestampSeg, item.id)
     yt.saltarA(item.timestampSeg)
