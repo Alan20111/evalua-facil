@@ -29,9 +29,57 @@ function versionFilePlugin() {
   }
 }
 
+// API local para desarrollo contra los EMULADORES (VITE_EMULADORES=1).
+// Sirve /api/<carpeta>/<acción> con los MISMOS manejadores de Vercel
+// (api/<carpeta>/[acción].js o api/<nombre>.js), cargados con ssrLoadModule
+// para que tomen los cambios sin reiniciar. El Admin SDK se conecta a los
+// emuladores (ver api/_lib/firebaseAdmin.js). Así el alumno puede ver su
+// asignatura y sus actividades en local, que leen de /api/subject/content.
+// Nunca corre en producción: solo existe en `vite` (serve) y con esa variable.
+function apiLocalPlugin() {
+  return {
+    name: 'api-local-emuladores',
+    apply: 'serve',
+    configureServer(server) {
+      if (process.env.VITE_EMULADORES !== '1') return
+      process.env.FIRESTORE_EMULATOR_HOST ||= '127.0.0.1:8080'
+      process.env.FIREBASE_AUTH_EMULATOR_HOST ||= '127.0.0.1:9099'
+      process.env.GCLOUD_PROJECT ||= process.env.VITE_FIREBASE_PROJECT_ID || 'demo-esqueletos'
+      server.middlewares.use('/api', async (req, res) => {
+        const url = new URL(req.url, 'http://local')
+        const partes = url.pathname.split('/').filter(Boolean)
+        const candidatos = partes.length >= 2
+          ? [`/api/${partes[0]}/[action].js`, `/api/${partes[0]}/${partes[1]}.js`]
+          : [`/api/${partes[0]}.js`]
+        let mod = null
+        for (const c of candidatos) {
+          try { mod = await server.ssrLoadModule(c); break } catch { /* siguiente */ }
+        }
+        if (!mod?.default) { res.statusCode = 404; res.end(JSON.stringify({ error: 'Sin manejador local para ' + url.pathname })); return }
+        let crudo = ''
+        for await (const trozo of req) crudo += trozo
+        let body = crudo
+        try { body = crudo ? JSON.parse(crudo) : {} } catch { /* se queda como texto */ }
+        const vReq = Object.assign(req, { query: { ...Object.fromEntries(url.searchParams), ...(partes[1] ? { action: partes[1] } : {}) }, body })
+        const vRes = Object.assign(res, {
+          status(c) { res.statusCode = c; return vRes },
+          json(o) { if (!res.headersSent) res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(o)); return vRes },
+          send(d) { res.end(typeof d === 'string' || Buffer.isBuffer(d) ? d : JSON.stringify(d)); return vRes },
+        })
+        try {
+          await mod.default(vReq, vRes)
+        } catch (err) {
+          server.config.logger.error(`[api local] ${url.pathname}: ${err.stack || err}`)
+          if (!res.writableEnded) { res.statusCode = 500; res.end(JSON.stringify({ error: err.message })) }
+        }
+      })
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), versionFilePlugin()],
+  plugins: [react(), versionFilePlugin(), apiLocalPlugin()],
   define: {
     __BUILD_ID__: JSON.stringify(buildId),
     __BUILD_TIMESTAMP__: JSON.stringify(buildTimestamp),

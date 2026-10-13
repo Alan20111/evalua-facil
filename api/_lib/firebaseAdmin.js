@@ -6,6 +6,17 @@ let projectId = null
 
 function init() {
   if (initialized) return
+  // Desarrollo local contra los EMULADORES (vite.config.js → plugin apiLocal):
+  // sin cuenta de servicio, con los hosts del emulador y un proyecto «demo-».
+  // En Vercel nunca existen esas variables, así que producción no pasa por aquí;
+  // y el prefijo demo- impide que una configuración local apunte a un proyecto real.
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT && process.env.FIRESTORE_EMULATOR_HOST && process.env.FIREBASE_AUTH_EMULATOR_HOST) {
+    projectId = process.env.GCLOUD_PROJECT || 'demo-esqueletos'
+    if (!projectId.startsWith('demo-')) throw new Error('El modo emulador solo acepta proyectos demo-*')
+    if (!admin.apps.length) admin.initializeApp({ projectId })
+    initialized = true
+    return
+  }
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT
   if (!raw) throw new Error('FIREBASE_SERVICE_ACCOUNT no está configurado en Vercel')
 
