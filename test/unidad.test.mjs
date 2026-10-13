@@ -7262,7 +7262,7 @@ caso('ventana de revisión: los controles llevan tooltip (data-tooltip, solo esc
   for (const a of ['Pregunta anterior', 'Pregunta siguiente', 'Vista previa docente', 'Cerrar la revisión']) assert.ok(v.includes(`aria-label="${a}"`), a)
   assert.ok(/aria-label=\{reproduciendo \? 'Pausar' : 'Reproducir'\}/.test(col))
   assert.ok(/aria-label=\{`Aparece \$\{Math\.abs\(d\)\} segundos antes`\}/.test(ct) && /aria-label=\{`Aparece \$\{d\} segundos después`\}/.test(ct))
-  assert.ok(/onClick=\{\(\) => ir\(antes\)\}/.test(v) && /onClick=\{\(\) => resolver\(onAprobar\)\}/.test(v) && /onClick=\{\(\) => onGuardar\(item\)\}/.test(v))
+  assert.ok(/onClick=\{\(\) => ir\(antes\)\}/.test(v) && /onClick=\{\(\) => resolver\(onAprobar, \{ conservarVideo: true \}\)\}/.test(v) && /onClick=\{\(\) => onGuardar\(item\)\}/.test(v))
   // en los controles pegados a un borde, el globo se alinea hacia dentro (solo mueve el globo)
   assert.ok(/GLOBO_DESDE_IZQ = '\[&::after\]:!left-0 \[&::after\]:!\[transform:none\]'/.test(leerFuente('src/components/video/revisionVideo.js')))
   assert.ok(/GLOBO_HASTA_DER = '\[&::after\]:!left-auto \[&::after\]:!right-0 \[&::after\]:!\[transform:none\]'/.test(leerFuente('src/components/video/revisionVideo.js')))
@@ -7528,7 +7528,7 @@ caso('ventana de revisión: tocar un punto verde de la línea de tiempo lleva a 
   // cada otra pregunta es un botón que llama a onIr(id); el modal le pasa `ir` (la misma función de Anterior/Siguiente)
   assert.ok(/<button key=\{o\.id\} type="button" onClick=\{\(\) => onIr\?\.\(o\.id\)\} data-testid="punto-pregunta"/.test(lt))
   assert.ok(/aria-label=\{`Ir a la pregunta del minuto \$\{formatearMinuto\(o\.timestampSeg\)\}/.test(lt))
-  assert.ok(/onIr=\{ir\}/.test(v) && /onIr=\{onIr\}/.test(col) && /const ir = \(id\) => \{ if \(id\) \{ setActualId\(id\); setEditando\(false\) \} \}/.test(v))
+  assert.ok(/onIr=\{ir\}/.test(v) && /onIr=\{onIr\}/.test(col) && /const ir = \(id, \{ sinSaltar = false \} = \{\}\) => \{ if \(id\) \{ setSinSaltarA\(sinSaltar \? id : null\); setActualId\(id\); setEditando\(false\) \} \}/.test(v))
   // el punto es clicable aunque la pregunta actual esté deshabilitada (descartada / parcial cerrado): ir a otra no depende de `disabled`
   assert.ok(!/onClick=\{\(\) => onIr\?\.\(o\.id\)\}[^>]*disabled/.test(lt))
   // los cambios sin guardar se siguen viendo en el punto
@@ -7755,6 +7755,24 @@ caso('audio: el idioma llega desde la actividad hasta las tres pantallas', () =>
   assert.ok(/idioma=\{idioma\}/.test(panel) && (panel.match(/idioma=\{idioma\}/g) || []).length === 2, 'el panel lo pasa a la revisión y a la vista previa')
   assert.ok(/idioma=\{idioma\}/.test(leerFuente('src/components/video/RevisionVideoModal.jsx')))
   assert.ok(/\.\.\.\(idioma \? \{ idioma \} : \{\}\)/.test(leerFuente('src/components/video/VistaPreviaDocenteVideo.jsx')), 'la vista previa lo pone en la actividad que monta')
+})
+
+caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar y la navegación manual sí lo llevan a la pregunta que sigue', () => {
+  const modal = leerFuente('src/components/video/RevisionVideoModal.jsx')
+  const columna = leerFuente('src/components/video/ColumnaVideoRevision.jsx')
+  // Solo APROBAR pide conservar el video; descartar y restaurar siguen como siempre.
+  assert.ok(/resolver\(onAprobar, \{ conservarVideo: true \}\)/.test(modal), 'aprobar conserva el video')
+  assert.strictEqual((modal.match(/conservarVideo: true/g) || []).length, 1, 'solo aprobar')
+  assert.ok(/resolver\(onDescartar\)/.test(modal) && /resolver\(onRestaurar\)/.test(modal), 'descartar y restaurar no cambian')
+  assert.ok(/async function resolver\(accion, \{ conservarVideo = false \} = \{\}\)[\s\S]*?ir\(despues \?\? antes, \{ sinSaltar: conservarVideo \}\)/.test(modal), 'tras resolver avanza igual (siguiente, o anterior si era la última)')
+  // `ir` borra la marca en cualquier otra navegación (Siguiente, Anterior, puntos, filtro, parada automática).
+  assert.ok(/const ir = \(id, \{ sinSaltar = false \} = \{\}\) => \{ if \(id\) \{ setSinSaltarA\(sinSaltar \? id : null\)/.test(modal), 'por omisión ir() limpia sinSaltarA')
+  assert.ok(/onClick=\{\(\) => ir\(antes\)\}/.test(modal) && /onClick=\{\(\) => ir\(despues\)\}/.test(modal) && /onIr=\{ir\}/.test(modal), 'la navegación manual sigue llamando ir() sin la marca')
+  assert.ok(/sinSaltarA=\{sinSaltarA\}/.test(modal), 'la columna recibe la marca')
+  // La columna solo se salta el movimiento del video para la pregunta a la que se llegó aprobando.
+  assert.ok(/sinSaltarA = null/.test(columna))
+  assert.ok(/if \(item\.id === sinSaltarA\) return\s+sostenidoRef\.current = \{ seg: item\.timestampSeg/.test(columna), 'el efecto sale ANTES de saltarA/pausar, y solo para esa pregunta')
+  assert.ok(/yt\.saltarA\(item\.timestampSeg\)\s+yt\.pausar\(\)/.test(columna), 'el resto de cambios de pregunta sigue llevando el video a su segundo, en pausa')
 })
 
 if (fallos.length) {

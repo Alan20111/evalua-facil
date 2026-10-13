@@ -46,6 +46,8 @@ export default function RevisionVideoModal({
   const [actualId, setActualId] = useState(() => primeraParaRevisar(ordenRevision(items), Object.fromEntries(items.map((it) => [it.id, it]))))
   const [editando, setEditando] = useState(false)
   const [cerrando, setCerrando] = useState(false)
+  // Id de la pregunta a la que se llegó APROBANDO: el video no se mueve ni se pausa (ver ColumnaVideoRevision). Cualquier otra navegación lo borra.
+  const [sinSaltarA, setSinSaltarA] = useState(null)
 
   const visibles = visiblesRevision(orden, porId, filtro, actualId)
   const item = porId[actualId] || null
@@ -76,15 +78,16 @@ export default function RevisionVideoModal({
   const antes = moverId(orden, porId, filtro, actualId, -1)
   const despues = moverId(orden, porId, filtro, actualId, 1)
 
-  const ir = (id) => { if (id) { setActualId(id); setEditando(false) } }
+  const ir = (id, { sinSaltar = false } = {}) => { if (id) { setSinSaltarA(sinSaltar ? id : null); setActualId(id); setEditando(false) } }
   function cambiarFiltro(f) {
     setFiltro(f)
     if (!coincideFiltro(item, f)) ir(orden.find((id) => coincideFiltro(porId[id], f)) ?? actualId)
   }
-  // Tras aprobar/descartar/restaurar con éxito, sigue la siguiente (o la anterior si era la última).
-  async function resolver(accion) {
+  // Tras aprobar/descartar/restaurar con éxito, sigue la siguiente (o la anterior si era la última). Al APROBAR (`conservarVideo`) el
+  // video sigue donde estaba, reproduciendo o en pausa; descartar y restaurar llevan el video a la pregunta que sigue, como siempre.
+  async function resolver(accion, { conservarVideo = false } = {}) {
     const ok = await accion(item)
-    if (ok) ir(despues ?? antes)
+    if (ok) ir(despues ?? antes, { sinSaltar: conservarVideo })
   }
 
   return (
@@ -128,7 +131,7 @@ export default function RevisionVideoModal({
             {pausarVideo
               ? <div className="min-w-0 rounded-card bg-surface-container p-6 text-sm text-muted text-center">La vista previa está abierta. Ciérrala para volver al video.</div>
               : (
-                <ColumnaVideoRevision videoId={videoId} duracionSeg={duracionSeg} idioma={idioma} item={item} items={items} onIr={ir} onSoltar={(seg) => onGuardarTiempo(item.id, seg)}
+                <ColumnaVideoRevision videoId={videoId} duracionSeg={duracionSeg} idioma={idioma} sinSaltarA={sinSaltarA} item={item} items={items} onIr={ir} onSoltar={(seg) => onGuardarTiempo(item.id, seg)}
                   disabled={trabajando || sinPermiso || item.estado === ESTADO_REVISION.DESCARTADA}
                   onCambiar={(seg) => setCampos(item.id, { timestampSeg: seg })} />
               )}
@@ -243,7 +246,7 @@ export default function RevisionVideoModal({
                         data-tooltip="Descartar esta pregunta; podrás restaurarla">
                         <X size={ICONO.sm} /> Descartar
                       </button>
-                      <button type="button" onClick={() => resolver(onAprobar)} disabled={!!ocupada || !!err || (requiereConfirmacion(item) && !confirmados[item.id])} className={`${BOTON} bg-accent text-white ${GLOBO_HASTA_DER}`} data-testid="aprobar"
+                      <button type="button" onClick={() => resolver(onAprobar, { conservarVideo: true })} disabled={!!ocupada || !!err || (requiereConfirmacion(item) && !confirmados[item.id])} className={`${BOTON} bg-accent text-white ${GLOBO_HASTA_DER}`} data-testid="aprobar"
                         data-tooltip="Aprobar y agregar a la evaluación">
                         {trabajando ? <Spinner size="sm" /> : <Check size={ICONO.sm} />} Aprobar
                       </button>
