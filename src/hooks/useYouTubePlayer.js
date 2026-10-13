@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { velocidadPermitida } from '../utils/videoAudio'
 
 // Reproductor de YouTube (IFrame Player API) para el Video interactivo.
 //
@@ -47,7 +48,17 @@ export function mensajeErrorYouTube(codigo) {
 
 // `contenedorRef`: div vacío con el tamaño del video (la API crea dentro el iframe).
 // `onEstado(código)` y `onError(código)` se leen siempre en su última versión.
-export default function useYouTubePlayer({ videoId, contenedorRef, inicioSeg = 0, onEstado, onError }) {
+//
+// `controlesNativos` (experimento, ver videoAudio.js): enciende la barra nativa de
+// YouTube, que es la única vía pública para llegar al menú «Pista de audio». Por
+// omisión está apagado y el reproductor queda EXACTAMENTE como siempre.
+//
+// `limitarVelocidad` (también apagado por omisión) es INDEPENDIENTE: lo enciende solo el
+// reproductor que GUARDA progreso (el del estudiante). La barra nativa trae un selector
+// de velocidad y, sostenida a 2×, la regla de Firestore dejaría de aceptar el avance
+// tras una pausa de guardado larga. Con él encendido: hasta 1.25× se respeta y lo que
+// pase se baja a 1.25×. El docente (vista previa, revisión) no guarda progreso: no lo usa.
+export default function useYouTubePlayer({ videoId, contenedorRef, inicioSeg = 0, onEstado, onError, controlesNativos = false, limitarVelocidad: limitar = false }) {
   const playerRef = useRef(null)
   const [listo, setListo] = useState(false)
   const [error, setError] = useState(null)
@@ -67,6 +78,15 @@ export default function useYouTubePlayer({ videoId, contenedorRef, inicioSeg = 0
     contenedor.appendChild(hijo)
     setListo(false)
     setError(null)
+    // Solo si se pidió (reproductor con progreso y barra nativa): ver videoAudio.js.
+    function aplicarLimiteVelocidad(p) {
+      if (!limitar) return
+      try {
+        const actual = Number(p.getPlaybackRate())
+        const permitida = velocidadPermitida(actual)
+        if (Number.isFinite(actual) && actual > permitida) p.setPlaybackRate(permitida)
+      } catch { /* el reproductor aún no está listo: se reintenta en el siguiente evento */ }
+    }
     cargarApiYouTube().then((YT) => {
       if (cancelado) return
       player = new YT.Player(hijo, {
@@ -75,12 +95,18 @@ export default function useYouTubePlayer({ videoId, contenedorRef, inicioSeg = 0
         width: '100%',
         height: '100%',
         playerVars: {
-          controls: 0, disablekb: 1, fs: 0, rel: 0, modestbranding: 1, playsinline: 1,
+          controls: controlesNativos ? 1 : 0, disablekb: 1, fs: 0, rel: 0, modestbranding: 1, playsinline: 1,
           iv_load_policy: 3, cc_load_policy: 1, hl: 'es', start: Math.max(0, Math.floor(inicioSeg)),
           origin: window.location.origin,
         },
         events: {
-          onReady: () => { if (!cancelado) { playerRef.current = player; setListo(true) } },
+          onReady: () => {
+            if (cancelado) return
+            playerRef.current = player
+            aplicarLimiteVelocidad(player)
+            setListo(true)
+          },
+          onPlaybackRateChange: () => { if (!cancelado) aplicarLimiteVelocidad(player) },
           onStateChange: (e) => { if (!cancelado) onEstadoRef.current?.(e.data) },
           onError: (e) => {
             if (cancelado) return
@@ -98,7 +124,7 @@ export default function useYouTubePlayer({ videoId, contenedorRef, inicioSeg = 0
     }
     // `inicioSeg` solo importa al crear; reintentar recrea el reproductor.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- creación única por video/intento
-  }, [videoId, intento])
+  }, [videoId, intento, controlesNativos, limitar])
 
   const llamar = (fn, def) => { try { return playerRef.current ? fn(playerRef.current) : def } catch { return def } }
   const tiempo = useCallback(() => llamar((p) => Number(p.getCurrentTime()) || 0, 0), [])
@@ -106,8 +132,15 @@ export default function useYouTubePlayer({ videoId, contenedorRef, inicioSeg = 0
   const duracion = useCallback(() => llamar((p) => Number(p.getDuration()) || 0, 0), [])
   const reproducir = useCallback(() => llamar((p) => p.playVideo(), null), [])
   const pausar = useCallback(() => llamar((p) => p.pauseVideo(), null), [])
-  const saltarA = useCallback((seg) => llamar((p) => p.seekTo(Math.max(0, seg), true), null), [])
+  // Cuándo fue el último salto pedido POR LA PANTALLA: con la barra nativa el usuario también puede saltar, y
+  // `saltoPropioReciente` permite distinguir uno del otro (ver esSaltoExterno en videoAudio.js).
+  const ultimoSaltoRef = useRef(0)
+  const saltarA = useCallback((seg) => { ultimoSaltoRef.current = Date.now(); return llamar((p) => p.seekTo(Math.max(0, seg), true), null) }, [])
+  const saltoPropioReciente = useCallback((ms = 1500) => Date.now() - ultimoSaltoRef.current < ms, [])
   const reintentar = useCallback(() => setIntento((n) => n + 1), [])
+  // Velocidad real del reproductor (1 si no se puede leer). `tick()` la usa para
+  // saber qué avance es normal; sin controles nativos siempre es 1.
+  const tasa = useCallback(() => llamar((p) => { const r = Number(p.getPlaybackRate()); return r > 0 ? r : 1 }, 1), [])
 
-  return { listo, error, tiempo, estado, duracion, reproducir, pausar, saltarA, reintentar }
+  return { listo, error, tiempo, estado, duracion, tasa, reproducir, pausar, saltarA, saltoPropioReciente, reintentar }
 }

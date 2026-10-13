@@ -309,7 +309,7 @@ export default function EvaluacionEditor({
           cerrarEntregasEnFecha: !(d.recibirTarde ?? false),
         }
         setInfoForm(loaded)
-        setVideoMeta(esVideoInteractivo(d) ? { duracionSeg: d.videoInteractivo?.duracionSeg ?? null, intento: intentoPendiente(d), videoId: d.videoInteractivo?.videoId ?? null } : null)
+        setVideoMeta(esVideoInteractivo(d) ? { duracionSeg: d.videoInteractivo?.duracionSeg ?? null, intento: intentoPendiente(d), videoId: d.videoInteractivo?.videoId ?? null, idioma: d.videoInteractivo?.idioma ?? null } : null)
         setExtensiones(d.extensiones || {})
         setExtensionesMotivo(d.extensionesMotivo || {})
         loadedSnapshot.current = JSON.stringify(loaded)
@@ -1422,6 +1422,7 @@ export default function EvaluacionEditor({
             onAprobada={handlePropuestaAprobada}
             onPreguntaActualizada={handlePreguntaVideoActualizada}
             videoId={videoMeta.videoId}
+            idioma={videoMeta.idioma}
             nombreActividad={infoForm.nombre}
           />
         )}

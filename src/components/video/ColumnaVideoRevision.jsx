@@ -4,6 +4,7 @@ import useYouTubePlayer, { ESTADO_YT, mensajeErrorYouTube } from '../../hooks/us
 import ControlTiempoVideo from './ControlTiempoVideo'
 import LineaTiempoRevision from './LineaTiempoRevision'
 import { GLOBO_DESDE_IZQ, formatearMinuto, paradaDePregunta } from './revisionVideo'
+import { requiereControlesAudio, esSaltoExterno, TEXTO_AYUDA_AUDIO } from '../../utils/videoAudio'
 import { ICONO } from '../../config/iconos'
 
 // Lado del VIDEO de la ventana de revisión: el reproductor, la única línea de tiempo y el control del momento.
@@ -19,7 +20,7 @@ import { ICONO } from '../../config/iconos'
 //   duracionSeg  largo guardado del video; si falta se toma del reproductor (solo como tope visual, no se guarda)
 const ESPERA_SALTO_MS = 1500
 
-export default function ColumnaVideoRevision({ videoId, duracionSeg, item, items, disabled = false, onCambiar, onSoltar, onIr }) {
+export default function ColumnaVideoRevision({ videoId, duracionSeg, idioma = null, item, items, disabled = false, onCambiar, onSoltar, onIr }) {
   const contenedorRef = useRef(null)
   const sostenidoRef = useRef(null) // {seg, hasta}: el marcador se queda en lo que eligió el docente mientras el video llega ahí
   const baseRef = useRef(0) // desde dónde se reproduce: las preguntas anteriores ya cuentan como pasadas
@@ -35,7 +36,12 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, item, items
   // que se queda parado (`idActual`) también, para que al reproducir siga a la siguiente.
   const marcarSalto = (segundo, idActual = null) => { baseRef.current = segundo; pasadasRef.current = new Set(idActual ? [idActual] : []) }
 
-  const yt = useYouTubePlayer({ videoId, contenedorRef, inicioSeg: Number.isInteger(seg) ? seg : 0 })
+  // Experimento de audio: con un idioma identificado y distinto del español se enciende la barra nativa de YouTube (menú «Pista de
+  // audio»). Aquí no se guarda progreso, así que la velocidad no se limita. Sin dato o en español, el reproductor queda como siempre.
+  const controlesNativos = requiereControlesAudio(idioma)
+  const lecturaRef = useRef({ pos: null, t: null }) // lectura anterior del sondeo, para detectar saltos hechos con la barra nativa
+
+  const yt = useYouTubePlayer({ videoId, contenedorRef, inicioSeg: Number.isInteger(seg) ? seg : 0, controlesNativos })
 
   // Al cambiar de pregunta el video va a su momento (en pausa). Es un efecto sobre el reproductor, no estado de la pantalla.
   useEffect(() => {
@@ -58,6 +64,17 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, item, items
       // Tras un salto, el reproductor tarda un instante en informar el tiempo nuevo: hasta entonces (tope ESPERA_SALTO_MS) el
       // marcador se queda en el destino y no vuelve atrás.
       const real = yt.tiempo()
+      // Un salto hecho con la barra NATIVA no pasa por `saltar`/`alCambiar`, así que `baseRef`/`pasadasRef` seguirían viejos y, al
+      // reproducir, la parada automática devolvería al docente a una pregunta anterior. Se trata igual que un salto propio: lo
+      // anterior a ese punto cuenta como pasado. El segundo elegido de la pregunta (borrador) no se toca.
+      if (controlesNativos) {
+        const prev = lecturaRef.current
+        if (prev.pos != null && !yt.saltoPropioReciente()
+          && esSaltoExterno({ pos: real, ultimaPos: prev.pos, ultimoT: prev.t, ahora: Date.now(), jugando, tasa: yt.tasa() })) {
+          marcarSalto(real)
+        }
+        lecturaRef.current = { pos: real, t: Date.now() }
+      }
       const h = sostenidoRef.current
       if (h && Date.now() < h.hasta && Math.abs(real - h.seg) > 1.2) setPosicion(h.seg)
       else { sostenidoRef.current = null; setPosicion(real) }
@@ -106,6 +123,9 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, item, items
       <div className="mx-auto w-[min(100%,calc(42dvh*16/9))] lg:w-[min(100%,calc(56dvh*16/9))] [@media(orientation:landscape)_and_(max-height:500px)]:w-[min(100%,calc(62dvh*16/9))]">
         <div ref={contenedorRef} data-testid="video-revision" className="w-full aspect-video bg-black rounded-card overflow-hidden" />
       </div>
+      {controlesNativos && yt.error == null && (
+        <p data-testid="ayuda-audio" className="text-xs text-muted text-center">{TEXTO_AYUDA_AUDIO}</p>
+      )}
       {yt.error != null && (
         <div role="alert" className="flex items-start gap-2 rounded-card bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-900">
           <AlertTriangle size={ICONO.sm} className="flex-shrink-0 mt-0.5" />

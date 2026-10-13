@@ -30,7 +30,7 @@ import { ICONO } from '../../config/iconos'
 //   reproducirAlAbrir  arranca solo (viene de «probar desde aquí», un clic del docente)
 const guardarProgresoNulo = () => {}
 
-export default function VistaPreviaDocenteVideo({ videoId, duracionSeg, nombre, items, inicioSeg = 0, reproducirAlAbrir = false, onCerrar }) {
+export default function VistaPreviaDocenteVideo({ videoId, duracionSeg, idioma = null, nombre, items, inicioSeg = 0, reproducirAlAbrir = false, onCerrar }) {
   const pantallaRef = useRef(null)
   const areaRef = useRef(null)
   const [alto, setAlto] = useState(null)
@@ -49,8 +49,9 @@ export default function VistaPreviaDocenteVideo({ videoId, duracionSeg, nombre, 
   const preguntas = useMemo(() => preguntasVistaPrevia(items), [items])
   const porId = useMemo(() => new Map((items || []).map((it) => [it.id, it])), [items])
   const activity = useMemo(
-    () => ({ videoInteractivo: { videoId, duracionSeg: duracionSeg || null }, evaluacion: { navegacion: 'libre' } }),
-    [videoId, duracionSeg],
+    // `idioma` solo decide si el reproductor muestra la barra nativa (menú «Pista de audio»); ver videoAudio.js.
+    () => ({ videoInteractivo: { videoId, duracionSeg: duracionSeg || null, ...(idioma ? { idioma } : {}) }, evaluacion: { navegacion: 'libre' } }),
+    [videoId, duracionSeg, idioma],
   )
   const estaRespondida = useCallback((p) => estaRespondidaPura(p, respuestas[p?.id], otraTextos[p?.id]), [respuestas, otraTextos])
 

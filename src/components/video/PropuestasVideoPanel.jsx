@@ -36,7 +36,7 @@ const BOTON = 'inline-flex items-center justify-center gap-1.5 min-h-[2.75rem] p
 //   onAprobada   (plan) → el editor suma la pregunta a la lista (no toca las demás)
 //   onPreguntaActualizada  (id, campos) → el editor refleja el cambio guardado en una pregunta ya aprobada
 export default function PropuestasVideoPanel({
-  activityId, activas, activasListas = true, duracionSeg = null, bloqueado = false, version = 0, onAprobada, onPreguntaActualizada, videoId = null, nombreActividad = '',
+  activityId, activas, activasListas = true, duracionSeg = null, bloqueado = false, version = 0, onAprobada, onPreguntaActualizada, videoId = null, idioma = null, nombreActividad = '',
 }) {
   const toast = useToast()
   const [propuestas, setPropuestas] = useState(null)
@@ -208,7 +208,7 @@ export default function PropuestasVideoPanel({
 
       {revisando && (
         <RevisionVideoModal
-          items={items} duracionSeg={duracionSeg} videoId={videoId} bloqueado={bloqueado} ocupada={ocupada}
+          items={items} duracionSeg={duracionSeg} videoId={videoId} idioma={idioma} bloqueado={bloqueado} ocupada={ocupada}
           confirmados={confirmados} onConfirmar={(id, v) => setConfirmados((c) => ({ ...c, [id]: v }))}
           setCampos={setCampos} quitarBorrador={quitarBorrador} problema={problema}
           onGuardar={guardar} onGuardarTiempo={guardarTiempo} onGuardarTodos={guardarTodos} onDeshacerTodo={() => setBorradores({})}
@@ -220,7 +220,7 @@ export default function PropuestasVideoPanel({
 
       {vistaPrevia && (
         <VistaPreviaDocenteVideo
-          videoId={videoId} duracionSeg={duracionSeg} nombre={nombreActividad} items={items}
+          videoId={videoId} duracionSeg={duracionSeg} idioma={idioma} nombre={nombreActividad} items={items}
           inicioSeg={vistaPrevia.inicioSeg} reproducirAlAbrir={vistaPrevia.reproducir}
           onCerrar={() => setVistaPrevia(null)}
         />

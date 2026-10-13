@@ -21,6 +21,7 @@
 import {
   VIDEO_CFG, validarDistribucionVideo, extraerVideoIdYouTube, crearVideoInteractivoInicial, costoGeneracionVideo,
 } from './videoInteractivo.js'
+import { idiomaParaGuardar } from './videoAudio.js'
 
 export const OPERACION_VIDEO = 'generar_preguntas_video'
 export const TIMEOUT_GENERACION_MS = 290000
@@ -174,6 +175,9 @@ export async function generarEnActividad(deps, actividadId, intento) {
   // (recuperar guarda 0 nuevas y vuelve a intentar cerrar).
   await deps.actualizarActividad(actividadId, {
     'videoInteractivo.duracionSeg': res.videoInteractivo?.duracionSeg ?? null,
+    // Idioma hablado que detectó Gemini: decide si el estudiante ve el menú nativo de
+    // «Pista de audio». Solo se escribe si hay un valor útil (no pisa uno ya guardado).
+    ...(idiomaParaGuardar(res) ? { 'videoInteractivo.idioma': idiomaParaGuardar(res) } : {}),
     'videoInteractivo.generacion': {
       estado,
       preguntasGeneradas: preguntas.length,
