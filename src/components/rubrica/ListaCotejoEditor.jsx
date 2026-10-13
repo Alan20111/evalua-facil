@@ -275,10 +275,9 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
                   ? `Los puntos suman ${suma} — deben sumar exactamente ${RUBRICA_TOTAL}.`
                   : `Al calificar marcarás cada criterio cumplido; su suma es la calificación (sobre ${RUBRICA_TOTAL}).`}
               </p>
-              <button type="button" onClick={repartir}
-                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-outline-variant rounded bg-surface-card text-muted hover:text-accent hover:border-accent transition-colors">
+              <Button variant="secondary" size="sm" onClick={repartir}>
                 <Scale size={ICONO.xs} /> Repartir en partes iguales
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -323,10 +322,9 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
                 {iaGenerada ? 'Guardar lista de cotejo' : 'Guardar y salir'}
               </Button>
             </div>
-            <button type="button" onClick={onClose} disabled={saving}
-              className="w-full mt-2 py-2 text-sm text-red-600 font-medium hover:bg-red-50 rounded transition-colors disabled:opacity-60">
+            <Button variant="danger-outline" fullWidth className="mt-2" onClick={onClose} disabled={saving}>
               Salir sin guardar
-            </button>
+            </Button>
           </Modal>
       )}
     </div>

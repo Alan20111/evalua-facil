@@ -36,6 +36,7 @@ import Modal from '../ui/Modal'
 import Spinner from '../Spinner'
 import CrucigramaBoard from './CrucigramaBoard'
 import SopaDeLetrasBoard from './SopaDeLetrasBoard'
+import { Button } from '../ui'
 
 export default function SolucionJuegoModal({ open, onClose, actividadId, estructura, submission }) {
   // El crucigrama migrado no tiene las letras en el cliente: hay que pedirlas.
@@ -118,13 +119,11 @@ export default function SolucionJuegoModal({ open, onClose, actividadId, estruct
       )}
 
       <div className="flex justify-end mt-4">
-        <button
-          type="button"
+        <Button variant="quiet"
           onClick={onClose}
-          className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors"
         >
           Cerrar
-        </button>
+        </Button>
       </div>
     </Modal>
   )

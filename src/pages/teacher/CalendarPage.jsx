@@ -1217,7 +1217,7 @@ export default function CalendarPage() {
                 data-tooltip-pos="bottom">
                  Días de asueto
                 {asuetos.length > 0 && (
-                  <span className="ml-0.5 text-xs px-1.5 rounded-full bg-amber-500 text-white">{asuetos.length}</span>
+                  <span className="ml-0.5 text-xs px-1.5 rounded-full bg-amber-700 text-white">{asuetos.length}</span>
                 )}
               </Button>
               <Button variant="secondary" icon={CalendarRange}
@@ -1227,7 +1227,7 @@ export default function CalendarPage() {
                 data-tooltip-pos="bottom">
                  Vacaciones
                 {vacaciones.length > 0 && (
-                  <span className="ml-0.5 text-xs px-1.5 rounded-full bg-amber-500 text-white">{vacaciones.length}</span>
+                  <span className="ml-0.5 text-xs px-1.5 rounded-full bg-amber-700 text-white">{vacaciones.length}</span>
                 )}
               </Button>
 
@@ -1242,7 +1242,7 @@ export default function CalendarPage() {
                 data-tooltip-pos="bottom">
                  Modificar bloques
                 {(totalBloquesFueraDeRango + totalBloquesEnAsueto) > 0 && (
-                  <span className="ml-0.5 flex items-center gap-0.5 text-xs px-1.5 rounded-full bg-amber-500 text-white">
+                  <span className="ml-0.5 flex items-center gap-0.5 text-xs px-1.5 rounded-full bg-amber-700 text-white">
                     <AlertTriangle size={ICONO.xs} /> {totalBloquesFueraDeRango + totalBloquesEnAsueto}
                   </span>
                 )}

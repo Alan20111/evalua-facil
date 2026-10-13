@@ -72,17 +72,15 @@ export default function RevisionJuegoBorrador({ activity, estructura: estructura
         : <CrucigramaBoard estructura={estructura} celdas={celdas} modoDocente mostrarRespuestaEnPista onCambioCelda={(r, c, letra) => setCeldas((prev) => ({ ...prev, [`${r}-${c}`]: letra }))} />}
 
       <div className="flex justify-end">
-        <button type="button" onClick={reiniciarPreview}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted hover:bg-surface-container rounded transition-colors">
-          <RotateCcw size={ICONO.xs} /> Reiniciar vista previa
-        </button>
+        <Button variant="quiet" size="sm" icon={RotateCcw} onClick={reiniciarPreview}>
+          Reiniciar vista previa
+        </Button>
       </div>
 
       <div className="flex flex-col sm:flex-row justify-between gap-2 pt-2">
-        <button type="button" onClick={onRegresar} disabled={confirmando}
-          className="flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors disabled:opacity-60">
-          <ArrowLeft size={ICONO.sm} /> Regresar a editar contenido
-        </button>
+        <Button variant="quiet" icon={ArrowLeft} onClick={onRegresar} disabled={confirmando}>
+          Regresar a editar contenido
+        </Button>
         {!confirmado && (
           <Button icon={CheckCircle2} onClick={handleConfirmar} disabled={confirmando}>
              {confirmando ? 'Confirmando…' : 'Confirmar juego'}

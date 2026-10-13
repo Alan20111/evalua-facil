@@ -40,15 +40,13 @@ function EditorTexto({ vigente, guardando, onGuardar, onCancelar, puedeRestaurar
       {campo('ent-recomendaciones', 'Recomendaciones', recomendaciones, setRecomendaciones, 4, unaPorRenglon)}
       <div className="flex flex-wrap justify-end gap-2">
         {puedeRestaurar && (
-          <button type="button" onClick={onRestaurar} disabled={guardando}
-            className="mr-auto px-3 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors disabled:opacity-60">
+          <Button variant="quiet" className="mr-auto" onClick={onRestaurar} disabled={guardando}>
             Volver al texto original
-          </button>
+          </Button>
         )}
-        <button type="button" onClick={onCancelar} disabled={guardando}
-          className="px-3 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors disabled:opacity-60">
+        <Button variant="quiet" onClick={onCancelar} disabled={guardando}>
           Cancelar
-        </button>
+        </Button>
         <Button disabled={guardando}
           onClick={() => onGuardar({
             resumenEjecutivo: resumen.trim().slice(0, 4000),

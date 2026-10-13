@@ -80,10 +80,9 @@ export default function ConfirmacionCreditosModal({
               </>
             )}
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={onCancelar} disabled={ejecutando}
-                className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
+              <Button variant="quiet" onClick={onCancelar} disabled={ejecutando}>
                 Cancelar
-              </button>
+              </Button>
               <Button onClick={onContinuar} disabled={ejecutando || continuarDeshabilitado}>
                 {ejecutando ? 'Trabajando…' : 'Continuar'}
               </Button>
@@ -99,10 +98,9 @@ export default function ConfirmacionCreditosModal({
               {c.mostrarCTAActivarBienvenida && ' Puedes comprar créditos o activar tus créditos de regalo.'}
             </p>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={onCancelar}
-                className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
+              <Button variant="quiet" onClick={onCancelar}>
                 Cerrar
-              </button>
+              </Button>
               {c.mostrarCTAActivarBienvenida && (
                 <Button variant="outline-accent" onClick={() => setActivarAbierto(true)}>
                   Activar créditos de regalo

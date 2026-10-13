@@ -120,7 +120,7 @@ export default function AdminChat() {
           confirmarBorrar ? (
             <div className="flex items-center gap-1.5 flex-shrink-0">
               <button type="button" onClick={() => setConfirmarBorrar(false)} className="text-xs text-muted px-2 py-2">Cancelar</button>
-              <button type="button" onClick={borrarConversacion} className="text-xs bg-error text-white rounded px-2.5 py-2 font-medium flex-shrink-0">Sí, borrar</button>
+              <Button variant="danger" size="sm" onClick={borrarConversacion}>Sí, borrar</Button>
             </div>
           ) : (
             <button

@@ -47,7 +47,7 @@ export default function ConfigAnalisisAsignatura({ preparacion, onCancelar, onCo
       <>
         <p className="text-sm text-on-surface py-6 text-center">Esta asignatura todavía no tiene estudiantes inscritos: no hay nada que analizar.</p>
         <div className="flex justify-end">
-          <button type="button" onClick={onCancelar} className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">Cerrar</button>
+          <Button variant="quiet" onClick={onCancelar}>Cerrar</Button>
         </div>
       </>
     )

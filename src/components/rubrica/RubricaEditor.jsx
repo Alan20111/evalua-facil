@@ -660,10 +660,9 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved, ia
                   ? 'Todas las columnas cuadran — la rúbrica califica sobre 10.'
                   : 'Hay columnas que no suman los puntos de su nivel (en rojo). Ajusta las celdas o usa la balanza de cada columna.'}
               </p>
-              <button type="button" onClick={repartirPesos}
-                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border border-outline-variant rounded bg-surface-card text-muted hover:text-accent hover:border-accent transition-colors">
+              <Button variant="secondary" size="sm" onClick={repartirPesos}>
                 <Scale size={ICONO.xs} /> Repartir en partes iguales
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -724,10 +723,9 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved, ia
                 {iaGenerada ? 'Guardar rúbrica' : 'Guardar y salir'}
               </Button>
             </div>
-            <button type="button" onClick={onClose} disabled={saving}
-              className="w-full mt-2 py-2 text-sm text-red-600 font-medium hover:bg-red-50 rounded transition-colors disabled:opacity-60">
+            <Button variant="danger-outline" fullWidth className="mt-2" onClick={onClose} disabled={saving}>
               Salir sin guardar
-            </button>
+            </Button>
           </Modal>
       )}
     </div>

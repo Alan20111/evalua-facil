@@ -2115,7 +2115,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       const first = studentsForFilter('porCalificar')[0]
                       if (first) openReview(first, 'porCalificar')
                     }}
-                    className="flex-shrink-0 px-3 py-1.5 bg-amber-500 text-white text-xs font-semibold rounded hover:bg-amber-600 transition-colors"
+                    className="flex-shrink-0 px-3 py-1.5 bg-amber-700 text-white text-xs font-semibold rounded hover:bg-amber-800 transition-colors"
                   >
                     Calificar ahora
                   </button>

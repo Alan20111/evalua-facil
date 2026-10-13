@@ -119,10 +119,9 @@ function FlujoAnalisis({ activity, onCerrar, onGenerado }) {
             <p className="text-sm font-semibold text-on-surface pt-1">Costo del análisis: {prep.datos.costo} {prep.datos.costo === 1 ? 'crédito' : 'créditos'}</p>
           </div>
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={cerrar}
-              className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
+            <Button variant="quiet" onClick={cerrar}>
               Cancelar
-            </button>
+            </Button>
             <Button onClick={() => setConfirmando(true)}>
               Continuar
             </Button>

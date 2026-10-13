@@ -91,10 +91,9 @@ export default function ResolucionJuegoModal({ open, onClose, estudianteNombre, 
             </Button>
           </div>
         ) : <div />}
-        <button type="button" onClick={onClose}
-          className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
+        <Button variant="quiet" onClick={onClose}>
           Cerrar
-        </button>
+        </Button>
       </div>
     </Modal>
   )

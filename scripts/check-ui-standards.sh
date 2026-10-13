@@ -156,6 +156,10 @@ ratchet "Casilla/opción a mano (type=checkbox|radio fuera de ui/) — §3" \
 # el texto usa /95 o más. Los íconos pueden quedarse en /80 (piden 3:1).
 ratchet "Texto blanco translúcido bajo /80 (text-white/50|60|70: no pasa contraste AA sobre el acento)" \
   '(^|[^:a-z-])text-white/(50|60|70)\b' 0
+# Texto blanco sobre ámbar/verde/naranja/rojo claros (400–500): 2.1–3.8:1.
+# Para un relleno con texto blanco usa el tono 700 (rojo: 600).
+ratchet "Texto blanco sobre ámbar/verde/naranja/rojo 400–500 (no pasa AA; usa el tono 700, rojo 600)" \
+  'bg-(amber|green|emerald|orange|red)-(400|500)[^"`]*text-white|text-white[^"`]*bg-(amber|green|emerald|orange|red)-(400|500)' 0
 ratchet "z-index con número (z-[NN] → contenido/barra/hoja/aviso/menu/pantalla/tope/flotante/efecto/maximo/sistema) — §2.4" \
   'z-\[[0-9]+\]' 0 'components/ui/'
 

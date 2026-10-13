@@ -230,10 +230,9 @@ export default function CalificarConIAModal({
               tienes <span className="font-semibold tabular-nums">{c.saldo}</span> disponibles.
             </p>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={cerrarTodo} disabled={ejecutando}
-                className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
+              <Button variant="quiet" onClick={cerrarTodo} disabled={ejecutando}>
                 Cancelar
-              </button>
+              </Button>
               <Button onClick={ejecutar} disabled={ejecutando}>
                 {ejecutando && <Spinner size="sm" />}
                 {ejecutando ? 'Analizando…' : 'Calificar'}
@@ -248,10 +247,9 @@ export default function CalificarConIAModal({
               {c.mostrarCTAActivarBienvenida && ' Puedes comprar créditos o activar tus créditos de regalo.'}
             </p>
             <div className="flex flex-wrap justify-end gap-2">
-              <button type="button" onClick={cerrarTodo}
-                className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
+              <Button variant="quiet" onClick={cerrarTodo}>
                 Cerrar
-              </button>
+              </Button>
               {c.mostrarCTAActivarBienvenida && (
                 <Button variant="outline-accent" onClick={() => setActivarAbierto(true)}>
                   Activar créditos de regalo
@@ -409,10 +407,9 @@ export default function CalificarConIAModal({
               </Button>
             ) : (
               <>
-                <button type="button" onClick={descartar}
-                  className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-container rounded transition-colors">
+                <Button variant="quiet" onClick={descartar}>
                   Descartar propuesta
-                </button>
+                </Button>
                 <Button onClick={cerrarTodo}>
                   Listo, seguir calificando
                 </Button>

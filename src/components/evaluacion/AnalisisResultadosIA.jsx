@@ -132,7 +132,7 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
           {onGuardar && (
             <button type="button" onClick={guardarCambios} disabled={!sinGuardar || guardando}
               data-tooltip="Guardar las correcciones que hiciste a este análisis"
-              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-semibold rounded transition-colors disabled:opacity-60">
+              className="flex-shrink-0 flex items-center gap-1.5 px-3 h-control-sm bg-white/5 ring-1 ring-white/30 hover:bg-white/10 text-white text-xs font-semibold rounded-full transition-colors disabled:opacity-60">
               {guardando ? <Spinner size="sm" /> : <Save size={ICONO.xs} />}
               {guardando ? 'Guardando…' : sinGuardar ? 'Guardar' : 'Guardado'}
             </button>
@@ -140,7 +140,7 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
           {!telefonoWeb.telefono && (
           <button type="button" onClick={handleDescargarPDF} disabled={descargando}
             data-tooltip="Descargar este análisis en PDF"
-            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-semibold rounded transition-colors disabled:opacity-60">
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 h-control-sm bg-white/5 ring-1 ring-white/30 hover:bg-white/10 text-white text-xs font-semibold rounded-full transition-colors disabled:opacity-60">
             {descargando ? <Spinner size="sm" /> : <FileText size={ICONO.xs} />}
             {descargando ? 'Generando…' : 'PDF'}
           </button>

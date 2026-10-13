@@ -590,10 +590,9 @@ export default function EvaluacionRunner() {
               goAnterior/goSiguiente/handleFinalizarClick. */}
           <div className="flex items-center justify-between gap-2 safe-bottom">
             {navegacionLibre ? (
-              <button type="button" disabled={idx === 0} onClick={goAnterior}
-                className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-muted disabled:opacity-60 rounded">
-                <ChevronLeft size={ICONO.md} /> Anterior
-              </button>
+              <Button variant="quiet" icon={ChevronLeft} disabled={idx === 0} onClick={goAnterior}>
+                Anterior
+              </Button>
             ) : <span />}
 
             {isLast ? (
