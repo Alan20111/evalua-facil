@@ -37,7 +37,7 @@ const BOTON = 'inline-flex items-center justify-center gap-1.5 min-h-[2.75rem] p
 //   problema      (item) → texto del primer error de validación, o null
 //   pausarVideo   la vista previa está abierta encima: se desmonta el reproductor de esta ventana (no puede haber dos)
 export default function RevisionVideoModal({
-  items, duracionSeg, videoId, bloqueado, ocupada, confirmados, onConfirmar, setCampos, quitarBorrador, problema,
+  items, duracionSeg, videoId, idioma = null, bloqueado, ocupada, confirmados, onConfirmar, setCampos, quitarBorrador, problema,
   onGuardar, onGuardarTiempo, onGuardarTodos, onDeshacerTodo, onAprobar, onDescartar, onRestaurar, onVistaPrevia, onCerrar, pausarVideo = false,
 }) {
   const porId = useMemo(() => Object.fromEntries(items.map((it) => [it.id, it])), [items])
@@ -128,7 +128,7 @@ export default function RevisionVideoModal({
             {pausarVideo
               ? <div className="min-w-0 rounded-card bg-surface-container p-6 text-sm text-muted text-center">La vista previa está abierta. Ciérrala para volver al video.</div>
               : (
-                <ColumnaVideoRevision videoId={videoId} duracionSeg={duracionSeg} item={item} items={items} onIr={ir} onSoltar={(seg) => onGuardarTiempo(item.id, seg)}
+                <ColumnaVideoRevision videoId={videoId} duracionSeg={duracionSeg} idioma={idioma} item={item} items={items} onIr={ir} onSoltar={(seg) => onGuardarTiempo(item.id, seg)}
                   disabled={trabajando || sinPermiso || item.estado === ESTADO_REVISION.DESCARTADA}
                   onCambiar={(seg) => setCampos(item.id, { timestampSeg: seg })} />
               )}

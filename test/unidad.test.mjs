@@ -7509,7 +7509,7 @@ caso('video estudiante · navegación libre: una pregunta respondida vuelve a ac
   assert.ok(/respondida: paraActivar,\s*\}\)/.test(pan), 'tick')
   assert.ok(/antesDeReproducir\(ordenadasRef\.current, paraActivar, pos\)/.test(pan) && (pan.match(/antesDeReproducir\(ordenadasRef\.current, paraActivar, pos\)/g) || []).length === 2, 'alternarReproduccion y continuar')
   assert.ok(/function abrirPregunta\(p\) \{\s*pasadasRef\.current\.add\(p\.id\)/.test(pan), 'toda pregunta abierta queda en la pasada')
-  assert.ok((pan.match(/marcarSalto\(/g) || []).length === 3, 'se reinicia la pasada al volver a empezar, al saltar y al tocar un punto')
+  assert.ok((pan.match(/marcarSalto\(/g) || []).length === 4, 'se reinicia la pasada al volver a empezar, al saltar, al tocar un punto y al saltar con la barra nativa')
   assert.ok(/if \(revisionRef\.current\) return respondida\(p\)/.test(pan), 'la vista previa del docente conserva su lógica')
   assert.ok(/const libre = activity\.evaluacion\?\.navegacion !== 'secuencial'/.test(pan))
   // lo respondido y el resumen siguen usando «respondida» (no cambian)
@@ -7628,6 +7628,133 @@ caso('ventana de revisión: el manejador de Escape usa accionEscape con el estad
   assert.ok(/useBackHandler\(onCerrar, true\)/.test(vp) && /useBackHandler\(\(\) => \{ if \(cerrando\) setCerrando\(false\); else intentarCerrar\(\) \}, true\)/.test(v))
   // La ventana recibe «vista previa abierta» del panel (el mismo dato que ya desmontaba su video).
   assert.ok(/pausarVideo=\{!!vistaPrevia\}/.test(leerFuente('src/components/video/PropuestasVideoPanel.jsx')))
+})
+
+// ── Video interactivo: audio del video (videoAudio.js) — experimento de la pista de audio ──
+const VA = await import('../src/utils/videoAudio.js')
+
+caso('audio: el idioma se clasifica en español / otro / desconocido, y desconocido NUNCA se trata como inglés', () => {
+  for (const es of ['es', 'ES', ' es ', 'es-MX', 'es_419', 'spa']) assert.strictEqual(VA.clasificarIdioma(es), 'es', `«${es}» es español`)
+  for (const otro of ['en', 'en-US', 'fr', 'pt-BR', 'zh-hans', 'ja', 'deu']) assert.strictEqual(VA.clasificarIdioma(otro), 'otro', `«${otro}» es otro idioma`)
+  for (const raro of [undefined, null, '', '  ', 'ninguno', 'Ninguno', 'unknown', 'und', 'mul', 'zxx', 'n/a', 'Español', 'english', 'e', 'en-', 42, {}, ['en']]) {
+    assert.strictEqual(VA.clasificarIdioma(raro), 'desconocido', `«${String(raro)}» no es un código de idioma identificable`)
+  }
+})
+
+caso('audio: solo un idioma identificado y distinto de español enciende los controles nativos', () => {
+  assert.strictEqual(VA.requiereControlesAudio('en'), true)
+  assert.strictEqual(VA.requiereControlesAudio('fr-FR'), true)
+  assert.strictEqual(VA.requiereControlesAudio('es'), false, 'en español todo queda como siempre')
+  assert.strictEqual(VA.requiereControlesAudio('es-MX'), false)
+  assert.strictEqual(VA.requiereControlesAudio(undefined), false, 'actividades anteriores, sin idioma: como siempre')
+  assert.strictEqual(VA.requiereControlesAudio(null), false)
+  assert.strictEqual(VA.requiereControlesAudio('ninguno'), false, 'video sin habla: no se supone nada')
+})
+
+caso('audio: la velocidad se respeta hasta 1.25× y lo que pase se baja a 1.25×', () => {
+  assert.strictEqual(VA.VELOCIDAD_MAX_CON_CONTROLES, 1.25)
+  for (const v of [0.25, 0.5, 1, 1.25]) assert.strictEqual(VA.velocidadPermitida(v), v, `${v}× se respeta`)
+  for (const v of [1.5, 1.75, 2]) assert.strictEqual(VA.velocidadPermitida(v), 1.25, `${v}× se limita`)
+  for (const v of [0, -1, NaN, undefined, null, 'x']) assert.strictEqual(VA.velocidadPermitida(v), 1, 'una lectura inválida cuenta como velocidad normal')
+})
+
+caso('audio: con la velocidad ya limitada, el avance sigue contando como visto en el sondeo (1.25×, con y sin `tasa`)', () => {
+  // 1.25× con lecturas cada 250 ms = 0.3125 s por lectura. Con la tasa real y con la tasa por omisión.
+  for (const resto of [{ tasa: 1.25 }, {}]) {
+    const r = reproducir({ maxVisto: 0, ultimaPos: 0, ultimoT: 1000 }, 40, { desde: 0, paso: 0.3125, duracion: 100, ordenadas: [], respondida: nadaRespondido, ...resto })
+    assert.ok(r.eventos.every((e) => e.accion === 'nada'), 'ninguna lectura se toma por salto')
+    assert.ok(Math.abs(r.estado.maxVisto - 12.5) < 0.01, 'todo el avance cuenta como visto')
+  }
+})
+
+caso('audio: el idioma que se guarda sale de la extracción de Gemini y no pisa uno existente si no hay dato', () => {
+  const con = (idioma) => ({ generacion: { fuenteContenido: { idioma } } })
+  assert.strictEqual(VA.idiomaParaGuardar(con('en')), 'en')
+  assert.strictEqual(VA.idiomaParaGuardar(con(' EN-us ')), 'en-us')
+  for (const nada of [con(null), con(''), con('  '), con(7), { generacion: {} }, {}, null, undefined]) {
+    assert.strictEqual(VA.idiomaParaGuardar(nada), undefined, 'sin valor útil no se devuelve nada (no se escribe)')
+  }
+})
+
+await casoA('audio: al cerrar la generación se guarda `videoInteractivo.idioma`, solo si Gemini lo dio, sin tocar el resto del cierre', async () => {
+  const conIdioma = depsFalsas({ ejecutar: async (op, params, unidades) => {
+    const base = respuestaServidor(unidades)
+    base.resultado.generacion.fuenteContenido = { tipo: 'extraccion_gemini', idioma: 'en', habla: true }
+    return base
+  } })
+  await VG.crearYGenerar(conIdioma, CFG_OK)
+  const cierre = conIdioma.reg.parches.at(-1).parches
+  assert.strictEqual(cierre['videoInteractivo.idioma'], 'en')
+  assert.strictEqual(cierre['videoInteractivo.duracionSeg'], 487, 'la duración se guarda igual que antes')
+  assert.strictEqual(cierre['videoInteractivo.generacion'].estado, 'completa')
+
+  const sinIdioma = depsFalsas() // la respuesta de siempre: sin fuenteContenido
+  await VG.crearYGenerar(sinIdioma, CFG_OK)
+  const cierre2 = sinIdioma.reg.parches.at(-1).parches
+  assert.ok(!('videoInteractivo.idioma' in cierre2), 'sin dato no se escribe el campo (ni siquiera como null)')
+  assert.strictEqual(cierre2['videoInteractivo.generacion'].estado, 'completa')
+})
+
+caso('audio: un salto hecho con la barra nativa se distingue del avance normal', () => {
+  const lec = (o) => ({ ultimaPos: 20, ultimoT: 1000, ahora: 1100, jugando: true, tasa: 1, ...o })
+  // Reproduciendo: avance natural (lecturas cada 100 ms) y pequeñas irregularidades NO son salto.
+  assert.strictEqual(VA.esSaltoExterno(lec({ pos: 20.1 })), false)
+  assert.strictEqual(VA.esSaltoExterno(lec({ pos: 20.6 })), false, 'dentro de la holgura del sondeo')
+  assert.strictEqual(VA.esSaltoExterno(lec({ pos: 19.6 })), false, 'un retroceso mínimo (rebote del búfer) no cuenta')
+  // Adelantar o retroceder con la barra, sí.
+  assert.strictEqual(VA.esSaltoExterno(lec({ pos: 60 })), true, 'adelanto')
+  assert.strictEqual(VA.esSaltoExterno(lec({ pos: 5 })), true, 'retroceso')
+  assert.strictEqual(VA.esSaltoExterno(lec({ pos: 18.5 })), true, 'retroceso de más de 1 s')
+  // En pausa la posición no debería moverse.
+  assert.strictEqual(VA.esSaltoExterno(lec({ jugando: false, pos: 20.2 })), false)
+  assert.strictEqual(VA.esSaltoExterno(lec({ jugando: false, pos: 21 })), true, 'en pausa, un cambio de más de 0.5 s')
+  // El tiempo transcurrido amplía lo que se tolera (pestaña dormida), con tope de 5 s.
+  assert.strictEqual(VA.esSaltoExterno(lec({ ahora: 4000, pos: 23 })), false, '3 s reales: 3 s de avance es normal')
+  assert.strictEqual(VA.esSaltoExterno(lec({ ahora: 60000, pos: 28 })), false, 'con el tope de 5 s se toleran 8.1 s de avance')
+  assert.strictEqual(VA.esSaltoExterno(lec({ ahora: 60000, pos: 29 })), true, 'más de eso, aunque hayan pasado 59 s, es un salto')
+  assert.strictEqual(VA.esSaltoExterno(lec({ ahora: 60000, pos: 40 })), true)
+  // Con la velocidad subida (docente a 2×) el avance mayor sigue siendo normal; sin tasa, el mismo avance rebasa lo posible.
+  assert.strictEqual(VA.esSaltoExterno(lec({ ahora: 2000, pos: 22, tasa: 2 })), false)
+  // Primera lectura (ultimoT null) y datos inválidos: nunca se inventa un salto.
+  assert.strictEqual(VA.esSaltoExterno(lec({ ultimoT: null, pos: 20.3 })), false)
+  for (const mal of [{ pos: NaN }, { pos: undefined }, { ultimaPos: null }, { ultimaPos: 'x' }]) assert.strictEqual(VA.esSaltoExterno(lec(mal)), false)
+})
+
+caso('audio: la revisión del docente no pierde su lugar tras un salto externo (la parada ignora lo anterior al nuevo punto)', () => {
+  // Es lo que hace ColumnaVideoRevision con marcarSalto(real): `base` pasa al nuevo punto y `pasadas` se vacía.
+  const RV = RVD
+  const items = [{ id: 'a', timestampSeg: 20 }, { id: 'b', timestampSeg: 50 }, { id: 'c', timestampSeg: 90 }]
+  // Antes del salto (base 0): estando en 95 s, la primera pregunta sin pasar es la «a» → devolvería al docente a los 20 s.
+  assert.strictEqual(RV.paradaDePregunta({ items, duracionSeg: 120, pos: 95, base: 0, pasadas: new Set() })?.id, 'a', 'sin actualizar la base, la parada vuelve a una pregunta anterior')
+  // Después del salto (base 95): ninguna anterior cuenta y no hay parada hasta una pregunta posterior.
+  assert.strictEqual(RV.paradaDePregunta({ items, duracionSeg: 120, pos: 95, base: 95, pasadas: new Set() }), null)
+  assert.strictEqual(RV.paradaDePregunta({ items, duracionSeg: 120, pos: 40, base: 40, pasadas: new Set() }), null, 'saltar hacia atrás: tampoco sale una pregunta anterior')
+  assert.strictEqual(RV.paradaDePregunta({ items, duracionSeg: 120, pos: 50.3, base: 40, pasadas: new Set() })?.id, 'b', 'al llegar a una posterior, sí se detiene')
+})
+
+caso('audio: cada pantalla enciende los controles nativos solo desde el idioma, y solo el estudiante limita la velocidad', () => {
+  const hook = leerFuente('src/hooks/useYouTubePlayer.js')
+  assert.ok(/controlesNativos = false/.test(hook) && /limitarVelocidad: limitar = false/.test(hook), 'ambos apagados por omisión: el resto de reproductores no cambia')
+  assert.ok(/controls: controlesNativos \? 1 : 0/.test(hook))
+  assert.ok(/if \(!limitar\) return/.test(hook), 'sin pedirlo no se toca la velocidad')
+  const pantalla = leerFuente('src/components/video/VideoInteractivoPantalla.jsx')
+  assert.ok(/const controlesNativos = requiereControlesAudio\(vi\.idioma\)/.test(pantalla))
+  assert.ok(/limitarVelocidad: controlesNativos && !revision/.test(pantalla), 'el estudiante limita; la vista previa del docente no')
+  const columna = leerFuente('src/components/video/ColumnaVideoRevision.jsx')
+  assert.ok(/requiereControlesAudio\(idioma\)/.test(columna) && !/limitarVelocidad/.test(columna), 'la revisión no limita la velocidad')
+  // Ningún otro reproductor los enciende.
+  for (const f of ['src/components/video/VideoInteractivoRunner.jsx', 'src/components/video/RevisionVideoModal.jsx', 'src/components/video/VistaPreviaDocenteVideo.jsx']) {
+    assert.ok(!/useYouTubePlayer\(/.test(leerFuente(f)), `${f} no crea reproductores propios`)
+  }
+})
+
+caso('audio: el idioma llega desde la actividad hasta las tres pantallas', () => {
+  assert.ok(/idioma: d\.videoInteractivo\?\.idioma \?\? null/.test(leerFuente('src/components/EvaluacionEditor.jsx')), 'el editor lo lee de la actividad')
+  assert.ok(/idioma=\{videoMeta\.idioma\}/.test(leerFuente('src/components/EvaluacionEditor.jsx')))
+  const panel = leerFuente('src/components/video/PropuestasVideoPanel.jsx')
+  assert.ok(/idioma=\{idioma\}/.test(panel) && (panel.match(/idioma=\{idioma\}/g) || []).length === 2, 'el panel lo pasa a la revisión y a la vista previa')
+  assert.ok(/idioma=\{idioma\}/.test(leerFuente('src/components/video/RevisionVideoModal.jsx')))
+  assert.ok(/\.\.\.\(idioma \? \{ idioma \} : \{\}\)/.test(leerFuente('src/components/video/VistaPreviaDocenteVideo.jsx')), 'la vista previa lo pone en la actividad que monta')
 })
 
 if (fallos.length) {

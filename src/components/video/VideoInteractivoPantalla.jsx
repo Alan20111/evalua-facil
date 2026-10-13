@@ -16,6 +16,7 @@ import { LIBRE_SEG, PRE_SEG, clampSeg, yaSuperadaAlReproducir } from './revision
 import { Button } from '../ui'
 import { ICONO } from '../../config/iconos'
 import { desplazamiento } from '../../utils/movimiento'
+import { requiereControlesAudio, esSaltoExterno, TEXTO_AYUDA_AUDIO } from '../../utils/videoAudio'
 
 // Video interactivo · pantalla del reproductor (la del estudiante y, con `modoRevision`, la vista previa del docente).
 //
@@ -199,9 +200,16 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
     guardarProgreso(d, d, { forzar: true })
   }
 
+  // Experimento de audio: solo si el idioma guardado es identificable y distinto del español se enciende la barra nativa de
+  // YouTube (menú «Pista de audio»). Sin dato o en español, el reproductor queda exactamente como siempre. La velocidad solo
+  // se limita donde se guarda progreso (el estudiante); la vista previa del docente no guarda nada.
+  const controlesNativos = requiereControlesAudio(vi.idioma)
+
   const yt = useYouTubePlayer({
     videoId: vi.videoId,
     contenedorRef,
+    controlesNativos,
+    limitarVelocidad: controlesNativos && !revision,
     inicioSeg: reanud.posicion,
     onEstado: (codigo) => {
       if (codigo === ESTADO_YT.REPRODUCIENDO) {
@@ -244,10 +252,16 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
       const d = yt.duracion()
       if (duracionRef.current <= 0 && d > 0) { duracionRef.current = d; setDuracion(d) }
       const pos = yt.tiempo()
+      // Con la barra nativa el usuario puede saltar por su cuenta: se trata como un salto pedido por esta pantalla.
+      if (controlesNativos && !yt.saltoPropioReciente()
+        && esSaltoExterno({ pos, ultimaPos: tickRef.current.ultimaPos, ultimoT: tickRef.current.ultimoT, ahora: Date.now(), jugando: est === ESTADO_YT.REPRODUCIENDO, tasa: yt.tasa() })) {
+        alSaltoNativo(pos)
+      }
       const r = tick(tickRef.current, {
         pos,
         ahora: Date.now(),
         jugando: est === ESTADO_YT.REPRODUCIENDO,
+        ...(controlesNativos ? { tasa: yt.tasa() } : {}),
         visible: typeof document === 'undefined' ? true : !document.hidden,
         duracion: duracionRef.current,
         ordenadas: ordenadasRef.current,
@@ -313,6 +327,21 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
     pasoRef.current = d
     onReubicarRef.current?.(d)
     if (reproducir) { cambiarFase('pausado'); iniciarReproduccion() } else if (!estaba) { yt.pausar(); cambiarFase('pausado') }
+  }
+
+  // Salto hecho con la barra NATIVA de YouTube (solo existe con `controlesNativos`). Hace lo mismo que los saltos propios para
+  // que las preguntas se comporten igual: lo anterior al punto cuenta como pasado y lo de ahí en adelante se vuelve a probar.
+  //   · docente (revisión): como irRevision, pero el video ya está ahí; se borran las respuestas de prueba de ese punto en adelante.
+  //   · estudiante: solo dentro de lo visto; un salto más allá de `maxVisto` lo corrige tick() y con una pregunta abierta no se toca.
+  function alSaltoNativo(pos) {
+    const d = clampSeg(pos, duracionRef.current)
+    const docente = revisionRef.current
+    if (!docente && (faseRef.current === 'pregunta' || d > tickRef.current.maxVisto + 1)) return
+    if (docente && faseRef.current === 'pregunta') { setActivaId(null); cambiarFase('pausado') }
+    tickRef.current = { ...tickRef.current, ultimaPos: d, ultimoT: null }
+    marcarSalto(d)
+    if (docente) { pasoRef.current = d; onReubicarRef.current?.(d) }
+    setPosUI(d)
   }
 
   // Salto pedido por el estudiante: nunca más allá de lo visto.
@@ -546,6 +575,9 @@ const VideoInteractivoPantalla = forwardRef(function VideoInteractivoPantalla({
                   </Button>
                 )}
               </div>
+            )}
+            {controlesNativos && yt.error == null && (
+              <p data-testid="ayuda-audio" className="mt-3 pt-3 border-t border-outline-variant text-xs text-muted">{TEXTO_AYUDA_AUDIO}</p>
             )}
           </div>
         </div>
