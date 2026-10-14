@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   collection, query, where, getDocs, getDoc,
@@ -343,6 +343,32 @@ export default function SubjectPage() {
     .map((g) => ({ ...g, tabs: g.tabs.filter((t) => seccionesVisibles.includes(t)) }))
     .filter((g) => g.tabs.length > 0)
   const grupoActivo = gruposVisibles.find((g) => g.tabs.includes(activeTab))
+  // Píldora blanca que se DESLIZA a la cabecera elegida, igual que ui/Tabs
+  // (Perfil, Notificaciones). La barra sigue hecha a mano porque marca en rojo
+  // las cabeceras que requieren atención; solo la píldora es compartida. La
+  // primera medición la coloca sin animar; después, se desliza.
+  const botonesGrupo = useRef({})
+  const [pildoraGrupo, setPildoraGrupo] = useState(null)
+  const [animarPildora, setAnimarPildora] = useState(false)
+  const grupoActivoId = grupoActivo?.id
+  const clavesGrupos = gruposVisibles.map((g) => g.id).join(',')
+  useLayoutEffect(() => {
+    const barra = tabsScrollRef.current
+    if (!barra) return undefined
+    const medir = () => {
+      const el = botonesGrupo.current[grupoActivoId]
+      if (el) setPildoraGrupo({ x: el.offsetLeft, w: el.offsetWidth })
+    }
+    medir()
+    const ro = new ResizeObserver(medir)
+    ro.observe(barra)
+    return () => ro.disconnect()
+  }, [grupoActivoId, clavesGrupos, loading])
+  useEffect(() => {
+    if (!pildoraGrupo || animarPildora) return undefined
+    const id = requestAnimationFrame(() => setAnimarPildora(true))
+    return () => cancelAnimationFrame(id)
+  }, [pildoraGrupo, animarPildora])
   // Parciales que ya se abrieron alguna vez: su contenido se queda montado para
   // poder animar el cierre (ver «Abrir/cerrar animado»).
   const parcialesVistos = useRef(new Set())
@@ -4716,17 +4742,22 @@ export default function SubjectPage() {
                 pestañas internas (activeTab) no cambian: solo se agrupan. Qué
                 sección cabe en cada plataforma sigue igual (sin Calificaciones
                 en el teléfono ni en la app; sin Planeación en el teléfono web). */}
-            <div data-esq="subj-doc-pestanas" ref={tabsScrollRef} className="flex gap-1 mt-2 bg-surface-container p-1 rounded-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Secciones de la asignatura">
+            <div data-esq="subj-doc-pestanas" ref={tabsScrollRef} className="relative flex gap-1 mt-2 bg-surface-container p-1 rounded-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Secciones de la asignatura">
+              {pildoraGrupo && (
+                <span aria-hidden="true"
+                  className={`absolute top-1 bottom-1 left-0 rounded-full bg-surface-card shadow-card ${animarPildora ? 'transition-[transform,width] duration-estandar ease-firma motion-reduce:transition-none' : ''}`}
+                  style={{ transform: `translateX(${pildoraGrupo.x}px)`, width: pildoraGrupo.w }} />
+              )}
               {gruposVisibles.map((g) => {
                 const activo = g.tabs.includes(activeTab)
                 const atencion = g.tabs.some((t) => atencionPestanas[t])
                 const motivo = g.tabs.map((t) => atencionPestanas[t]).find(Boolean)
                 return (
-                  <button data-esq="subj-doc-pestana" type="button" key={g.id} role="tab" aria-selected={activo}
+                  <button data-esq="subj-doc-pestana" type="button" key={g.id} ref={(el) => { botonesGrupo.current[g.id] = el }} role="tab" aria-selected={activo}
                     onClick={() => switchTab(activo ? activeTab : (ultimaDeGrupo.current[g.id] && g.tabs.includes(ultimaDeGrupo.current[g.id]) ? ultimaDeGrupo.current[g.id] : g.tabs[0]))}
                     data-tooltip={motivo || undefined}
-                    className={`flex-1 whitespace-nowrap px-3 h-[calc(var(--control)-0.5rem)] text-sm font-medium rounded-full transition-colors ${
-                      activo ? 'bg-surface-card shadow-card' : 'hover:bg-[var(--accent-medium)]'
+                    className={`relative flex-1 whitespace-nowrap px-3 h-[calc(var(--control)-0.5rem)] text-sm font-medium rounded-full transition-colors ${
+                      activo ? '' : 'hover:bg-[var(--accent-medium)]'
                     } ${
                       atencion
                         ? (activo ? 'text-red-700 font-semibold' : 'text-red-700 font-semibold bg-red-50')
