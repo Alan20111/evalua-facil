@@ -50,7 +50,9 @@ function fmtDDMMAA(d) {
  *        cómo se leen las columnas "Notificación" y "Detalles" de ESA categoría
  * @param {string} [emptyLabel]     texto cuando todavía no hay nada registrado
  */
-export default function NotificationLog({ uid, describeEntry, emptyLabel = 'Aún no tienes notificaciones registradas' }) {
+// `plegable={false}`: cuando la bitácora ya tiene su propia pestaña (pantalla
+// de notificaciones del docente), el encabezado no abre ni cierra nada.
+export default function NotificationLog({ uid, describeEntry, emptyLabel = 'Aún no tienes notificaciones registradas', plegable = true }) {
   const navigate = useNavigate()
   const toast = useToast()
 
@@ -137,15 +139,22 @@ export default function NotificationLog({ uid, describeEntry, emptyLabel = 'Aún
     <>
       <div className="rounded-card border border-outline-variant overflow-hidden bg-surface-card shadow-card">
         <div className="flex items-center">
-          <button
-            type="button"
-            onClick={() => setLogOpen((v) => !v)}
-            className="flex-1 min-w-0 flex items-center gap-2 px-4 min-h-control text-sm font-semibold text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left"
-          >
-            <History size={ICONO.sm} className="flex-shrink-0 text-accent" />
-            <span className="flex-1 text-left truncate">Bitácora de notificaciones</span>
-            {logOpen ? <ChevronUp size={ICONO.sm} className="text-muted flex-shrink-0" /> : <ChevronDown size={ICONO.sm} className="text-muted flex-shrink-0" />}
-          </button>
+          {plegable ? (
+            <button
+              type="button"
+              onClick={() => setLogOpen((v) => !v)}
+              className="flex-1 min-w-0 flex items-center gap-2 px-4 min-h-control text-sm font-semibold text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left"
+            >
+              <History size={ICONO.sm} className="flex-shrink-0 text-accent" />
+              <span className="flex-1 text-left truncate">Bitácora de notificaciones</span>
+              {logOpen ? <ChevronUp size={ICONO.sm} className="text-muted flex-shrink-0" /> : <ChevronDown size={ICONO.sm} className="text-muted flex-shrink-0" />}
+            </button>
+          ) : (
+            <p className="flex-1 min-w-0 flex items-center gap-2 px-4 min-h-control text-sm font-semibold text-on-surface">
+              <History size={ICONO.sm} className="flex-shrink-0 text-accent" />
+              <span className="truncate">Recibidas</span>
+            </p>
+          )}
           {/* "Borrar todo" con su nombre escrito, no solo el bote de basura:
               un ícono suelto en la esquina no se lee como "esto borra TODO
               el historial", y era justo lo que había que encontrar. */}
@@ -162,7 +171,7 @@ export default function NotificationLog({ uid, describeEntry, emptyLabel = 'Aún
             </button>
           )}
         </div>
-        {logOpen && (
+        {(logOpen || !plegable) && (
           <div className="border-t border-outline-variant">
             {logLoading ? (
               <SkeletonList rows={3} icon={false} className="p-4" />
