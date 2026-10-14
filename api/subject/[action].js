@@ -12,6 +12,7 @@ import { getDb, admin, verifyRequest } from '../_lib/firebaseAdmin.js'
 import { extraerAssets, borrarAssets } from '../_lib/cloudinary.js'
 import { aplicarCors } from '../_lib/cors.js'
 import { ocultarPesosNoPublicados } from '../../src/utils/ponderacion.js'
+import { exigirAppCheck } from '../_lib/appCheck.js'
 
 // ── /api/subject/info ──────────────────────────────────────────────────────
 // F-11 (2026-09-07): endpoint público para el flujo de activación QR.
@@ -499,6 +500,7 @@ async function handleSignUpload(req, res) {
 
 export default async function handler(req, res) {
   if (aplicarCors(req, res)) return
+  if (await exigirAppCheck(req, res, `subject/${req.query.action}`)) return // S3: mide; rechaza solo con APP_CHECK_OBLIGATORIO=1
   const { action } = req.query
   try {
     if (action === 'info')                      return await handleInfo(req, res)

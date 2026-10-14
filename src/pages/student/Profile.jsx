@@ -21,7 +21,7 @@ import AvatarCropModal from '../../components/AvatarCropModal'
 import ConfirmModal from '../../components/ConfirmModal'
 import EliminarCuentaAlumnoModal from '../../components/EliminarCuentaAlumnoModal'
 import { IS_NATIVE_APP } from '../../utils/platform'
-import { apiUrl } from '../../utils/apiBase'
+import { fetchApi } from '../../utils/apiBase'
 import { capitalizarNombre } from '../../utils/nombres'
 import AppVersionInfo from '../../components/AppVersionInfo'
 import { SkeletonForm } from '../../components/ui'
@@ -191,7 +191,7 @@ export default function StudentProfile() {
   async function quitarFoto() {
     setQuitandoFoto(true)
     try {
-      const res = await fetch(apiUrl('/api/student/remove-photo'), { method: 'POST', headers: await authHeader() })
+      const res = await fetchApi('/api/student/remove-photo', { method: 'POST', headers: await authHeader() })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || 'No se pudo quitar la foto')
       setStudentInfo((prev) => (prev ? { ...prev, photoURL: null } : prev))

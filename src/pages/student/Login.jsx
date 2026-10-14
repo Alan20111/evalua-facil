@@ -9,7 +9,7 @@ import { ICONO } from '../../config/iconos'
 import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
 import { useBackHandler } from '../../hooks/useBackHandler'
-import { apiUrl } from '../../utils/apiBase'
+import { fetchApi } from '../../utils/apiBase'
 import { PUEDE_AUTOFOCUS } from '../../utils/platform'
 
 export default function StudentLogin() {
@@ -88,7 +88,7 @@ export default function StudentLogin() {
       // las dos cosas mandaba al alumno a activar una cuenta que ya tenía.
       let lookupData
       try {
-        const resp = await fetch(apiUrl('/api/student/lookup'), {
+        const resp = await fetchApi('/api/student/lookup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username: tecleado }),
@@ -204,7 +204,7 @@ export default function StudentLogin() {
     try {
       let resp, data
       try {
-        resp = await fetch(apiUrl('/api/student/recover-password'), {
+        resp = await fetchApi('/api/student/recover-password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

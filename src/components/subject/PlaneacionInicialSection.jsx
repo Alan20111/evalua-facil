@@ -37,7 +37,7 @@ import PlaneacionPropiaCard, { SelectorArchivoPlaneacion } from './PlaneacionPro
 import AvisoPerfilIA from './AvisoPerfilIA'
 import ReportarIA from '../ReportarIA'
 import { uploadToCloudinary } from '../../utils/cloudinary'
-import { apiUrl } from '../../utils/apiBase'
+import { fetchApi } from '../../utils/apiBase'
 import { saveBlob } from '../../utils/exportGuard'
 import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ThumbsUp, Eye, Lock, X, Monitor, Save, AlertTriangle } from 'lucide-react'
 import { Skeleton, SkeletonList, SkeletonText, Button, IconButton, Radio } from '../ui'
@@ -871,7 +871,7 @@ function Planeacion({
   async function limpiarArchivoAnterior() {
     try {
       const token = await auth.currentUser.getIdToken()
-      const res = await fetch(apiUrl('/api/subject/delete-planeacion-archivo'), {
+      const res = await fetchApi('/api/subject/delete-planeacion-archivo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ subjectId }),

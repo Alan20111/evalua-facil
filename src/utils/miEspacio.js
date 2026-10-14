@@ -1,5 +1,5 @@
 import app, { auth } from '../firebase'
-import { apiUrl } from './apiBase'
+import { fetchApi } from './apiBase'
 import { nombreBucket } from '../config/miEspacio'
 
 // Cliente de Mi espacio. Todo pasa por /api/student/mi-espacio-*, salvo la
@@ -11,7 +11,7 @@ async function llamar(accion, body = {}) {
   if (!token) throw new Error('Tu sesión terminó. Vuelve a entrar.')
   let res
   try {
-    res = await fetch(apiUrl(`/api/student/${accion}`), {
+    res = await fetchApi(`/api/student/${accion}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(body),

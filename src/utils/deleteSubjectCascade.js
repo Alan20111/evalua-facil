@@ -4,7 +4,7 @@ import {
 // Escrituras a través del candado de suscripción vencida (ver ./firestoreGuard.js).
 import { deleteDoc, updateDoc, writeBatch } from './firestoreGuard'
 import { db, auth } from '../firebase'
-import { apiUrl } from './apiBase'
+import { fetchApi } from './apiBase'
 
 // F-06: usa queries '==' individuales por actividad en lugar de 'in' con
 // múltiples IDs. La regla de lectura de submissions ahora exige
@@ -64,7 +64,7 @@ async function deleteSubjectResourcesAndFiles(subjectId) {
   try {
     const token = await auth.currentUser?.getIdToken()
     if (!token) return
-    const res = await fetch(apiUrl('/api/subject/delete-resources'), {
+    const res = await fetchApi('/api/subject/delete-resources', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ subjectId }),

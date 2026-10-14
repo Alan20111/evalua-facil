@@ -1,4 +1,4 @@
-import { apiUrl } from './apiBase'
+import { fetchApi } from './apiBase'
 import { auth } from '../firebase'
 
 // Envía un correo transaccional llamando al endpoint /api/send-email, que a su
@@ -17,7 +17,7 @@ export async function sendEmail({ to, subject, html, toName }) {
   try {
     const token = await auth.currentUser?.getIdToken()
     if (!token) return false
-    const res = await fetch(apiUrl('/api/send-email'), {
+    const res = await fetchApi('/api/send-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ to, subject, html, toName }),

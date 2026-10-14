@@ -1,5 +1,5 @@
 import { auth } from '../firebase'
-import { apiUrl } from './apiBase'
+import { fetchApi } from './apiBase'
 
 // Raw-delivered types. PDF is intentionally NOT here: we upload PDFs as the
 // `image` resource type so Cloudinary can rasterize their pages to JPG. That
@@ -51,7 +51,7 @@ export async function uploadToCloudinary(file, folder = 'evalua-facil/uploads') 
   // ── Etapa 2: firma (servidor propio) ──────────────────────────────────────
   let sigData
   try {
-    const sigRes = await fetch(apiUrl('/api/subject/sign-upload'), {
+    const sigRes = await fetchApi('/api/subject/sign-upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ folder }),

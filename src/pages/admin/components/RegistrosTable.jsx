@@ -10,7 +10,7 @@ import { httpsCallable } from 'firebase/functions'
 import SearchInput from '../../../components/SearchInput'
 import { db, functions } from '../../../firebase'
 import { useAuth } from '../../../context/AuthContext'
-import { apiUrl } from '../../../utils/apiBase'
+import { fetchApi } from '../../../utils/apiBase'
 import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
 import { SkeletonTable, Button, IconButton, Modal } from '../../../components/ui'
@@ -499,7 +499,7 @@ export default function RegistrosTable({ stats, onRefresh }) {
     setDeleteModal((m) => ({ ...m, saving: true }))
     try {
       const token = await currentUser.getIdToken()
-      const res = await fetch(apiUrl('/api/admin/delete-account'), {
+      const res = await fetchApi('/api/admin/delete-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ targetUid: deleteModal.uid }),

@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app'
 import { getAuth, connectAuthEmulator } from 'firebase/auth'
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions'
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -12,6 +13,27 @@ const firebaseConfig = {
 }
 
 const app = initializeApp(firebaseConfig)
+
+// App Check (docs/PLAN_GOOGLE_PLAY.md, S3): cada llamada a Firestore, Cloud
+// Functions y /api lleva un token que demuestra que viene de esta app y no de
+// un script con la clave pública. Con reCAPTCHA Enterprise, que también cubre
+// la app de Android porque es un WebView de este mismo sitio.
+//
+// Solo se enciende si existe la clave del sitio
+// (VITE_RECAPTCHA_ENTERPRISE_SITE_KEY, en Vercel): mientras no exista, la app
+// se comporta igual que antes. Con los emuladores nunca, porque no la validan.
+// En desarrollo contra el proyecto real se usa un token de depuración, que
+// Firebase imprime en la consola y se registra en App Check › Apps.
+const CLAVE_APP_CHECK = import.meta.env.VITE_RECAPTCHA_ENTERPRISE_SITE_KEY
+export const appCheck = CLAVE_APP_CHECK && import.meta.env.VITE_EMULADORES !== '1'
+  ? (() => {
+      if (import.meta.env.DEV) self.FIREBASE_APPCHECK_DEBUG_TOKEN = true
+      return initializeAppCheck(app, {
+        provider: new ReCaptchaEnterpriseProvider(CLAVE_APP_CHECK),
+        isTokenAutoRefreshEnabled: true,
+      })
+    })()
+  : null
 export const auth = getAuth(app)
 export const db = getFirestore(app)
 // Cloud Functions invocables (región por omisión us-central1, igual que las

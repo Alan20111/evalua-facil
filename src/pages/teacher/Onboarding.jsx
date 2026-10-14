@@ -15,7 +15,7 @@ import CodigoPostalField from '../../components/CodigoPostalField'
 import { PREFIJOS } from '../../utils/prefijos'
 import Select from '../../components/ui/Select'
 import ConfirmModal from '../../components/ConfirmModal'
-import { apiUrl } from '../../utils/apiBase'
+import { fetchApi } from '../../utils/apiBase'
 import SchoolPicker from '../../components/SchoolPicker'
 import BotonEscuela from '../../components/BotonEscuela'
 import { resolveSchoolSelection } from '../../utils/schoolSelection'
@@ -77,7 +77,7 @@ export default function Onboarding() {
     setCancelando(true)
     try {
       const token = await currentUser.getIdToken()
-      const res = await fetch(apiUrl('/api/account/delete'), {
+      const res = await fetchApi('/api/account/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ confirmacion: 'ELIMINAR' }),

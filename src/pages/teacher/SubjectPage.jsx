@@ -81,6 +81,7 @@ import TabRecursos from './subject/TabRecursos'
 import ModalesAsignatura from './subject/ModalesAsignatura'
 import EditoresAsignatura from './subject/EditoresAsignatura'
 import { ContextoAsignatura } from './subject/contexto'
+import { fetchApi } from '../../utils/apiBase'
 export default function SubjectPage() {
   const { subjectId } = useParams()
   const { currentUser, userProfile } = useAuth()
@@ -2156,7 +2157,7 @@ export default function SubjectPage() {
     if (!studentToReset) return
     try {
       const token = await currentUser.getIdToken()
-      const resp = await fetch('/api/student/reset-student-password', {
+      const resp = await fetchApi('/api/student/reset-student-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ studentId: studentToReset.id }),
@@ -2243,7 +2244,7 @@ export default function SubjectPage() {
     })
     if (s.uid && s.id) {
       currentUser.getIdToken().then((token) =>
-        fetch('/api/student/last-access', {
+        fetchApi('/api/student/last-access', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ studentId: s.id }),

@@ -14,7 +14,7 @@ import { auth, db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import { studentEmail, usernameCandidates } from '../../utils/generate'
-import { apiUrl } from '../../utils/apiBase'
+import { fetchApi } from '../../utils/apiBase'
 import { GraduationCap, Check } from 'lucide-react'
 import EFLogo from '../../components/EFLogo'
 import PasswordInput from '../../components/PasswordInput'
@@ -76,7 +76,7 @@ export default function StudentActivation() {
     if (!pre || !subject || currentUser) return
     async function autoFind() {
       try {
-        const resp = await fetch(apiUrl('/api/student/lookup'), {
+        const resp = await fetchApi('/api/student/lookup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ subjectCode: accessCode, username: pre }),
@@ -199,7 +199,7 @@ export default function StudentActivation() {
   // de leer Firestore directamente desde el cliente sin sesión.
   async function loadSubject() {
     try {
-      const resp = await fetch(apiUrl('/api/subject/info'), {
+      const resp = await fetchApi('/api/subject/info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subjectCode: accessCode }),
@@ -227,7 +227,7 @@ export default function StudentActivation() {
     if (!subject) return
     setLoading(true)
     try {
-      const resp = await fetch(apiUrl('/api/student/lookup'), {
+      const resp = await fetchApi('/api/student/lookup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subjectCode: accessCode, username }),

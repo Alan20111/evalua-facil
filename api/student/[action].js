@@ -36,6 +36,7 @@ import * as miEspacio from '../_lib/miEspacio.js'
 // usuario. Importada, no copiada: tener dos copias fue exactamente el bug de
 // la ñ (ver el encabezado de src/utils/usernameMatch.js).
 import { candidatosUsername, coincidenciaExacta } from '../../src/utils/usernameMatch.js'
+import { exigirAppCheck } from '../_lib/appCheck.js'
 
 const PALABRA_CONFIRMACION = 'ELIMINAR'
 
@@ -524,6 +525,7 @@ async function handleMiEspacio(req, res, operacion) {
 
 export default async function handler(req, res) {
   if (aplicarCors(req, res)) return
+  if (await exigirAppCheck(req, res, `student/${req.query.action}`)) return // S3: mide; rechaza solo con APP_CHECK_OBLIGATORIO=1
   const { action } = req.query
   try {
     if (action === 'lookup') return await handleLookup(req, res)

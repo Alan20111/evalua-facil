@@ -37,8 +37,19 @@ const { onDocumentWritten, onDocumentCreated } = require('firebase-functions/v2/
 const { onSchedule } = require('firebase-functions/v2/scheduler')
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { logger } = require('firebase-functions')
+const { setGlobalOptions } = require('firebase-functions/v2')
 
 initializeApp()
+
+// App Check en los callables (docs/PLAN_GOOGLE_PLAY.md, S3). Va antes de
+// cargar los demás módulos para que aplique a todos sus onCall. Dos fases:
+//   APP_CHECK_OBLIGATORIO ausente → solo se mide: cada llamada queda en los
+//     logs con «app: VALID / MISSING / INVALID» (lo escribe firebase-functions
+//     al verificar el callable) y ninguna se rechaza.
+//   APP_CHECK_OBLIGATORIO=1 (functions/.env) → la llamada sin token válido
+//     recibe 401. Se lee al desplegar: cambiarla exige redesplegar.
+// En los disparadores de Firestore y los programados no tiene efecto.
+setGlobalOptions({ enforceAppCheck: process.env.APP_CHECK_OBLIGATORIO === '1' })
 
 // Sistema de créditos IA: el ledger (transacciones de saldo) y las funciones
 // de IA viven en módulos propios; aquí solo se cablean sus exportaciones.

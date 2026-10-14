@@ -4,7 +4,7 @@ import {
   collection, query, where, getDocs, getDoc, doc, setDoc, updateDoc, serverTimestamp,
 } from 'firebase/firestore'
 import { db, auth } from '../../firebase'
-import { apiUrl } from '../../utils/apiBase'
+import { fetchApi } from '../../utils/apiBase'
 import { fetchActivity } from '../../utils/apiContent'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -118,7 +118,7 @@ export default function EvaluacionRunner() {
       setSubmission(subData)
 
       const idToken = await auth.currentUser.getIdToken()
-      const pregResp = await fetch(apiUrl('/api/exam/questions'), {
+      const pregResp = await fetchApi('/api/exam/questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
         body: JSON.stringify({ activityId }),

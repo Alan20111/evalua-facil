@@ -1,4 +1,6 @@
+import { getToken } from 'firebase/app-check'
 import { IS_NATIVE_APP } from './platform'
+import { appCheck } from '../firebase'
 
 // A dónde apuntan las llamadas a /api/*.
 //
@@ -23,4 +25,19 @@ const PRODUCCION = 'https://evalua-facil.vercel.app'
 
 export function apiUrl(ruta) {
   return IS_NATIVE_APP ? `${PRODUCCION}${ruta}` : ruta
+}
+
+// Toda llamada a /api/* pasa por aquí: arma la URL y agrega el token de App
+// Check (docs/PLAN_GOOGLE_PLAY.md, S3), que el servidor verifica en
+// api/_lib/appCheck.js. Si App Check no está activo, o el token no se puede
+// obtener, la llamada sale sin él: decidir si eso se rechaza es del servidor.
+export async function fetchApi(ruta, opciones = {}) {
+  const headers = { ...(opciones.headers || {}) }
+  if (appCheck) {
+    try {
+      const { token } = await getToken(appCheck, false)
+      headers['X-Firebase-AppCheck'] = token
+    } catch { /* sin token: el servidor decide */ }
+  }
+  return fetch(apiUrl(ruta), { ...opciones, headers })
 }
