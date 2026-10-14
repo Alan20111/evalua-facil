@@ -349,9 +349,9 @@ la consola. La web ya está en 0 errores de axe y 0 focos invisibles
 
 | # | Tema | Acción |
 |---|------|--------|
-| A1 | **Áreas táctiles de 48 dp** | El control táctil mide 43 px (`--control` en `pointer: coarse`), y en el WebView 1 px CSS ≈ 1 dp. Opciones: subir `--control` táctil a 48 px, o dar a los controles chicos un área de toque invisible de 48 px (`::after` con `inset` negativo) sin cambiar su tamaño visual. Recomendado: área invisible para iconos y `size-control-sm`, y medir el impacto de 48 px en botones con el verificador (esqueletos incluidos). |
-| A2 | **TalkBack** | 👤 con el celular: recorrer inicio de sesión, tablero, asignatura, calificar, evaluación del alumno. Anotar lo que lee mal. 🛠 corrige. El orden de lectura y los nombres de ya salen de axe; falta confirmar hojas, menús y anuncios de `aria-live`. |
-| A3 | **Tamaño de letra del sistema** | Probar con la fuente del sistema al 200 %. El WebView escala el texto (`textZoom`). Verificar que nada se corte ni se encime, sobre todo en encabezados de tabla y en la barra inferior. Otra opción: fijar `textZoom` y respetar el tamaño con `rem`. |
+| A1 ✅ | **Áreas táctiles de 48 dp** | Paso 6 (14-oct-2026, decidido con el usuario): en táctil `--control: max(3rem, 48px)` y `--control-sm` igual (#1616). La raíz del teléfono, de 14.4 px, hacía que 3rem diera 43 px. El verificador mide los tokens con un elemento de prueba y el contrato da 0 hallazgos. Las píldoras internas de las pestañas (control − 0.5rem) quedan dentro de una barra de 48. |
+| A2 ◐ | **TalkBack** | La web tiene 0 problemas de axe y 0 focos invisibles en todas las vistas del verificador; el árbol de accesibilidad del WebView es el mismo de Chromium. En el emulador no se pudo manejar TalkBack de forma fiable: `uiautomator dump` se cuelga con una página que nunca queda quieta, y la conexión con los emuladores de Firebase por `adb reverse` se trabó. **Falta 👤:** recorrer en un celular real el inicio de sesión, el tablero, la asignatura, calificar y la evaluación del alumno, y anotar lo que lea mal. |
+| A3 ✅ | **Tamaño de letra del sistema** | Probado en el emulador (Android 17) con la fuente del sistema al 200 %: el WebView agranda el texto (textZoom) y ninguna de las 7 pantallas del docente revisadas se desborda a lo ancho. Las medidas de los controles no cambian. |
 | A4 | Contraste | Ya en AA (#1602). Revisar la pantalla sin conexión nueva (B6) y la splash. |
 | A5 ✅ | Modo oscuro del sistema | Probado en el emulador con el modo oscuro del sistema: la app se queda clara, sin oscurecimiento forzado (con target 33+ el WebView ya no lo aplica por omisión y la web no declara `color-scheme`). | — |
 | A6 | Movimiento reducido | Ya respetado en web (`desplazamiento()`). Confirmar que Android pasa «Quitar animaciones» al WebView como `prefers-reduced-motion`. |
@@ -367,7 +367,7 @@ Umbrales de Play: si la app los pasa, pierde visibilidad y muestra advertencias.
 
 | # | Tema | Acción |
 |---|------|--------|
-| O1 | Arranque en frío | La app descarga el sitio cada vez. Medir el tiempo hasta el primer contenido en un celular de gama baja con 4G. Objetivo: menos de 3 s con caché y menos de 5 s sin caché. Revisar que el *service worker* de la PWA cachee el *shell* también dentro del WebView. |
+| O1 ◐ | Arranque en frío | En el emulador, `am start -W` dio 6.9–13 s; no es representativo porque el emulador es lento y sin aceleración. **Falta 👤:** medirlo en un celular real con 4G (meta: menos de 3 s con caché y menos de 5 s sin caché). |
 | O2 | Tamaño del JS inicial | Revisar `npm run build` y el reporte de chunks. Separar en carga diferida lo pesado que no se usa al entrar: editor de rúbricas, video, calendario, panel admin, `planteles.json`. |
 | O3 | Errores de JavaScript | Play vitals solo ve fallos **nativos**. Un error de React deja pantalla en blanco sin que nadie se entere. Agregar un `ErrorBoundary` raíz con «Algo salió mal · Reintentar» y un registro mínimo de errores (colección `erroresCliente` con límite de escritura, o un servicio con plan gratis). |
 | O4 | Memoria | El WebView se reinicia si consume mucho: listas largas (alumnos, entregas), imágenes de Cloudinary sin tamaño (`f_auto,q_auto,w_…`). |
@@ -407,7 +407,7 @@ Umbrales de Play: si la app los pasa, pierde visibilidad y muestra advertencias.
 | **3. PR «seguridad web»** ✅ | S2 (HSTS + CSP solo reporte), S5, S6, S7, S10 | 🛠 | Hecho; S5 es tuyo en consola |
 | **4. PR «Android»** ✅ | S1, S4, A5, A7, O6–O8 y un AAB nuevo (`versionCode` 16) | 🛠 | 1 sesión; necesita el keystore |
 | **5. App Check** ◐ código listo | S3, primero en modo métricas y una semana después obligatorio | 🛠 + 👤 en consola | En dos tiempos |
-| **6. Celular** | A1–A3 y O1, con TalkBack y fuente al 200 % | 👤 prueba + 🛠 corrige | 1–2 sesiones |
+| **6. Celular** ◐ medido en emulador | A1–A3 y O1, con TalkBack y fuente al 200 % | 👤 prueba + 🛠 corrige | 1–2 sesiones |
 | **7. Consola** | P1–P13, subir el AAB a prueba interna y luego a la cerrada | 👤 | Los 14 días corren aquí |
 | **8. Producción** | Cuestionario de la prueba cerrada y solicitud de acceso a producción | 👤 | Google tarda días |
 
