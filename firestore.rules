@@ -1735,6 +1735,15 @@ service cloud.firestore {
         request.resource.data.estado in ['nuevo', 'revisado', 'descartado'];
     }
 
+    // Violaciones de la Content-Security-Policy (docs/PLAN_GOOGLE_PLAY.md,
+    // S2). Solo las escribe api/csp-report.js con el Admin SDK; el admin las
+    // lee para ajustar la política antes de pasarla de «solo reporte» a
+    // obligatoria.
+    match /cspReportes/{reporteId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // Métricas internas del Chat de Administración (tokens, modelo,
     // stopReason) — mismo criterio que iaConsumosInterno: nada visible para
     // ningún cliente, solo lo escribe el servidor con el Admin SDK.

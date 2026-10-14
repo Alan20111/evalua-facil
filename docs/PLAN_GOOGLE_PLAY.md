@@ -261,15 +261,52 @@ gubernamentales sin serlo se rechazan.
 | # | Hallazgo | Acción | Prioridad |
 |---|----------|--------|-----------|
 | S1 | `android:allowBackup="true"` | Ponerlo en `false` o agregar `dataExtractionRules`/`fullBackupContent` que excluyan los datos de sesión. Así un respaldo de Google o `adb backup` no se lleva el token de Firebase. | Alta |
-| S2 | `vercel.json` sin **CSP** ni **HSTS** | Agregar `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`. CSP primero en modo `Report-Only` con los orígenes reales (Firebase, Cloudinary, YouTube, Google Fonts, `api/`) y luego en modo estricto. | Alta (HSTS) / Media (CSP) |
+| S2 ✅ / ◐ | `vercel.json` sin **CSP** ni **HSTS** | **HSTS:** ya lo manda Vercel en los dos dominios (`max-age=63072000`; en `vercel.app` también `includeSubDomains; preload`), así que no se agregó. **CSP:** va en modo `Report-Only` (paso 3), con los orígenes sacados del bundle. Se probó obligatoria contra producción (páginas públicas) y contra el emulador (pantallas del docente) sin violaciones. Los reportes llegan a `api/csp-report.js` → colección `cspReportes`, uno por violación distinta, con contador; solo el admin los lee. **Pendiente:** en 1–2 semanas revisar `cspReportes` en la consola de Firebase, ajustar y cambiar la cabecera a `Content-Security-Policy`. | Media |
 | S3 | Sin **Firebase App Check** | Activar App Check con Play Integrity (Android) y reCAPTCHA Enterprise (web). Primero en modo solo métricas y luego en modo obligatorio en Firestore y en las Cloud Functions de IA, que son las que gastan dinero. | Alta |
 | S4 | `minifyEnabled false` | Activar R8 (`minifyEnabled true`, `shrinkResources true`) con reglas de Capacitor y Firebase. Gana poco tamaño porque casi todo es web, pero ofusca y Play lo recomienda. Probar el AAB completo después. | Media |
-| S5 | API key web de Firebase | Restringirla en Google Cloud: referrers del dominio para la web; nombre de paquete y SHA-1 de Play App Signing para la key de Android. | Media |
-| S6 | Tráfico en claro | Verificar que no exista `usesCleartextTraffic` y que todas las URLs sean `https` (con target 36 viene bloqueado por omisión). | Verificar |
-| S7 | Componentes exportados | Revisar el manifiesto final con `aapt`: solo `MainActivity` debe tener `exported=true`. | Verificar |
-| S8 | Reglas de Firestore | Ya tienen suite (`npm run test:rules`). Agregar los casos nuevos de `reportesIA` (B2) y correrla en CI si aún no corre. | Media |
-| S9 | Secretos | Ya hay procedimiento (CLAUDE.md). Antes del lanzamiento, verificar que `ANTHROPIC_API_KEY_PROD` y `GEMINI_API_KEY` tengan la forma correcta y que no haya claves en el repo (`git log -p \| grep sk-ant` debe salir vacío). | Verificar |
-| S10 | `WebView` | `allowNavigation` mínimo después de B1. Revisar que los enlaces externos (YouTube, Cloudinary) abran con `Browser`/intent y no dentro del WebView con la sesión. | Media |
+| S5 👤 | API key web de Firebase | Restringirla en Google Cloud (ver «S5 paso a paso» abajo). Es trabajo de consola: no hay cambio de código. | Media |
+| S6 ✅ | Tráfico en claro | El manifiesto no tiene `usesCleartextTraffic` ni `networkSecurityConfig`, y con target 36 el tráfico sin cifrar está bloqueado por omisión. Confirmar en el AAB final (paso 4). | Verificar |
+| S7 ✅ | Componentes exportados | En el código fuente solo `MainActivity` es `exported=true` (el `FileProvider` es `false`) y ningún plugin exporta componentes. Confirmar en el manifiesto combinado del AAB (paso 4). | Verificar |
+| S8 ✅ | Reglas de Firestore | Suite con 662 pruebas, incluidas `reportesIA` (B2) y `cspReportes` (S2). | Media |
+| S9 ◐ | Secretos | En el historial completo de git (todas las ramas) hay 0 claves de Anthropic con forma real (13-oct-2026). Falta 👤 comprobar la forma de los secretos en GCP con el comando de CLAUDE.md. | Verificar |
+| S10 ✅ | `WebView` | `allowNavigation` solo tiene el sitio (B1). Capacitor abre cualquier otro host con un intent al navegador del sistema (`Bridge.launchIntent`), así que la sesión nunca se usa en un sitio ajeno. Los iframes de YouTube y Docs no son navegación. | Media |
+
+### S5 paso a paso (👤, consola de Google Cloud)
+
+La clave web de Firebase es pública por diseño: va dentro del JavaScript.
+Restringirla impide que otro sitio la use para gastar tu cuota o crear cuentas.
+
+1. Entra a console.cloud.google.com → proyecto `evalua-facil-app` →
+   **APIs y servicios › Credenciales**.
+2. Abre la clave **Browser key** (la de `VITE_FIREBASE_API_KEY`):
+   - **Restricciones de aplicación → Sitios web (referentes HTTP):**
+     - `https://evalua-facil.vercel.app/*`
+     - `https://evaluafacil.mx/*`
+     - `https://www.evaluafacil.mx/*`
+     - `https://evalua-facil-app.firebaseapp.com/*`, que hace falta para el inicio de sesión con Google.
+
+     La app de Android carga el sitio de Vercel, así que entra con esos mismos
+     referentes.
+   - **Restricciones de API:** solo las que usa la web:
+     - Identity Toolkit API
+     - Token Service API
+     - Cloud Firestore API
+     - Firebase Installations API
+     - FCM Registration API
+     - Firebase Cloud Messaging API, por las notificaciones web
+
+     Si dudas, empieza solo con los referentes y deja las APIs sin restringir:
+     ya es la protección principal.
+3. Abre la clave **Android key** (la de `google-services.json`). En
+   **Apps de Android**, agrega el paquete `mx.evaluafacil.app` con su SHA-1:
+   - el SHA-1 de **Play App Signing** (Play Console › Integridad de la app);
+   - el SHA-1 de la clave de subida, si pruebas builds locales firmadas.
+4. Guarda, espera 5 minutos y prueba:
+   - entrar con correo y con Google, en web y en la app;
+   - recibir una notificación.
+
+   Si algo falla con «API key not valid» o «referer blocked», revisa la lista.
+   No quites la restricción completa.
 
 ---
 
@@ -337,7 +374,7 @@ Umbrales de Play: si la app los pasa, pierde visibilidad y muestra advertencias.
 |------|-----------|-------|----------|
 | **1. PR «política»** ✅ | B1 (opción a), B4, B5, B6 (pantalla sin conexión) y textos de B7 | 🛠 | Hecho |
 | **2. PR «IA responsable»** ✅ | B2 (reportar, colección, reglas, admin) y B3 (aviso y documento de datos) | 🛠 | Hecho; falta desplegar las reglas |
-| **3. PR «seguridad web»** | S2 (HSTS + CSP solo reporte), S5, S6, S7, S10 | 🛠 | 1 sesión |
+| **3. PR «seguridad web»** ✅ | S2 (HSTS + CSP solo reporte), S5, S6, S7, S10 | 🛠 | Hecho; S5 es tuyo en consola |
 | **4. PR «Android»** | S1, S4, A5, A7, O6–O8 y un AAB nuevo (`versionCode` 16) | 🛠 | 1 sesión; necesita el keystore |
 | **5. App Check** | S3, primero en modo métricas y una semana después obligatorio | 🛠 + 👤 en consola | En dos tiempos |
 | **6. Celular** | A1–A3 y O1, con TalkBack y fuente al 200 % | 👤 prueba + 🛠 corrige | 1–2 sesiones |
