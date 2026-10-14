@@ -53,7 +53,7 @@ import { submissionDocId } from '../../utils/submissionId'
 import { EntregaCambio, tieneEvidencia, elegibleSinEntrega, crearSiNoExiste, actualizarSiNoCambio, sinEntregaEnLote } from '../../utils/submissionGuard'
 import { htmlToPlainText, sanitizeHtml, toRichHtml } from '../../utils/sanitizeHtml'
 import { CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../config/fileTypes'
-import { TEACHER_CONTAINER, TEACHER_CONTAINER_LISTA } from '../../config/layout'
+import { TEACHER_CONTAINER } from '../../config/layout'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { isResourceFileAllowed } from '../../utils/resourceTypes'
 import { ArrowLeft, X, Pencil, Trash2, Archive, ArchiveRestore, ChevronRight, Check as CheckIcon, Copy, BookOpen, CalendarPlus, AlertTriangle } from 'lucide-react'
@@ -373,11 +373,9 @@ export default function SubjectPage() {
   // poder animar el cierre (ver «Abrir/cerrar animado»).
   const parcialesVistos = useRef(new Set())
   if (openParcial) parcialesVistos.current.add(openParcial)
-  // Patrón Google Classroom: el encabezado (nombre, código, cabeceras) ocupa
-  // TODO el ancho; el contenido va limitado y centrado (TEACHER_CONTAINER_LISTA,
-  // ≈920px) y solo las tablas (Asistencias y Calificaciones) usan el ancho
-  // completo.
-  const anchoSeccion = activeTab === 'asistencia' || activeTab === 'calificaciones' ? TEACHER_CONTAINER : TEACHER_CONTAINER_LISTA
+  // Todas las secciones miden lo mismo que el encabezado (config/layout.js,
+  // oct-2026): sus bordes coinciden con los de la tarjeta de arriba.
+  const anchoSeccion = TEACHER_CONTAINER
   // Al volver a una cabecera se abre la última sección que usaste en ella.
   const ultimaDeGrupo = useRef({})
   if (grupoActivo) ultimaDeGrupo.current[grupoActivo.id] = activeTab
@@ -5115,7 +5113,8 @@ export default function SubjectPage() {
           aportaría nada y sí rompería cualquier enlace guardado.
       ══════════════════════════════════════════════════════════ */}
       {activeTab === 'asistente-ia' && (
-        <div>
+        // Mismo margen que las demás pestañas: bordes alineados con el encabezado.
+        <div className="px-4 py-2">
           <PlaneacionDidacticaTab
             subjectId={subjectId}
             docenteId={currentUser.uid}

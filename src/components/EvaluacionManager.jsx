@@ -23,7 +23,7 @@ import { uploadToCloudinary } from '../utils/cloudinary'
 import EFDateTimePicker from './EFDateTimePicker'
 import SearchInput from './SearchInput'
 import Select from './ui/Select'
-import { TEACHER_CONTAINER_NARROW } from '../config/layout'
+import { TEACHER_CONTAINER } from '../config/layout'
 import {
   calcularEstadisticasGrupo, calcularCalificacion, resolverPendienteRevision,
   resolverCalificacionFinal, TIPOS_REVISION_MANUAL, repartirPonderacionParejo,
@@ -1378,7 +1378,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
           contenedor que el cuerpo de abajo: si no, el título se pega a la
           izquierda mientras el cuerpo se ve centrado. */}
       <div className="px-4 py-2">
-        <div className={IS_NATIVE_APP ? '' : TEACHER_CONTAINER_NARROW}>
+        <div className={IS_NATIVE_APP ? '' : TEACHER_CONTAINER}>
           <div className="flex items-center gap-2">
             <IconButton icon={ArrowLeft} label="Volver" tooltip={false} className="-ml-2" onClick={() => navigate(`/subject/${activity.asignaturaId}`, backState ? { state: backState } : undefined)} />
             <div className="flex-1 min-w-0">
@@ -1442,7 +1442,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         </div>
       </div>
 
-      <div className={IS_NATIVE_APP ? 'p-4' : `p-4 ${TEACHER_CONTAINER_NARROW}`}>
+      <div className={IS_NATIVE_APP ? 'p-4' : `p-4 ${TEACHER_CONTAINER}`}>
         {tab === 'preguntas' && (
           <div>
             {!loadingPreguntas && preguntas.length > 0 && (() => {

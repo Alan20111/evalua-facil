@@ -17,7 +17,7 @@ import { uploadToCloudinary } from '../../utils/cloudinary'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { seccionesDe, ordenParaEstudiante, mostrarSeccionesAlEstudiante } from '../../utils/secciones'
 import { resolveFileTypes, isFileAllowed, ALL_FILES_KEY } from '../../config/fileTypes'
-import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
+import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { teacherDisplayName, studentFullName } from '../../utils/studentSearch'
 import { SkeletonList, Input, Button, Radio, Modal } from '../../components/ui'
@@ -501,7 +501,7 @@ export default function EvaluacionRunner() {
             onOtraTextoChange={handleOtraTextoChange} onFinalizar={handleFinalizarClick}
             finishing={finishing} />
         ) : (
-        <div className={`px-4 py-6 ${STUDENT_CONTAINER_NARROW}`}>
+        <div className={`px-4 py-6 ${STUDENT_CONTAINER}`}>
           {/* Nombre de la sección a la que pertenece esta pregunta. Se apaga
               entero con "Mostrar las secciones al estudiante": ahí el
               instrumento se ve como una lista continua, aunque por dentro los

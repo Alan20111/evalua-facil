@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import { FileCheck2, Clock, CalendarDays, UserCheck, Bell, ChevronDown, Check, X, History } from 'lucide-react'
 import NotificationLog from '../../components/NotificationLog'
-import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import { TEACHER_CONTAINER } from '../../config/layout'
 import { refreshTeacherReminders, requestExactAlarmAccess } from '../../utils/localReminders'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { useBackHandler } from '../../hooks/useBackHandler'
@@ -417,7 +417,7 @@ export default function TeacherNotificationSettings() {
   }
 
   return (
-    <div className={`px-4 py-4 space-y-4 ${TEACHER_CONTAINER_NARROW}`}>
+    <div className={`px-4 py-4 space-y-4 ${TEACHER_CONTAINER}`}>
       <h1 className="sr-only">Notificaciones</h1>
       <Tabs options={SECCIONES} value={seccion} onChange={elegir} label="Secciones de notificaciones" />
 

@@ -12,7 +12,7 @@ import PasswordInput from '../../components/PasswordInput'
 import StudentLayout from '../../components/StudentLayout'
 import { getEnrollments, updateAllEnrollments } from '../../utils/studentLookup'
 import { uploadToCloudinary } from '../../utils/cloudinary'
-import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
+import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { ArrowLeft, Camera, Copy, Check, KeyRound, Trash2, UserMinus, AlertTriangle, Cloud, User, Settings, Bell, Lightbulb, ShieldCheck } from 'lucide-react'
 import { Tabs, SubTabs, ListRow, ListGroup, FlechaFila, FILA_LISTA, Button, IconButton } from '../../components/ui'
@@ -264,7 +264,7 @@ export default function StudentProfile() {
         />
       )}
 
-      <div className={`px-4 py-6 ${STUDENT_CONTAINER_NARROW}`}>
+      <div className={`px-4 py-6 ${STUDENT_CONTAINER}`}>
         {/* Flechita de regreso visible — respaldo para móviles donde el botón
             físico/gesto de atrás no responde (el hardware ya lo cubre
             useBackHandler arriba). */}

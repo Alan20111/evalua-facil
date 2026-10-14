@@ -47,7 +47,7 @@ import { esVideoInteractivo } from '../../utils/videoInteractivo'
 import { mostrarFilaTiempo, textoNavegacionResumen } from '../../utils/configEvaluacionVideo'
 import { formatearTiempo } from '../../utils/videoProgreso'
 import SolucionJuegoModal from '../../components/juego/SolucionJuegoModal'
-import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
+import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { formatHora12FromDate } from '../../utils/formatHora'
 import { SkeletonText, Button, IconButton } from '../../components/ui'
@@ -602,7 +602,7 @@ export default function StudentActivityPage() {
             </div>
           </header>
 
-          <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER_NARROW}`}>
+          <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
             {finalizado && (
               <div className="bg-surface-card rounded-card p-4 shadow-card">
                 {/* Grade — published independently from answers */}
@@ -804,7 +804,7 @@ export default function StudentActivityPage() {
             </div>
           </header>
 
-          <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER_NARROW}`}>
+          <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
             {finalizadoJ && (
               <div className="bg-surface-card rounded-card p-4 shadow-card">
                 {submission.calificacion != null ? (
@@ -983,7 +983,7 @@ export default function StudentActivityPage() {
         </div>
       </header>
 
-      <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER_NARROW}`}>
+      <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
         {/* Status */}
         <div className={`rounded-card p-4 flex items-center gap-3 ${
           isGraded ? 'bg-emerald-50 border border-emerald-200' :

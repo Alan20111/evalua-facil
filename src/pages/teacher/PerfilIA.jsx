@@ -7,7 +7,7 @@ import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { Sparkles, ArrowLeft, CheckCircle2 } from 'lucide-react'
 import { perfilIAVacio, isPerfilIACompleto } from '../../utils/perfilIA'
-import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import { TEACHER_CONTAINER } from '../../config/layout'
 import { ICONO } from '../../config/iconos'
 import { Button } from '../../components/ui'
 
@@ -79,7 +79,7 @@ export default function PerfilIA() {
   }
 
   return (
-    <div className={`${TEACHER_CONTAINER_NARROW} mx-auto px-4 py-6`}>
+    <div className={`${TEACHER_CONTAINER} mx-auto px-4 py-6`}>
       <button
         type="button"
         onClick={() => navigate(-1)}

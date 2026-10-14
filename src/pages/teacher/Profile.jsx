@@ -25,7 +25,7 @@ import ActivarCreditosModal from '../../components/ActivarCreditosModal'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import { useScrollLock } from '../../hooks/useScrollLock'
-import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import { TEACHER_CONTAINER } from '../../config/layout'
 import { IS_NATIVE_APP, PUEDE_COMPRAR } from '../../utils/platform'
 import { errorCodigoPostal, soloDigitosCP } from '../../utils/codigoPostal'
 import { useUbicacionCP } from '../../data/useCodigoPostal'
@@ -291,7 +291,7 @@ export default function Profile() {
 
   return (
     <>
-      <div className={`px-4 py-4 space-y-4 ${TEACHER_CONTAINER_NARROW}`}>
+      <div className={`px-4 py-4 space-y-4 ${TEACHER_CONTAINER}`}>
 
         {/* Tres pestañas (oct-2026): Perfil reúne quién eres, tu escuela y tu
             acceso, separados por subpestañas; Créditos IA aparte; y Ajustes

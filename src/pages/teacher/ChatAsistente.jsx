@@ -44,7 +44,7 @@ import { formatDeadline } from '../../utils/activityVisibility'
 import { calcularTarifaExamen } from '../../utils/tarifaExamen'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { MessageCircle, Send, Sparkles, Trash2, Globe, ClipboardList, CheckCircle2 } from 'lucide-react'
-import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import { TEACHER_CONTAINER } from '../../config/layout'
 import { SkeletonList, Button } from '../../components/ui'
 import { ICONO } from '../../config/iconos'
 import { PUEDE_COMPRAR } from '../../utils/platform'
@@ -668,7 +668,7 @@ export default function ChatAsistente() {
   ]
 
   return (
-    <div className={`px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW} flex flex-col overflow-hidden`} style={{ height: `calc(100dvh - ${altoChromeMovil}px - 2rem)` }}>
+    <div className={`px-4 py-4 ${TEACHER_CONTAINER} flex flex-col overflow-hidden`} style={{ height: `calc(100dvh - ${altoChromeMovil}px - 2rem)` }}>
       <div className="flex items-center gap-2 mb-3">
         <MessageCircle size={ICONO.md} className="text-accent flex-shrink-0" />
         <h1 className="text-lg font-bold text-on-surface">Chat con Asistente</h1>

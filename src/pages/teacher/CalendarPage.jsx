@@ -1127,7 +1127,7 @@ export default function CalendarPage() {
 
   return (
     <>
-      <div className={movil ? 'px-3 pt-2 pb-28' : `px-4 py-4 ${TEACHER_CONTAINER}`}>
+      <div className={movil ? 'px-4 pt-2 pb-28' : `px-4 py-4 ${TEACHER_CONTAINER}`}>
 
         {movil ? (
           <>

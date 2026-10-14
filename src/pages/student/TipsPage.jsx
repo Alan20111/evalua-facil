@@ -1,6 +1,6 @@
 import { Lightbulb, FileDown } from 'lucide-react'
 import StudentLayout from '../../components/StudentLayout'
-import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
+import { STUDENT_CONTAINER } from '../../config/layout'
 import { ICONO } from '../../config/iconos'
 
 // Cada Tip nuevo se agrega aquí como un objeto más — no requiere tocar
@@ -57,7 +57,7 @@ function TipCard({ tip }) {
 export default function TipsPage() {
   return (
     <StudentLayout>
-      <div className={`px-4 py-4 ${STUDENT_CONTAINER_NARROW}`}>
+      <div className={`px-4 py-4 ${STUDENT_CONTAINER}`}>
         <div className="mb-6">
           <h1 className="text-[21px] font-bold text-on-surface">Tips</h1>
           <p className="text-[15px] text-muted mt-0.5">

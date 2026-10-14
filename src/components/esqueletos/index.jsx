@@ -9,7 +9,7 @@
 // la regla es que se puedan encimar y coincidan.
 import { Skeleton, SkeletonGroup, SkeletonLine } from '../ui'
 import { cn } from '../ui/cn'
-import { TEACHER_CONTAINER_NARROW, TEACHER_CONTAINER_LISTA, STUDENT_CONTAINER, STUDENT_CONTAINER_LISTA } from '../../config/layout'
+import { TEACHER_CONTAINER, STUDENT_CONTAINER } from '../../config/layout'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { SB_FILA } from '../../config/sidebar'
 
@@ -82,7 +82,7 @@ export function EsqueletoAsignaturaDocente({ parciales = 3 }) {
           </div>
         </div>
         </div>
-        <div className={TEACHER_CONTAINER_LISTA}>
+        <div className={TEACHER_CONTAINER}>
         <div data-esq="subj-doc-parciales" className="px-4 py-2 space-y-2">
           {Array.from({ length: parciales }, (_, i) => {
             // El Parcial 1 llega ABIERTO en la pantalla real (borde tenue, fondo
@@ -133,7 +133,7 @@ export function EsqueletoAsignaturaDocente({ parciales = 3 }) {
 // ── Docente · actividad (Evaluar): encabezado, instrucciones y Entregas ──
 export function EsqueletoActividadDocente({ filas = 8 }) {
   return (
-    <div className={IS_NATIVE_APP ? '' : TEACHER_CONTAINER_NARROW}>
+    <div className={IS_NATIVE_APP ? '' : TEACHER_CONTAINER}>
       <SkeletonGroup etiqueta="Cargando la actividad…">
         <div data-esq="act-doc-encabezado" className="px-4 py-2">
           <div className="flex items-center gap-2">
@@ -252,7 +252,7 @@ export function EsqueletoAsignaturaAlumno({ parciales = 3 }) {
       </div>
       </div>
       </div>
-      <div data-esq="subj-alu-parciales" className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER_LISTA}`}>
+      <div data-esq="subj-alu-parciales" className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
         {Array.from({ length: parciales }, (_, i) => (
           <div key={i} data-esq="subj-alu-parcial" className="bg-surface-card rounded-card overflow-hidden shadow-card">
             <div className="w-full px-4 py-3 flex items-center gap-3">
@@ -327,7 +327,7 @@ export function ContenidoDocente({ contenido = 'tablero' }) {
   if (contenido === 'asignatura') return <div className="flex-1 min-w-0"><EsqueletoAsignaturaDocente /></div>
   if (contenido === 'actividad') return <div className="flex-1 min-w-0"><EsqueletoActividadDocente /></div>
   return (
-    <div data-esq="dash-doc-contenedor" className={`flex-1 min-w-0 px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW}`}>
+    <div data-esq="dash-doc-contenedor" className={`flex-1 min-w-0 px-4 py-4 ${TEACHER_CONTAINER}`}>
       <div data-esq="dash-doc-saludo" className="mb-4">
         <div className="flex items-center gap-2 min-w-0">
           <SkeletonLine data-esq="dash-doc-saludo-nombre" texto="text-lg font-bold" className="w-40 min-w-0" />

@@ -34,7 +34,7 @@ import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade, resultadoPublicadoAlumno, pesosVisiblesAlumno } from '../../utils/ponderacion'
 import PonderacionPendiente from '../../components/PonderacionPendiente'
-import { STUDENT_CONTAINER_LISTA } from '../../config/layout'
+import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { avisoEmoji, formatAvisoFecha, guardadoDocId, ocultoDocId, avisosDesde } from '../../utils/avisos'
 import AsistenciaSemanal from '../../components/student/AsistenciaSemanal'
@@ -561,7 +561,7 @@ export default function StudentSubjectPage() {
 
       {/* Encabezado + pestañas en UNA tarjeta a todo lo ancho (patrón Google
           Classroom, igual que la asignatura del docente); el contenido, abajo,
-          va limitado y centrado (STUDENT_CONTAINER_LISTA). */}
+          va limitado y centrado (STUDENT_CONTAINER). */}
       <div className="px-4 pt-2">
       <div data-esq="subj-alu-tarjeta" className="bg-surface-card rounded-card">
       <header data-esq="subj-alu-encabezado" className="px-4 py-3 flex items-center gap-3">
@@ -651,7 +651,7 @@ export default function StudentSubjectPage() {
 
       {/* Tab: Actividades y calificaciones */}
       {activeTab === 'Actividades y calificaciones' && (
-        <div data-esq="subj-alu-parciales" className={`px-4 py-5 space-y-3 cascada ${STUDENT_CONTAINER_LISTA}`}>
+        <div data-esq="subj-alu-parciales" className={`px-4 py-5 space-y-3 cascada ${STUDENT_CONTAINER}`}>
           {PARCIALES.length === 0 && (
             <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center">
               <p className="text-muted text-sm">El docente aún no ha publicado contenido.</p>
@@ -945,7 +945,7 @@ export default function StudentSubjectPage() {
         }).filter(Boolean)
 
         return (
-        <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER_LISTA}`}>
+        <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
           {tarjetas.length === 0 ? (
             <div className="bg-surface-card rounded-card border border-outline-variant p-8 text-center">
               <p className="text-muted text-sm">Tu maestro aún no ha registrado asistencia.</p>
@@ -957,7 +957,7 @@ export default function StudentSubjectPage() {
 
       {/* Tab: Recursos */}
       {activeTab === 'Recursos' && (
-        <div className={`px-4 py-5 ${STUDENT_CONTAINER_LISTA}`}>
+        <div className={`px-4 py-5 ${STUDENT_CONTAINER}`}>
           {resources.length === 0 ? (
             <div className="bg-surface-card rounded-card border border-outline-variant">
               <EmptyState icon={FolderOpen} tone="neutral">El docente no ha compartido recursos aún.</EmptyState>
@@ -994,7 +994,7 @@ export default function StudentSubjectPage() {
         const guardadosList = avisosVisibles.filter((a) => avisosGuardados[a.id])
         const avisosMostrados = soloAvisosGuardados ? guardadosList : avisosVisibles.filter((a) => !avisosGuardados[a.id])
         return (
-        <div className={`px-4 py-5 ${STUDENT_CONTAINER_LISTA}`}>
+        <div className={`px-4 py-5 ${STUDENT_CONTAINER}`}>
           <div className="flex gap-1 bg-surface-container p-1 rounded-full w-fit mb-3">
             <button type="button" onClick={() => setSoloAvisosGuardados(false)}
               className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors min-h-control-sm ${!soloAvisosGuardados ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-tint)]'}`}>

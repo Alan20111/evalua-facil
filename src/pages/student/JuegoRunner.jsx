@@ -22,7 +22,7 @@ import { useToast } from '../../components/Toast'
 import { Timer, CheckCircle2, LogOut } from 'lucide-react'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
-import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
+import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { studentFullName } from '../../utils/studentSearch'
 import { formatTiempo } from '../../utils/formatTiempo'
@@ -232,7 +232,7 @@ export default function JuegoRunner() {
             </div>
       </Modal>
 
-      <div className={`px-4 py-6 ${STUDENT_CONTAINER_NARROW}`}>
+      <div className={`px-4 py-6 ${STUDENT_CONTAINER}`}>
         {estructura.tipo === 'sopa_letras'
           ? <SopaDeLetrasBoard estructura={estructura} encontradas={encontradas} onEncontrada={handleEncontrada} />
           : <CrucigramaBoard estructura={estructura} celdas={celdas} onCambioCelda={handleCambioCelda} />}

@@ -22,10 +22,11 @@ import StudentEventEditor from '../../components/agenda/StudentEventEditor'
 import StudentLayout from '../../components/StudentLayout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { teacherDisplayName } from '../../utils/studentSearch'
-// STUDENT_CONTAINER_WIDE / TEACHER_CONTAINER solo son necesarios para Web (WEB_CONTAINER_BY_VIEW).
+// STUDENT_CONTAINER / TEACHER_CONTAINER solo son necesarios para Web (WEB_CONTAINER_BY_VIEW).
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { Animado, Button, IconButton, Popover, SkeletonList } from '../../components/ui'
 import { ICONO } from '../../config/iconos'
+import { STUDENT_CONTAINER } from '../../config/layout'
 
 // Rediseño: una sola pantalla "Agenda", misma filosofía/experiencia que el
 // Calendario del docente (src/pages/teacher/CalendarPage.jsx) — Día/3 días/
@@ -376,11 +377,13 @@ export default function Agenda() {
 
   // Ancho por vista — pedido explícito, valores fijos en px SOLO para Web
   // (la App se queda tal cual estaba, ver WEB_CONTAINER_BY_VIEW más abajo).
+  // Desde oct-2026 todas las vistas usan el ancho único del sitio
+  // (config/layout.js): la rejilla ya no cambia de ancho al cambiar de vista.
   const WEB_CONTAINER_BY_VIEW = {
-    agenda: 'w-full max-w-[450px] mx-auto',
-    '3dias': 'w-full max-w-[600px] mx-auto',
-    semana: 'w-full max-w-[900px] mx-auto',
-    mes: 'w-full max-w-[1024px] mx-auto',
+    agenda: STUDENT_CONTAINER,
+    '3dias': STUDENT_CONTAINER,
+    semana: STUDENT_CONTAINER,
+    mes: STUDENT_CONTAINER,
   }
   // App: sin max-w ni mx-auto — el contenedor de la pantalla ya es full-width
   // y los breakpoints md:* causan el strip azul en Samsung S23 (WebView ≥768 px).

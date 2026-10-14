@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
 import { ArrowLeft, Settings, Megaphone } from 'lucide-react'
-import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
+import { STUDENT_CONTAINER } from '../../config/layout'
 import StudentBottomNav from '../../components/StudentBottomNav'
 import NotificationLog from '../../components/NotificationLog'
 import { useBackHandler } from '../../hooks/useBackHandler'
@@ -216,7 +216,7 @@ export default function NotificationSettings() {
         <SkeletonForm fields={4} className="py-6" />
       ) : (
         // pb extra: que la última tarjeta no quede tapada por la barra inferior
-        <div className={`px-4 py-5 pb-[calc(var(--barra-alto)+1.5rem+env(safe-area-inset-bottom,0px))] md:pb-5 space-y-4 ${STUDENT_CONTAINER_NARROW}`}>
+        <div className={`px-4 py-5 pb-[calc(var(--barra-alto)+1.5rem+env(safe-area-inset-bottom,0px))] md:pb-5 space-y-4 ${STUDENT_CONTAINER}`}>
           <div className="bg-surface-card rounded-card shadow-card border border-outline-variant p-4 divide-y divide-outline-variant">
             {CATEGORIAS.map((cat) => (
               <div key={cat.key} className={cat.key !== CATEGORIAS[0].key ? 'pt-3' : ''}>

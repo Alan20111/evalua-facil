@@ -11,45 +11,20 @@
 // One shared token instead of repeating breakpoints on every teacher page —
 // tune the ladder once here and every screen (Dashboard, SubjectPage,
 // ActivityPage, Profile, future modules) picks it up.
-export const TEACHER_CONTAINER =
-  'w-full max-w-3xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl 2xl:max-w-[1600px] mx-auto'
+// UN SOLO ANCHO para todas las pantallas del docente (oct-2026, pedido
+// explícito): todo lo que se muestra —encabezados, tarjetas, tablas,
+// formularios de Perfil y Notificaciones— ocupa el mismo ancho, el del área
+// de contenido, con el mismo margen lateral (px-4 en la página). Antes había
+// tres escalas (completa, «lista» y «angosta») y los bordes de una sección no
+// coincidían con los del encabezado de arriba ni con los de otra pantalla.
+// Las páginas lo combinan siempre con `px-4`.
+export const TEACHER_CONTAINER = 'w-full'
 
-// Settings-style screens (Profile/Configuración) are a single stacked column
-// of cards/fields, not a table or grid — growing them as aggressively as
-// TEACHER_CONTAINER would just stretch short form rows across empty space.
-// Same "grows with the viewport" principle, capped earlier.
-// Contenido de LISTA con encabezado a todo lo ancho (patrón Google Classroom):
-// el encabezado de la pantalla ocupa el 100% y el contenido (parciales,
-// estudiantes, recursos) va limitado y centrado — un poco más ancho que
-// TEACHER_CONTAINER_NARROW (máx. 64rem ≈ 920px, como Classroom).
-export const TEACHER_CONTAINER_LISTA =
-  'w-full max-w-3xl md:max-w-4xl lg:max-w-5xl mx-auto'
-
-export const TEACHER_CONTAINER_NARROW =
-  'w-full max-w-2xl md:max-w-3xl lg:max-w-4xl mx-auto'
-
-// Centralized container widths for the student module. Unlike the teacher
-// module, student screens stay mobile-first with a fixed max-width — a phone
-// screen never benefits from "growing" further, so these don't ladder up by
-// breakpoint like TEACHER_CONTAINER does.
-//
-// Listing screens (Dashboard, SubjectPage tabs) stack several cards, so they
-// get a bit more breathing room.
-export const STUDENT_CONTAINER = 'max-w-2xl mx-auto'
-// Asignatura del alumno, patrón Google Classroom (igual que el docente): el
-// encabezado va a todo lo ancho y el contenido limitado y centrado (≈920px).
-export const STUDENT_CONTAINER_LISTA = 'w-full max-w-3xl md:max-w-4xl lg:max-w-5xl mx-auto'
-
-// Detail screens (ActivityPage, EvaluacionRunner, EvaluacionRevision) show a
-// single item's reading/form content, so they stay narrower for comfortable
-// line lengths.
-export const STUDENT_CONTAINER_NARROW = 'max-w-xl mx-auto'
-
-// Agenda Dashboard — la única pantalla del alumno con un layout de DOS
-// columnas en escritorio (pedido explícito: "aprovechar completamente el
-// espacio disponible... no debe ser una copia de la App"). Se queda de una
-// sola columna angosta en móvil, igual que el resto del módulo.
-export const STUDENT_CONTAINER_WIDE = 'w-full max-w-xl md:max-w-4xl lg:max-w-5xl mx-auto'
+// El alumno sigue la MISMA regla que el docente (oct-2026, pedido explícito:
+// «estandarizado en TODO el sitio»): un solo ancho, el del área de contenido,
+// con `px-4` en la página. Antes había cuatro (normal, lista, angosta y la de
+// la Agenda, que además cambiaba por vista).
+export const STUDENT_CONTAINER = 'w-full'
 
 // Muestras de selección (colores, bolitas e íconos de la asignatura): celdas
 // de TAMAÑO FIJO (2.5rem ≈ 36 px: caben las 8 de una fila en un teléfono de
