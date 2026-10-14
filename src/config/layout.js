@@ -11,20 +11,19 @@
 // One shared token instead of repeating breakpoints on every teacher page —
 // tune the ladder once here and every screen (Dashboard, SubjectPage,
 // ActivityPage, Profile, future modules) picks it up.
-// UN SOLO ANCHO para todas las pantallas del docente (oct-2026, pedido
-// explícito): todo lo que se muestra —encabezados, tarjetas, tablas,
-// formularios de Perfil y Notificaciones— ocupa el mismo ancho, el del área
-// de contenido, con el mismo margen lateral (px-4 en la página). Antes había
-// tres escalas (completa, «lista» y «angosta») y los bordes de una sección no
-// coincidían con los del encabezado de arriba ni con los de otra pantalla.
-// Las páginas lo combinan siempre con `px-4`.
-export const TEACHER_CONTAINER = 'w-full'
+// UN SOLO ANCHO para el contenido de todas las pantallas del docente
+// (oct-2026, elegido por el usuario entre 896, 1024, 1280 px y todo el
+// ancho): tope de 1024px, centrado, con `px-4` en la página. Es el ancho que
+// tenía la lista de Actividades, la que se veía bien. Los encabezados de
+// pantalla (p. ej. el de la asignatura) sí van a todo lo ancho, como antes.
+// En el teléfono no cambia nada: la pantalla es más angosta que el tope.
+export const TEACHER_CONTAINER = 'w-full max-w-[1024px] mx-auto'
 
 // El alumno sigue la MISMA regla que el docente (oct-2026, pedido explícito:
-// «estandarizado en TODO el sitio»): un solo ancho, el del área de contenido,
-// con `px-4` en la página. Antes había cuatro (normal, lista, angosta y la de
+// «estandarizado en TODO el sitio»): el mismo tope de 1024px, con `px-4` en
+// la página. Antes había cuatro (normal, lista, angosta y la de
 // la Agenda, que además cambiaba por vista).
-export const STUDENT_CONTAINER = 'w-full'
+export const STUDENT_CONTAINER = 'w-full max-w-[1024px] mx-auto'
 
 // Muestras de selección (colores, bolitas e íconos de la asignatura): celdas
 // de TAMAÑO FIJO (2.5rem ≈ 36 px: caben las 8 de una fila en un teléfono de
