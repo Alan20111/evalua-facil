@@ -116,7 +116,16 @@ async function auditar(page, captura = 'main') {
     // táctil): control-sm, control, control-lg y la píldora de pestaña
     // segmentada (control − 0.5rem, va dentro de una barra de un control).
     const raiz = parseFloat(getComputedStyle(document.documentElement).fontSize)
-    const v = (n) => { const x = getComputedStyle(document.documentElement).getPropertyValue(n).trim(); return x.endsWith('rem') ? parseFloat(x) * raiz : parseFloat(x) }
+    // Se mide con un elemento de prueba: así se resuelve cualquier valor
+    // (rem, px, max(3rem, 48px), var(--control)…) igual que lo haría un botón.
+    const v = (n) => {
+      const d = document.createElement('div')
+      d.style.cssText = `position:absolute;visibility:hidden;height:var(${n})`
+      document.body.append(d)
+      const h = d.getBoundingClientRect().height
+      d.remove()
+      return h
+    }
     const alturas = [v('--control-sm'), v('--control'), v('--control-lg'), v('--control') - 0.5 * raiz]
     const malos = []
     const CAMPOS = 'input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]):not([type=color])'

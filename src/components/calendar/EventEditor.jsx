@@ -263,7 +263,7 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
           </div>
 
           {/* Descripción y notas son opcionales: plegadas, salvo que ya traigan algo. */}
-          <Disclosure summary="Descripción y notas" defaultOpen={tieneDetalles} panelClassName="space-y-3 pt-2">
+          <Disclosure summary="Descripción y notas" defaultOpen={tieneDetalles} buttonClassName="h-control text-sm font-medium text-muted" panelClassName="space-y-3 pt-2">
             <Textarea
               label="Descripción"
               id="event-descripcion"

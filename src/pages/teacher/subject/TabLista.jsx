@@ -270,7 +270,7 @@ export default function TabLista() {
                   </div>
                   <button type="button"
                     onClick={() => openEditStudent(s)}
-                    className="w-10 h-10 flex-shrink-0 flex items-center justify-center text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors duration-estandar"
+                    className="size-control flex-shrink-0 flex items-center justify-center text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors duration-estandar"
                     aria-label="Editar estudiante"
                   >
                     <Pencil size={ICONO.sm} />
