@@ -1,48 +1,74 @@
 # Formulario de Seguridad de los datos — respuestas recomendadas
 
 Google Play te hace un cuestionario sobre qué datos recopila tu app. Estas son las
-respuestas correctas para Evalúa Fácil (basadas en lo que la app realmente hace:
-autenticación con Firebase, fotos con Cloudinary, correos con EmailJS, cobros con
-Mercado Pago/PayPal). Ajusta si cambias algo en el futuro.
+respuestas para Evalúa Fácil según lo que la app hace hoy (revisado el 14-oct-2026,
+`docs/PLAN_GOOGLE_PLAY.md` B3):
+- autenticación y datos con Firebase;
+- fotos y archivos con Cloudinary;
+- correos con Brevo;
+- IA con Anthropic (Claude) y Google Gemini (solo videos públicos de YouTube);
+- compra de créditos por transferencia, **solo en la web**.
+
+Si cambias algo de eso, actualiza este archivo y el aviso de privacidad
+(`src/pages/Privacidad.jsx`) en el mismo PR.
 
 ## Preguntas generales
 - **¿Tu app recopila o comparte datos de usuario?** → **Sí**.
 - **¿Los datos se cifran en tránsito?** → **Sí** (HTTPS/TLS en toda la app).
-- **¿Los usuarios pueden solicitar que se eliminen sus datos?** → **Sí** (pueden
-  eliminar su cuenta en la app y/o escribir al correo de contacto).
-- **¿Tienes una forma de que los usuarios soliciten la eliminación?** → Sí — el correo
-  de contacto de la política de privacidad y la opción de eliminar cuenta.
+- **¿Los usuarios pueden solicitar que se eliminen sus datos?** → **Sí**:
+  - desde la app, en Perfil › Perfil › Cuenta › «Eliminar mi cuenta»;
+  - o desde la web.
+- **URL para solicitar la eliminación de la cuenta** → `https://evaluafacil.mx/eliminar-cuenta`.
+  Es pública, no pide sesión y explica qué se borra.
+- **¿También se pueden borrar algunos datos sin borrar la cuenta?** → **Sí**:
+  asignaturas, alumnos, actividades, entregas y fotos se borran por separado
+  dentro de la app.
+
+## «Recopilado» y «compartido»
+- Marca **Compartido con terceros = No** en todo.
+- Firebase, Cloudinary, Brevo, Anthropic y Google Gemini son **proveedores de
+  servicio** que procesan los datos por cuenta de Evalúa Fácil. Google lo cuenta
+  como «recopilado», no como «compartido».
+- No hay publicidad, ni venta de datos, ni analíticas de terceros.
 
 ## Tipos de datos que se RECOPILAN
-Para cada uno, marca **Recopilado = Sí**. Casi todos son **Obligatorios** (la app no
-funciona sin ellos) y NINGUNO se procesa solo de forma efímera. Marca **Compartido con
-terceros = No** (Firebase/Cloudinary/EmailJS/pagos son *proveedores de servicio* que
-procesan por tu cuenta; eso cuenta como "recopilado", no como "compartido").
+Marca **Recopilado = Sí** en cada uno. Ninguno se procesa solo de forma efímera.
 
-| Categoría → Tipo de dato | ¿Recopilado? | Propósito(s) |
-|---|---|---|
-| **Información personal → Nombre** | Sí | Funcionalidad de la app; gestión de la cuenta |
-| **Información personal → Dirección de correo** (docentes) | Sí | Funcionalidad de la app; gestión de la cuenta |
-| **Información personal → Identificadores de usuario** (nombre de usuario del alumno) | Sí | Funcionalidad de la app |
-| **Fotos y videos → Fotos** (foto de perfil, opcional) | Sí | Funcionalidad de la app |
-| **Actividad en la app → Otras acciones** (calificaciones, actividades, evaluaciones, asistencia) | Sí | Funcionalidad de la app |
-| **ID del dispositivo u otros → Token de mensajería (FCM)** | Sí | Notificaciones / Funcionalidad de la app |
+| Categoría → Tipo de dato | ¿Obligatorio? | Propósito(s) | Nota |
+|---|---|---|---|
+| **Información personal → Nombre** | Obligatorio | Funcionalidad de la app; Gestión de la cuenta | Docente y alumno. El nombre del alumno puede ir a la IA al calificar. |
+| **Información personal → Dirección de correo** | Obligatorio | Funcionalidad de la app; Gestión de la cuenta | Solo docentes. Los alumnos no tienen correo real. |
+| **Información personal → ID de usuario** | Obligatorio | Funcionalidad de la app; Gestión de la cuenta | Nombre de usuario del alumno y del docente. |
+| **Información financiera → Historial de compras** | Opcional | Funcionalidad de la app | Compras de créditos hechas en la web (paquete, monto, fecha). La cuenta es la misma en la app, así que se declara. |
+| **Información financiera → Otra información financiera** | Opcional | Funcionalidad de la app | Comprobante de transferencia que sube el docente en la web. **No** se recopilan números de tarjeta ni de cuenta. |
+| **Fotos y videos → Fotos** | Opcional | Funcionalidad de la app | Foto de perfil y fotos que se entregan como evidencia. |
+| **Archivos y documentos → Archivos y documentos** | Opcional | Funcionalidad de la app | Entregas de los alumnos (PDF, Word, imágenes) y materiales del docente. Pueden ir a la IA al calificar con IA. |
+| **Mensajes → Otros mensajes en la app** | Opcional | Funcionalidad de la app | Avisos del docente, comentarios, mensajes al Asistente IA y reportes de IA. |
+| **Actividad en la app → Otro contenido generado por el usuario** | Obligatorio | Funcionalidad de la app | Calificaciones, actividades, evaluaciones, respuestas de exámenes y asistencia. |
+| **Actividad en la app → Interacciones con la app** | Obligatorio | Funcionalidad de la app | Avance del video interactivo y lecturas de avisos. |
+| **ID del dispositivo u otros → ID del dispositivo u otros** | Opcional | Funcionalidad de la app | Token de notificaciones (FCM). Solo si se permiten las notificaciones. |
 
-### Datos que NO se recopilan (responde "No" a estos)
-- Ubicación (precisa o aproximada) → **No**.
-- Información financiera / número de tarjeta → **No** (los pagos los maneja el
-  proveedor externo; la app no ve ni guarda datos de tarjeta).
-- Contactos, mensajes SMS, historial de navegación, salud, audio → **No**.
+### Datos que NO se recopilan (responde «No»)
+- Ubicación (precisa o aproximada).
+- Números de tarjeta o de cuenta bancaria.
+- Contactos, calendario del teléfono, SMS, historial de navegación, salud y
+  actividad física, audio, música.
+- Registros de fallos y diagnósticos. Si se agrega un registro de errores (plan,
+  O3), cambiar esta respuesta.
 
-## Purpose (propósito) recomendado por dato
-Para todos, el propósito principal es **"Funcionalidad de la app"**. El token de FCM
-además marca **"Comunicaciones / notificaciones"** si el formulario lo permite. **No**
-marques "Publicidad o marketing" ni "Analíticas de terceros" (la app no las usa para
-esos fines).
+## Propósitos
+- Para todos: **«Funcionalidad de la app»**.
+- Para nombre, correo e ID de usuario, además: **«Gestión de la cuenta»**.
+- **No** marques «Publicidad o marketing», «Analíticas», «Personalización» ni
+  «Prevención de fraude».
 
 ## Resumen en una frase (por si pide justificación)
-> Evalúa Fácil recopila el nombre y correo del docente, el nombre/usuario y foto
-> opcional del alumno, y el contenido académico (calificaciones, actividades,
-> evaluaciones, asistencia), con el único fin de prestar el servicio educativo. Los
-> datos se cifran en tránsito, no se venden ni se comparten con fines publicitarios, y
-> el usuario puede solicitar su eliminación.
+> Evalúa Fácil recopila el nombre y correo del docente, el nombre de usuario y la
+> foto opcional del alumno, y el contenido académico (calificaciones,
+> actividades, entregas, evaluaciones, asistencia), con el único fin de prestar
+> el servicio educativo.
+>
+> Cuando el docente usa una función de IA, el contenido necesario se procesa con
+> Anthropic, que no entrena modelos con esos datos. Los datos se cifran en
+> tránsito, no se venden ni se usan para publicidad, y el usuario puede eliminar
+> su cuenta desde la app o en evaluafacil.mx/eliminar-cuenta.

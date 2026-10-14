@@ -17,14 +17,15 @@ clasificación resultante será la más baja (apta para todos / 3+). Responde as
 | ¿Referencias o uso de drogas, alcohol o tabaco? | **No** |
 | ¿Simula juegos de azar o apuestas con dinero real? | **No** |
 | ¿Contenido de miedo/terror? | **No** |
-| ¿Los usuarios pueden **interactuar o comunicarse** entre sí? | **No** en el sentido de chat/red social abierta. La interacción es acotada: el alumno entrega trabajos a su docente; no hay mensajería libre entre usuarios ni contenido público generado por usuarios. Si el cuestionario insiste, responde según su definición exacta, pero **no** es una red social. |
+| ¿Los usuarios pueden **interactuar o comunicarse** entre sí? | **Sí**, de forma acotada. El docente publica avisos para su grupo y los alumnos le entregan trabajos; todo queda dentro de la asignatura, sin chat libre entre alumnos ni perfiles públicos. Es mejor declararlo: ocultarlo y que el revisor lo encuentre es motivo de rechazo. |
 | ¿Comparte la **ubicación** del usuario con otros? | **No** |
-| ¿Permite **compras digitales**? | **Sí** (suscripción). |
+| ¿Permite **compras digitales**? | **No.** Desde oct-2026 la app de Android no vende nada; los créditos de IA se compran solo en la web (`docs/PLAN_GOOGLE_PLAY.md` B1). |
+| ¿Contiene **contenido generado por IA**? (si la pregunta aparece) | **Sí**: rúbricas, preguntas, retroalimentación y análisis para el docente, que los revisa antes de publicarlos. Se pueden reportar desde la app con «Reportar» (B2). |
 | ¿Contenido generado por usuarios visible públicamente? | **No** (el contenido es privado entre docente y sus alumnos). |
 
 ## Resultado esperado
-- Clasificación: **Apta para todos / 3+** (PEGI 3 / ESRB Everyone), quizá con la nota de
-  "Compras digitales" por la suscripción.
+- Clasificación: **Apta para todos / 3+** (PEGI 3 / ESRB Everyone), con la nota «Los
+  usuarios interactúan». Sin la nota de compras digitales.
 
 ## Datos de contacto del cuestionario
 - Te pedirá un **correo de contacto** para la clasificación → usa el mismo correo que

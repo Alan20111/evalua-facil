@@ -12,6 +12,7 @@ import VentasPorZona from './components/VentasPorZona'
 import AdminChat from './components/AdminChat'
 import DownloadLinks from './components/DownloadLinks'
 import EscuelasConfig from './components/EscuelasConfig'
+import ReportesIAPanel from './components/ReportesIAPanel'
 import { SkeletonCards, Button } from '../../components/ui'
 import { ICONO } from '../../config/iconos'
 
@@ -77,6 +78,7 @@ export default function AdminDashboard() {
           {/* Carga sus propios datos del callable `resumenCostosIA`: no
               usa `stats`, que no incluye métricas internas de tokens. */}
           {activeTab === 'costosIA' && <CostosIAPanel />}
+          {activeTab === 'reportesIA' && <ReportesIAPanel />}
           {activeTab === 'zonas' && <VentasPorZona stats={stats} />}
           {activeTab === 'cobros' && <PaymentConfig />}
           {activeTab === 'escuelas' && <EscuelasConfig />}

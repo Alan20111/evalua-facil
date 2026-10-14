@@ -37,6 +37,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import { useCreditosIA } from '../../hooks/useCreditosIA'
 import Spinner from '../../components/Spinner'
+import ReportarIA from '../../components/ReportarIA'
 import Select from '../../components/ui/Select'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { formatDeadline } from '../../utils/activityVisibility'
@@ -772,6 +773,14 @@ export default function ChatAsistente() {
                   {h.role === 'user' ? h.content : <MensajeFormateado texto={h.content} />}
                 </div>
               </div>
+              {/* Reportar la respuesta de la IA (docs/PLAN_GOOGLE_PLAY.md, B2). */}
+              {h.role !== 'user' && (
+                <ReportarIA
+                  operacion="chat_asistente"
+                  contenido={h.propuesta ? { respuesta: h.content, propuesta: h.propuesta } : h.content}
+                  contextoId={h.id}
+                />
+              )}
               {h.propuesta && (
                 <TarjetaPropuesta
                   propuesta={h.propuesta}

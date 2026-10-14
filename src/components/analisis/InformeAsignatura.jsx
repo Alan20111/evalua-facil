@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { Sparkles, FileText, AlertTriangle } from 'lucide-react'
 import Modal from '../ui/Modal'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { planInformeAsignatura } from '../../utils/analisisAsignaturaInforme'
 import { Button } from '../ui'
 import { ICONO } from '../../config/iconos'
+import ReportarIA from '../ReportarIA'
 
 // Informe del análisis integral de asignatura con IA. SOLO LECTURA (decisión
 // de Kike, 1-oct-2026): a diferencia del análisis de un examen, este informe
@@ -53,9 +55,10 @@ export function Bloque({ bloque }) {
 export default function InformeAsignatura({ analisis, onClose, onDescargarPDF, descargando = false }) {
   useBackHandler(onClose, true)
   const plan = planInformeAsignatura(analisis)
+  const [reportando, setReportando] = useState(false)
 
   return (
-    <Modal open onClose={onClose} title="Análisis de la asignatura" size="3xl" z={60}>
+    <Modal open onClose={onClose} title="Análisis de la asignatura" size="3xl" z={60} busy={reportando}>
       <div className="space-y-3">
         <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-card">
           <Sparkles size={ICONO.sm} className="text-amber-600 flex-shrink-0 mt-0.5" />
@@ -86,6 +89,11 @@ export default function InformeAsignatura({ analisis, onClose, onDescargarPDF, d
             {s.bloques.map((b) => <Bloque key={`${b.tipo}-${b.titulo || b.texto || (b.items || []).join('|')}`} bloque={b} />)}
           </section>
         ))}
+
+        {/* Reportar el informe de la IA (docs/PLAN_GOOGLE_PLAY.md, B2). */}
+        <div className="flex justify-end">
+          <ReportarIA operacion="analizar_asignatura" contenido={analisis} contextoId={analisis?.id} onAbiertoChange={setReportando} />
+        </div>
 
         <Button variant="secondary" fullWidth onClick={onClose}>
           Cerrar

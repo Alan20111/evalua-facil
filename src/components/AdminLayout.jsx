@@ -12,7 +12,7 @@ import {
   Map,
   Sparkles,
   BrainCircuit,
-  Download, TrendingUp, School } from 'lucide-react'
+  Download, TrendingUp, School, Flag } from 'lucide-react'
 import { auth } from '../firebase'
 import { useAuth } from '../context/AuthContext'
 import { useScrollLock } from '../hooks/useScrollLock'
@@ -29,6 +29,7 @@ const TABS = [
   { id: 'resumen', label: 'Resumen', icon: LayoutDashboard },
   { id: 'creditos', label: 'Compras de créditos', icon: Sparkles },
   { id: 'costosIA', label: 'Costos de IA', icon: TrendingUp },
+  { id: 'reportesIA', label: 'Reportes de IA', icon: Flag },
   { id: 'registros', label: 'Registros', icon: UserPlus },
   { id: 'zonas', label: 'Ventas por zona', icon: Map },
   { id: 'cobros', label: 'Cobros', icon: Wallet },

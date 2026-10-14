@@ -12,6 +12,7 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 import { BotonMas, EDITOR_INPUT_CELL } from './editorShared'
 import { Button, IconButton, Modal } from '../ui'
 import { ICONO } from '../../config/iconos'
+import ReportarIA from '../ReportarIA'
 
 // Editor de LISTA DE COTEJO — variante simple de la rúbrica: solo 3 columnas
 // (Num, Criterio, Nivel de desempeño con sus puntos). Al calificar cada criterio
@@ -162,7 +163,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
       <div className="px-4 py-6">
         <form onSubmit={handleSave} className="space-y-4 max-w-3xl mx-auto">
           {/* Mismo aviso obligatorio que RubricaEditor.jsx */}
-          {iaGenerada && (
+          {iaGenerada && (<>
             <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-card">
               <Sparkles size={ICONO.sm} className="text-amber-600 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-amber-800">
@@ -171,7 +172,11 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
                 Revísala cuidadosamente y apruébala antes de utilizarla.
               </p>
             </div>
-          )}
+            {/* Reportar la propuesta tal como la dio la IA (docs/PLAN_GOOGLE_PLAY.md, B2). */}
+            <div className="flex justify-end">
+              <ReportarIA operacion="cotejo" contenido={initial} />
+            </div>
+          </>)}
           {/* Nombre de la lista de cotejo */}
           <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-end gap-2">

@@ -11,6 +11,7 @@ import { resolverNombresAnalisis } from '../../utils/resolverNombresAnalisis'
 import { resumenConfiabilidad } from '../../utils/confiabilidadAnalisis'
 import { Button, IconButton } from '../ui'
 import { ICONO } from '../../config/iconos'
+import ReportarIA from '../ReportarIA'
 
 // Pantalla de resultado de OP-10 (análisis de resultados con IA). El texto
 // que redacta la IA (resumen, patrones, señales de atención, recomendaciones)
@@ -157,6 +158,10 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
             Revísalo cuidadosamente antes de tomar decisiones pedagógicas.
             {generadoEn && <span className="block text-xs text-amber-700 mt-1">Generado el {new Date(generadoEn).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })}.</span>}
           </p>
+        </div>
+        {/* Reportar el análisis tal como lo dio la IA (docs/PLAN_GOOGLE_PLAY.md, B2). */}
+        <div className="flex justify-end">
+          <ReportarIA operacion="analizar_resultados" contenido={resultado} contextoId={activity?.id} />
         </div>
 
         {editado.resumenEjecutivo != null && (

@@ -1711,6 +1711,30 @@ service cloud.firestore {
       allow delete: if isAdmin() && request.auth.uid == resource.data.adminUid;
     }
 
+    // Reportes de contenido generado por IA (13-oct-2026,
+    // docs/PLAN_GOOGLE_PLAY.md B2). Cualquiera con sesión —docente o
+    // alumno— reporta una respuesta de la IA a su nombre; solo el admin los
+    // lee, les cambia el estado o los borra. Nadie lee los de otros, ni los
+    // propios: el reporte no es un buzón de conversación. Los límites son
+    // los de src/utils/reportesIA.js.
+    match /reportesIA/{reporteId} {
+      allow create: if request.auth != null &&
+        request.resource.data.keys().hasOnly(['uid', 'rol', 'operacion', 'contextoId', 'texto', 'motivo', 'comentario', 'estado', 'creadoEn']) &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.rol in ['docente', 'alumno', 'admin'] &&
+        request.resource.data.operacion is string && request.resource.data.operacion.size() <= 120 &&
+        request.resource.data.contextoId is string && request.resource.data.contextoId.size() <= 120 &&
+        request.resource.data.texto is string && request.resource.data.texto.size() <= 4000 &&
+        request.resource.data.motivo in ['inapropiado', 'incorrecto', 'otro'] &&
+        request.resource.data.comentario is string && request.resource.data.comentario.size() <= 1000 &&
+        request.resource.data.estado == 'nuevo' &&
+        request.resource.data.creadoEn == request.time;
+      allow read, delete: if isAdmin();
+      allow update: if isAdmin() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'revisadoEn']) &&
+        request.resource.data.estado in ['nuevo', 'revisado', 'descartado'];
+    }
+
     // Métricas internas del Chat de Administración (tokens, modelo,
     // stopReason) — mismo criterio que iaConsumosInterno: nada visible para
     // ningún cliente, solo lo escribe el servidor con el Admin SDK.

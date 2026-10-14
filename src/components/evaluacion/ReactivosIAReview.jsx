@@ -5,6 +5,7 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 import { reactivoValido } from '../../utils/reactivosIA'
 import { Input, Button, IconButton, Radio } from '../ui'
 import { ICONO } from '../../config/iconos'
+import ReportarIA from '../ReportarIA'
 
 const ETIQUETA_TIPO = {
   opcion_multiple: 'Opción múltiple',
@@ -69,6 +70,10 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
             Esta propuesta fue generada con inteligencia artificial. Puede contener errores.
             Revísala cuidadosamente y apruébala antes de utilizarla.
           </p>
+        </div>
+        {/* Reportar los reactivos tal como los dio la IA (docs/PLAN_GOOGLE_PLAY.md, B2). */}
+        <div className="flex justify-end">
+          <ReportarIA operacion="reactivos" contenido={initial} />
         </div>
 
         {reactivos.map((r, i) => (

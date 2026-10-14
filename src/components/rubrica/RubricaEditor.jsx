@@ -14,6 +14,7 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 import { BotonMas, EDITOR_INPUT_CELL } from './editorShared'
 import { Button, IconButton, Modal } from '../ui'
 import { ICONO } from '../../config/iconos'
+import ReportarIA from '../ReportarIA'
 
 // ── Estado del editor ────────────────────────────────────────────────────────
 // La tabla se edita con strings (inputs numéricos sin pelear con decimales):
@@ -457,7 +458,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved, ia
           {/* Aviso obligatorio (siempre visible mientras la propuesta no se
               haya guardado): esto lo escribió un modelo de IA, no EF, y puede
               equivocarse. El docente revisa/edita/aprueba antes de guardar. */}
-          {iaGenerada && (
+          {iaGenerada && (<>
             <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-card">
               <Sparkles size={ICONO.sm} className="text-amber-600 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-amber-800">
@@ -466,7 +467,11 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved, ia
                 Revísala cuidadosamente y apruébala antes de utilizarla.
               </p>
             </div>
-          )}
+            {/* Reportar la propuesta tal como la dio la IA (docs/PLAN_GOOGLE_PLAY.md, B2). */}
+            <div className="flex justify-end">
+              <ReportarIA operacion="rubrica" contenido={initial} />
+            </div>
+          </>)}
 
           {/* Nombre — como el encabezado de la imagen: etiqueta + línea */}
           <div className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
