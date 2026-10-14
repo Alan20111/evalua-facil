@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Sin respaldos (docs/PLAN_GOOGLE_PLAY.md, S1): la app no guarda nada
+         propio en el teléfono; lo único que hay es la sesión de Firebase y la
+         caché del WebView. Un respaldo de Google o una transferencia a otro
+         teléfono se llevarían esa sesión. allowBackup cubre hasta Android 11;
+         dataExtractionRules, Android 12 en adelante. -->
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
