@@ -260,10 +260,10 @@ gubernamentales sin serlo se rechazan.
 
 | # | Hallazgo | Acción | Prioridad |
 |---|----------|--------|-----------|
-| S1 | `android:allowBackup="true"` | Ponerlo en `false` o agregar `dataExtractionRules`/`fullBackupContent` que excluyan los datos de sesión. Así un respaldo de Google o `adb backup` no se lleva el token de Firebase. | Alta |
+| S1 ✅ | `android:allowBackup="true"` | Paso 4: `allowBackup="false"`, `fullBackupContent="false"` y `dataExtractionRules` que excluyen todo en la nube y en la transferencia entre teléfonos (Android 12+). Confirmado en el manifiesto combinado del APK. | Alta |
 | S2 ✅ / ◐ | `vercel.json` sin **CSP** ni **HSTS** | **HSTS:** ya lo manda Vercel en los dos dominios (`max-age=63072000`; en `vercel.app` también `includeSubDomains; preload`), así que no se agregó. **CSP:** va en modo `Report-Only` (paso 3), con los orígenes sacados del bundle. Se probó obligatoria contra producción (páginas públicas) y contra el emulador (pantallas del docente) sin violaciones. Los reportes llegan a `api/csp-report.js` → colección `cspReportes`, uno por violación distinta, con contador; solo el admin los lee. **Pendiente:** en 1–2 semanas revisar `cspReportes` en la consola de Firebase, ajustar y cambiar la cabecera a `Content-Security-Policy`. | Media |
 | S3 | Sin **Firebase App Check** | Activar App Check con Play Integrity (Android) y reCAPTCHA Enterprise (web). Primero en modo solo métricas y luego en modo obligatorio en Firestore y en las Cloud Functions de IA, que son las que gastan dinero. | Alta |
-| S4 | `minifyEnabled false` | Activar R8 (`minifyEnabled true`, `shrinkResources true`) con reglas de Capacitor y Firebase. Gana poco tamaño porque casi todo es web, pero ofusca y Play lo recomienda. Probar el AAB completo después. | Media |
+| S4 ✅ | `minifyEnabled false` | Paso 4: R8 con `minifyEnabled` y `shrinkResources` (APK de 29.2 → 25.5 MB). Capacitor trae sus reglas; se agregó `-dontwarn com.facebook.**` (proveedor que no usamos) y números de línea para los fallos. **Cada AAB lleva su `mapping.txt`, que se sube a Play Console** (App bundle explorer → Descargas → Archivo de desofuscación). Probado en el emulador: arranca, carga el sitio, Atrás y la pantalla sin conexión funcionan. | Media |
 | S5 👤 | API key web de Firebase | Restringirla en Google Cloud (ver «S5 paso a paso» abajo). Es trabajo de consola: no hay cambio de código. | Media |
 | S6 ✅ | Tráfico en claro | El manifiesto no tiene `usesCleartextTraffic` ni `networkSecurityConfig`, y con target 36 el tráfico sin cifrar está bloqueado por omisión. Confirmar en el AAB final (paso 4). | Verificar |
 | S7 ✅ | Componentes exportados | En el código fuente solo `MainActivity` es `exported=true` (el `FileProvider` es `false`) y ningún plugin exporta componentes. Confirmar en el manifiesto combinado del AAB (paso 4). | Verificar |
@@ -323,9 +323,9 @@ la consola. La web ya está en 0 errores de axe y 0 focos invisibles
 | A2 | **TalkBack** | 👤 con el celular: recorrer inicio de sesión, tablero, asignatura, calificar, evaluación del alumno. Anotar lo que lee mal. 🛠 corrige. El orden de lectura y los nombres de ya salen de axe; falta confirmar hojas, menús y anuncios de `aria-live`. |
 | A3 | **Tamaño de letra del sistema** | Probar con la fuente del sistema al 200 %. El WebView escala el texto (`textZoom`). Verificar que nada se corte ni se encime, sobre todo en encabezados de tabla y en la barra inferior. Otra opción: fijar `textZoom` y respetar el tamaño con `rem`. |
 | A4 | Contraste | Ya en AA (#1602). Revisar la pantalla sin conexión nueva (B6) y la splash. |
-| A5 | Modo oscuro del sistema | Si la app no tiene tema oscuro, evitar que el WebView aplique *force dark* (`algorithmicDarkening` apagado), porque desfigura los colores. |
+| A5 ✅ | Modo oscuro del sistema | Probado en el emulador con el modo oscuro del sistema: la app se queda clara, sin oscurecimiento forzado (con target 33+ el WebView ya no lo aplica por omisión y la web no declara `color-scheme`). | — |
 | A6 | Movimiento reducido | Ya respetado en web (`desplazamiento()`). Confirmar que Android pasa «Quitar animaciones» al WebView como `prefers-reduced-motion`. |
-| A7 | Botón Atrás y gesto predictivo | Con target 36 el gesto Atrás predictivo viene activo. Probar que `AndroidBackButton` cierre hojas y menús antes de salir y que nunca saque de la app a media tarea. |
+| A7 ◐ | Botón Atrás y gesto predictivo | Paso 4, en el emulador: la tecla Atrás la atiende la app («Presiona de nuevo para salir»), así que el plugin `App` sigue vivo con R8. Falta 👤 probar el gesto predictivo y el cierre de hojas y menús en un celular (paso 6). | — |
 
 ---
 
@@ -342,9 +342,9 @@ Umbrales de Play: si la app los pasa, pierde visibilidad y muestra advertencias.
 | O3 | Errores de JavaScript | Play vitals solo ve fallos **nativos**. Un error de React deja pantalla en blanco sin que nadie se entere. Agregar un `ErrorBoundary` raíz con «Algo salió mal · Reintentar» y un registro mínimo de errores (colección `erroresCliente` con límite de escritura, o un servicio con plan gratis). |
 | O4 | Memoria | El WebView se reinicia si consume mucho: listas largas (alumnos, entregas), imágenes de Cloudinary sin tamaño (`f_auto,q_auto,w_…`). |
 | O5 | Sin conexión | B6 cubre el arranque. Durante el uso: aviso «Sin conexión, los cambios se guardarán al volver». Firestore ya hace cola offline; verificar que la caché persistente esté activa. |
-| O6 | Páginas de 16 KB | Obligatorio para apps con target 35+ que traen librerías nativas. Capacitor no trae `.so` propios, pero hay que verificarlo en el AAB final (`zipalign -c -P 16`, o el análisis de Play Console). |
-| O7 | Edge-to-edge | Con target 35+ es obligatorio. `SafeArea` y `SystemBars` ya están. Probar con navegación por gestos y por botones que nada quede debajo de las barras. |
-| O8 | Versionado | Subir `versionCode` en cada AAB (hoy es 15, `1.0.14`). Agregar al script de build un aviso si `versionCode` no cambió. |
+| O6 ✅ | Páginas de 16 KB | El APK sí trae librerías nativas: `libdatastore_shared_counter.so` (androidx) para 4 ABIs. Todas tienen segmentos LOAD alineados a 16 384, y la app corre en un emulador Android 17 con páginas de 16 KB. | — |
+| O7 ◐ | Edge-to-edge | En el emulador (Android 17, navegación por gestos) el contenido respeta la barra de estado y la de gestos. Falta probar en un celular con navegación de 3 botones (paso 6). | — |
+| O8 ✅ | Versionado | Paso 4: `versionCode` 16, `versionName` 1.0.15. AAB y mapping en `~/evaluafacil-android/evalua-facil-v1.0.15-vc16-*`. En cada AAB nuevo se sube el número. | — |
 
 ---
 
@@ -375,7 +375,7 @@ Umbrales de Play: si la app los pasa, pierde visibilidad y muestra advertencias.
 | **1. PR «política»** ✅ | B1 (opción a), B4, B5, B6 (pantalla sin conexión) y textos de B7 | 🛠 | Hecho |
 | **2. PR «IA responsable»** ✅ | B2 (reportar, colección, reglas, admin) y B3 (aviso y documento de datos) | 🛠 | Hecho; falta desplegar las reglas |
 | **3. PR «seguridad web»** ✅ | S2 (HSTS + CSP solo reporte), S5, S6, S7, S10 | 🛠 | Hecho; S5 es tuyo en consola |
-| **4. PR «Android»** | S1, S4, A5, A7, O6–O8 y un AAB nuevo (`versionCode` 16) | 🛠 | 1 sesión; necesita el keystore |
+| **4. PR «Android»** ✅ | S1, S4, A5, A7, O6–O8 y un AAB nuevo (`versionCode` 16) | 🛠 | 1 sesión; necesita el keystore |
 | **5. App Check** | S3, primero en modo métricas y una semana después obligatorio | 🛠 + 👤 en consola | En dos tiempos |
 | **6. Celular** | A1–A3 y O1, con TalkBack y fuente al 200 % | 👤 prueba + 🛠 corrige | 1–2 sesiones |
 | **7. Consola** | P1–P13, subir el AAB a prueba interna y luego a la cerrada | 👤 | Los 14 días corren aquí |

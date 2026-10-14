@@ -12,10 +12,13 @@
 #   public *;
 #}
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Números de línea en los fallos que reporta Play Console (Android vitals),
+# sin el nombre real del archivo. Play los traduce con el mapping.txt que
+# se sube junto con el AAB.
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# @capacitor-firebase/authentication trae manejadores para todos los
+# proveedores, pero solo usamos Google (capacitor.config.json → providers).
+# El SDK de Facebook no está instalado: sus clases faltan a propósito.
+-dontwarn com.facebook.**
