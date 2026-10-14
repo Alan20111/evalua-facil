@@ -36,7 +36,7 @@ export function EsqueletoTableroDocente({ filas = 4 }) {
       <SkeletonLine data-esq="dash-doc-titulo" texto="text-lg font-semibold" className="w-44 mb-2" />
       <div data-esq="dash-doc-lista" className="space-y-2 mb-4">
         {Array.from({ length: filas }, (_, i) => (
-          <div key={i} data-esq="dash-doc-fila" className="w-full bg-surface-card rounded-card p-1.5 shadow-card flex items-center gap-1">
+          <div key={i} data-esq="dash-doc-fila" className="w-full bg-surface-card rounded-full py-1.5 pl-6 pr-4 shadow-card flex items-center gap-1">
             <Reordenar />
             <div className="flex-1 min-w-0 flex items-center gap-2">
               <Skeleton data-esq="dash-doc-icono" className="w-11 h-11 rounded-full flex-shrink-0" />

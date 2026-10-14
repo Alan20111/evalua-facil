@@ -371,12 +371,15 @@ export default function TeacherDashboard() {
               </div>
             ) : (
               <div data-esq="dash-doc-lista" className="space-y-2 mb-4 cascada">
+                {/* Fila en píldora, como «Nueva asignatura» de abajo. pl-6 pone
+                    las flechas en el centro de la curva: así quedan a la misma
+                    distancia del borde redondo que de arriba y abajo (py-1.5). */}
                 {displaySubjects.map((s, i) => (
                   <div data-esq="dash-doc-fila"
                     key={s.id}
                     ref={(el) => { dragCardRefs.current[i] = el }}
                     {...subjectPaletteProps(s.colorPalette)}
-                    className={`w-full bg-surface-card rounded-card p-1.5 shadow-card hover:shadow-card-hover hover:bg-[var(--accent-tint)] transition flex items-center gap-1 ${dragIndex === i ? 'opacity-60 shadow-lg' : ''}`}
+                    className={`w-full bg-surface-card rounded-full py-1.5 pl-6 pr-4 shadow-card hover:shadow-card-hover hover:bg-[var(--accent-tint)] transition flex items-center gap-1 ${dragIndex === i ? 'opacity-60 shadow-lg' : ''}`}
                   >
                     {/* Reordenar: flechas en la web, arrastrar en la App
                         (pedido explícito — antes no había forma de
@@ -404,7 +407,7 @@ export default function TeacherDashboard() {
                     <button
                       type="button"
                       onClick={() => navigate(`/subject/${s.id}`)}
-                      className="group flex-1 min-w-0 text-left flex items-center gap-2 pr-3 rounded-card focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                      className="group flex-1 min-w-0 text-left flex items-center gap-2 pr-3 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     >
                       <div data-esq="dash-doc-icono" className="w-11 h-11 rounded-full bg-accent-light flex items-center justify-center flex-shrink-0">
                         <SubjectIcon iconKey={s.icon} size={ICONO.md} className="text-accent" />
