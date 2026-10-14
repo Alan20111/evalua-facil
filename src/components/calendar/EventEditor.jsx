@@ -5,11 +5,11 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../Toast'
 import EFDateTimePicker from '../EFDateTimePicker'
 import Select from '../ui/Select'
-import { Trash2, Copy } from 'lucide-react'
+import { Trash2, Copy, Plus } from 'lucide-react'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { refreshTeacherReminders } from '../../utils/localReminders'
 import { subjectDisplayName } from '../../utils/subjectName'
-import { Input, Button, IconButton, Modal, MotivoApagado, Tabs, Textarea } from '../ui'
+import { Input, Button, Disclosure, IconButton, Modal, MotivoApagado, Tabs, Textarea } from '../ui'
 
 export const EVENT_COLORS = [
   { id: 'slate',  bg: '#f1f5f9', text: '#475569', label: 'Gris' },
@@ -198,48 +198,30 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
     }
   }
 
-  return (
-    <Modal open onClose={onClose} variant="centered" size="sm" busy={saving} title={isNew ? 'Nuevo evento' : 'Editar evento'}>
-        <form onSubmit={handleSave} className="space-y-3">
-          {/* Color: lo elegido es el aro con separación (PLAN_NORMALIZACION_UI
-              §5.1); la bolita ya no crece, así nada se mueve ni se recorta. */}
-          <fieldset className="grid grid-cols-7 gap-1 justify-items-center p-1">
-            <legend className="sr-only">Color del evento</legend>
-            {EVENT_COLORS.map(c => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => setColor(c.id)}
-                aria-pressed={color === c.id}
-                className={`size-control-sm rounded-full border border-outline-variant transition ${color === c.id ? 'ring-2 ring-offset-2 ring-slate-400' : 'hover:scale-105'}`}
-                style={{ background: c.bg }}
-                data-tooltip={c.label}
-                aria-label={c.label}
-              />
-            ))}
-          </fieldset>
+  // Misma hoja que «Nueva asignatura» (oct-2026): lo que define el evento
+  // arriba (tipo, título, cuándo), lo opcional plegado, el color al final y un
+  // solo botón grande fijo en el pie.
+  const tieneDetalles = !!(contenido.descripcion || contenido.notas)
 
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-muted">Tipo de evento</p>
-            <Tabs
-              label="Tipo de evento"
-              value={tipo}
-              onChange={setTipo}
-              options={[{ value: 'personal', label: 'Personal' }, { value: 'academico', label: 'Académico' }]}
+  return (
+    <Modal open onClose={onClose} variant="sheet" size="md" busy={saving} title={isNew ? 'Nuevo evento' : 'Editar evento'}>
+        <form onSubmit={handleSave} className="space-y-3">
+          <Tabs
+            label="Tipo de evento"
+            value={tipo}
+            onChange={setTipo}
+            options={[{ value: 'personal', label: 'Personal' }, { value: 'academico', label: 'Académico' }]}
+          />
+          {tipo === 'academico' && (
+            <Select
+              id="event-asignatura"
+              label="Asignatura"
+              hint="Sus estudiantes lo verán en su Agenda."
+              value={contenido.asignaturaId}
+              onChange={(v) => patchContenido({ asignaturaId: v })}
+              options={[{ value: '', label: 'Elige una asignatura…' }, ...subjects.map(s => ({ value: s.id, label: subjectDisplayName(s) }))]}
             />
-            {tipo === 'academico' && (
-              <>
-                <p className="text-sm text-muted">Los estudiantes de esta asignatura lo verán en su Agenda.</p>
-                <Select
-                  id="event-asignatura"
-                  label="Asignatura"
-                  value={contenido.asignaturaId}
-                  onChange={(v) => patchContenido({ asignaturaId: v })}
-                  options={subjects.map(s => ({ value: s.id, label: subjectDisplayName(s) }))}
-                />
-              </>
-            )}
-          </div>
+          )}
 
           <Input
             label="Título"
@@ -256,51 +238,76 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
             required
           />
 
-          <Textarea
-            label="Descripción"
-            id="event-descripcion"
-            optional
-            value={contenido.descripcion}
-            onChange={e => patchContenido({ descripcion: e.target.value })}
-            rows={2}
-          />
-
-          <Textarea
-            label="Notas"
-            id="event-notas"
-            optional
-            value={contenido.notas}
-            onChange={e => patchContenido({ notas: e.target.value })}
-            rows={3}
-          />
-
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-muted">Inicio</p>
-            <EFDateTimePicker
-              mode="datetime"
-              value={fechas.inicio}
-              onChange={v => setFechas(f => ({ ...f, inicio: v, fin: f.fin && f.fin < v ? v : f.fin }))}
-              etiqueta="Fecha y hora de inicio"
-              clearable={false}
-            />
+          {/* Uno sobre otro: lado a lado, la fecha larga con hora se recortaba. */}
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted">Inicio</p>
+              <EFDateTimePicker
+                mode="datetime"
+                value={fechas.inicio}
+                onChange={v => setFechas(f => ({ ...f, inicio: v, fin: f.fin && f.fin < v ? v : f.fin }))}
+                etiqueta="Fecha y hora de inicio"
+                clearable={false}
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted">Fin <span className="font-normal text-hint">(opcional)</span></p>
+              <EFDateTimePicker
+                mode="datetime"
+                value={fechas.fin}
+                onChange={v => setFechas(f => ({ ...f, fin: v }))}
+                etiqueta="Fecha y hora de fin (opcional)"
+                clearable
+              />
+            </div>
           </div>
 
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-muted">Fin <span className="font-normal text-hint">(opcional)</span></p>
-            <EFDateTimePicker
-              mode="datetime"
-              value={fechas.fin}
-              onChange={v => setFechas(f => ({ ...f, fin: v }))}
-              etiqueta="Fecha y hora de fin (opcional)"
-              clearable
+          {/* Descripción y notas son opcionales: plegadas, salvo que ya traigan algo. */}
+          <Disclosure summary="Descripción y notas" defaultOpen={tieneDetalles} panelClassName="space-y-3 pt-2">
+            <Textarea
+              label="Descripción"
+              id="event-descripcion"
+              optional
+              value={contenido.descripcion}
+              onChange={e => patchContenido({ descripcion: e.target.value })}
+              rows={2}
             />
-          </div>
+            <Textarea
+              label="Notas"
+              id="event-notas"
+              optional
+              value={contenido.notas}
+              onChange={e => patchContenido({ notas: e.target.value })}
+              rows={2}
+            />
+          </Disclosure>
 
+          {/* Color: lo elegido es el aro con separación (PLAN_NORMALIZACION_UI
+              §5.1); la bolita ya no crece, así nada se mueve ni se recorta. */}
+          <fieldset>
+            <legend className="block text-sm font-medium text-muted mb-2">Color</legend>
+            <div className="flex flex-wrap gap-2 p-1">
+              {EVENT_COLORS.map(c => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setColor(c.id)}
+                  aria-pressed={color === c.id}
+                  className={`size-control-sm rounded-full border border-outline-variant transition ${color === c.id ? 'ring-2 ring-offset-2 ring-slate-400' : 'hover:scale-105'}`}
+                  style={{ background: c.bg }}
+                  data-tooltip={c.label}
+                  aria-label={c.label}
+                />
+              ))}
+            </div>
+          </fieldset>
+
+          {/* pie-hoja: el botón se queda fijo abajo mientras se llena el formulario. */}
           <div className="pie-hoja">
             <div className="flex gap-2">
               {!isNew && (
                 confirmDelete ? (
-                  <Button variant="danger" onClick={handleDelete} busy={saving}>
+                  <Button variant="danger" size="lg" onClick={handleDelete} busy={saving}>
                     Confirmar eliminación
                   </Button>
                 ) : (
@@ -310,7 +317,8 @@ export default function EventEditor({ event, defaultDate, subjects = [], onClose
               {!isNew && !confirmDelete && (
                 <IconButton icon={Copy} label="Duplicar" onClick={handleDuplicate} disabled={saving} />
               )}
-              <Button className="flex-1" type="submit" busy={saving} disabled={faltan.length > 0 || !eventChanged}>
+              <Button className="flex-1" size="lg" type="submit" icon={isNew ? Plus : undefined} iconEffect={isNew ? 'gira90' : undefined}
+                busy={saving} disabled={faltan.length > 0 || !eventChanged}>
                 {isNew ? 'Crear evento' : 'Guardar cambios'}
               </Button>
             </div>
