@@ -16,6 +16,7 @@ import { useState } from 'react'
 import { Sparkles } from 'lucide-react'
 import useCreditosIA from '../hooks/useCreditosIA'
 import ComprarCreditosModal from './ComprarCreditosModal'
+import { PUEDE_COMPRAR } from '../utils/platform'
 import { Button, Modal } from './ui'
 import { ICONO } from '../config/iconos'
 
@@ -60,7 +61,9 @@ export default function CreditosPanel({ onCerrar }) {
         </div>
 
         <p className="text-sm text-muted mb-4">
-          Tus créditos NUNCA caducan ni se resetean — el saldo solo cambia cuando compras más o usas una función de IA.
+          {PUEDE_COMPRAR
+            ? 'Tus créditos NUNCA caducan ni se resetean — el saldo solo cambia cuando compras más o usas una función de IA.'
+            : 'Tus créditos NUNCA caducan ni se resetean — el saldo solo baja cuando usas una función de IA.'}
         </p>
 
         {/* Agotamiento: se suspenden IA, Asistencia y el bonus de descarga de
@@ -71,18 +74,24 @@ export default function CreditosPanel({ onCerrar }) {
             <p className="font-medium text-on-surface mb-1">Te quedaste sin créditos de IA.</p>
             <p className="text-muted">
               Todas las funciones de Evalúa Fácil son totalmente gratuitas, excepto las de IA.{' '}
-              {c.mostrarCTAActivarBienvenida
-                ? 'Adquiere créditos para usar las funciones de IA, o disfruta de tus 30 créditos de IA de regalo activándolos para que conozcas como funciona la IA en Evalúa Fácil.'
-                : 'Adquiere créditos para usar las funciones de IA.'}
+              {PUEDE_COMPRAR
+                ? (c.mostrarCTAActivarBienvenida
+                  ? 'Adquiere créditos para usar las funciones de IA, o disfruta de tus 30 créditos de IA de regalo activándolos para que conozcas como funciona la IA en Evalúa Fácil.'
+                  : 'Adquiere créditos para usar las funciones de IA.')
+                : (c.mostrarCTAActivarBienvenida
+                  ? 'Activa tus 30 créditos de IA de regalo para que conozcas cómo funciona la IA en Evalúa Fácil.'
+                  : '')}
             </p>
-            <Button className="mt-2" onClick={() => setComprarAbierto(true)}>
-              Comprar créditos
-            </Button>
+            {PUEDE_COMPRAR && (
+              <Button className="mt-2" onClick={() => setComprarAbierto(true)}>
+                Comprar créditos
+              </Button>
+            )}
           </div>
         )}
 
         {/* Comprar créditos — siempre disponible, no solo agotado */}
-        {!agotado && (
+        {!agotado && PUEDE_COMPRAR && (
           <Button variant="secondary" fullWidth className="mb-4" onClick={() => setComprarAbierto(true)}>
             Comprar más créditos
           </Button>
@@ -103,7 +112,7 @@ export default function CreditosPanel({ onCerrar }) {
           </ul>
         )}
       </Modal>
-      <ComprarCreditosModal open={comprarAbierto} onClose={() => setComprarAbierto(false)} />
+      {PUEDE_COMPRAR && <ComprarCreditosModal open={comprarAbierto} onClose={() => setComprarAbierto(false)} />}
     </>
   )
 }

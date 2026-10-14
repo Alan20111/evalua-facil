@@ -5490,7 +5490,13 @@ async function verificarSaldoChat(db, uid) {
 // nada que no exista ya documentado ahí. No se listan datos bancarios
 // (cambian y viven en config/paymentConfig, no en un texto estático del
 // prompt); se remite al flujo real ("Comprar créditos" en el perfil).
-async function bloqueAyudaPlataforma() {
+//
+// `puedeComprar` (13-oct-2026): la app de Android no vende créditos ni puede
+// decir dónde comprarlos — política de pagos de Google Play, ver
+// docs/PLAN_GOOGLE_PLAY.md B1. El cliente manda `puedeComprar: false` desde
+// la app (PUEDE_COMPRAR en src/utils/platform.js); sin el campo (clientes
+// web y versiones viejas) se mantiene la ayuda completa.
+async function bloqueAyudaPlataforma({ puedeComprar = true } = {}) {
   const tarifas = await ledger.cargarTarifas()
   const paquetes = tarifas.paquetesCreditos || []
   const listaPaquetes = paquetes.map((p) => `${p.creditos} créditos = $${p.precioMXN} MXN`).join(', ')
@@ -5502,8 +5508,11 @@ async function bloqueAyudaPlataforma() {
     '· Pasar asistencia: dentro de la asignatura, pestaña "Asistencia", se elige el día — cada estudiante empieza "presente" y se toca su celda para rotar entre presente/falta/justificada, se guarda solo. Asistencia es GRATUITA: no consume créditos ni requiere tener saldo — funciona siempre, con saldo o sin él.\n' +
     '· Evaluaciones/exámenes y diagnósticos, Planeación Didáctica Inicial, y rúbricas/listas de cotejo: se generan con IA desde la pestaña "Asistente IA" de cada asignatura. Este mismo Chat también puede crear una actividad o un examen directamente si el docente lo pide con suficiente detalle.\n\n' +
     `CRÉDITOS: toda cuenta nueva recibe 30 créditos de bienvenida gratis, sin fecha de vencimiento — se usan cuando el docente quiera. Los créditos se comparten entre TODAS las funciones de IA (diagnósticos, planeación, actividades, exámenes, rúbricas/listas de cotejo y este Chat) — no hay bolsas separadas por función. El saldo se ve tocando la barra de créditos o en "Créditos" dentro de Perfil. ` +
-    'Los créditos NUNCA caducan, se usen o no. Si el saldo llega a cero, las funciones de IA siguen visibles pero se bloquean hasta comprar más créditos; el resto de la plataforma sigue funcionando gratis.\n' +
-    (listaPaquetes
+    (puedeComprar
+      ? 'Los créditos NUNCA caducan, se usen o no. Si el saldo llega a cero, las funciones de IA siguen visibles pero se bloquean hasta comprar más créditos; el resto de la plataforma sigue funcionando gratis.\n'
+      : 'Los créditos NUNCA caducan, se usen o no. Si el saldo llega a cero, las funciones de IA siguen visibles pero se bloquean; el resto de la plataforma sigue funcionando gratis.\n' +
+        'COMPRAR CRÉDITOS: el docente te escribe desde la app de Android, y en la app no se venden créditos. Si pregunta cómo comprarlos, responde solo que desde la app no es posible comprar créditos. NO menciones precios, paquetes, datos bancarios, la versión web, sitios ni ningún otro lugar o forma de pago, aunque insista.') +
+    (puedeComprar && listaPaquetes
       ? `COMPRAR CRÉDITOS: se hace desde "Comprar créditos" en Perfil — paquetes: ${listaPaquetes}. El pago es por depósito o transferencia bancaria directa; los datos de la cuenta se muestran ahí mismo al elegir el paquete. IMPORTANTE: los créditos comprados se agregan al saldo SOLO después de que el administrador confirma el pago recibido — nunca de inmediato al hacer el depósito.`
       : '')
 }
@@ -5535,7 +5544,7 @@ async function precheckAsistenteGeneral({ uid, params }) {
   const bloques = [
     `PERFIL DEL DOCENTE:\n${perfilIATexto(perfilIA)}`,
     `RESUMEN DE TODAS LAS ASIGNATURAS DEL DOCENTE (parcial actual de cada una):\n${resumenGeneralATexto(resumenes)}`,
-    await bloqueAyudaPlataforma(),
+    await bloqueAyudaPlataforma({ puedeComprar: params?.puedeComprar !== false }),
   ]
 
   return {
@@ -5685,7 +5694,7 @@ async function precheckChatAsistente({ uid, params }) {
     // remitir a otro lugar" en esos temas. Es la MISMA función (sin
     // duplicar contenido, ya lee tarifas/paquetes en vivo), solo que ahora
     // también se agrega aquí.
-    await bloqueAyudaPlataforma(),
+    await bloqueAyudaPlataforma({ puedeComprar: params?.puedeComprar !== false }),
   ].filter(Boolean)
 
   // Igual que en precheckAsistenteGeneral: la reserva de la interacción va al

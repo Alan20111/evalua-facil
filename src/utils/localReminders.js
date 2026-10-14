@@ -122,7 +122,13 @@ async function scheduleUpcoming(category, items, anticipacionMinutos) {
         id: idFor(category, `${item.id}:${min}:${item.start.getTime()}`),
         title: item.title,
         body: `${anticipacionLabel(min)}${item.subtitle ? ` — ${item.subtitle}` : ''}`,
-        schedule: { at: new Date(item.start.getTime() - min * 60_000) },
+        // allowWhileIdle: con el acceso «Alarmas y recordatorios» el plugin
+        // usa setExactAndAllowWhileIdle; SIN él (Android 14 lo niega por
+        // omisión en instalaciones nuevas) cae a setAndAllowWhileIdle, que
+        // despierta al teléfono en Doze. Sin esta bandera caía a set(RTC),
+        // que no lo despierta: ese fue el aviso que no llegó ni 30 min
+        // después (ver AndroidManifest.xml).
+        schedule: { at: new Date(item.start.getTime() - min * 60_000), allowWhileIdle: true },
         // Se guarda de vuelta al registrar la entrega (registerDeliveredReminders)
         // para que la Bitácora muestre fecha/hora/anticipación/nombre/grupo por
         // separado, no solo el texto ya armado del body.

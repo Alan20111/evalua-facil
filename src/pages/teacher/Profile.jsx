@@ -26,7 +26,7 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
-import { IS_NATIVE_APP } from '../../utils/platform'
+import { IS_NATIVE_APP, PUEDE_COMPRAR } from '../../utils/platform'
 import { errorCodigoPostal, soloDigitosCP } from '../../utils/codigoPostal'
 import { useUbicacionCP } from '../../data/useCodigoPostal'
 import CodigoPostalField from '../../components/CodigoPostalField'
@@ -535,16 +535,18 @@ export default function Profile() {
                   Activar mis 30 créditos de regalo
                 </Button>
               )}
-              <Button
-                variant={creditosIA.mostrarCTAActivarBienvenida ? 'secondary' : 'primary'}
-                fullWidth
-                icon={Sparkles}
-                iconEffect="destello"
-                className="mt-2"
-                onClick={() => setShowComprarCreditos(true)}
-              >
-                Comprar créditos
-              </Button>
+              {PUEDE_COMPRAR && (
+                <Button
+                  variant={creditosIA.mostrarCTAActivarBienvenida ? 'secondary' : 'primary'}
+                  fullWidth
+                  icon={Sparkles}
+                  iconEffect="destello"
+                  className="mt-2"
+                  onClick={() => setShowComprarCreditos(true)}
+                >
+                  Comprar créditos
+                </Button>
+              )}
             </div>
           </>)}
           {seccion === 'ajustes' && (<>
@@ -573,7 +575,7 @@ export default function Profile() {
           </>)}
         </div>
 
-        <ComprarCreditosModal open={showComprarCreditos} onClose={() => setShowComprarCreditos(false)} />
+        {PUEDE_COMPRAR && <ComprarCreditosModal open={showComprarCreditos} onClose={() => setShowComprarCreditos(false)} />}
         <ActivarCreditosModal open={showActivarCreditos} onClose={() => setShowActivarCreditos(false)} />
 
         {cropFile && (

@@ -29,6 +29,7 @@ import useCreditosIA from '../../hooks/useCreditosIA'
 import { useToast } from '../Toast'
 import Spinner from '../Spinner'
 import ComprarCreditosModal from '../ComprarCreditosModal'
+import { PUEDE_COMPRAR } from '../../utils/platform'
 import ActivarCreditosModal from '../ActivarCreditosModal'
 import { esCotejo, totalRubrica, RUBRICA_TOTAL } from '../../utils/rubrica'
 import { normalizeFileTypeKeys } from '../../config/fileTypes'
@@ -244,7 +245,9 @@ export default function CalificarConIAModal({
             <p className="text-sm font-medium text-on-surface mb-1">No tienes suficientes créditos para esta acción.</p>
             <p className="text-sm text-muted mb-4">
               Esta acción requiere {costo} crédito{costo !== 1 ? 's' : ''} y tienes {c.saldo} disponibles.
-              {c.mostrarCTAActivarBienvenida && ' Puedes comprar créditos o activar tus créditos de regalo.'}
+              {c.mostrarCTAActivarBienvenida && (PUEDE_COMPRAR
+                ? ' Puedes comprar créditos o activar tus créditos de regalo.'
+                : ' Puedes activar tus créditos de regalo.')}
             </p>
             <div className="flex flex-wrap justify-end gap-2">
               <Button variant="quiet" onClick={cerrarTodo}>
@@ -255,9 +258,11 @@ export default function CalificarConIAModal({
                   Activar créditos de regalo
                 </Button>
               )}
-              <Button onClick={() => setComprarAbierto(true)}>
-                Comprar créditos
-              </Button>
+              {PUEDE_COMPRAR && (
+                <Button onClick={() => setComprarAbierto(true)}>
+                  Comprar créditos
+                </Button>
+              )}
             </div>
           </>
         )
@@ -419,7 +424,7 @@ export default function CalificarConIAModal({
         </>
       )}
 
-      <ComprarCreditosModal open={comprarAbierto} onClose={() => setComprarAbierto(false)} />
+      {PUEDE_COMPRAR && <ComprarCreditosModal open={comprarAbierto} onClose={() => setComprarAbierto(false)} />}
       <ActivarCreditosModal open={activarAbierto} onClose={() => setActivarAbierto(false)} />
     </Marco>
   )

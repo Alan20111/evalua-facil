@@ -19,6 +19,7 @@ import useCreditosIA from '../hooks/useCreditosIA'
 import CreditosPanel from './CreditosPanel'
 import ActivarCreditosModal from './ActivarCreditosModal'
 import { ICONO } from '../config/iconos'
+import { PUEDE_COMPRAR } from '../utils/platform'
 
 const UMBRALES = [10, 3, 0] // créditos restantes
 
@@ -50,9 +51,13 @@ export default function CreditosBar({ variant = 'sidebar' }) {
     localStorage.setItem(llave, '1')
     if (u === 0) {
       // El mensaje completo de agotamiento vive en el panel; el toast solo avisa.
-      toast('Te quedaste sin créditos de IA. El resto de Evalúa Fácil sigue disponible; compra más créditos para seguir usando la IA.')
+      toast(PUEDE_COMPRAR
+        ? 'Te quedaste sin créditos de IA. El resto de Evalúa Fácil sigue disponible; compra más créditos para seguir usando la IA.'
+        : 'Te quedaste sin créditos de IA. El resto de Evalúa Fácil sigue disponible.')
     } else if (u === 3) {
-      toast(`Te quedan ${c.saldo} créditos de IA. Considera comprar más para no quedarte sin ellos.`)
+      toast(PUEDE_COMPRAR
+        ? `Te quedan ${c.saldo} créditos de IA. Considera comprar más para no quedarte sin ellos.`
+        : `Te quedan ${c.saldo} créditos de IA.`)
     } else {
       toast(`Te quedan ${c.saldo} créditos de IA.`)
     }

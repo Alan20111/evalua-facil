@@ -5,13 +5,9 @@
   "server": {
     "url": "https://evalua-facil.vercel.app",
     "allowNavigation": [
-      "evalua-facil.vercel.app",
-      "*.mercadopago.com",
-      "*.mercadopago.com.mx",
-      "*.mercadolibre.com",
-      "*.mercadolibre.com.mx",
-      "*.mlstatic.com"
-    ]
+      "evalua-facil.vercel.app"
+    ],
+    "errorPath": "offline.html"
   },
   "plugins": {
     "SplashScreen": {

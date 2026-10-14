@@ -162,7 +162,12 @@ export default function Privacidad() {
             cualquiera de estos derechos, escríbenos a{' '}
             <span className="font-semibold text-on-surface">{CONTACTO}</span>. También
             puedes eliminar tu cuenta desde la aplicación; al hacerlo se eliminan los datos
-            asociados que no debamos conservar por ley.
+            asociados que no debamos conservar por ley. Los pasos, y cómo pedirlo si ya no
+            puedes entrar, están en{' '}
+            <Link to="/eliminar-cuenta" className="font-semibold text-accent hover:underline">
+              Eliminar tu cuenta
+            </Link>
+            .
           </p>
         </Seccion>
 
