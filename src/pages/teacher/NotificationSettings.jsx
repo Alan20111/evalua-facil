@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
-import Spinner from '../../components/Spinner'
-import { Settings, FileCheck2, Clock, CalendarDays, UserCheck, Bell, ChevronDown, Check, X } from 'lucide-react'
+import { FileCheck2, Clock, CalendarDays, UserCheck, Bell, ChevronDown, Check, X, History } from 'lucide-react'
 import NotificationLog from '../../components/NotificationLog'
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { refreshTeacherReminders, requestExactAlarmAccess } from '../../utils/localReminders'
@@ -13,7 +13,7 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
 import { formatHora12 } from '../../utils/formatHora'
 import InfoDisclosure from '../../components/ui/InfoDisclosure'
-import { Button, IconTile, SkeletonForm, Switch, Modal } from '../../components/ui'
+import { Button, IconTile, Skeleton, SkeletonLine, Switch, Modal, Tabs } from '../../components/ui'
 import { ICONO } from '../../config/iconos'
 
 // Colección `notificationSettings/{uid}` (misma colección que usan los
@@ -61,6 +61,15 @@ function normalizeAnticipacion(v) {
   return [10]
 }
 
+// Tres pestañas, con la misma jerarquía que el Perfil (oct-2026): lo que
+// llega por push, lo que el teléfono te recuerda, y lo que ya llegó. Viven en
+// la URL (?seccion=), así un enlace a /notificaciones abre en «Avisos».
+const SECCIONES = [
+  { value: 'avisos', label: 'Avisos', icon: Bell },
+  { value: 'recordatorios', label: 'Recordatorios', icon: Clock },
+  { value: 'bitacora', label: 'Bitácora', icon: History },
+]
+
 const DEFAULTS = {
   nuevasEntregas: { habilitado: true },
   activacionEstudiante: { habilitado: true },
@@ -72,28 +81,32 @@ const CATEGORIAS = [
   {
     key: 'nuevasEntregas',
     label: 'Nuevas entregas',
-    description: 'Cuando un estudiante entrega una actividad que marcaste para notificarte (activa esa opción al editar cada actividad)',
+    description: 'De las actividades que marques con «Notificarme».',
     icon: FileCheck2,
+    seccion: 'avisos',
   },
   {
     key: 'activacionEstudiante',
     label: 'Estudiante activado',
-    description: 'Cuando un estudiante se activa en una asignatura que marcaste para notificarte (activa esa opción en la pestaña Estudiantes de la asignatura)',
+    description: 'En las asignaturas que marques con «Notificarme».',
     icon: UserCheck,
+    seccion: 'avisos',
   },
   {
     key: 'recordatorioClase',
     label: 'Antes de una clase',
-    description: 'Te avisa cuando esté por comenzar una clase de tu horario',
+    description: 'Según tu horario.',
     icon: Clock,
     anticipacion: true,
+    seccion: 'recordatorios',
   },
   {
     key: 'recordatorioEvento',
     label: 'Antes de un evento',
-    description: 'Te avisa cuando esté por comenzar un evento de tu calendario',
+    description: 'Según tu calendario.',
     icon: CalendarDays,
     anticipacion: true,
+    seccion: 'recordatorios',
   },
 ]
 
@@ -300,12 +313,14 @@ function describeEntry(e, navigate) {
 }
 
 export default function TeacherNotificationSettings() {
+  const [params, setParams] = useSearchParams()
+  const seccion = SECCIONES.some((x) => x.value === params.get('seccion')) ? params.get('seccion') : 'avisos'
+  const elegir = (sec) => setParams(sec === 'avisos' ? {} : { seccion: sec }, { replace: true })
   const { currentUser } = useAuth()
   const toast = useToast()
 
   const [settings, setSettings] = useState(DEFAULTS)
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const saveTimer = useRef(null)
   // Guardado pendiente (debounce de 400ms) — bug real reportado: si el
   // docente togglea un interruptor y sale de la pantalla ANTES de que se
@@ -356,98 +371,92 @@ export default function TeacherNotificationSettings() {
     // sistema sin que el docente acabe de pedirlo.
     if (seActiva) requestExactAlarmAccess()
     clearTimeout(saveTimer.current)
-    setSaving(true)
     pendingSaveRef.current = { uid: currentUser.uid, data: updated }
     saveTimer.current = setTimeout(() => {
       pendingSaveRef.current = null
       setDoc(doc(db, 'notificationSettings', currentUser.uid), { ...updated, updatedAt: serverTimestamp() }, { merge: true })
         .then(() => refreshTeacherReminders(currentUser.uid))
         .catch(() => toast('No se pudo guardar: intenta de nuevo', 'error'))
-        .finally(() => setSaving(false))
     }, 400)
   }
 
-  return (
-    <>
-      <div className={`px-4 py-4 space-y-4 ${TEACHER_CONTAINER_NARROW}`}>
-        <div className="flex items-center gap-2">
-          <h1 className="text-xl font-bold text-on-surface flex-1 min-w-0">Notificaciones</h1>
-          {saving && <Spinner size="sm" />}
-        </div>
-
-        {!IS_NATIVE_APP && (
-          <p className="text-sm text-muted -mt-2">
-            Estos avisos llegan como notificación push al celular donde tengas instalada la app Evalúa Fácil — no a este navegador.
-          </p>
+  function filaCategoria(cat) {
+    return (
+      <Toggle
+        key={cat.key}
+        checked={settings[cat.key].habilitado}
+        onChange={(v) => updateCategoria(cat.key, { ...settings[cat.key], habilitado: v })}
+        label={cat.label}
+        description={cat.description}
+        icon={cat.icon}
+      >
+        {cat.anticipacion && (
+          <div className="flex items-center justify-between gap-2 text-sm pl-12">
+            <span className="text-on-surface">Avisar</span>
+            <AnticipacionPicker
+              value={settings[cat.key].anticipacionMinutos}
+              onChange={(minutos) => updateCategoria(cat.key, { ...settings[cat.key], anticipacionMinutos: minutos })}
+            />
+          </div>
         )}
+      </Toggle>
+    )
+  }
 
-        {loading ? (
-          <SkeletonForm fields={4} className="py-6" />
-        ) : (
+  // Tarjeta de interruptores: mismo formato que las del Perfil. `nota` es una
+  // sola línea arriba (dónde llegan), nunca un párrafo.
+  function tarjeta(seccionActual, nota) {
+    return (
+      <div className="bg-surface-card rounded-card shadow-card p-4">
+        {nota && <p className="text-sm text-muted mb-3">{nota}</p>}
+        <div className="divide-y divide-outline-variant [&>*]:py-3 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
+          {CATEGORIAS.filter((c) => c.seccion === seccionActual).map(filaCategoria)}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className={`px-4 py-4 space-y-4 ${TEACHER_CONTAINER_NARROW}`}>
+      <h1 className="sr-only">Notificaciones</h1>
+      <Tabs options={SECCIONES} value={seccion} onChange={elegir} label="Secciones de notificaciones" />
+
+      <div key={seccion} role="tabpanel" className="space-y-4 animate-pagina motion-reduce:animate-none">
+        {seccion === 'bitacora' ? (
+          <NotificationLog uid={currentUser?.uid} describeEntry={describeEntry} plegable={false} />
+        ) : loading ? (
+          // Mismo armado que la tarjeta real: ícono, dos renglones e interruptor.
+          <div className="bg-surface-card rounded-card shadow-card p-4 divide-y divide-outline-variant [&>*]:py-3 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0" aria-busy="true" aria-label="Cargando tus notificaciones">
+            {[0, 1].map((i) => (
+              <div key={i} className="flex items-center gap-3">
+                <Skeleton className="size-9 rounded-full flex-shrink-0" />
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  <SkeletonLine texto="text-sm font-medium" className="w-32" />
+                  <SkeletonLine texto="text-xs" className="w-48" />
+                </div>
+                <Skeleton className="w-11 h-6 rounded-full flex-shrink-0" />
+              </div>
+            ))}
+          </div>
+        ) : seccion === 'avisos' ? (
           <>
-            {/* "Tus notificaciones" PRIMERO — orden natural de ajustes (lo
-                que el docente vino a configurar) antes que el historial.
-                Antes la Bitácora iba primero como workaround porque tocar el
-                globo de una notificación no llevaba de forma confiable a
-                verla; eso ya está resuelto (navigate a /notificaciones al
-                tocar, más el orden por disparadoEn — ver entryDate abajo),
-                así que ya no hace falta el workaround. */}
-            <div className="rounded-card overflow-hidden bg-surface-card shadow-card border border-accent-soft">
-              <div className="px-4 py-3 bg-accent-light border-b border-accent-soft flex items-center gap-2">
-                <Bell size={ICONO.md} className="text-accent flex-shrink-0" />
-                <h2 className="font-semibold text-accent-hover">Tus notificaciones</h2>
-              </div>
-              <div className="p-4 divide-y divide-outline-variant">
-                {CATEGORIAS.map((cat) => (
-                  <div key={cat.key} className={cat.key !== CATEGORIAS[0].key ? 'pt-3' : ''}>
-                    <Toggle
-                      checked={settings[cat.key].habilitado}
-                      onChange={(v) => updateCategoria(cat.key, { ...settings[cat.key], habilitado: v })}
-                      label={cat.label}
-                      description={cat.description}
-                      icon={cat.icon}
-                    >
-                      {cat.anticipacion && (
-                        <div className="flex items-center justify-between gap-2 text-sm">
-                          <span className="text-on-surface">Avisar</span>
-                          <AnticipacionPicker
-                            value={settings[cat.key].anticipacionMinutos}
-                            onChange={(minutos) => updateCategoria(cat.key, { ...settings[cat.key], anticipacionMinutos: minutos })}
-                          />
-                        </div>
-                      )}
-                    </Toggle>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <NotificationLog uid={currentUser?.uid} describeEntry={describeEntry} />
-
+            {tarjeta('avisos', IS_NATIVE_APP ? null : 'Llegan a tu celular con la app instalada.')}
             {/* Sonido, volumen y repetición los controla el teléfono, no la
-                app — aquí solo explicamos cómo activarlas ahí. */}
-            <div className="bg-surface-card rounded-card shadow-card border border-accent-soft p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Settings size={ICONO.sm} className="text-accent flex-shrink-0" />
-                <p className="text-sm font-semibold text-on-surface">Cómo activar las notificaciones en tu celular</p>
-              </div>
-              <InfoDisclosure label="Ver los pasos">
-              <p className="text-sm text-muted mb-2">
-                El sonido, el volumen y si se repiten los controla tu teléfono, igual que con cualquier otra app.
-                Para asegurarte de recibirlas:
-              </p>
-              <ol className="text-sm text-muted space-y-1.5 list-decimal list-inside">
-                <li>Abre los <strong>Ajustes</strong> de tu teléfono.</li>
-                <li>Busca <strong>Aplicaciones</strong> (o &quot;Apps&quot;) y selecciona <strong>Evalúa Fácil</strong>.</li>
-                <li>Entra a <strong>Notificaciones</strong> y actívalas.</li>
-                <li>Si tu teléfono te pregunta al abrir la app, elige <strong>Permitir</strong>.</li>
-              </ol>
+                app: aquí solo cómo permitirlas ahí. */}
+            <div className="bg-surface-card rounded-card shadow-card p-4">
+              <InfoDisclosure label="¿No te llegan?">
+                <ol className="text-sm text-muted space-y-1.5 list-decimal list-inside">
+                  <li>Ajustes del teléfono › <strong>Aplicaciones</strong> › <strong>Evalúa Fácil</strong>.</li>
+                  <li>Entra a <strong>Notificaciones</strong> y actívalas.</li>
+                  <li>Si la app te pregunta al abrirla, elige <strong>Permitir</strong>.</li>
+                </ol>
               </InfoDisclosure>
             </div>
           </>
+        ) : (
+          tarjeta('recordatorios', IS_NATIVE_APP ? null : 'Solo suenan en la app del celular.')
         )}
       </div>
-
-    </>
+    </div>
   )
 }
