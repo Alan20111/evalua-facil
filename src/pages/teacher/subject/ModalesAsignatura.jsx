@@ -2,7 +2,7 @@
 // dividir sin cambio visual). Recibe lo que usa del componente principal por
 // el contexto Asignatura.
 import { useId } from 'react'
-import { AlertTriangle, Archive, ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, Check as CheckIcon, ChevronRight, ClipboardCheck, Copy, Download, Eye, FileText, Gamepad2, GraduationCap, KeyRound, ListChecks, Lock, LogIn, MessageCircleQuestion, Paperclip, Pencil, Plus, RotateCcw, Sparkles, Trash2, Upload, UserPlus, X } from 'lucide-react'
+import { AlertTriangle, Archive, ArrowDown, ArrowLeft, ArrowRightLeft, ArrowUp, ArrowUpDown, Check as CheckIcon, ChevronRight, ClipboardCheck, Copy, Download, Eye, FileText, Gamepad2, GraduationCap, KeyRound, ListChecks, Lock, LogIn, MessageCircleQuestion, Paperclip, Pencil, Plus, RotateCcw, Sparkles, Trash2, Upload, UserPlus, X } from 'lucide-react'
 import { Button, Checkbox, IconButton, IconTile, Input, Modal, MotivoApagado, PanelFlotante, Radio, SkeletonList } from '../../../components/ui'
 import EFDateTimePicker from '../../../components/EFDateTimePicker'
 import FileDropzone from '../../../components/FileDropzone'
@@ -20,6 +20,7 @@ import SubjectIcon from '../../../components/SubjectIcon'
 import VisibilitySelect from '../../../components/VisibilitySelect'
 import { cuentaParaCalificacion, isDraftActivity } from '../../../utils/activityVisibility'
 import { esCopiable } from '../../../utils/copiaActividad'
+import { motivoNoSePuedeMover, parcialesDestino, planMoverActividad } from '../../../utils/moverActividadParcial'
 import { estadoParcial, ponderacionActivaEnParcial } from '../../../utils/ponderacion'
 import { formatFileSize } from '../../../utils/formatBytes'
 import { minDeadline } from '../../../utils/nowIso'
@@ -54,6 +55,83 @@ function BotonVolverMenu({ onClick }) {
     <Button variant="quiet" size="sm" icon={ArrowLeft} className="-ml-3 mb-2" onClick={onClick}>
       Volver
     </Button>
+  )
+}
+
+// Diálogo de «Mover a otro parcial»: elegir destino y confirmar en una sola pantalla.
+// La actividad conserva todo (entregas, calificaciones, peso, fechas) y queda como
+// BORRADOR en el parcial elegido; aquí se le dice al docente qué cambia por eso.
+function ModalMoverParcial() {
+  const { activities, applyMoverParcial, moverParcial, moving, setMoverParcial, subject } = useAsignatura()
+  const a = activities.find((x) => x.id === moverParcial.a.id) || moverParcial.a
+  const destinos = parcialesDestino(subject, a)
+  const destino = moverParcial.destino
+  const plan = destino ? planMoverActividad({ subject, activities, actividad: a, destino }) : null
+  const cerrar = () => { if (!moving) setMoverParcial(null) }
+  return (
+    <Modal open onClose={cerrar} variant="centered" padding="p-4" busy={moving} ariaLabel="Mover a otro parcial">
+      <h3 className="text-base font-semibold text-on-surface mb-1">Mover a otro parcial</h3>
+      <p className="text-sm text-muted mb-3">
+        &quot;<strong>{a.nombre || 'Sin nombre'}</strong>&quot; está en el Parcial {a.parcial}. ¿A qué parcial la quieres mover?
+      </p>
+      <div className="space-y-3 mb-3" role="radiogroup" aria-label="Parcial de destino">
+        {destinos.map((d) => (
+          <Radio key={d.parcial} name="parcialDestino" value={d.parcial} checked={destino === d.parcial}
+            onChange={() => setMoverParcial({ ...moverParcial, destino: d.parcial })} disabled={moving}
+            label={`Parcial ${d.parcial}`} hint={d.estado === 'atencion' ? 'En atención de inquietudes' : undefined} />
+        ))}
+      </div>
+      {plan && (
+        <div className="space-y-2 mb-3">
+          <p className="text-sm text-on-surface bg-surface-container rounded px-3 py-2">
+            {plan.yaEraBorrador
+              ? <>Ya es un borrador: seguirá siendo borrador en el Parcial {destino}.</>
+              : <>Quedará como <strong>borrador</strong> en el Parcial {destino}: tus estudiantes dejarán de verla y no contará en ningún promedio hasta que la publiques.</>}
+            {' '}Sus entregas y calificaciones se conservan, y reaparecen cuando la publiques.
+          </p>
+          {plan.renumeradas.length > 0 && (
+            <>
+              <p className="text-sm text-muted">En el Parcial {a.parcial}, estas actividades quedarán con otro número:</p>
+              <ul className="text-sm text-on-surface bg-surface-container rounded px-3 py-2 space-y-1">
+                {plan.renumeradas.map((c) => (
+                  <li key={c.id} className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-muted tabular-nums flex-shrink-0">{c.de}</span>
+                    <ChevronRight size={ICONO.xs} className="text-hint flex-shrink-0" />
+                    <span className="text-accent font-semibold tabular-nums flex-shrink-0">{c.hacia}</span>
+                    <span className="truncate">{c.nombre}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {plan.avisos.atencionOrigen && (
+            <p className="text-sm text-amber-700 bg-amber-50 rounded px-2 py-1.5 flex gap-1.5">
+              <AlertTriangle size={ICONO.xs} className="flex-shrink-0 mt-0.5" />
+              <span>El Parcial {a.parcial} está en atención de inquietudes: tus estudiantes ya ven sus resultados y cambiarán al quitar esta actividad.</span>
+            </p>
+          )}
+          {plan.avisos.peso != null && (
+            <p className="text-sm text-amber-700 bg-amber-50 rounded px-2 py-1.5 flex gap-1.5">
+              <AlertTriangle size={ICONO.xs} className="flex-shrink-0 mt-0.5" />
+              <span>
+                Tiene un peso de {plan.avisos.peso} en la ponderación y se conserva.
+                {plan.avisos.pesoEnOrigen && !plan.yaEraBorrador && ` En el Parcial ${a.parcial} dejará de sumar.`}
+                {plan.avisos.pesoEnDestino
+                  ? ` Sumará en el Parcial ${destino} cuando la publiques.`
+                  : ` El Parcial ${destino} no usa ponderación: ahí no tendrá efecto.`}
+                {' '}Revisa que los pesos de cada parcial ponderado sigan sumando 10.
+              </span>
+            </p>
+          )}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <Button variant="secondary" onClick={cerrar} disabled={moving} className="flex-1">Cancelar</Button>
+        <Button icon={ArrowRightLeft} busy={moving} className="flex-1" onClick={applyMoverParcial} disabled={moving || !destino}>
+          {moving ? 'Moviendo…' : 'Mover'}
+        </Button>
+      </div>
+    </Modal>
   )
 }
 
@@ -152,6 +230,7 @@ export default function ModalesAsignatura() {
     modalMode,
     modalParcial,
     moveConfirm,
+    moverParcial,
     moving,
     newStudent,
     openEdit,
@@ -165,6 +244,7 @@ export default function ModalesAsignatura() {
     requestCloseParcial,
     requestDeleteFromEdit,
     requestMoveActivity,
+    requestMoverParcial,
     requestResetFromEdit,
     resetPwdResult,
     resolveLinkCandidate,
@@ -549,6 +629,9 @@ export default function ModalesAsignatura() {
             </div>
           </Modal>
       )}
+
+      {/* ── Mover a otro parcial (la actividad queda como borrador allá) ── */}
+      {moverParcial && <ModalMoverParcial />}
 
       {/* ── Publish draft confirmation ── */}
       {publishDraftConfirm && (
@@ -955,6 +1038,15 @@ export default function ModalesAsignatura() {
               onClick={() => { const a = activityMenu.a; setActivityMenu(null); setDuplicateConfirm(a) }}
               className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-default">
               <Copy size={ICONO.sm} className="text-hint flex-shrink-0" /> Duplicar como borrador
+            </button>
+            {/* Mover a otro parcial: la actividad queda como borrador allá (ver
+                utils/moverActividadParcial.js). Sin destino válido, apagada con su motivo. */}
+            <button type="button"
+              disabled={!!motivoNoSePuedeMover(subject, activityMenu.a)}
+              data-tooltip={motivoNoSePuedeMover(subject, activityMenu.a) || undefined}
+              onClick={() => { const a = activityMenu.a; setActivityMenu(null); requestMoverParcial(a) }}
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-default">
+              <ArrowRightLeft size={ICONO.sm} className="text-hint flex-shrink-0" /> Mover a otro parcial
             </button>
             <button type="button"
               onClick={() => { const a = activityMenu.a; setActivityMenu(null); setDeleteConfirm(a) }}
