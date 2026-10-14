@@ -12,7 +12,7 @@ import { ICONO } from '../../../config/iconos'
 import { IS_NATIVE_APP, PUEDE_AUTOFOCUS } from '../../../utils/platform'
 import JuegoManager from '../../../components/juego/JuegoManager'
 import SearchInput from '../../../components/SearchInput'
-import { TEACHER_CONTAINER_NARROW } from '../../../config/layout'
+import { TEACHER_CONTAINER } from '../../../config/layout'
 import { cuentaParaCalificacion, formatDeadline, formatPublishAt } from '../../../utils/activityVisibility'
 import { richTextContentClass, sanitizeHtml, toRichHtml } from '../../../utils/sanitizeHtml'
 import { rubricaFirma } from '../../../utils/rubrica'
@@ -113,7 +113,7 @@ export default function ListaEntregas() {
         {deleteActivityModal}
         </>
       ) : (
-      <div className={IS_NATIVE_APP ? '' : TEACHER_CONTAINER_NARROW}>
+      <div className={IS_NATIVE_APP ? '' : TEACHER_CONTAINER}>
         {/* Header */}
         {/* Header on the page background — the Instrucciones card floats like Entregas below.
             overflow-hidden: el botón "Editar actividad" (con su tooltip CSS absolute,

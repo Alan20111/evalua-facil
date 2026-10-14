@@ -29,7 +29,7 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 import { IS_NATIVE_APP, PUEDE_AUTOFOCUS } from '../../utils/platform'
 import { cicloVigente, paletaLibre } from '../../utils/asignaturaNueva'
 import AppQRButton from '../../components/AppQRButton'
-import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import { TEACHER_CONTAINER } from '../../config/layout'
 import { teacherDisplayName } from '../../utils/studentSearch'
 import { EsqueletoTableroDocente } from '../../components/esqueletos'
 import YouTubeIcon from '../../components/YouTubeIcon'
@@ -324,7 +324,7 @@ export default function TeacherDashboard() {
 
   return (
     <>
-      <div data-esq="dash-doc-contenedor" className={`px-4 sm:px-5 lg:px-6 py-4 ${TEACHER_CONTAINER_NARROW}`}>
+      <div data-esq="dash-doc-contenedor" className={`px-4 py-4 ${TEACHER_CONTAINER}`}>
 
         {/* Saludo — "Hola {nombre}". La foto de perfil ya no vive aquí: es el
             primer botón de la barra inferior (a la izquierda) y se cambia en

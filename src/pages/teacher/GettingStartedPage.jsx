@@ -1,5 +1,5 @@
 import { GraduationCap, Users, QrCode, ClipboardList, UserCheck, ArrowRight } from 'lucide-react'
-import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import { TEACHER_CONTAINER } from '../../config/layout'
 import { ICONO } from '../../config/iconos'
 
 // Ayuda para comenzar: NO es el manual completo (eso quedó archivado en
@@ -134,7 +134,7 @@ const GUIDES = [
 
 export default function GettingStartedPage() {
   return (
-    <div className={`px-4 py-4 ${TEACHER_CONTAINER_NARROW}`}>
+    <div className={`px-4 py-4 ${TEACHER_CONTAINER}`}>
       <div className="mb-4">
         <h1 className="text-[21px] font-bold text-on-surface">Ayuda para comenzar</h1>
         <p className="text-[15px] text-muted mt-0.5">

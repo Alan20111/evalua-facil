@@ -6,7 +6,7 @@ import ConfirmModal from '../../components/ConfirmModal'
 import BotonDescargarArchivo from '../../components/BotonDescargarArchivo'
 import { Button, Input, SkeletonList, IconButton } from '../../components/ui'
 import { useToast } from '../../components/Toast'
-import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
+import { STUDENT_CONTAINER } from '../../config/layout'
 import {
   MI_ESPACIO_ACCEPT, MI_ESPACIO_CUOTA_BYTES, MI_ESPACIO_ENLACE_MS, motivoRechazoMiEspacio,
 } from '../../config/miEspacio'
@@ -101,7 +101,7 @@ export default function MiEspacio() {
       <Input ref={inputRef} type="file" accept={MI_ESPACIO_ACCEPT} onChange={alElegir}
         wrapperClassName="hidden" aria-label="Elegir archivo" tabIndex={-1} />
 
-      <div className={`px-4 py-6 ${STUDENT_CONTAINER_NARROW}`}>
+      <div className={`px-4 py-6 ${STUDENT_CONTAINER}`}>
         <div className="flex items-center gap-2 mb-4">
           <IconButton icon={ArrowLeft} label="Regresar" tooltip={false} className="-ml-2" onClick={regresar} />
           <Cloud size={ICONO.md} className="text-accent flex-shrink-0" />

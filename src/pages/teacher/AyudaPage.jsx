@@ -4,7 +4,7 @@ import {
   BarChart2, CalendarCheck, Megaphone, Sparkles, FolderOpen, Coins,
   ChevronDown, UserCircle, ChevronRight,
 } from 'lucide-react'
-import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import { TEACHER_CONTAINER } from '../../config/layout'
 import CanalYouTubeLink from '../../components/CanalYouTubeLink'
 import YouTubeIcon from '../../components/YouTubeIcon'
 import { ICONO } from '../../config/iconos'
@@ -301,7 +301,7 @@ function AccordionCard({ item }) {
 
 export default function AyudaPage() {
   return (
-    <div className={`px-4 py-4 ${TEACHER_CONTAINER_NARROW}`}>
+    <div className={`px-4 py-4 ${TEACHER_CONTAINER}`}>
       <div className="mb-6">
         <h1 className="text-[21px] font-bold text-on-surface">Centro de ayuda</h1>
         <p className="text-[15px] text-muted mt-0.5">

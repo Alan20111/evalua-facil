@@ -14,7 +14,7 @@ import StudentLayout from '../../components/StudentLayout'
 import EvaluacionAnswerList from '../../components/EvaluacionAnswerList'
 import { publicacionVisible } from '../../utils/evaluacionGrading'
 import { mostrarSeccionesAlEstudiante, preguntasEnOrden, seccionesDe } from '../../utils/secciones'
-import { STUDENT_CONTAINER_NARROW } from '../../config/layout'
+import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { SkeletonList } from '../../components/ui'
 import { ICONO } from '../../config/iconos'
@@ -117,7 +117,7 @@ export default function EvaluacionRevision() {
           </div>
         </header>
 
-        <div className={`px-4 py-5 ${STUDENT_CONTAINER_NARROW}`}>
+        <div className={`px-4 py-5 ${STUDENT_CONTAINER}`}>
           {/* Reached only when the teacher published answers, so reveal everything:
               the student's picks, the correct answers and any feedback. */}
           <EvaluacionAnswerList

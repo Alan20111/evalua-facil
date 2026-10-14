@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { BookOpen, GraduationCap, Users, ClipboardList, ClipboardCheck, Database, Percent, UserCheck, CalendarDays, FileDown, UserCog, Check, AlertTriangle, Compass, Megaphone } from 'lucide-react'
-import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
+import { TEACHER_CONTAINER } from '../../config/layout'
 import { ICONO } from '../../config/iconos'
 
 // Manual del docente. Todo el contenido está verificado contra el código real
@@ -650,7 +650,7 @@ export default function ManualPage() {
   const active = SECTIONS.find((s) => s.id === activeId)
 
   return (
-    <div className={`px-4 py-4 ${TEACHER_CONTAINER_NARROW}`}>
+    <div className={`px-4 py-4 ${TEACHER_CONTAINER}`}>
       <div className="mb-4">
         <h1 className="text-[21px] font-bold text-on-surface">Manual</h1>
         <p className="text-[15px] text-muted mt-0.5">Cómo funciona cada parte de Evalúa Fácil.</p>
