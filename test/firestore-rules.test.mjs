@@ -3630,5 +3630,46 @@ ok('F-05 · admin CAN read publicProfiles')
   ok('VIDEO · nadie borra el avance desde el cliente')
 }
 
+// ── Reportes de contenido de IA (docs/PLAN_GOOGLE_PLAY.md, B2) ──────────────
+{
+  const ADMIN = 'admin_reportes'
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'users', ADMIN), { role: 'admin' })
+  })
+  const asAdmin = testEnv.authenticatedContext(ADMIN).firestore()
+  const anonimo = testEnv.unauthenticatedContext().firestore()
+  const reporte = (uid, extra = {}) => ({
+    uid, rol: 'docente', operacion: 'chat_asistente', contextoId: 'S1',
+    texto: 'Respuesta de la IA', motivo: 'inapropiado', comentario: '',
+    estado: 'nuevo', creadoEn: serverTimestamp(), ...extra,
+  })
+
+  await assertSucceeds(setDoc(doc(asT1, 'reportesIA', 'R1'), reporte(T1)))
+  await assertSucceeds(setDoc(doc(asJuan, 'reportesIA', 'R2'), reporte(U_JUAN, { rol: 'alumno', motivo: 'incorrecto' })))
+  ok('REPORTES IA · docente y alumno reportan a su nombre')
+
+  await assertFails(setDoc(doc(anonimo, 'reportesIA', 'R3'), reporte('nadie')))
+  await assertFails(setDoc(doc(asT2, 'reportesIA', 'R4'), reporte(T1)))
+  ok('REPORTES IA · sin sesión o a nombre de otro, no')
+
+  await assertFails(setDoc(doc(asT1, 'reportesIA', 'R5'), reporte(T1, { estado: 'revisado' })))
+  await assertFails(setDoc(doc(asT1, 'reportesIA', 'R6'), reporte(T1, { motivo: 'spam' })))
+  await assertFails(setDoc(doc(asT1, 'reportesIA', 'R7'), reporte(T1, { texto: 'x'.repeat(4001) })))
+  await assertFails(setDoc(doc(asT1, 'reportesIA', 'R8'), reporte(T1, { extra: true })))
+  await assertFails(setDoc(doc(asT1, 'reportesIA', 'R9'), reporte(T1, { creadoEn: Timestamp.fromMillis(0) })))
+  ok('REPORTES IA · estado, motivo, tamaño, campos y fecha los fija la regla')
+
+  await assertFails(getDoc(doc(asT1, 'reportesIA', 'R1')))
+  await assertFails(updateDoc(doc(asT1, 'reportesIA', 'R1'), { comentario: 'cambio' }))
+  await assertFails(deleteDoc(doc(asT1, 'reportesIA', 'R1')))
+  ok('REPORTES IA · el autor no lo vuelve a leer, editar ni borrar')
+
+  await assertSucceeds(getDoc(doc(asAdmin, 'reportesIA', 'R1')))
+  await assertSucceeds(updateDoc(doc(asAdmin, 'reportesIA', 'R1'), { estado: 'revisado', revisadoEn: serverTimestamp() }))
+  await assertFails(updateDoc(doc(asAdmin, 'reportesIA', 'R1'), { texto: 'otro' }))
+  await assertSucceeds(deleteDoc(doc(asAdmin, 'reportesIA', 'R2')))
+  ok('REPORTES IA · el admin lee, marca revisado y borra; no reescribe el contenido')
+}
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

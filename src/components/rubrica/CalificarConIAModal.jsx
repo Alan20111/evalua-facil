@@ -31,6 +31,7 @@ import Spinner from '../Spinner'
 import ComprarCreditosModal from '../ComprarCreditosModal'
 import { PUEDE_COMPRAR } from '../../utils/platform'
 import ActivarCreditosModal from '../ActivarCreditosModal'
+import ReportarIA from '../ReportarIA'
 import { esCotejo, totalRubrica, RUBRICA_TOTAL } from '../../utils/rubrica'
 import { normalizeFileTypeKeys } from '../../config/fileTypes'
 import { Button, IconButton } from '../ui'
@@ -405,7 +406,14 @@ export default function CalificarConIAModal({
             </p>
           )}
 
-          <div className="flex justify-end gap-2">
+          {/* Reportar la propuesta tal como la dio la IA (docs/PLAN_GOOGLE_PLAY.md, B2). */}
+          <div className="flex flex-wrap justify-end gap-2">
+            <ReportarIA
+              operacion={claveOperacion}
+              contenido={resultado}
+              contextoId={submissionId}
+              className="mr-auto"
+            />
             {soloLectura ? (
               <Button onClick={cerrarTodo}>
                 Cerrar

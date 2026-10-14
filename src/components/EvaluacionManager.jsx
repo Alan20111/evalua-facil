@@ -55,6 +55,7 @@ import {
 } from '../utils/evaluacionClave'
 import EvaluacionEditor from './EvaluacionEditor'
 import AnalisisResultadosIA from './evaluacion/AnalisisResultadosIA'
+import ReportarIA from './ReportarIA'
 import { resolverNombresAnalisis } from '../utils/resolverNombresAnalisis'
 import { MIN_ENTREGAS_ANALISIS } from '../utils/analisisResultados'
 import { useBackHandler } from '../hooks/useBackHandler'
@@ -2403,6 +2404,14 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                                 }}>
                                 Usar sugerencia (puedes editarla antes de guardar)
                               </Button>
+                              {/* Reportar la sugerencia de la IA (docs/PLAN_GOOGLE_PLAY.md, B2). */}
+                              <div className="flex justify-end">
+                                <ReportarIA
+                                  operacion="calificar_abierta"
+                                  contenido={sug}
+                                  contextoId={sug._docId || iaKey}
+                                />
+                              </div>
                             </div>
                           )}
                           <div className="flex items-center gap-2 flex-wrap">

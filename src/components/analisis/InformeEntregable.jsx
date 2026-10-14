@@ -7,6 +7,7 @@ import { Bloque } from './InformeAsignatura'
 import { planInformeEntregable, textoVigenteEntregable } from '../../utils/analisisEntregableInforme'
 import { Button } from '../ui'
 import { ICONO } from '../../config/iconos'
+import ReportarIA from '../ReportarIA'
 
 // Informe del análisis con IA de UNA actividad entregable («solo resultados»).
 //
@@ -65,6 +66,7 @@ export default function InformeEntregable({ analisis, onClose, onDescargarPDF, d
   useBackHandler(onClose, true)
   const [editando, setEditando] = useState(false)
   const [guardando, setGuardando] = useState(false)
+  const [reportando, setReportando] = useState(false)
   const plan = planInformeEntregable(analisis)
 
   async function guardar(edicion) {
@@ -78,7 +80,7 @@ export default function InformeEntregable({ analisis, onClose, onDescargarPDF, d
   }
 
   return (
-    <Modal open onClose={onClose} title="Análisis de la actividad" size="3xl" z={60} busy={guardando}>
+    <Modal open onClose={onClose} title="Análisis de la actividad" size="3xl" z={60} busy={guardando || reportando}>
       <div className="space-y-3">
         <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-card">
           <Sparkles size={ICONO.sm} className="text-amber-600 flex-shrink-0 mt-0.5" />
@@ -127,6 +129,11 @@ export default function InformeEntregable({ analisis, onClose, onDescargarPDF, d
             {s.bloques.map((b) => <Bloque key={`${b.tipo}-${b.titulo || b.texto || (b.items || []).join('|') || (b.head || []).join('|')}`} bloque={b} />)}
           </section>
         ))}
+
+        {/* Reportar el informe de la IA (docs/PLAN_GOOGLE_PLAY.md, B2). */}
+        <div className="flex justify-end">
+          <ReportarIA operacion="analizar_entregable" contenido={textoVigenteEntregable(analisis)} contextoId={analisis?.id} onAbiertoChange={setReportando} />
+        </div>
 
         <Button variant="secondary" fullWidth onClick={onClose}>
           Cerrar

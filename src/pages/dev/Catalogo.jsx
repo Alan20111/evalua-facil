@@ -10,6 +10,7 @@ import {
   Input, ListGroup, ListRow, Menu, Modal, MotivoApagado, Popover, Progress, RadioGroup, Select, SubTabs, Switch, Tabs, Textarea,
 } from '../../components/ui'
 import YouTubeIcon from '../../components/YouTubeIcon'
+import ReportarIA from '../../components/ReportarIA'
 
 function Seccion({ titulo, children }) {
   return (
@@ -180,6 +181,11 @@ export default function Catalogo() {
               {Array.from({ length: 8 }, (_, i) => <Input key={i} label={`Campo ${i + 1}`} />)}
             </div>
           </Modal>
+        </Seccion>
+
+        <Seccion titulo="Reportar respuesta de la IA">
+          <p className="text-sm text-muted">Va junto a cada resultado de IA (docs/PLAN_GOOGLE_PLAY.md, B2). Enviar guarda un documento en reportesIA.</p>
+          <ReportarIA operacion="catalogo" contenido="Respuesta de ejemplo de la IA" contextoId="dev-componentes" />
         </Seccion>
 
         <Seccion titulo="Estado vacío">

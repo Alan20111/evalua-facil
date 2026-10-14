@@ -9,7 +9,7 @@ import EFLogo from '../components/EFLogo'
 // correo. Mientras el correo de dominio no esté activo, cámbialo aquí por uno
 // que funcione (una sola línea, marcada abajo con CONTACTO).
 const CONTACTO = 'soporte@evaluafacil.mx'
-const ACTUALIZADO = '29 de julio de 2026'
+const ACTUALIZADO = '14 de octubre de 2026'
 
 function Seccion({ titulo, children }) {
   return (
@@ -71,9 +71,15 @@ export default function Privacidad() {
               funcionamiento del servicio.
             </li>
             <li>
-              <span className="font-semibold text-on-surface">Datos de suscripción:</span>{' '}
-              estado de la suscripción. Los pagos se procesan directamente por proveedores
-              externos (ver sección 5); nosotros no almacenamos números de tarjeta.
+              <span className="font-semibold text-on-surface">Datos de compra (docentes):</span>{' '}
+              saldo de créditos de IA, paquetes comprados y el comprobante de transferencia
+              que el docente sube al pagar desde la versión web. No recibimos ni
+              almacenamos números de tarjeta.
+            </li>
+            <li>
+              <span className="font-semibold text-on-surface">Reportes de IA:</span> cuando
+              reportas una respuesta de la inteligencia artificial, guardamos esa respuesta,
+              el motivo y tu comentario.
             </li>
           </ul>
         </Seccion>
@@ -84,7 +90,8 @@ export default function Privacidad() {
             <li>Prestar el servicio: registrar calificaciones, actividades, evaluaciones y asistencia.</li>
             <li>Enviarte avisos y notificaciones relacionados con tus clases y entregas.</li>
             <li>Enviar correos operativos (por ejemplo, bienvenida o restablecimiento de contraseña).</li>
-            <li>Gestionar tu suscripción y el acceso a las funciones de pago.</li>
+            <li>Ofrecer funciones de inteligencia artificial que el docente solicita (ver sección 6).</li>
+            <li>Gestionar tu saldo de créditos de IA y sus compras.</li>
             <li>Mantener la seguridad del servicio y cumplir obligaciones legales.</li>
           </ul>
         </Seccion>
@@ -121,14 +128,55 @@ export default function Privacidad() {
               (envío de correos operativos).
             </li>
             <li>
-              <span className="font-semibold text-on-surface">Procesadores de pago</span>{' '}
-              (Mercado Pago y PayPal) para cobrar la suscripción de forma segura.
+              <span className="font-semibold text-on-surface">Anthropic</span>{' '}
+              (modelo de inteligencia artificial Claude; ver sección 6).
+            </li>
+            <li>
+              <span className="font-semibold text-on-surface">Google Gemini</span>{' '}
+              (lectura de videos públicos de YouTube para el video interactivo; ver
+              sección 6).
             </li>
           </ul>
           <p>No vendemos ni rentamos tus datos personales a terceros.</p>
         </Seccion>
 
-        <Seccion titulo="6. Datos de menores de edad">
+        <Seccion titulo="6. Inteligencia artificial">
+          <p>
+            Algunas funciones usan inteligencia artificial y solo se ejecutan cuando el
+            docente las solicita: generar rúbricas, preguntas, actividades y planeaciones,
+            sugerir una calificación y retroalimentación para una entrega, analizar
+            resultados y responder en el chat del asistente.
+          </p>
+          <ul className="list-disc pl-5 space-y-1">
+            <li>
+              <span className="font-semibold text-on-surface">Qué se envía a Anthropic (Claude):</span>{' '}
+              el contenido necesario para la tarea, por ejemplo el texto y los archivos de
+              una entrega, la rúbrica, las calificaciones del grupo y el nombre del
+              estudiante. No se envían correos electrónicos ni contraseñas.
+            </li>
+            <li>
+              <span className="font-semibold text-on-surface">Qué se envía a Google Gemini:</span>{' '}
+              únicamente la dirección de un video público de YouTube que el docente elige.
+              Ningún dato personal.
+            </li>
+            <li>
+              Usamos el servicio de Anthropic para empresas, que no utiliza los datos
+              enviados para entrenar sus modelos.
+            </li>
+            <li>
+              Lo que la IA produce es una propuesta: el docente la revisa y decide la
+              calificación final. La IA puede equivocarse; cualquier usuario puede reportar
+              una respuesta desde la misma pantalla con el botón «Reportar».
+            </li>
+          </ul>
+          <p>
+            Puedes oponerte a que tus datos se procesen con inteligencia artificial
+            escribiendo a <span className="font-semibold text-on-surface">{CONTACTO}</span>;
+            el docente también puede no usar estas funciones, que son opcionales.
+          </p>
+        </Seccion>
+
+        <Seccion titulo="7. Datos de menores de edad">
           <p>
             Evalúa Fácil es una herramienta para uso escolar, administrada por el docente
             y la institución educativa. Las cuentas de alumno las crea el docente en el
@@ -137,9 +185,13 @@ export default function Privacidad() {
             aplicable. Si eres padre, madre o tutor y deseas que se eliminen los datos de
             un alumno, contáctanos o solicítalo al docente responsable.
           </p>
+          <p>
+            Los estudiantes no usan las funciones de inteligencia artificial directamente:
+            solo ven lo que su docente revisó y publicó.
+          </p>
         </Seccion>
 
-        <Seccion titulo="7. Conservación de los datos">
+        <Seccion titulo="8. Conservación de los datos">
           <p>
             Conservamos tus datos mientras tu cuenta esté activa y durante el tiempo
             necesario para cumplir con los fines descritos y con obligaciones legales.
@@ -147,7 +199,7 @@ export default function Privacidad() {
           </p>
         </Seccion>
 
-        <Seccion titulo="8. Seguridad">
+        <Seccion titulo="9. Seguridad">
           <p>
             Aplicamos medidas técnicas y administrativas razonables para proteger tus
             datos, incluyendo autenticación, reglas de acceso y cifrado en tránsito.
@@ -155,7 +207,7 @@ export default function Privacidad() {
           </p>
         </Seccion>
 
-        <Seccion titulo="9. Tus derechos (ARCO)">
+        <Seccion titulo="10. Tus derechos (ARCO)">
           <p>
             Tienes derecho a acceder, rectificar, cancelar u oponerte al tratamiento de
             tus datos personales, así como a revocar tu consentimiento. Para ejercer
@@ -171,7 +223,7 @@ export default function Privacidad() {
           </p>
         </Seccion>
 
-        <Seccion titulo="10. Cambios a este aviso">
+        <Seccion titulo="11. Cambios a este aviso">
           <p>
             Podemos actualizar este aviso de privacidad. Cuando haya cambios relevantes,
             actualizaremos la fecha del encabezado y, cuando corresponda, te lo
@@ -179,7 +231,7 @@ export default function Privacidad() {
           </p>
         </Seccion>
 
-        <Seccion titulo="11. Contacto">
+        <Seccion titulo="12. Contacto">
           <p>
             Si tienes dudas sobre este aviso o sobre el tratamiento de tus datos,
             escríbenos a <span className="font-semibold text-on-surface">{CONTACTO}</span>.

@@ -46,6 +46,7 @@ import { EVALUACION_DEFAULTS } from '../../utils/evaluacionDefaults'
 import { formatTiempo } from '../../utils/formatTiempo'
 import { cargarClaveJuego, estructuraConClave, esEstructuraHeredada } from '../../utils/juegoClave'
 import ContenidoJuegoEditor from './ContenidoJuegoEditor'
+import ReportarIA from '../ReportarIA'
 import RevisionJuegoBorrador from './RevisionJuegoBorrador'
 import ResolucionJuegoModal from './ResolucionJuegoModal'
 import { Input, Button, IconButton, Checkbox } from '../ui'
@@ -220,6 +221,13 @@ export default function JuegoManager({
         <div className="p-4">
           {mostrandoContenido && (
             <ContenidoJuegoEditor activity={activity} onConstruido={handleConstruido} />
+          )}
+          {/* Reportar las palabras tal como las propuso la IA, antes de que el
+              docente las edite (docs/PLAN_GOOGLE_PLAY.md, B2). */}
+          {mostrandoContenido && estado === 'contenido_generado' && activity.juego?.contenido?.length > 0 && (
+            <div className="flex justify-end mt-2">
+              <ReportarIA operacion="generar_contenido_juego" contenido={activity.juego.contenido} contextoId={activityId} />
+            </div>
           )}
           {mostrandoRevision && (
             <RevisionJuegoBorrador

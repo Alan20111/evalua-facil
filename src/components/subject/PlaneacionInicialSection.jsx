@@ -35,6 +35,7 @@ import useIsDesktop from '../../hooks/useIsDesktop'
 import { planeacionVigente, PLANEACION_CARPETA, extensionPlaneacion } from '../../utils/planeacionVigente'
 import PlaneacionPropiaCard, { SelectorArchivoPlaneacion } from './PlaneacionPropiaCard'
 import AvisoPerfilIA from './AvisoPerfilIA'
+import ReportarIA from '../ReportarIA'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { apiUrl } from '../../utils/apiBase'
 import { saveBlob } from '../../utils/exportGuard'
@@ -1330,42 +1331,51 @@ function Planeacion({
               )}
             </>
           )}
-          acciones={isDesktop && !vigente && (
+          acciones={(
             <>
-              <button
-                type="button"
-                onClick={guardar}
-                disabled={!sinGuardar || guardando}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm disabled:opacity-60 min-h-control-sm ${
-                  sinGuardar
-                    ? 'bg-amber-700 text-white hover:bg-amber-800'
-                    : 'border border-outline-variant text-on-surface hover:bg-[var(--accent-tint)]'
-                }`}
-              >
-                {guardando ? <Spinner size="sm" /> : <Save size={ICONO.xs} />}
-                {sinGuardar ? 'Guardar cambios' : 'Guardado'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (parcialesConPonderacionMal.length) {
-                    const lista = parcialesConPonderacionMal.map((p) => `Parcial ${p.numero} (${sumaPonderacionesParcial(p.secuencias)}%)`).join(', ')
-                    toast(`La ponderación de cada parcial debe sumar exactamente 100% antes de aceptar: ${lista}`, 'error')
-                    return
-                  }
-                  setConfirmarAceptar(true)
-                }}
-                disabled={aceptando}
-                title={parcialesConPonderacionMal.length ? 'Corrige la ponderación de cada parcial a exactamente 100% antes de aceptar' : undefined}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm disabled:opacity-60 min-h-control-sm ${
-                  parcialesConPonderacionMal.length
-                    ? 'border border-outline-variant text-muted hover:bg-[var(--accent-tint)]'
-                    : 'bg-accent text-white hover:bg-accent-hover'
-                }`}
-              >
-                {aceptando ? <Spinner size="sm" /> : <ThumbsUp size={ICONO.xs} />}
-                Aceptar esta planeación como la de mi asignatura
-              </button>
+              {/* Reportar la planeación generada (docs/PLAN_GOOGLE_PLAY.md, B2):
+                  se manda lo que se ve, las secuencias del parcial activo. */}
+              {contenidoActivo && (
+                <ReportarIA operacion="planeacion_didactica_inicial" contenido={secuenciasActivo} contextoId={subjectId} />
+              )}
+              {isDesktop && !vigente && (
+                <>
+                <button
+                  type="button"
+                  onClick={guardar}
+                  disabled={!sinGuardar || guardando}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm disabled:opacity-60 min-h-control-sm ${
+                    sinGuardar
+                      ? 'bg-amber-700 text-white hover:bg-amber-800'
+                      : 'border border-outline-variant text-on-surface hover:bg-[var(--accent-tint)]'
+                  }`}
+                >
+                  {guardando ? <Spinner size="sm" /> : <Save size={ICONO.xs} />}
+                  {sinGuardar ? 'Guardar cambios' : 'Guardado'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (parcialesConPonderacionMal.length) {
+                      const lista = parcialesConPonderacionMal.map((p) => `Parcial ${p.numero} (${sumaPonderacionesParcial(p.secuencias)}%)`).join(', ')
+                      toast(`La ponderación de cada parcial debe sumar exactamente 100% antes de aceptar: ${lista}`, 'error')
+                      return
+                    }
+                    setConfirmarAceptar(true)
+                  }}
+                  disabled={aceptando}
+                  title={parcialesConPonderacionMal.length ? 'Corrige la ponderación de cada parcial a exactamente 100% antes de aceptar' : undefined}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm disabled:opacity-60 min-h-control-sm ${
+                    parcialesConPonderacionMal.length
+                      ? 'border border-outline-variant text-muted hover:bg-[var(--accent-tint)]'
+                      : 'bg-accent text-white hover:bg-accent-hover'
+                  }`}
+                >
+                  {aceptando ? <Spinner size="sm" /> : <ThumbsUp size={ICONO.xs} />}
+                  Aceptar esta planeación como la de mi asignatura
+                </button>
+                </>
+              )}
             </>
           )}
         >

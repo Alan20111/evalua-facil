@@ -11,6 +11,7 @@ import {
 import { actualizarPregunta } from '../../utils/evaluacionClave'
 import RevisionVideoModal from './RevisionVideoModal'
 import VistaPreviaDocenteVideo from './VistaPreviaDocenteVideo'
+import ReportarIA from '../ReportarIA'
 import { ESTADO_REVISION, construirItems, contarPorEstadoRevision, validarTiempo } from './revisionVideo'
 import { ICONO } from '../../config/iconos'
 
@@ -203,6 +204,10 @@ export default function PropuestasVideoPanel({
             className={`${BOTON} border border-accent text-accent hover:bg-[var(--accent-tint)]`}>
             <Eye size={ICONO.sm} /> Vista previa docente
           </button>
+          {/* Reportar las preguntas que propuso la IA (docs/PLAN_GOOGLE_PLAY.md, B2). */}
+          {propuestas.length > 0 && (
+            <ReportarIA operacion="generar_preguntas_video" contenido={propuestas} contextoId={activityId} className="ml-auto" />
+          )}
         </div>
       </div>
 

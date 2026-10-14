@@ -71,7 +71,25 @@ botones, enlaces o textos del tipo «compra en la web».
 6. Agregar un candado en `check-ui-standards.sh`: `ComprarCreditosModal` solo
    puede montarse detrás de `puedeComprarAqui()`.
 
-### B2. Reportar contenido generado por IA 🛠
+### B2. Reportar contenido generado por IA 🛠 ✅ (paso 2)
+
+> **Hecho (14-oct-2026).**
+> - El componente `ReportarIA` va junto a cada resultado de IA que se muestra tal como salió:
+>   - calificación sugerida (`CalificarConIAModal`);
+>   - sugerencia por pregunta abierta (`EvaluacionManager`);
+>   - rúbrica y lista de cotejo generadas;
+>   - reactivos generados;
+>   - preguntas del video;
+>   - palabras del juego;
+>   - planeación;
+>   - los tres informes de análisis.
+> - Los reportes se guardan en `reportesIA`, con reglas y 5 pruebas en `test/firestore-rules.test.mjs`. Los atiende el admin en **Panel admin › Reportes de IA**.
+> - Probado en el emulador: el reporte llega y el admin lo marca revisado.
+> - **Requiere `firebase deploy --only firestore:rules`**; sin eso, el reporte falla con error de permisos.
+> - Los alumnos no ven resultados crudos de IA: solo lo que su docente revisó y publicó (punto 5).
+> - `ChatAsistente.jsx` también lo lleva, pero hoy esa pantalla no se monta en ninguna ruta.
+>
+> **Pendiente (punto 4):** una regla común de «contenido apropiado para bachillerato» en los prompts de `functions/ia.js`. Hoy solo la tienen algunos (avisos, encuestas). Cambiarla en todos altera el comportamiento de cada operación y exige desplegar funciones, así que va en un PR aparte, con pruebas de cada operación. Claude y Gemini traen además sus propios filtros de seguridad.
 
 **Hallazgo.** La app genera con IA rúbricas, preguntas, retroalimentación,
 calificación sugerida y preguntas del video interactivo. No hay forma de
@@ -99,7 +117,16 @@ espera salvaguardas contra contenido dañino, sobre todo si hay menores.
 5. Para el contenido del alumno, si existe: el alumno ve retroalimentación
    generada, así que el botón también va en su vista.
 
-### B3. Privacidad y Seguridad de los datos 🛠 👤
+### B3. Privacidad y Seguridad de los datos 🛠 👤 ✅ textos (paso 2)
+
+> **Hecho.**
+> - El aviso de privacidad (14-oct-2026) tiene una sección nueva, «6. Inteligencia artificial». Dice qué va a Anthropic, que a Gemini solo llega la dirección de un video público, que esos datos no se usan para entrenar y que se puede reportar u oponerse.
+> - Los datos de compra pasaron del modelo de suscripción al de créditos.
+> - Se agregaron los reportes de IA.
+> - `03-seguridad-de-datos.md` se rehízo: historial de compras, comprobantes, archivos, mensajes y la URL de borrado.
+> - `04-clasificacion-contenido.md` responde «Sí» a la interacción entre usuarios y «No» a compras digitales.
+>
+> **Pendiente 👤:** llenar los formularios en Play Console.
 
 **Hallazgos:**
 - `Privacidad.jsx` lista a Firebase, Cloudinary, Mercado Pago y PayPal, pero
@@ -309,7 +336,7 @@ Umbrales de Play: si la app los pasa, pierde visibilidad y muestra advertencias.
 | Paso | Contenido | Quién | Duración |
 |------|-----------|-------|----------|
 | **1. PR «política»** ✅ | B1 (opción a), B4, B5, B6 (pantalla sin conexión) y textos de B7 | 🛠 | Hecho |
-| **2. PR «IA responsable»** | B2 (reportar, colección, reglas, admin) y B3 (aviso y documento de datos) | 🛠 | 1 sesión |
+| **2. PR «IA responsable»** ✅ | B2 (reportar, colección, reglas, admin) y B3 (aviso y documento de datos) | 🛠 | Hecho; falta desplegar las reglas |
 | **3. PR «seguridad web»** | S2 (HSTS + CSP solo reporte), S5, S6, S7, S10 | 🛠 | 1 sesión |
 | **4. PR «Android»** | S1, S4, A5, A7, O6–O8 y un AAB nuevo (`versionCode` 16) | 🛠 | 1 sesión; necesita el keystore |
 | **5. App Check** | S3, primero en modo métricas y una semana después obligatorio | 🛠 + 👤 en consola | En dos tiempos |
