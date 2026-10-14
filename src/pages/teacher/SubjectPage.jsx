@@ -376,8 +376,8 @@ export default function SubjectPage() {
   // poder animar el cierre (ver «Abrir/cerrar animado»).
   const parcialesVistos = useRef(new Set())
   if (openParcial) parcialesVistos.current.add(openParcial)
-  // Todas las secciones miden lo mismo que el encabezado (config/layout.js,
-  // oct-2026): sus bordes coinciden con los de la tarjeta de arriba.
+  // El encabezado va a todo lo ancho; todas las secciones usan el mismo tope
+  // de 1024px, centrado (config/layout.js, elegido por el usuario oct-2026).
   const anchoSeccion = TEACHER_CONTAINER
   // Al volver a una cabecera se abre la última sección que usaste en ella.
   const ultimaDeGrupo = useRef({})
