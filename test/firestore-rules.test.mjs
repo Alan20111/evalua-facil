@@ -3669,6 +3669,17 @@ ok('F-05 · admin CAN read publicProfiles')
   await assertFails(updateDoc(doc(asAdmin, 'reportesIA', 'R1'), { texto: 'otro' }))
   await assertSucceeds(deleteDoc(doc(asAdmin, 'reportesIA', 'R2')))
   ok('REPORTES IA · el admin lee, marca revisado y borra; no reescribe el contenido')
+
+  // Violaciones de CSP: solo las escribe el servidor (api/csp-report.js).
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'cspReportes', 'C1'), { directiva: 'img-src', bloqueado: 'https://x.com', cuenta: 1 })
+  })
+  await assertSucceeds(getDoc(doc(asAdmin, 'cspReportes', 'C1')))
+  await assertFails(getDoc(doc(asT1, 'cspReportes', 'C1')))
+  await assertFails(setDoc(doc(asT1, 'cspReportes', 'C2'), { directiva: 'img-src' }))
+  await assertFails(setDoc(doc(anonimo, 'cspReportes', 'C3'), { directiva: 'img-src' }))
+  await assertFails(updateDoc(doc(asAdmin, 'cspReportes', 'C1'), { cuenta: 0 }))
+  ok('CSP · solo el admin lee las violaciones; nadie las escribe desde el cliente')
 }
 
 await testEnv.cleanup()
