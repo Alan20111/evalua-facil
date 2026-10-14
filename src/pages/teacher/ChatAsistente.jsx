@@ -46,6 +46,7 @@ import { MessageCircle, Send, Sparkles, Trash2, Globe, ClipboardList, CheckCircl
 import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import { SkeletonList, Button } from '../../components/ui'
 import { ICONO } from '../../config/iconos'
+import { PUEDE_COMPRAR } from '../../utils/platform'
 
 const ETIQUETA_ACCION = {
   CREAR_ACTIVIDAD_ENTREGABLE: 'Actividad entregable',
@@ -507,6 +508,9 @@ export default function ChatAsistente() {
       // antemano por reservarInteraccionChat en functions/ia.js).
       const data = await creditosIA.ejecutar('chat_asistente', {
         subjectId: seleccion === GENERAL ? null : seleccion, mensaje: texto, historial: historialParaEnviar,
+        // En la app de Android el asistente no explica cómo comprar créditos
+        // (docs/PLAN_GOOGLE_PLAY.md, B1; ver bloqueAyudaPlataforma en functions/ia.js).
+        puedeComprar: PUEDE_COMPRAR,
       }, 1, { timeoutMs: 60000 })
       const respuesta = data?.resultado?.respuesta || ''
       const propuesta = data?.resultado?.propuesta || null

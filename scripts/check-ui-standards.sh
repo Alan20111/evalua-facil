@@ -164,6 +164,15 @@ ratchet "z-index con número (z-[NN] → contenido/barra/hoja/aviso/menu/pantall
   'z-\[[0-9]+\]' 0 'components/ui/'
 
 echo ""
+echo "=== Google Play — docs/PLAN_GOOGLE_PLAY.md ==="
+echo ""
+# En la app nativa no se venden créditos (política de pagos de Play, B1): el
+# modal de compra solo se monta detrás de PUEDE_COMPRAR (utils/platform.js),
+# como `{PUEDE_COMPRAR && <ComprarCreditosModal … />}`.
+ratchet "ComprarCreditosModal sin PUEDE_COMPRAR && delante (la app de Play no puede vender créditos) — B1" \
+  '(^|[^&[:space:]])[[:space:]]*<ComprarCreditosModal' 0
+
+echo ""
 # Esqueletos de carga: deben medir lo mismo que su pantalla real
 # (data-esq en pantalla y en components/esqueletos/ — ver check-esqueletos.mjs).
 node scripts/check-esqueletos.mjs || FAIL=1

@@ -8,6 +8,7 @@ import Modal from './ui/Modal'
 import { useCreditosIA } from '../hooks/useCreditosIA'
 import { Gift } from 'lucide-react'
 import { Button } from './ui'
+import { PUEDE_COMPRAR } from '../utils/platform'
 
 export default function ActivarCreditosModal({ open, onClose, onSuccess }) {
   const toast = useToast()
@@ -38,9 +39,11 @@ export default function ActivarCreditosModal({ open, onClose, onSuccess }) {
         <p className="text-sm text-muted">
           No caducan. Úsalos cuando quieras.
         </p>
-        <p className="text-sm text-muted">
-          Al consumirlos podrás comprar más créditos para seguir utilizando la IA.
-        </p>
+        {PUEDE_COMPRAR && (
+          <p className="text-sm text-muted">
+            Al consumirlos podrás comprar más créditos para seguir utilizando la IA.
+          </p>
+        )}
         <Button type="button" fullWidth busy={activando} onClick={activar}>
           {activando ? 'Activando…' : 'Activar mis 30 créditos'}
         </Button>

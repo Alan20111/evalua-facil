@@ -1,0 +1,89 @@
+<!doctype html>
+<!--
+  Pantalla «Sin conexión» de la app de Android (docs/PLAN_GOOGLE_PLAY.md, B6).
+  La app carga el sitio en vivo (capacitor.config.json → server.url); si no
+  llega, Capacitor abre este archivo desde el APK (server.errorPath →
+  https://localhost/offline.html). Aquí no hay plugins de Capacitor ni React:
+  todo va en línea, con los colores de src/index.css.
+-->
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>Sin conexión · Evalúa Fácil</title>
+  <style>
+    :root {
+      --surface: #e6f1fb;
+      --surface-card: #ffffff;
+      --on-surface: #131b2e;
+      --on-surface-variant: #414753;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --control: 48px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+      background: var(--surface);
+      color: var(--on-surface);
+      font-family: "Outfit", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    main {
+      width: 100%;
+      max-width: 360px;
+      background: var(--surface-card);
+      border-radius: 24px;
+      padding: 32px 24px;
+      text-align: center;
+    }
+    img { width: 64px; height: auto; display: block; margin: 0 auto 16px; }
+    h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 8px; }
+    p { font-size: 0.875rem; line-height: 1.5; color: var(--on-surface-variant); margin: 0 0 24px; }
+    button {
+      width: 100%;
+      min-height: var(--control);
+      border: 0;
+      border-radius: 9999px;
+      background: var(--accent);
+      color: #fff;
+      font: inherit;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background-color 150ms cubic-bezier(0.2, 0, 0, 1);
+    }
+    button:hover { background: var(--accent-hover); }
+    button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    button[aria-busy="true"] { opacity: 0.6; cursor: progress; }
+    @media (prefers-reduced-motion: reduce) { button { transition: none; } }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="/logo-icon.webp" alt="" width="64" height="80">
+    <h1>Sin conexión</h1>
+    <p>No pudimos abrir Evalúa Fácil. Revisa tu conexión a internet y vuelve a intentarlo. Tu trabajo guardado sigue en tu cuenta.</p>
+    <button type="button" id="reintentar">Reintentar</button>
+  </main>
+  <script>
+    // La dirección del sitio es la misma de capacitor.config.json → server.url.
+    var SITIO = 'https://evalua-facil.vercel.app/'
+    var boton = document.getElementById('reintentar')
+    function reintentar() {
+      boton.setAttribute('aria-busy', 'true')
+      boton.textContent = 'Conectando…'
+      location.replace(SITIO)
+    }
+    boton.addEventListener('click', reintentar)
+    // Si la red vuelve sola, se reintenta sin esperar al toque.
+    window.addEventListener('online', reintentar)
+  </script>
+</body>
+</html>

@@ -20,7 +20,7 @@ Estado medido el 13-oct-2026 sobre `main` (`37bd71cd`).
 | B2 | Reportar contenido generado por IA | **Rechazo** (política de IA generativa) | 🛠 |
 | B3 | Aviso de privacidad y Seguridad de los datos: IA y comprobantes | **Rechazo o retiro** (datos de usuario) | 🛠 + 👤 llena el formulario |
 | B4 | Página web pública para pedir borrar la cuenta | **Bloquea el formulario** de datos | 🛠 |
-| B5 | Permiso `SCHEDULE_EXACT_ALARM` | Declaración extra; posible rechazo | 🛠 |
+| B5 | Permiso `SCHEDULE_EXACT_ALARM` | Bajo: no requiere declaración (ver B5) | ✅ |
 | B6 | Funcionalidad mínima (la app carga el sitio remoto) | Rechazo por «solo un sitio web» | 🛠 |
 | B7 | Nombre «SEP» en la ficha | Rechazo por suplantación o engaño | 👤 + 🛠 textos |
 | S | Seguridad | Hallazgos en el informe previo al lanzamiento; riesgo real | 🛠 |
@@ -36,7 +36,9 @@ carga el sitio en vivo y lo que se arregle después le llega sola a los testers.
 
 ## B. Bloqueantes de política
 
-### B1. Compra de créditos de IA dentro de la app 🛠 👤
+### B1. Compra de créditos de IA dentro de la app 🛠 👤 ✅ opción a (paso 1)
+
+> **Hecho (13-oct-2026).** `PUEDE_COMPRAR` en `src/utils/platform.js` oculta en la app los botones de compra, el modal, el precio de la Ayuda y los avisos que invitan a comprar. Los créditos de regalo se siguen activando. El Asistente IA recibe `puedeComprar: false` y no explica cómo comprar (`bloqueAyudaPlataforma` en `functions/ia.js`), pero eso **requiere desplegar `ejecutarOperacionIA`**. `allowNavigation` quedó solo con el sitio. Hay un candado en `check-ui-standards.sh`.
 
 **Hallazgo.** `ComprarCreditosModal` (transferencia SPEI con CLABE y subida de
 comprobante) se abre en la app nativa desde `CreditosPanel`,
@@ -132,7 +134,9 @@ espera salvaguardas contra contenido dañino, sobre todo si hay menores.
      app.
 4. 👤 Llenar el formulario en Play Console con el documento actualizado.
 
-### B4. URL web para pedir borrar la cuenta 🛠
+### B4. URL web para pedir borrar la cuenta 🛠 ✅ (paso 1)
+
+> **Hecho.** `https://evaluafacil.mx/eliminar-cuenta` (`src/pages/EliminarCuenta.jsx`), enlazada desde el aviso de privacidad. Es la URL que va en el formulario de Seguridad de los datos.
 
 **Hallazgo.** Ya se puede borrar la cuenta dentro de la app
 (`EliminarCuentaModal` y `EliminarCuentaAlumnoModal`). Falta una **página web
@@ -149,25 +153,37 @@ los datos.
   acceso.
 Enlazarla desde el aviso de privacidad.
 
-### B5. Permiso de alarmas exactas 🛠
+### B5. Permiso de alarmas exactas 🛠 ✅ (corregido en el paso 1)
 
-**Hallazgo.** El manifiesto pide `SCHEDULE_EXACT_ALARM`. `localReminders.js`
-programa los recordatorios con `schedule: { at }`, sin `allowWhileIdle`.
+**Hallazgo.** El manifiesto pide `SCHEDULE_EXACT_ALARM`. Antes,
+`localReminders.js` programaba los recordatorios con `schedule: { at }`, sin
+`allowWhileIdle`.
 
-**Política.** Desde Android 14, ese permiso viene **negado por omisión** para
-las apps nuevas, y Play exige justificarlo. Un recordatorio de clase que llega
-uno o dos minutos tarde no lo justifica bien.
+**Política (corregida).** La declaración restringida de Play es para
+`USE_EXACT_ALARM`, que solo se permite a apps de alarma o calendario.
+`SCHEDULE_EXACT_ALARM` no la necesita: el usuario lo concede en Ajustes
+(«Alarmas y recordatorios»), y desde Android 14 viene **negado por omisión**
+en instalaciones nuevas.
 
-**Trabajo (recomendado):**
-1. Quitar `SCHEDULE_EXACT_ALARM` del manifiesto.
-2. Comprobar con `npx cap sync` y en el AAB final (`aapt dump permissions`) que
-   ningún plugin lo vuelva a meter. Si alguno lo mete, agregar
-   `tools:node="remove"`.
-3. Probar en un celular que los recordatorios siguen llegando, con alarma
-   inexacta.
-4. Actualizar `01-checklist.md`.
+**Por qué no se quitó.** El comentario de `AndroidManifest.xml` documenta una
+prueba en un celular real: sin el permiso, un aviso programado 5 minutos antes
+de la clase no llegó ni 30 minutos después. La causa no era el permiso. Sin
+él, el plugin caía a `set(RTC)`, una alarma que no despierta al teléfono en
+reposo (Doze).
 
-### B6. Funcionalidad mínima: la app carga el sitio remoto 🛠
+**Hecho:**
+1. El permiso se conserva. La app ya lleva al docente a concederlo al activar
+   un recordatorio (`requestExactAlarmAccess`).
+2. `schedule.allowWhileIdle: true`:
+   - con el permiso, el plugin usa `setExactAndAllowWhileIdle`;
+   - sin él, cae a `setAndAllowWhileIdle`, que sí despierta al teléfono. El
+     aviso puede llegar unos minutos tarde, pero llega.
+3. 👤 Pendiente: probar en un celular con Android 14+ **sin** conceder
+   «Alarmas y recordatorios» que el aviso llega (paso 6).
+
+### B6. Funcionalidad mínima: la app carga el sitio remoto 🛠 ◐ (paso 1)
+
+> **Hecho:** punto 1 (`public/offline.html` + `server.errorPath`; entra al APK con `npx cap sync` en el próximo AAB) y punto 4 (la landing solo elige entre docente y alumno; las descargas ya explican que son de la web). **Pendiente:** punto 2. No se puede retener la splash hasta que cargue el sitio, porque la página sin conexión no tiene plugins y se quedaría trabada; se revisa en el celular (paso 6). El punto 3 se cubre en la ficha.
 
 **Hallazgo.** `server.url` apunta a `https://evalua-facil.vercel.app`: la app
 es un WebView del sitio. **No tiene página sin conexión**: no hay `errorPath`,
@@ -195,7 +211,9 @@ hacerlas evidentes:
    - el botón «Descargar la app» (`descargaSoloWeb.js` ya lo cuida, verificarlo);
    - los enlaces que abren el navegador sin necesidad.
 
-### B7. «SEP» en el nombre y la ficha 👤 🛠
+### B7. «SEP» en el nombre y la ficha 👤 🛠 ✅ textos (paso 1)
+
+> **Hecho.** `02-ficha-tienda.md` con aviso de no afiliación, sección de IA, sección «En tu celular» y notas para la consola.
 
 **Riesgo.** Si se ve como app oficial de la Secretaría de Educación Pública,
 cae en la política de **suplantación y engaño**. Las apps que parecen
@@ -280,7 +298,7 @@ Umbrales de Play: si la app los pasa, pierde visibilidad y muestra advertencias.
 | P8 | Seguridad de los datos | ⬜ | Con el documento de B3 y la URL de B4. |
 | P9 | Capturas | ⬜ parcial | Mínimo 2, ideal 6–8, del celular con sesión iniciada: tablero, calificar, rúbrica con IA, calendario, vista del alumno, notificación. Sin datos reales de alumnos: usar el emulador sembrado o una cuenta demo. |
 | P10 | Correo de soporte | ✅ | `soporte@evaluafacil.mx` solo recibe. Probar que llegue antes de publicarlo. |
-| P11 | Declaraciones de permisos | ⬜ | Si B5 se aplica, ya no hay que declarar alarmas exactas. Notificaciones no requieren declaración. |
+| P11 | Declaraciones de permisos | ⬜ | `SCHEDULE_EXACT_ALARM` y notificaciones no requieren declaración. Si la consola pregunta por alarmas exactas: recordatorios de clase que programa el propio docente. |
 | P12 | Política de pagos | ⬜ | Si B1 queda en la opción a, en «Productos» no hay nada que dar de alta. |
 | P13 | Gobierno o salud | ⬜ | Responder «No» a app gubernamental. Va de la mano con B7. |
 
@@ -290,7 +308,7 @@ Umbrales de Play: si la app los pasa, pierde visibilidad y muestra advertencias.
 
 | Paso | Contenido | Quién | Duración |
 |------|-----------|-------|----------|
-| **1. PR «política»** | B1 (opción a), B4, B5, B6 (pantalla sin conexión) y textos de B7 | 🛠 | 1 sesión |
+| **1. PR «política»** ✅ | B1 (opción a), B4, B5, B6 (pantalla sin conexión) y textos de B7 | 🛠 | Hecho |
 | **2. PR «IA responsable»** | B2 (reportar, colección, reglas, admin) y B3 (aviso y documento de datos) | 🛠 | 1 sesión |
 | **3. PR «seguridad web»** | S2 (HSTS + CSP solo reporte), S5, S6, S7, S10 | 🛠 | 1 sesión |
 | **4. PR «Android»** | S1, S4, A5, A7, O6–O8 y un AAB nuevo (`versionCode` 16) | 🛠 | 1 sesión; necesita el keystore |
@@ -305,7 +323,7 @@ emulador con Play Store.
 
 ## Decisiones pendientes (tuyas)
 
-1. **B1:** ¿opción a (ocultar la compra en la app) para el lanzamiento?
+1. ~~**B1:** ¿opción a?~~ Sí, opción a (13-oct-2026).
 2. **A1:** ¿se suben los controles táctiles a 48 px, o solo se agranda el área
    invisible de toque?
 3. **O3:** ¿registro de errores propio en Firestore o servicio externo? Un

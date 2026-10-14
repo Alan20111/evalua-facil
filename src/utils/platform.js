@@ -5,6 +5,15 @@ import { Capacitor } from '@capacitor/core'
 
 export const IS_NATIVE_APP = Capacitor.isNativePlatform()
 
+// false dentro de la app nativa: ahí no se venden créditos de IA. La política
+// de pagos de Google Play exige su propio cobro (Play Billing) para bienes
+// digitales y prohíbe mandar a pagar fuera, incluso con un texto que diga
+// dónde comprar (docs/PLAN_GOOGLE_PLAY.md, B1). En la app solo se ve y se
+// gasta el saldo; los créditos de regalo sí se activan, porque no son venta.
+// Todo botón, texto o enlace de compra va detrás de esta constante, y
+// ComprarCreditosModal solo se monta con ella (check-ui-standards.sh).
+export const PUEDE_COMPRAR = !IS_NATIVE_APP
+
 // true cuando conviene enfocar un campo solo al abrir una pantalla o un modal.
 //
 // En celular NO conviene: el foco abre el teclado de golpe, que tapa media

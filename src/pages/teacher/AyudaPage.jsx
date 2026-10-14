@@ -8,6 +8,7 @@ import { TEACHER_CONTAINER_NARROW } from '../../config/layout'
 import CanalYouTubeLink from '../../components/CanalYouTubeLink'
 import YouTubeIcon from '../../components/YouTubeIcon'
 import { ICONO } from '../../config/iconos'
+import { PUEDE_COMPRAR } from '../../utils/platform'
 
 // ─── Primeros pasos ──────────────────────────────────────────────────────────
 
@@ -206,11 +207,19 @@ const REFERENCE = [
     id: 'creditos-ia',
     title: 'Créditos de IA',
     icon: Coins,
-    bullets: [
-      '1 crédito = $1 MXN. No caducan.',
-      'Se usan para generar planeaciones y analizar resultados.',
-      'Cómpralos desde tu Perfil.',
-    ],
+    // En la app nativa no se habla de precio ni de dónde comprar
+    // (docs/PLAN_GOOGLE_PLAY.md, B1).
+    bullets: PUEDE_COMPRAR
+      ? [
+        '1 crédito = $1 MXN. No caducan.',
+        'Se usan para generar planeaciones y analizar resultados.',
+        'Cómpralos desde tu Perfil.',
+      ]
+      : [
+        'No caducan.',
+        'Se usan para generar planeaciones y analizar resultados.',
+        'Consulta tu saldo en tu Perfil.',
+      ],
   },
   {
     id: 'perfil-ia',

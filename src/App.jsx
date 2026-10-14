@@ -42,6 +42,7 @@ const paginas = {
   CalendarPage: () => import('./pages/teacher/CalendarPage'),
   VerifyEmail: () => import('./pages/teacher/VerifyEmail'),
   Privacidad: () => import('./pages/Privacidad'),
+  EliminarCuenta: () => import('./pages/EliminarCuenta'),
   DescargaApp: () => import('./pages/DescargaApp'),
   TeacherNotificationSettings: () => import('./pages/teacher/NotificationSettings'),
   AyudaPage: () => import('./pages/teacher/AyudaPage'),
@@ -95,6 +96,7 @@ const PerfilIA = lazy(paginas.PerfilIA)
 const CalendarPage = lazy(paginas.CalendarPage)
 const VerifyEmail = lazy(paginas.VerifyEmail)
 const Privacidad = lazy(paginas.Privacidad)
+const EliminarCuenta = lazy(paginas.EliminarCuenta)
 const DescargaApp = lazy(paginas.DescargaApp)
 const TeacherNotificationSettings = lazy(paginas.TeacherNotificationSettings)
 const AyudaPage = lazy(paginas.AyudaPage)
@@ -323,6 +325,7 @@ export default function App() {
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/privacidad" element={<Privacidad />} />
             <Route path="/privacy" element={<Privacidad />} />
+            <Route path="/eliminar-cuenta" element={<EliminarCuenta />} />
 
             {/* Descarga directa del APK de Android — ruta NO listada, a propósito.
                 Los slugs se generan desde el panel de admin (pestaña Descargas);

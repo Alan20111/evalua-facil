@@ -15,6 +15,7 @@ import { useState } from 'react'
 import { Sparkles } from 'lucide-react'
 import useCreditosIA from '../hooks/useCreditosIA'
 import ComprarCreditosModal from './ComprarCreditosModal'
+import { PUEDE_COMPRAR } from '../utils/platform'
 import ActivarCreditosModal from './ActivarCreditosModal'
 import { Button, Modal } from './ui'
 import { ICONO } from '../config/iconos'
@@ -95,7 +96,9 @@ export default function ConfirmacionCreditosModal({
             </p>
             <p className="text-sm text-muted mb-4">
               Esta acción requiere aproximadamente {rango} {max === 1 ? 'crédito' : 'créditos'} y tienes {c.saldo} disponibles.
-              {c.mostrarCTAActivarBienvenida && ' Puedes comprar créditos o activar tus créditos de regalo.'}
+              {c.mostrarCTAActivarBienvenida && (PUEDE_COMPRAR
+                ? ' Puedes comprar créditos o activar tus créditos de regalo.'
+                : ' Puedes activar tus créditos de regalo.')}
             </p>
             <div className="flex justify-end gap-2">
               <Button variant="quiet" onClick={onCancelar}>
@@ -106,14 +109,16 @@ export default function ConfirmacionCreditosModal({
                   Activar créditos de regalo
                 </Button>
               )}
-              <Button onClick={() => setComprarAbierto(true)}>
-                Comprar créditos
-              </Button>
+              {PUEDE_COMPRAR && (
+                <Button onClick={() => setComprarAbierto(true)}>
+                  Comprar créditos
+                </Button>
+              )}
             </div>
           </>
         )}
       </Modal>
-      <ComprarCreditosModal open={comprarAbierto} onClose={() => setComprarAbierto(false)} />
+      {PUEDE_COMPRAR && <ComprarCreditosModal open={comprarAbierto} onClose={() => setComprarAbierto(false)} />}
       <ActivarCreditosModal open={activarAbierto} onClose={() => setActivarAbierto(false)} onSuccess={onCancelar} />
     </>
   )

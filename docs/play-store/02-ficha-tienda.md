@@ -30,6 +30,23 @@ QUÉ PUEDES HACER
 • Organizar tu horario y tu agenda de clases y eventos en un calendario.
 • Recibir avisos y recordatorios de tus clases y entregas.
 
+CON AYUDA DE INTELIGENCIA ARTIFICIAL
+
+• Genera rúbricas, preguntas y planeaciones a partir de tu tema.
+• Recibe una calificación sugerida y retroalimentación para cada entrega; tú
+  decides siempre la calificación final.
+• Convierte un video de YouTube en una actividad con preguntas.
+• Las funciones de IA usan créditos. Al crear tu cuenta recibes 30 créditos de
+  regalo para probarlas; todo lo demás es gratis.
+• ¿La IA respondió algo incorrecto o inapropiado? Repórtalo desde la misma
+  pantalla.
+
+EN TU CELULAR
+
+• Notificaciones de entregas y avisos, y recordatorios antes de cada clase.
+• Inicia sesión con tu cuenta de Google.
+• Guarda y comparte tus reportes y listas desde el teléfono.
+
 PENSADA PARA EL AULA
 
 • Tus alumnos entran con un código o QR — sin necesidad de un correo por cada
@@ -44,6 +61,9 @@ Crea tu cuenta, agrega tu primera materia y en minutos ya estás capturando
 calificaciones. Sin instalaciones complicadas ni configuraciones eternas.
 
 Evalúa Fácil: evidencias y calificaciones, sin complicaciones.
+
+Evalúa Fácil es una herramienta independiente: no está afiliada a la Secretaría
+de Educación Pública (SEP) ni a ninguna dependencia de gobierno.
 ```
 
 ## Otros campos de la ficha
@@ -57,6 +77,18 @@ Evalúa Fácil: evidencias y calificaciones, sin complicaciones.
 - **Política de privacidad:** `https://evaluafacil.mx/privacidad`
 
 ## Notas
+- **No es app de gobierno** (docs/PLAN_GOOGLE_PLAY.md, B7). Ni el nombre, ni el
+  ícono, ni las capturas usan logotipos o colores de la SEP, y la descripción lo
+  aclara en su última línea. En la consola, a «¿Es una app gubernamental?»
+  responde **No**. Di «para docentes de bachillerato» en vez de «app de la SEP».
+- **Compras:** la app de Android no vende nada (B1). En la consola, «Contiene
+  compras dentro de la aplicación» → **No**. No pongas precios en la ficha ni
+  digas dónde comprar créditos.
+- La viñeta del video de YouTube solo va si el Video interactivo ya opera en
+  producción: necesita el secreto `GEMINI_API_KEY` (CLAUDE.md, «Credencial de
+  Gemini»). Prometer una función que no funciona es motivo de rechazo.
+- La viñeta de «Repórtalo» depende de B2 (reportar contenido de IA): no la
+  publiques antes de que esa función esté en producción.
 - La descripción corta va a **62 caracteres** (bajo el límite de 80).
 - Puedes ajustar el texto a tu gusto; está redactado para ser claro y honesto con lo
   que la app realmente hace (sin prometer funciones que no existan, que es motivo de
