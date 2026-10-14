@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../context/AuthContext'
-import { apiUrl } from '../utils/apiBase'
+import { fetchApi } from '../utils/apiBase'
 import { kpisResumen } from '../utils/resumenAdmin'
 
 // Cuánto se espera la respuesta de Firebase Authentication (último acceso y fecha
@@ -167,7 +167,7 @@ export function useAdminStats() {
     }
 
     currentUser.getIdToken()
-      .then((token) => fetch(apiUrl('/api/admin/last-access'), {
+      .then((token) => fetchApi('/api/admin/last-access', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ uids: teachers.map((t) => t.id) }),

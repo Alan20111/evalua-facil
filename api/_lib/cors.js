@@ -24,7 +24,7 @@ export function aplicarCors(req, res) {
     // Sin Vary la CDN podría servirle a un origen la respuesta cacheada de
     // otro, junto con su cabecera Allow-Origin equivocada.
     res.setHeader('Vary', 'Origin')
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Firebase-AppCheck')
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
     res.setHeader('Access-Control-Max-Age', '86400')
   }

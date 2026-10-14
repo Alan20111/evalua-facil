@@ -172,6 +172,18 @@ echo ""
 ratchet "ComprarCreditosModal sin PUEDE_COMPRAR && delante (la app de Play no puede vender créditos) — B1" \
   '(^|[^&[:space:]])[[:space:]]*<ComprarCreditosModal' 0
 
+# Las llamadas a /api/* pasan por fetchApi (utils/apiBase.js), que agrega el
+# token de App Check (S3). Un fetch directo saldría sin él y, con App Check
+# obligatorio, el servidor lo rechazaría.
+LLAMADAS_API_SUELTAS=$(grep -rnE "fetch\((apiUrl\(|['\"\`]/api/)" --include="*.js" --include="*.jsx" src/ 2>/dev/null | grep -v "src/utils/apiBase.js")
+if [ -n "$LLAMADAS_API_SUELTAS" ]; then
+  echo "❌ fetch directo a /api (usa fetchApi de utils/apiBase.js, que lleva App Check) — S3"
+  echo "$LLAMADAS_API_SUELTAS" | sed 's/^/   /'
+  FAIL=1
+else
+  echo "✅ Llamadas a /api solo por fetchApi (App Check) — S3"
+fi
+
 echo ""
 # Esqueletos de carga: deben medir lo mismo que su pantalla real
 # (data-esq en pantalla y en components/esqueletos/ — ver check-esqueletos.mjs).

@@ -1,5 +1,6 @@
 import { aplicarCors } from './_lib/cors.js'
 import { verifyRequest } from './_lib/firebaseAdmin.js'
+import { exigirAppCheck } from './_lib/appCheck.js'
 
 // Envía un correo transaccional por la API de Brevo, siempre desde
 // soporte@evaluafacil.mx (dominio autenticado con DKIM/DMARC en Brevo).
@@ -18,6 +19,7 @@ const REMITENTE = { email: 'soporte@evaluafacil.mx', name: 'Evalúa Fácil' }
 
 export default async function handler(req, res) {
   if (aplicarCors(req, res)) return
+  if (await exigirAppCheck(req, res, 'send-email')) return // S3: mide; rechaza solo con APP_CHECK_OBLIGATORIO=1
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' })
 
   const apiKey = process.env.BREVO_API_KEY

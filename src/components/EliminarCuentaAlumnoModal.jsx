@@ -8,7 +8,7 @@ import { useToast } from './Toast'
 import { useBackHandler } from '../hooks/useBackHandler'
 import Modal from './ui/Modal'
 import PasswordInput from './PasswordInput'
-import { apiUrl } from '../utils/apiBase'
+import { fetchApi } from '../utils/apiBase'
 import { Input, Button } from './ui'
 import { ICONO } from '../config/iconos'
 
@@ -52,7 +52,7 @@ export default function EliminarCuentaAlumnoModal({ photoURL, onClose }) {
       }
 
       const token = await currentUser.getIdToken()
-      const res = await fetch(apiUrl('/api/student/delete'), {
+      const res = await fetchApi('/api/student/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         // Sin inscripciones, el servidor ya no tiene de dónde leer la foto

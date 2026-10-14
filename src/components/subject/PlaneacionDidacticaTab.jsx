@@ -44,7 +44,7 @@ import { FilePreviewModal } from '../AttachmentList'
 import BotonDescargarArchivo from '../BotonDescargarArchivo'
 import { MAX_FUENTES, MAX_FUENTE_BYTES, FUENTES_ACCEPT, subirFuentes } from '../../utils/fuentesIA'
 import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales, MAX_FUENTES_POR_GRUPO } from '../../utils/fuentesAsignatura'
-import { apiUrl } from '../../utils/apiBase'
+import { fetchApi } from '../../utils/apiBase'
 import ComentariosGrupoSection from './ComentariosGrupoSection'
 import AutoanalisisDocenteSection from './AutoanalisisDocenteSection'
 import ConsideracionesSection from './ConsideracionesSection'
@@ -244,7 +244,7 @@ export default function PlaneacionDidacticaTab({ subjectId, docenteId, asignatur
       // esto, el documento desaparecía de Firestore pero el PDF/Word se
       // quedaba huérfano en Cloudinary para siempre.
       const token = await auth.currentUser.getIdToken()
-      const res = await fetch(apiUrl('/api/subject/delete-fuente'), {
+      const res = await fetchApi('/api/subject/delete-fuente', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ fuenteId: id }),

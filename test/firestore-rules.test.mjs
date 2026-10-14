@@ -3680,6 +3680,14 @@ ok('F-05 · admin CAN read publicProfiles')
   await assertFails(setDoc(doc(anonimo, 'cspReportes', 'C3'), { directiva: 'img-src' }))
   await assertFails(updateDoc(doc(asAdmin, 'cspReportes', 'C1'), { cuenta: 0 }))
   ok('CSP · solo el admin lee las violaciones; nadie las escribe desde el cliente')
+
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'appCheckMetricas', '2026-10-14'), { 'send-email': { valido: 1 } })
+  })
+  await assertSucceeds(getDoc(doc(asAdmin, 'appCheckMetricas', '2026-10-14')))
+  await assertFails(getDoc(doc(asT1, 'appCheckMetricas', '2026-10-14')))
+  await assertFails(setDoc(doc(asT1, 'appCheckMetricas', '2026-10-15'), { x: 1 }))
+  ok('APP CHECK · solo el admin lee las métricas; nadie las escribe desde el cliente')
 }
 
 await testEnv.cleanup()

@@ -2,6 +2,7 @@ import { getDb, getAuth, getBucket, verifyRequest } from '../_lib/firebaseAdmin.
 import { borrarTodo as borrarMiEspacio } from '../_lib/miEspacio.js'
 import { extraerAssets, borrarAssets } from '../_lib/cloudinary.js'
 import { aplicarCors } from '../_lib/cors.js'
+import { exigirAppCheck } from '../_lib/appCheck.js'
 
 // Elimina definitivamente la cuenta de un docente y todo lo suyo: documentos,
 // subcolecciones, archivos subidos, las cuentas de sus estudiantes que se
@@ -116,6 +117,7 @@ async function borrarAlumnosHuerfanos(db, auth, uids) {
 
 export default async function handler(req, res) {
   if (aplicarCors(req, res)) return // preflight de la app
+  if (await exigirAppCheck(req, res, 'account/delete')) return // S3: mide; rechaza solo con APP_CHECK_OBLIGATORIO=1
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método no permitido' })
   }

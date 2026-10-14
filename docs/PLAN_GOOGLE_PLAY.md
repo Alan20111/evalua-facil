@@ -262,7 +262,7 @@ gubernamentales sin serlo se rechazan.
 |---|----------|--------|-----------|
 | S1 ✅ | `android:allowBackup="true"` | Paso 4: `allowBackup="false"`, `fullBackupContent="false"` y `dataExtractionRules` que excluyen todo en la nube y en la transferencia entre teléfonos (Android 12+). Confirmado en el manifiesto combinado del APK. | Alta |
 | S2 ✅ / ◐ | `vercel.json` sin **CSP** ni **HSTS** | **HSTS:** ya lo manda Vercel en los dos dominios (`max-age=63072000`; en `vercel.app` también `includeSubDomains; preload`), así que no se agregó. **CSP:** va en modo `Report-Only` (paso 3), con los orígenes sacados del bundle. Se probó obligatoria contra producción (páginas públicas) y contra el emulador (pantallas del docente) sin violaciones. Los reportes llegan a `api/csp-report.js` → colección `cspReportes`, uno por violación distinta, con contador; solo el admin los lee. **Pendiente:** en 1–2 semanas revisar `cspReportes` en la consola de Firebase, ajustar y cambiar la cabecera a `Content-Security-Policy`. | Media |
-| S3 | Sin **Firebase App Check** | Activar App Check con Play Integrity (Android) y reCAPTCHA Enterprise (web). Primero en modo solo métricas y luego en modo obligatorio en Firestore y en las Cloud Functions de IA, que son las que gastan dinero. | Alta |
+| S3 ◐ | Sin **Firebase App Check** | **Código listo (paso 5)**: el cliente usa reCAPTCHA Enterprise, que cubre también la app de Android porque es un WebView del sitio. `/api` pasa por `fetchApi`, que manda el token, y un candado impide `fetch` directos. El servidor de Vercel mide en `appCheckMetricas/{día}`; los callables quedan en los logs con «app: VALID/MISSING». Nada se rechaza hasta poner `APP_CHECK_OBLIGATORIO=1`. **Falta 👤 la consola** (ver «S3 paso a paso»). | Alta |
 | S4 ✅ | `minifyEnabled false` | Paso 4: R8 con `minifyEnabled` y `shrinkResources` (APK de 29.2 → 25.5 MB). Capacitor trae sus reglas; se agregó `-dontwarn com.facebook.**` (proveedor que no usamos) y números de línea para los fallos. **Cada AAB lleva su `mapping.txt`, que se sube a Play Console** (App bundle explorer → Descargas → Archivo de desofuscación). Probado en el emulador: arranca, carga el sitio, Atrás y la pantalla sin conexión funcionan. | Media |
 | S5 👤 | API key web de Firebase | Restringirla en Google Cloud (ver «S5 paso a paso» abajo). Es trabajo de consola: no hay cambio de código. | Media |
 | S6 ✅ | Tráfico en claro | El manifiesto no tiene `usesCleartextTraffic` ni `networkSecurityConfig`, y con target 36 el tráfico sin cifrar está bloqueado por omisión. Confirmar en el AAB final (paso 4). | Verificar |
@@ -270,6 +270,36 @@ gubernamentales sin serlo se rechazan.
 | S8 ✅ | Reglas de Firestore | Suite con 662 pruebas, incluidas `reportesIA` (B2) y `cspReportes` (S2). | Media |
 | S9 ◐ | Secretos | En el historial completo de git (todas las ramas) hay 0 claves de Anthropic con forma real (13-oct-2026). Falta 👤 comprobar la forma de los secretos en GCP con el comando de CLAUDE.md. | Verificar |
 | S10 ✅ | `WebView` | `allowNavigation` solo tiene el sitio (B1). Capacitor abre cualquier otro host con un intent al navegador del sistema (`Bridge.launchIntent`), así que la sesión nunca se usa en un sitio ajeno. Los iframes de YouTube y Docs no son navegación. | Media |
+
+### S3 paso a paso (👤, App Check)
+
+El código ya está en producción y **no hace nada hasta que exista la clave**.
+
+1. **Crear la clave.** Firebase Console → App Check → Apps → la app web →
+   **reCAPTCHA Enterprise** → *Registrar*. Te pide crear o elegir una clave de
+   sitio de reCAPTCHA Enterprise. En sus dominios agrega:
+   - `evalua-facil.vercel.app`
+   - `evaluafacil.mx`
+   - `www.evaluafacil.mx`
+2. **Cargarla en Vercel.** Settings → Environment Variables →
+   `VITE_RECAPTCHA_ENTERPRISE_SITE_KEY` = la clave del sitio. Es pública: va en
+   el JavaScript. Redespliega.
+3. **Medir una semana.** Ningún servicio rechaza nada todavía. Revisa:
+   - App Check → *Métricas* de Cloud Firestore y Authentication: % de solicitudes verificadas;
+   - Firestore → `appCheckMetricas`: válidas, ausentes e inválidas por día y endpoint de `/api`;
+   - Cloud Logging de las funciones: `app: MISSING` contra `app: VALID`.
+4. **Exigir**, si lo verificado está arriba del 95–98 % y lo que falta se
+   explica (versiones viejas, bots):
+   - **Firestore y Authentication:** App Check → API → *Aplicar*.
+   - **`/api` (Vercel):** variable `APP_CHECK_OBLIGATORIO` = `1` y redesplegar.
+   - **Cloud Functions:** `APP_CHECK_OBLIGATORIO=1` en `functions/.env` y redesplegar.
+     Primero las funciones que no dependen de Gemini (ver CLAUDE.md).
+5. **Si algo se rompe:** quita la variable o pulsa *No aplicar* en la consola.
+   El efecto es inmediato en Firestore y llega con el siguiente despliegue en `/api` y Functions.
+
+Desarrollo contra el proyecto real (no contra los emuladores): Firebase imprime
+un token de depuración en la consola del navegador. Regístralo en App Check →
+Apps → *Administrar tokens de depuración*.
 
 ### S5 paso a paso (👤, consola de Google Cloud)
 
@@ -376,7 +406,7 @@ Umbrales de Play: si la app los pasa, pierde visibilidad y muestra advertencias.
 | **2. PR «IA responsable»** ✅ | B2 (reportar, colección, reglas, admin) y B3 (aviso y documento de datos) | 🛠 | Hecho; falta desplegar las reglas |
 | **3. PR «seguridad web»** ✅ | S2 (HSTS + CSP solo reporte), S5, S6, S7, S10 | 🛠 | Hecho; S5 es tuyo en consola |
 | **4. PR «Android»** ✅ | S1, S4, A5, A7, O6–O8 y un AAB nuevo (`versionCode` 16) | 🛠 | 1 sesión; necesita el keystore |
-| **5. App Check** | S3, primero en modo métricas y una semana después obligatorio | 🛠 + 👤 en consola | En dos tiempos |
+| **5. App Check** ◐ código listo | S3, primero en modo métricas y una semana después obligatorio | 🛠 + 👤 en consola | En dos tiempos |
 | **6. Celular** | A1–A3 y O1, con TalkBack y fuente al 200 % | 👤 prueba + 🛠 corrige | 1–2 sesiones |
 | **7. Consola** | P1–P13, subir el AAB a prueba interna y luego a la cerrada | 👤 | Los 14 días corren aquí |
 | **8. Producción** | Cuestionario de la prueba cerrada y solicitud de acceso a producción | 👤 | Google tarda días |

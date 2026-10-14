@@ -7,7 +7,7 @@ import { useToast } from '../../../components/Toast'
 import Spinner from '../../../components/Spinner'
 import { Button, Input, Skeleton, SkeletonList, SkeletonText } from '../../../components/ui'
 import { exportAppQRPDF } from '../../../utils/pdf'
-import { apiUrl } from '../../../utils/apiBase'
+import { fetchApi } from '../../../utils/apiBase'
 import { auth } from '../../../firebase'
 import { APP_DOWNLOAD_URL } from '../../../config/appDownload'
 import {
@@ -138,7 +138,7 @@ export default function DownloadLinks() {
     setCompilando(true)
     try {
       const token = await auth.currentUser.getIdToken()
-      const res = await fetch(apiUrl('/api/admin/release-apk'), {
+      const res = await fetchApi('/api/admin/release-apk', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ versionName: versionAuto.trim() }),

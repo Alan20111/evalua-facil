@@ -10,7 +10,7 @@
 // existente que llama a ts.toDate() siga funcionando sin cambios.
 
 import { auth } from '../firebase'
-import { apiUrl } from './apiBase'
+import { fetchApi } from './apiBase'
 
 function rehydrateTimestamps(v) {
   if (!v || typeof v !== 'object') return v
@@ -32,7 +32,7 @@ function rehydrateTimestamps(v) {
 async function callContentApi(body) {
   const token = await auth.currentUser?.getIdToken()
   if (!token) throw new Error('No autenticado')
-  const res = await fetch(apiUrl('/api/subject/content'), {
+  const res = await fetchApi('/api/subject/content', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),

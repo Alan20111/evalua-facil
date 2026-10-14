@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore'
 import { db, auth } from '../../firebase'
-import { apiUrl } from '../../utils/apiBase'
+import { fetchApi } from '../../utils/apiBase'
 import { fetchActivity } from '../../utils/apiContent'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -69,7 +69,7 @@ export default function EvaluacionRevision() {
       if (!answersVisible) { navigate(`/alumno/actividad/${activityId}`); return }
 
       const idToken = await auth.currentUser.getIdToken()
-      const pregResp = await fetch(apiUrl('/api/exam/questions'), {
+      const pregResp = await fetchApi('/api/exam/questions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
         body: JSON.stringify({ activityId }),

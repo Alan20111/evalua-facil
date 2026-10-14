@@ -1,5 +1,6 @@
 import { verifyRequest, getDb } from '../_lib/firebaseAdmin.js'
 import { aplicarCors } from '../_lib/cors.js'
+import { exigirAppCheck } from '../_lib/appCheck.js'
 
 // Authenticated endpoint: returns evaluación questions to:
 //   • the teacher who owns the activity (for editor, review, export)
@@ -10,6 +11,7 @@ import { aplicarCors } from '../_lib/cors.js'
 // Students must go through this endpoint — Firestore rules now block direct reads.
 export default async function handler(req, res) {
   if (aplicarCors(req, res)) return
+  if (await exigirAppCheck(req, res, 'exam/questions')) return // S3: mide; rechaza solo con APP_CHECK_OBLIGATORIO=1
   if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' })
   try {
     const quien = await verifyRequest(req)

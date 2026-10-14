@@ -1,5 +1,6 @@
 import { getDb, admin, verifyRequest } from '../_lib/firebaseAdmin.js'
 import { aplicarCors } from '../_lib/cors.js'
+import { exigirAppCheck } from '../_lib/appCheck.js'
 
 // Cancelar la suscripción del propio docente.
 //
@@ -16,6 +17,7 @@ const CANCELABLES = ['activa', 'trial', 'pendiente_pago']
 
 export default async function handler(req, res) {
   if (aplicarCors(req, res)) return // preflight de la app
+  if (await exigirAppCheck(req, res, 'account/cancel-subscription')) return // S3: mide; rechaza solo con APP_CHECK_OBLIGATORIO=1
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método no permitido' })
   }
