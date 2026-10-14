@@ -38,6 +38,7 @@ import { lockLandscape, lockPortrait } from '../../utils/orientation'
 import { hideStatusBar, showStatusBar } from '../../utils/statusBar'
 import { withDefaultTime, isDraftActivity, cuentaParaCalificacion } from '../../utils/activityVisibility'
 import { pesoDe, promedioParcial, ponderacionActivaEnParcial, normalizeGrade, puedeIniciarAtencion, parcialCerrado, mensajeParcialCerrado, esNotaAutomaticaDeCierre } from '../../utils/ponderacion'
+import { motivoNoSePuedeMover, parcialesDestino, planMoverActividad } from '../../utils/moverActividadParcial'
 import { playAlertSound } from '../../utils/notify'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { formatShortDate, formatShortDateRange } from '../../utils/dateRange'
@@ -164,6 +165,8 @@ export default function SubjectPage() {
   // `changes` = actividades cuyo número (1.2., 1.3.…) cambia con el movimiento.
   const [moveConfirm, setMoveConfirm] = useState(null)
   const [moving, setMoving] = useState(false)
+  // Mover una actividad a OTRO parcial (queda como borrador): null | { a, destino }
+  const [moverParcial, setMoverParcial] = useState(null)
   // PONDERACIÓN: in-progress weight edits per activity id (committed on blur)
   const [pesoEdits, setPesoEdits] = useState({})
   // Anchored confirmation panel for reverting to simple average
@@ -545,6 +548,7 @@ export default function SubjectPage() {
   useBackHandler(() => setShowModal(false), showModal)
   useBackHandler(() => setDuplicateConfirm(null), !!duplicateConfirm)
   useBackHandler(() => !moving && setMoveConfirm(null), !!moveConfirm)
+  useBackHandler(() => !moving && setMoverParcial(null), !!moverParcial)
   useBackHandler(() => setPublishDraftConfirm(null), !!publishDraftConfirm)
   useBackHandler(() => setDeleteConfirm(null), !!deleteConfirm)
   useBackHandler(() => setShowMaterialModal(false), showMaterialModal)
@@ -583,6 +587,7 @@ export default function SubjectPage() {
   useScrollLock(showModal)
   useScrollLock(duplicateConfirm)
   useScrollLock(moveConfirm)
+  useScrollLock(moverParcial)
   useScrollLock(publishDraftConfirm)
   useScrollLock(deleteConfirm)
   useScrollLock(showMaterialModal)
@@ -3252,6 +3257,49 @@ export default function SubjectPage() {
     } finally { setMoving(false) }
   }
 
+  // ── Mover una actividad a OTRO parcial (queda como borrador) ────────
+  // Mismo documento: solo cambian `parcial`, `orden` y el estado (ver
+  // utils/moverActividadParcial.js). Las entregas y calificaciones no se tocan.
+  // En un solo lote, para que no quede a medias: la actividad + la renumeración
+  // de las hermanas del parcial de origen. Optimista, y se revierte si falla.
+  function requestMoverParcial(a) {
+    const motivo = motivoNoSePuedeMover(subject, a)
+    if (motivo) { toast(motivo, 'error'); return }
+    const destinos = parcialesDestino(subject, a)
+    setMoverParcial({ a, destino: destinos.length === 1 ? destinos[0].parcial : null })
+  }
+
+  async function applyMoverParcial() {
+    if (!moverParcial?.destino) return
+    // La del estado vivo, no la del menú (pudo cambiar mientras el diálogo estaba abierto).
+    const a = activities.find((x) => x.id === moverParcial.a.id)
+    const destino = moverParcial.destino
+    if (!a || !parcialesDestino(subject, a).some((d) => d.parcial === destino)) {
+      toast('Ese parcial ya no está disponible. Elige otro.', 'error')
+      return
+    }
+    const motivo = motivoNoSePuedeMover(subject, a)
+    if (motivo) { toast(motivo, 'error'); return }
+    const plan = planMoverActividad({ subject, activities, actividad: a, destino })
+    const prevActivities = activities
+    setActivities((prev) => prev.map((x) => {
+      if (x.id === a.id) return { ...x, ...plan.cambios }
+      return plan.ordenesOrigen[x.id] != null ? { ...x, orden: plan.ordenesOrigen[x.id] } : x
+    }))
+    setMoving(true)
+    try {
+      const batch = writeBatch(db)
+      batch.update(doc(db, 'activities', a.id), plan.cambios)
+      Object.entries(plan.ordenesOrigen).forEach(([id, orden]) => batch.update(doc(db, 'activities', id), { orden }))
+      await batch.commit()
+      setMoverParcial(null)
+      toast(`Actividad movida al Parcial ${destino} como borrador — publícala cuando esté lista`)
+    } catch (err) {
+      setActivities(prevActivities)
+      toast('No se pudo mover: ' + err.message, 'error')
+    } finally { setMoving(false) }
+  }
+
   // First publication of a draft (no publishedAt yet): the eye asks for
   // confirmation and stamps the publication datetime.
   async function publishDraftNow() {
@@ -4651,7 +4699,7 @@ export default function SubjectPage() {
   ) : subjectHeaderRightIconsWeb
 
   return (
-    <ContextoAsignatura.Provider value={{ PARCIALES, actTip, activeTab, activities, activityContextMenu, activityExistingFiles, activityLabelById, activityMenu, activityMenuIdx, activityMenuSiblings, activityNewFiles, addDayLabel, addInstructionFiles, addMaterialFiles, addStudent, analisisAsignaturaAbierto, anexarActividadVideo, anyPonderacionOn, applyMoveActivities, applyNewDateResult, applyParcialPonderacion, applyPonderacion, archiveConZip, archiving, atencionParcialConfirm, atencionPestanas, attExportMenu, attSortOn, attSortParcial, attendanceLegend, attendanceLegendObservaciones, attendanceNoClaseDias, attendanceParciales, attendanceParcialesAll, attendanceRecords, attendanceStudentsRosterJsx, attendanceTableJsx, bulkGradeModal, bulkGradeValue, canCreate, clearGradeQuickEdit, closeParcialConfirm, closeParcialGrade, closeParcialSesiones, closingParcial, colIndexByKey, confirmBulkGradeNoEntregadas, confirmCloseParcial, confirmDeleteStudent, confirmExcelImport, confirmImport, confirmIniciarAtencion, confirmResetStudentPassword, confirmRevertParcial, confirmRevertPonderacion, copyFechas, copyForm, copyingSubject, crearActividadIA, crearEvalIA, crearJuegoIA, crearVideoIA, currentUser, deleteConfirm, deleteMaterialConfirm, deleteResourceConfirm, deleteSubjectConfirmText, deleting, deletingMaterial, deletingResource, deletingSubject, doExportParcialAttendance, doExportParcialExcel, doExportParcialPDF, doExportRanking, dragDraftId, dragMatId, dropZoneActive, duplicateConfirm, duplicating, editStudentChanged, editStudentForm, editSubjectChanged, editSubjectForm, editingActivityData, editingMaterial, editingSubject, editorIsPublished, elegirCreacion, entregableEditor, estadoFiltroOpen, evalEditor, excelPreview, expandedMaterialId, exporting, exportingAttendance, exportingGradesPdf, filteredAlumnos, filteredAttendanceStudents, filteredGradeStudents, filtroActivacion, form, generatingCredentials, goToActivityFromGrades, gradeBodyCellBg, gradeBottomIds, gradeHeaderColBg, gradeQuickEdit, gradeSortMenuOpen, gradeSortOn, gradeSortParcial, gradeSubMap, gradeTopIds, groupStudents, groupStudentsLoaded, handleAddDayClick, handleAllowRejoin, handleArchiveConfirm, handleCopySubject, handleDeleteActivity, handleDeleteMaterial, handleDeleteResource, handleDeleteStudentPhoto, handleDeleteSubject, handleDraftDrop, handleDuplicateActivity, handleEditSubject, handleExcelFileSelected, handleExport, handleExportAttendance, handleExportGradesPDF, handleGenerateCredentials, handleGradeTableHover, handleGradeTableLeave, handleMaterialDrop, handleSaveActivity, handleSaveMaterial, handleSaveResource, handleUnarchiveConfirm, hideActivity, hideMaterial, importFor, importLoading, importSel, importSrc, importSrcActs, importSubjects, importing, importingExcel, iniciandoAtencion, linkCandidate, loadingAttendance, loadingGrades, loadingResources, materialChanged, materialExistingFiles, materialForm, materialModalMode, materialNewFiles, materialParcial, materials, membrete, menuPaso, modalMode, modalParcial, moveConfirm, moving, nativeAttBar, navigate, newDateOpen, newStudent, openActivityContextMenu, openAdd, openAddMaterial, openAddResource, openEdit, openEditMaterial, openEditResource, openEditStudent, openGradeQuickEdit, openImport, openNewDateForEditor, openParcial, parcialMenu, parcialesConActividades, parcialesVistos, parsingExcel, pesoEdits, pesoRestante, pesoTotalVivo, pickImportSubject, pondParcial, previewActividad, previewResourceId, publishDraftConfirm, publishDraftNow, rankingExportMenu, removeInstructionFile, requestCloseParcial, requestDeleteFromEdit, requestMoveActivity, requestResetFromEdit, resetPwdResult, resolveLinkCandidate, resourceChanged, resourceForm, resourceModalMode, resources, resourcesLoaded, revertCloseParcial, revertParcialConfirm, revertingParcial, saveEditStudent, saveGradeQuickEdit, savePeso, saving, savingBulkGrade, savingMaterial, savingQuickGrade, savingResource, savingStudent, searchAlumnos, searchAttendance, searchGrade, setActTip, setActivities, setActivityContextMenu, setActivityMenu, setAnalisisAsignaturaAbierto, setArchiveConZip, setAtencionParcialConfirm, setAttExportMenu, setAttSortOn, setAttSortParcial, setBulkGradeModal, setBulkGradeValue, setCloseParcialConfirm, setCloseParcialGrade, setCloseParcialSesiones, setConfirmRevertParcial, setConfirmRevertPonderacion, setCopyFechas, setCopyForm, setCrearActividadIA, setCrearEvalIA, setCrearJuegoIA, setCrearVideoIA, setDeleteConfirm, setDeleteMaterialConfirm, setDeleteResourceConfirm, setDeleteSubjectConfirmText, setDragDraftId, setDragMatId, setDropZoneActive, setDuplicateConfirm, setEditStudentForm, setEditSubjectForm, setEntregableEditor, setEstadoFiltroOpen, setEvalEditor, setExcelPreview, setExpandedMaterialId, setFiltroActivacion, setForm, setGradeQuickEdit, setGradeSortMenuOpen, setGradeSortOn, setGradeSortParcial, setImportFor, setImportSel, setImportSrc, setImportSrcActs, setLinkCandidate, setMaterialExistingFiles, setMaterialForm, setMaterialNewFiles, setMenuPaso, setMoveConfirm, setNewDateOpen, setNewStudent, setOpenParcial, setParcialMenu, setPesoEdits, setPreviewResourceId, setPublishDraftConfirm, setRankingExportMenu, setResetPwdResult, setResourceFile, setResourceForm, setRevertParcialConfirm, setSearchAlumnos, setSearchAttendance, setSearchGrade, setShowAddStudent, setShowAllParciales, setShowArchiveModal, setShowCopyModal, setShowCredentialsModal, setShowDeleteSubjectConfirm, setShowEditSubjectModal, setShowMaterialModal, setShowModal, setShowResourceModal, setShowUnarchiveModal, setSoloCalificables, setStudentToDelete, setStudentToEdit, setStudentToReset, setSubmissionCounts, setTipoActividad, setUnarchiveActivities, setUnarchiveEdits, setUnarchiveStudents, showActivityNow, showAddStudent, showAllParciales, showArchiveModal, showCopyModal, showCredentialsModal, showDeleteSubjectConfirm, showEditSubjectModal, showFinalCol, showMaterialModal, showMaterialNow, showModal, showResourceModal, showUnarchiveModal, soloCalificables, sortStudentsAlphabetically, sortedGradeRows, studentLastAccess, studentToDelete, studentToEdit, studentToReset, subject, subjectId, submissionCounts, tableParcials, telefonoWeb, tipoActividad, toggleImportLinkDecision, toggleImportSel, toggleMostrarAsistenciasEstudiantes, toggleNotificarActivacion, toggleParcialPonderacion, toggleParcialVisibility, togglePonderacion, tomarListaMovil, tomarListaMovilBar, tomarListaScrollRef, totalStudents, unarchiveActivities, unarchiveEdits, unarchiveStudents, unarchivedSaving, visibleParcials, zipDownloading, zipProgress }}>
+    <ContextoAsignatura.Provider value={{ PARCIALES, actTip, activeTab, activities, activityContextMenu, activityExistingFiles, activityLabelById, activityMenu, activityMenuIdx, activityMenuSiblings, activityNewFiles, addDayLabel, addInstructionFiles, addMaterialFiles, addStudent, analisisAsignaturaAbierto, anexarActividadVideo, anyPonderacionOn, applyMoveActivities, applyMoverParcial, applyNewDateResult, applyParcialPonderacion, applyPonderacion, archiveConZip, archiving, atencionParcialConfirm, atencionPestanas, attExportMenu, attSortOn, attSortParcial, attendanceLegend, attendanceLegendObservaciones, attendanceNoClaseDias, attendanceParciales, attendanceParcialesAll, attendanceRecords, attendanceStudentsRosterJsx, attendanceTableJsx, bulkGradeModal, bulkGradeValue, canCreate, clearGradeQuickEdit, closeParcialConfirm, closeParcialGrade, closeParcialSesiones, closingParcial, colIndexByKey, confirmBulkGradeNoEntregadas, confirmCloseParcial, confirmDeleteStudent, confirmExcelImport, confirmImport, confirmIniciarAtencion, confirmResetStudentPassword, confirmRevertParcial, confirmRevertPonderacion, copyFechas, copyForm, copyingSubject, crearActividadIA, crearEvalIA, crearJuegoIA, crearVideoIA, currentUser, deleteConfirm, deleteMaterialConfirm, deleteResourceConfirm, deleteSubjectConfirmText, deleting, deletingMaterial, deletingResource, deletingSubject, doExportParcialAttendance, doExportParcialExcel, doExportParcialPDF, doExportRanking, dragDraftId, dragMatId, dropZoneActive, duplicateConfirm, duplicating, editStudentChanged, editStudentForm, editSubjectChanged, editSubjectForm, editingActivityData, editingMaterial, editingSubject, editorIsPublished, elegirCreacion, entregableEditor, estadoFiltroOpen, evalEditor, excelPreview, expandedMaterialId, exporting, exportingAttendance, exportingGradesPdf, filteredAlumnos, filteredAttendanceStudents, filteredGradeStudents, filtroActivacion, form, generatingCredentials, goToActivityFromGrades, gradeBodyCellBg, gradeBottomIds, gradeHeaderColBg, gradeQuickEdit, gradeSortMenuOpen, gradeSortOn, gradeSortParcial, gradeSubMap, gradeTopIds, groupStudents, groupStudentsLoaded, handleAddDayClick, handleAllowRejoin, handleArchiveConfirm, handleCopySubject, handleDeleteActivity, handleDeleteMaterial, handleDeleteResource, handleDeleteStudentPhoto, handleDeleteSubject, handleDraftDrop, handleDuplicateActivity, handleEditSubject, handleExcelFileSelected, handleExport, handleExportAttendance, handleExportGradesPDF, handleGenerateCredentials, handleGradeTableHover, handleGradeTableLeave, handleMaterialDrop, handleSaveActivity, handleSaveMaterial, handleSaveResource, handleUnarchiveConfirm, hideActivity, hideMaterial, importFor, importLoading, importSel, importSrc, importSrcActs, importSubjects, importing, importingExcel, iniciandoAtencion, linkCandidate, loadingAttendance, loadingGrades, loadingResources, materialChanged, materialExistingFiles, materialForm, materialModalMode, materialNewFiles, materialParcial, materials, membrete, menuPaso, modalMode, modalParcial, moveConfirm, moverParcial, moving, nativeAttBar, navigate, newDateOpen, newStudent, openActivityContextMenu, openAdd, openAddMaterial, openAddResource, openEdit, openEditMaterial, openEditResource, openEditStudent, openGradeQuickEdit, openImport, openNewDateForEditor, openParcial, parcialMenu, parcialesConActividades, parcialesVistos, parsingExcel, pesoEdits, pesoRestante, pesoTotalVivo, pickImportSubject, pondParcial, previewActividad, previewResourceId, publishDraftConfirm, publishDraftNow, rankingExportMenu, removeInstructionFile, requestCloseParcial, requestDeleteFromEdit, requestMoveActivity, requestMoverParcial, requestResetFromEdit, resetPwdResult, resolveLinkCandidate, resourceChanged, resourceForm, resourceModalMode, resources, resourcesLoaded, revertCloseParcial, revertParcialConfirm, revertingParcial, saveEditStudent, saveGradeQuickEdit, savePeso, saving, savingBulkGrade, savingMaterial, savingQuickGrade, savingResource, savingStudent, searchAlumnos, searchAttendance, searchGrade, setActTip, setActivities, setActivityContextMenu, setActivityMenu, setAnalisisAsignaturaAbierto, setArchiveConZip, setAtencionParcialConfirm, setAttExportMenu, setAttSortOn, setAttSortParcial, setBulkGradeModal, setBulkGradeValue, setCloseParcialConfirm, setCloseParcialGrade, setCloseParcialSesiones, setConfirmRevertParcial, setConfirmRevertPonderacion, setCopyFechas, setCopyForm, setCrearActividadIA, setCrearEvalIA, setCrearJuegoIA, setCrearVideoIA, setDeleteConfirm, setDeleteMaterialConfirm, setDeleteResourceConfirm, setDeleteSubjectConfirmText, setDragDraftId, setDragMatId, setDropZoneActive, setDuplicateConfirm, setEditStudentForm, setEditSubjectForm, setEntregableEditor, setEstadoFiltroOpen, setEvalEditor, setExcelPreview, setExpandedMaterialId, setFiltroActivacion, setForm, setGradeQuickEdit, setGradeSortMenuOpen, setGradeSortOn, setGradeSortParcial, setImportFor, setImportSel, setImportSrc, setImportSrcActs, setLinkCandidate, setMaterialExistingFiles, setMaterialForm, setMaterialNewFiles, setMenuPaso, setMoveConfirm, setMoverParcial, setNewDateOpen, setNewStudent, setOpenParcial, setParcialMenu, setPesoEdits, setPreviewResourceId, setPublishDraftConfirm, setRankingExportMenu, setResetPwdResult, setResourceFile, setResourceForm, setRevertParcialConfirm, setSearchAlumnos, setSearchAttendance, setSearchGrade, setShowAddStudent, setShowAllParciales, setShowArchiveModal, setShowCopyModal, setShowCredentialsModal, setShowDeleteSubjectConfirm, setShowEditSubjectModal, setShowMaterialModal, setShowModal, setShowResourceModal, setShowUnarchiveModal, setSoloCalificables, setStudentToDelete, setStudentToEdit, setStudentToReset, setSubmissionCounts, setTipoActividad, setUnarchiveActivities, setUnarchiveEdits, setUnarchiveStudents, showActivityNow, showAddStudent, showAllParciales, showArchiveModal, showCopyModal, showCredentialsModal, showDeleteSubjectConfirm, showEditSubjectModal, showFinalCol, showMaterialModal, showMaterialNow, showModal, showResourceModal, showUnarchiveModal, soloCalificables, sortStudentsAlphabetically, sortedGradeRows, studentLastAccess, studentToDelete, studentToEdit, studentToReset, subject, subjectId, submissionCounts, tableParcials, telefonoWeb, tipoActividad, toggleImportLinkDecision, toggleImportSel, toggleMostrarAsistenciasEstudiantes, toggleNotificarActivacion, toggleParcialPonderacion, toggleParcialVisibility, togglePonderacion, tomarListaMovil, tomarListaMovilBar, tomarListaScrollRef, totalStudents, unarchiveActivities, unarchiveEdits, unarchiveStudents, unarchivedSaving, visibleParcials, zipDownloading, zipProgress }}>
     <>
       <div {...subjectPaletteProps(subject?.colorPalette)}>
 

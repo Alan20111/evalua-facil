@@ -35,6 +35,7 @@ import {
 } from '../src/utils/limiteDocumentosVisuales.js'
 import { estaRespondida } from '../src/utils/evaluacionRespondida.js'
 import { diasInformativosAsistencia, esSesionInformativa, PREFIJO_INFORMATIVA } from '../src/utils/asistenciaInformativa.js'
+import { parcialesDestino, motivoNoSePuedeMover, planMoverActividad, ESTADO_BORRADOR } from '../src/utils/moverActividadParcial.js'
 import {
   observacionId, llaveCeldaObservacion, ordenarBitacora, fechaObservacion, etiquetaFechaObservacion, htmlBitacoraImprimible,
 } from '../src/utils/observacionesBitacora.js'
@@ -7774,6 +7775,117 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
   assert.ok(/if \(item\.id === sinSaltarA\) return\s+sostenidoRef\.current = \{ seg: item\.timestampSeg/.test(columna), 'el efecto sale ANTES de saltarA/pausar, y solo para esa pregunta')
   assert.ok(/yt\.saltarA\(item\.timestampSeg\)\s+yt\.pausar\(\)/.test(columna), 'el resto de cambios de pregunta sigue llevando el video a su segundo, en pausa')
 })
+
+// ── Mover una actividad a otro parcial ──────────────────────────────────────────────────────
+// Mismo documento, a borrador, sin tocar nada más. Funciones puras: sin emulador.
+{
+  // Las definiciones REALES (arriba hay copias literales para otras pruebas): si cambian, esta prueba lo nota.
+  const { isDraftActivity: esBorradorReal, cuentaParaCalificacion: cuentaReal } = await import('../src/utils/activityVisibility.js')
+  const pub = { oculta: false, publishedAt: '2026-09-01T08:00' }
+  const act = (id, parcial, orden, extra = {}) => ({ id, nombre: 'Act ' + id, parcial, orden, tipo: 'archivo', ...pub, ...extra })
+  const subj = (extra = {}) => ({ parciales: 4, ...extra })
+
+  caso('mover parcial · destinos: los de la misma asignatura, sin el actual y sin tope fijo de parciales', () => {
+    assert.deepStrictEqual(parcialesDestino(subj({ parciales: 3 }), act('a', 2, 1)).map((d) => d.parcial), [1, 3])
+    assert.deepStrictEqual(parcialesDestino(subj({ parciales: 6 }), act('a', 2, 1)).map((d) => d.parcial), [1, 3, 4, 5, 6])
+    assert.deepStrictEqual(parcialesDestino(subj({ parciales: 1 }), act('a', 1, 1)), [], 'con un solo parcial no hay a dónde mover')
+  })
+
+  caso('mover parcial · un parcial cerrado no es destino; uno en atención sí (y lo dice)', () => {
+    const s = subj({ parciales: 4, parcialesCerrados: { 3: 'x' }, parcialesAtencion: { 4: 'x' } })
+    const d = parcialesDestino(s, act('a', 1, 1))
+    assert.deepStrictEqual(d.map((x) => x.parcial), [2, 4])
+    assert.strictEqual(d.find((x) => x.parcial === 4).estado, 'atencion')
+  })
+
+  caso('mover parcial · motivos por los que la opción va apagada', () => {
+    assert.strictEqual(motivoNoSePuedeMover(subj(), act('a', 1, 1)), null)
+    assert.ok(/solo tiene un parcial/.test(motivoNoSePuedeMover(subj({ parciales: 1 }), act('a', 1, 1))))
+    assert.ok(/cerrado definitivamente/.test(motivoNoSePuedeMover(subj({ parcialesCerrados: { 1: 'x' } }), act('a', 1, 1))), 'el origen cerrado ya lo impiden las reglas')
+    assert.ok(/No hay otro parcial abierto/.test(motivoNoSePuedeMover(subj({ parciales: 2, parcialesCerrados: { 2: 'x' } }), act('a', 1, 1))))
+  })
+
+  caso('mover parcial · la actividad queda como borrador y solo cambian parcial, orden y estado', () => {
+    const a = act('a', 1, 1, { pesoCalificacion: 3, fechaLimite: '2026-10-01T10:00', maxCalif: 10, notificadoNuevaActividad: true })
+    const plan = planMoverActividad({ subject: subj(), activities: [a, act('b', 1, 2), act('c', 2, 1)], actividad: a, destino: 2 })
+    assert.deepStrictEqual(Object.keys(plan.cambios).sort(), ['oculta', 'orden', 'parcial', 'publishAt', 'publishedAt'])
+    assert.strictEqual(plan.cambios.parcial, 2)
+    assert.deepStrictEqual({ oculta: plan.cambios.oculta, publishedAt: plan.cambios.publishedAt, publishAt: plan.cambios.publishAt }, ESTADO_BORRADOR)
+    // Es un borrador de verdad: la misma definición que usa todo el sistema.
+    assert.strictEqual(esBorradorReal({ ...a, ...plan.cambios }), true)
+    assert.strictEqual(cuentaReal({ ...a, ...plan.cambios }), false)
+    // Peso, fecha límite, escala y la marca de notificación NO se tocan.
+    for (const k of ['pesoCalificacion', 'fechaLimite', 'maxCalif', 'notificadoNuevaActividad', 'nombre', 'tipo']) assert.ok(!(k in plan.cambios), k)
+  })
+
+  caso('mover parcial · una actividad programada (publishAt) también pasa a borrador', () => {
+    const a = act('a', 1, 1, { oculta: true, publishedAt: null, publishAt: '2099-01-01T08:00' })
+    const plan = planMoverActividad({ subject: subj(), activities: [a], actividad: a, destino: 2 })
+    assert.strictEqual(esBorradorReal({ ...a, ...plan.cambios }), true)
+    assert.strictEqual(plan.cambios.publishAt, null)
+  })
+
+  caso('mover parcial · va al final del destino, sin chocar con huecos de orden', () => {
+    const a = act('a', 1, 1)
+    const sinHueco = planMoverActividad({ subject: subj(), activities: [a, act('x', 2, 1), act('y', 2, 2)], actividad: a, destino: 2 })
+    assert.strictEqual(sinHueco.cambios.orden, 3)
+    const conHueco = planMoverActividad({ subject: subj(), activities: [a, act('x', 2, 1), act('y', 2, 7)], actividad: a, destino: 2 })
+    assert.strictEqual(conHueco.cambios.orden, 8, 'más que el mayor orden, no que la cantidad')
+    const vacio = planMoverActividad({ subject: subj(), activities: [a], actividad: a, destino: 3 })
+    assert.strictEqual(vacio.cambios.orden, 1)
+  })
+
+  caso('mover parcial · el origen se renumera a 1..n y avisa qué números cambian', () => {
+    const a = act('b', 1, 2)
+    const lista = [act('a', 1, 1), a, act('c', 1, 3), act('d', 1, 4), act('z', 2, 1)]
+    const plan = planMoverActividad({ subject: subj(), activities: lista, actividad: a, destino: 2 })
+    assert.deepStrictEqual(plan.ordenesOrigen, { c: 2, d: 3 }, 'solo las que cambian de orden')
+    assert.deepStrictEqual(plan.renumeradas.map((r) => [r.id, r.de, r.hacia]), [['c', '1.3.', '1.2.'], ['d', '1.4.', '1.3.']])
+    assert.ok(plan.renumeradas.every((r) => r.publicada))
+    assert.deepStrictEqual(lista.map((x) => x.orden), [1, 2, 3, 4, 1], 'el plan no modifica las actividades que recibe')
+  })
+
+  caso('mover parcial · sacar la última no renumera nada; un borrador no mueve números', () => {
+    const ultima = act('c', 1, 3)
+    assert.deepStrictEqual(planMoverActividad({ subject: subj(), activities: [act('a', 1, 1), act('b', 1, 2), ultima], actividad: ultima, destino: 2 }).renumeradas, [])
+    const borrador = act('b', 1, 2, { oculta: true, publishedAt: null })
+    const plan = planMoverActividad({ subject: subj(), activities: [act('a', 1, 1), borrador, act('c', 1, 3)], actividad: borrador, destino: 2 })
+    assert.strictEqual(plan.yaEraBorrador, true)
+    assert.deepStrictEqual(plan.renumeradas, [], 'un borrador no llevaba número: las demás conservan el suyo')
+    assert.deepStrictEqual(plan.ordenesOrigen, { c: 2 }, 'pero su orden sí se cierra (1..n)')
+  })
+
+  caso('mover parcial · las "sin calificación" no llevan número, y no cuentan al renumerar', () => {
+    const a = act('a', 1, 1)
+    const encuesta = act('e', 1, 2, { evaluacion: { sinCalificacion: true } })
+    const c = act('c', 1, 3)
+    const plan = planMoverActividad({ subject: subj(), activities: [a, encuesta, c], actividad: a, destino: 2 })
+    assert.deepStrictEqual(plan.renumeradas.map((r) => [r.id, r.de, r.hacia]), [['c', '1.2.', '1.1.']])
+  })
+
+  caso('mover parcial · avisos: peso solo si hay ponderación activa en origen o destino; atención solo si cuenta hoy', () => {
+    const conPeso = act('a', 1, 1, { pesoCalificacion: 3 })
+    const sinPeso = act('a', 1, 1, { pesoCalificacion: 0 })
+    const ponderado = subj({ ponderacionParciales: { 1: true, 2: false } })
+    const plano = subj({ ponderacionParciales: { 1: false, 2: false } })
+    assert.strictEqual(planMoverActividad({ subject: ponderado, activities: [conPeso], actividad: conPeso, destino: 2 }).avisos.peso, 3)
+    // El peso solo tiene efecto donde la ponderación está activa: el aviso lo distingue.
+    const soloOrigen = planMoverActividad({ subject: ponderado, activities: [conPeso], actividad: conPeso, destino: 2 }).avisos
+    assert.deepStrictEqual([soloOrigen.pesoEnOrigen, soloOrigen.pesoEnDestino], [true, false])
+    const soloDestino = planMoverActividad({ subject: subj({ ponderacionParciales: { 1: false, 2: true } }), activities: [conPeso], actividad: conPeso, destino: 2 }).avisos
+    assert.deepStrictEqual([soloDestino.pesoEnOrigen, soloDestino.pesoEnDestino], [false, true])
+    const ambos = planMoverActividad({ subject: subj({ ponderacionParciales: { 1: true, 2: true } }), activities: [conPeso], actividad: conPeso, destino: 2 }).avisos
+    assert.deepStrictEqual([ambos.pesoEnOrigen, ambos.pesoEnDestino], [true, true])
+    assert.strictEqual(planMoverActividad({ subject: subj({ ponderacionParciales: { 1: false, 2: true } }), activities: [conPeso], actividad: conPeso, destino: 2 }).avisos.peso, 3, 'ponderado solo en el destino')
+    assert.strictEqual(planMoverActividad({ subject: plano, activities: [conPeso], actividad: conPeso, destino: 2 }).avisos.peso, null)
+    assert.strictEqual(planMoverActividad({ subject: ponderado, activities: [sinPeso], actividad: sinPeso, destino: 2 }).avisos.peso, null)
+    const atencion = subj({ parcialesAtencion: { 1: 'x' } })
+    assert.strictEqual(planMoverActividad({ subject: atencion, activities: [conPeso], actividad: conPeso, destino: 2 }).avisos.atencionOrigen, true)
+    const borrador = act('a', 1, 1, { oculta: true, publishedAt: null })
+    assert.strictEqual(planMoverActividad({ subject: atencion, activities: [borrador], actividad: borrador, destino: 2 }).avisos.atencionOrigen, false)
+    assert.strictEqual(planMoverActividad({ subject: subj(), activities: [conPeso], actividad: conPeso, destino: 2 }).avisos.atencionOrigen, false)
+  })
+}
 
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)
