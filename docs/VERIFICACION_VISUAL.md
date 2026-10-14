@@ -11,7 +11,7 @@ cosas:
    medir `--control-sm`, `--control`, `--control-lg` o la píldora segmentada
    (`--control` − 0.5rem), y no tener esquina «a medias» (radio menor a la
    mitad del alto). Las alturas se leen de las variables CSS de la página, así
-   que en táctil valen 43 px y en compu 40 px.
+   que en táctil valen 48 px (todos, también los chicos) y en compu 40 px.
 
 Además deja una captura de página completa de cada vista en
 `test/visual/capturas/<compu|celular>/`.

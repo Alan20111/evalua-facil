@@ -275,12 +275,18 @@
     --control: 2.75rem;
     --control-lg: 3.25rem;
   }
-  /* Pantallas táctiles: el dedo necesita más área (objetivo ≈ 44px). Sube sola,
-     sin `md:` por pantalla. */
+  /* Pantallas táctiles: el dedo necesita más área. Sube sola, sin `md:` por
+     pantalla. Mínimo de 48px (docs/PLAN_GOOGLE_PLAY.md, A1; decidido el
+     14-oct-2026): es lo que pide Google y lo que mide su Accessibility
+     Scanner en cada versión de Play. Con la raíz de 14.4px del teléfono, 3rem
+     daba 43px; max() lo lleva a 48 sin agrandar las pantallas donde 3rem ya
+     es más. En el WebView 1px CSS = 1dp. El control chico mide LO MISMO que
+     el normal (pedido explícito): en táctil no hay controles más bajos que
+     otros; «sm» solo distingue tamaños en compu. */
   @media (pointer: coarse) {
     :root {
-      --control-sm: 2.75rem;
-      --control: 3rem;
+      --control: max(3rem, 48px);
+      --control-sm: var(--control);
     }
   }
   .safe-bottom {
