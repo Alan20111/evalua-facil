@@ -17,7 +17,7 @@ import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
 import { extraerAssets } from '../api/_lib/cloudinary.js'
 import {
-  promedioParcial, ponderacionActivaEnParcial, normalizeGrade,
+  promedioParcial, notasParaPromedio, cuentaEnPromedioDelAlumno, ceroPorFaltaDeEntrega, estadoSumaPesos, actividadesQueCuentan, pesosSumanDiez, ponderacionActivaEnParcial, normalizeGrade,
   estadoParcial, resultadoPublicadoAlumno, pesosVisiblesAlumno, puedeIniciarAtencion, ocultarPesosNoPublicados,
   parcialCerrado, esNotaAutomaticaDeCierre,
 } from '../src/utils/ponderacion.js'
@@ -4645,10 +4645,12 @@ caso('no entran borradores, actividades sin calificación ni juegos sin confirma
 
 caso('con todas las fuentes de actividades, el promedio es el de la tabla de Calificaciones', () => {
   const { datos } = agregarAA()
-  // Parcial 1 — a: (9+10+10)/3=9.7 · b: (4+5+5)/3=4.7 · c: (8+9)/2=8.5 · d: 7 → grupo 7.5
-  assert.strictEqual(datos.parciales[0].promedioGrupo, 7.5)
-  assert.strictEqual(datos.parciales[0].aprobados, 3)
-  assert.strictEqual(datos.parciales[0].reprobados, 1)
+  // Parcial 1 — a: (9+10+10)/3=9.7 · b: (4+5+5)/3=4.7 · c: (8+9)/2=8.5 · d: (0+7)/2=3.5 → grupo 6.6.
+  // d no entregó E1 (vencida el 20-ago): vale CERO en el promedio (antes quedaba fuera → d=7, grupo 7.5).
+  // E2 no tiene fecha límite y el parcial sigue abierto, así que no le cuenta.
+  assert.strictEqual(datos.parciales[0].promedioGrupo, 6.6)
+  assert.strictEqual(datos.parciales[0].aprobados, 2)
+  assert.strictEqual(datos.parciales[0].reprobados, 2)
   assert.strictEqual(datos.rotuloPromedio, null, 'con los cuatro tipos no hay aviso de promedio parcial')
   assert.strictEqual(datos.parciales[2].promedioGrupo, null, 'el Parcial 3 no tiene calificaciones')
 })
@@ -4845,9 +4847,10 @@ caso('asistencia: solo los parciales elegidos', () => {
 caso('evolución: con varios parciales con datos compara; con uno solo NO existe', () => {
   const varios = agregarAA().datos.evolucion
   assert.deepStrictEqual(varios.porParcial.map((p) => p.parcial), [1, 2])
-  assert.strictEqual(varios.comparables, 3)
+  assert.strictEqual(varios.comparables, 4)
   // a: 9.7 → 6.5 (baja) · b: 4.7 → 8.5 (sube) · c: 8.5 → 8 (estable)
-  assert.strictEqual(varios.bajaron, 1)
+  // d: 3.5 → 0 (baja): no hizo el cuestionario ni el crucigrama vencidos → cero en P2, ahora comparable.
+  assert.strictEqual(varios.bajaron, 2)
   assert.strictEqual(varios.mejoraron, 1)
   assert.strictEqual(varios.estables, 1)
   const uno = agregarAA({ parciales: [1] })
@@ -5172,7 +5175,7 @@ caso('el cambio no altera ningún número calculado ni quién queda señalado', 
   const sinNuevos = (x) => JSON.parse(JSON.stringify(x, (k, v) => (k === 'etiqueta' || k === 'numeroLista' ? undefined : v)))
   assert.deepStrictEqual(sinNuevos(a.datos), sinNuevos(b.datos))
   assert.deepStrictEqual(a.candidatos.map((c) => [c.anonId, c.senales]), b.candidatos.map((c) => [c.anonId, c.senales]))
-  assert.strictEqual(a.datos.parciales[0].promedioGrupo, 7.5)
+  assert.strictEqual(a.datos.parciales[0].promedioGrupo, 6.6)
 })
 
 grupo('Filtro «solo actividades que se califican» (presentación, docente y estudiante)')
@@ -7886,6 +7889,560 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     assert.strictEqual(planMoverActividad({ subject: subj(), activities: [conPeso], actividad: conPeso, destino: 2 }).avisos.atencionOrigen, false)
   })
 }
+
+// ═══ Cero por falta de entrega (promedios y ponderaciones) ═══════════════════
+{
+  const AHORA = Date.parse('2026-10-15T12:00:00Z')
+  const ts = (iso) => ({ toMillis: () => Date.parse(iso) })
+  const PASADO = '2026-10-10T16:00:00Z'
+  const FUTURO = '2026-10-20T16:00:00Z'
+  const ev = (id, parcial = 1, extra = {}) => ({
+    id, parcial, maxCalif: 10, oculta: false, fechaLimite: '2026-10-10T10:00', fechaLimiteTS: ts(PASADO), ...extra,
+  })
+  const alumno = { id: 'al1', createdAt: ts('2026-08-01T00:00:00Z') }
+  const subj = (extra = {}) => ({ id: 's1', parciales: 3, ...extra })
+  const cero = (a, sub, subject = subj(), al = alumno) => ceroPorFaltaDeEntrega(a, sub, { subject, alumno: al, ahora: AHORA })
+  // Lo que hace cada pantalla: notas visibles (null = «—») → notas para promediar → promedio.
+  const prom = (acts, notas, subs, subject = subj(), pond = false, al = alumno) =>
+    promedioParcial(acts, notasParaPromedio(acts, notas, subs, { subject, alumno: al, ahora: AHORA }), pond)
+  const conNota = (n) => ({ calificacion: n, estado: 'calificado' })
+
+  caso('cero: promedio simple de 10, 8 y una vencida sin entrega = 6 (antes 9)', () => {
+    const acts = [ev('a'), ev('b'), ev('c')]
+    const notas = [10, 8, null]
+    const subs = [conNota(10), conNota(8), undefined]
+    assert.strictEqual(prom(acts, notas, subs), 6)
+    assert.strictEqual(promedioParcial(acts, notas, false), 9, 'sin la regla seguía siendo 9')
+  })
+
+  caso('cero: actividad vigente sin entrega NO recibe cero', () => {
+    assert.strictEqual(cero(ev('a', 1, { fechaLimiteTS: ts(FUTURO) }), undefined), false)
+    const acts = [ev('a'), ev('b', 1, { fechaLimiteTS: ts(FUTURO) })]
+    assert.strictEqual(prom(acts, [10, null], [conNota(10), undefined]), 10)
+  })
+
+  caso('cero: entregas tardías abiertas → sin cero mientras siga disponible', () => {
+    const tarde = ev('a', 1, { recibirTarde: true })
+    assert.strictEqual(cero(tarde, undefined), false)
+    assert.strictEqual(cero({ ...tarde, cerradaManual: true }, undefined), true, 'el cierre manual la cierra aunque reciba tarde')
+    assert.strictEqual(cero(tarde, undefined, subj({ parcialesCerrados: { 1: '2026-10-14T00:00:00Z' } })), true, 'el cierre del parcial también')
+  })
+
+  caso('cero: la prórroga individual manda sobre la fecha del grupo', () => {
+    assert.strictEqual(cero(ev('a', 1, { extensionesTS: { al1: ts(FUTURO) } }), undefined), false, 'prórroga vigente')
+    assert.strictEqual(cero(ev('a', 1, { extensionesTS: { al1: ts('2026-10-12T00:00:00Z') } }), undefined), true, 'prórroga ya vencida')
+    assert.strictEqual(cero(ev('a', 1, { fechaLimiteTS: ts(FUTURO), extensionesTS: { al1: ts('2026-10-12T00:00:00Z') } }), undefined), true, 'su prórroga vence aunque el grupo siga')
+    assert.strictEqual(cero(ev('a', 1, { extensionesTS: { otro: ts(FUTURO) } }), undefined), true, 'la prórroga de otro no le sirve')
+  })
+
+  caso('cero: cierre manual del docente → cero aunque falte tiempo o no haya fecha', () => {
+    assert.strictEqual(cero(ev('a', 1, { fechaLimiteTS: ts(FUTURO), cerradaManual: true }), undefined), true)
+    assert.strictEqual(cero(ev('a', 1, { fechaLimite: null, fechaLimiteTS: null, cerradaManual: true }), undefined), true)
+  })
+
+  caso('cero: sin fecha límite solo cuenta al cerrar el parcial', () => {
+    const sinFecha = ev('a', 1, { fechaLimite: null, fechaLimiteTS: null })
+    assert.strictEqual(cero(sinFecha, undefined), false)
+    assert.strictEqual(cero(sinFecha, undefined, subj({ parcialesAtencion: { 1: 'x' } })), false, 'atención de inquietudes no es cierre')
+    assert.strictEqual(cero(sinFecha, undefined, subj({ parcialesCerrados: { 1: '2026-10-14T00:00:00Z' } })), true)
+    assert.strictEqual(cero(sinFecha, undefined, subj({ parcialesCerrados: { 2: '2026-10-14T00:00:00Z' } })), false, 'cerrar otro parcial no cuenta')
+  })
+
+  caso('cero: alta tardía — lo que cerró antes de que entrara no le aplica', () => {
+    const tarde = { id: 'al2', createdAt: ts('2026-10-12T00:00:00Z') }
+    assert.strictEqual(cero(ev('a'), undefined, subj(), tarde), false, 'plazo venció el 10 y entró el 12')
+    const antes = { id: 'al3', createdAt: ts('2026-10-01T00:00:00Z') }
+    assert.strictEqual(cero(ev('a'), undefined, subj(), antes), true)
+    const sinFecha = ev('a', 1, { fechaLimite: null, fechaLimiteTS: null })
+    const cerrado = subj({ parcialesCerrados: { 1: '2026-10-11T00:00:00Z' } })
+    assert.strictEqual(cero(sinFecha, undefined, cerrado, tarde), false, 'entró después del cierre del parcial')
+    assert.strictEqual(cero(sinFecha, undefined, cerrado, antes), true)
+    assert.strictEqual(cero(ev('a'), undefined, subj(), { id: 'al4' }), true, 'sin createdAt no se inventa una exención')
+    assert.strictEqual(prom([ev('a'), ev('b')], [10, null], [conNota(10), undefined], subj(), false, tarde), 10)
+  })
+
+  caso('cero: programada, oculta o no accesible no penaliza', () => {
+    assert.strictEqual(cero(ev('a', 1, { oculta: true, publishAt: '2099-01-01T00:00' }), undefined), false, 'programada')
+    assert.strictEqual(cero(ev('a', 1, { oculta: true, publishedAt: '2026-09-01T00:00' }), undefined), false, 'publicada y vuelta a ocultar')
+    assert.strictEqual(cero(ev('a'), undefined, subj({ parcialesOcultos: [1] })), false, 'parcial oculto')
+    assert.strictEqual(cero(ev('a', 1, { oculta: true, publishAt: '2020-01-01T00:00' }), undefined), true, 'programada que ya se publicó sí cuenta')
+  })
+
+  caso('cero: borrador y «sin calificación» quedan fuera', () => {
+    assert.strictEqual(cero(ev('a', 1, { oculta: true }), undefined), false)
+    assert.strictEqual(cero(ev('a', 1, { sinCalificacion: true }), undefined), false)
+    assert.strictEqual(cero(ev('a', 1, { evaluacion: { sinCalificacion: true } }), undefined), false)
+  })
+
+  caso('cero: una entrega o intento pendiente de calificar NO se vuelve cero', () => {
+    const acts = [ev('a'), ev('b')]
+    const pendiente = { estado: 'entregado', calificacion: null }
+    assert.strictEqual(cero(acts[1], pendiente), false)
+    assert.strictEqual(prom(acts, [10, null], [conNota(10), pendiente]), 10)
+    const intento = { estadoEvaluacion: 'en_progreso', intentoActual: 1, calificacion: null }
+    assert.strictEqual(prom(acts, [10, null], [conNota(10), intento]), 10, 'cuestionario/examen/juego a medias')
+  })
+
+  caso('cero: una calificación explícita de cero se conserva como cero', () => {
+    const acts = [ev('a'), ev('b')]
+    assert.strictEqual(prom(acts, [10, 0], [conNota(10), conNota(0)]), 5)
+    assert.deepStrictEqual(notasParaPromedio(acts, [10, 0], [conNota(10), conNota(0)], { subject: subj(), alumno, ahora: AHORA }), [10, 0])
+  })
+
+  caso('cero: parcial con todo en cero promedia 0, no null; y entra al final', () => {
+    const acts = [ev('a'), ev('b')]
+    assert.strictEqual(prom(acts, [null, null], [undefined, undefined]), 0)
+    const pond = [ev('a', 1, { pesoCalificacion: 6 }), ev('b', 1, { pesoCalificacion: 4 })]
+    assert.strictEqual(prom(pond, [null, null], [undefined, undefined], subj(), true), 0)
+    // El promedio final sigue siendo la media de los parciales con promedio.
+    const parciales = [prom(acts, [null, null], [undefined, undefined]), 8, null].filter((v) => v !== null)
+    assert.strictEqual(parciales.reduce((x, y) => x + y, 0) / parciales.length, 4)
+    // Y un parcial sin ninguna actividad que cuente sigue siendo null.
+    assert.strictEqual(prom([], [], []), null)
+  })
+
+  caso('cero: lo que ya trae documento (nota de cierre) no se cuenta dos veces', () => {
+    const acts = [ev('a'), ev('b')]
+    const cierre = { calificacion: 0, sinEntrega: true, cierreParcial: true, estado: 'calificado' }
+    const cerrado = subj({ parcialesCerrados: { 1: '2026-10-14T00:00:00Z' } })
+    assert.strictEqual(prom(acts, [10, 0], [conNota(10), cierre], cerrado), 5, 'una sola vez')
+    // Con cierre en 5 el documento manda, no el cero virtual.
+    assert.strictEqual(prom(acts, [10, 5], [conNota(10), { ...cierre, calificacion: 5 }], cerrado), 7.5)
+    // Reapertura: se borra la nota automática → vuelve a depender del plazo, sin documentos duplicados.
+    assert.strictEqual(prom(acts, [10, null], [conNota(10), undefined], subj({ parcialesCerrados: {} })), 5, 'vencida: sigue en cero')
+    assert.strictEqual(prom([ev('a'), ev('b', 1, { fechaLimiteTS: ts(FUTURO) })], [10, null], [conNota(10), undefined], subj({ parcialesCerrados: {} })), 10, 'vigente: vuelve a quedar fuera')
+  })
+
+  caso('cero: juegos, exámenes y cuestionarios sin documento', () => {
+    assert.strictEqual(cero(ev('j', 1, { categoria: 'juego', juego: { estado: 'juego_confirmado' } }), undefined), true)
+    assert.strictEqual(cero(ev('j', 1, { categoria: 'juego', juego: { estado: 'borrador' } }), undefined), false, 'juego sin confirmar')
+    assert.strictEqual(cero(ev('x', 1, { categoria: 'examen', tipo: 'evaluacion' }), undefined), true)
+    assert.strictEqual(cero(ev('q', 1, { categoria: 'cuestionario', tipo: 'evaluacion', recibirTarde: true }), undefined), false)
+    assert.strictEqual(cero(ev('j', 1, { categoria: 'juego', juego: { estado: 'juego_confirmado' } }), { respuestasJuego: {}, calificacion: null }), false, 'juego iniciado')
+  })
+
+  caso('cero: el valor del diálogo de cierre arranca en 0 y la captura manual sigue acotada', () => {
+    const src = readFileSync(new globalThis.URL('../src/pages/teacher/SubjectPage.jsx', import.meta.url), 'utf8')
+    assert.ok(/\[closeParcialGrade, setCloseParcialGrade\] = useState\('0'\)/.test(src), 'estado inicial 0')
+    assert.ok(/setCloseParcialGrade\('0'\)/.test(src), 'se precarga 0 al abrir el diálogo')
+    assert.ok(!/setCloseParcialGrade\(String\(Math\.min\(5/.test(src), 'ya no precarga 5')
+    assert.ok(/Math\.min\(Math\.max\(0, parseFloat\(closeParcialGrade\) \|\| 0\), topeCalif\)/.test(src), 'otro valor válido se acepta y se acota')
+  })
+
+  caso('cero: TODA pantalla/reporte que promedia pasa por notasParaPromedio (mismo resultado)', () => {
+    const archivos = [
+      'src/pages/teacher/SubjectPage.jsx', 'src/pages/student/SubjectPage.jsx', 'src/pages/student/Dashboard.jsx',
+      'src/utils/excel.js', 'src/utils/pdf.js', 'functions/analisisAcademico.js', 'functions/ia.js',
+    ]
+    for (const f of archivos) {
+      const src = readFileSync(new globalThis.URL(`../${f}`, import.meta.url), 'utf8')
+      const llamadas = (src.match(/promedioParcial\(/g) || []).length
+      const notas = (src.match(/notasParaPromedio\(/g) || []).length
+      assert.ok(llamadas > 0 && notas >= llamadas, `${f}: ${llamadas} promedioParcial vs ${notas} notasParaPromedio`)
+    }
+  })
+
+  caso('cero: actividades antiguas SIN fechaLimiteTS — la fecha de texto es hora de México en cualquier zona', () => {
+    const vieja = { id: 'v', parcial: 1, maxCalif: 10, oculta: false, fechaLimite: '2026-10-10' } // sin hora: cierra 23:59:59 México
+    const fin = Date.parse('2026-10-11T05:59:59-00:00') // 23:59:59 del 10-oct en México
+    const c = (ahora) => ceroPorFaltaDeEntrega(vieja, undefined, { subject: subj(), alumno, ahora })
+    assert.strictEqual(c(fin - 60 * 60 * 1000), false, '22:59 en México: aún en plazo (un servidor en UTC ya la daría por vencida)')
+    assert.strictEqual(c(fin + 1000), true)
+    const conHora = { ...vieja, fechaLimite: '2026-10-10T10:00' }
+    assert.strictEqual(ceroPorFaltaDeEntrega(conHora, undefined, { subject: subj(), alumno, ahora: Date.parse('2026-10-10T15:59:00Z') }), false)
+    assert.strictEqual(ceroPorFaltaDeEntrega(conHora, undefined, { subject: subj(), alumno, ahora: Date.parse('2026-10-10T16:01:00Z') }), true)
+    // Prórroga en texto (sin extensionesTS): también manda sobre la fecha del grupo.
+    const conProrroga = { ...vieja, extensiones: { al1: '2026-10-20T12:00' } }
+    assert.strictEqual(ceroPorFaltaDeEntrega(conProrroga, undefined, { subject: subj(), alumno, ahora: AHORA }), false)
+  })
+
+  caso('cero: no altera datos — las notas visibles conservan su null («—») y los documentos no se tocan', () => {
+    const acts = [ev('a'), ev('b')]
+    const notas = Object.freeze([10, null])
+    const subs = Object.freeze([Object.freeze(conNota(10)), undefined])
+    const out = notasParaPromedio(acts, notas, subs, { subject: subj(), alumno, ahora: AHORA })
+    assert.deepStrictEqual(out, [10, 0])
+    assert.deepStrictEqual([...notas], [10, null], 'lo que se muestra sigue siendo «—»')
+    assert.notStrictEqual(out, notas, 'devuelve un arreglo nuevo')
+    const src = readFileSync(new globalThis.URL('../src/utils/ponderacion.js', import.meta.url), 'utf8')
+    assert.ok(!/setDoc|updateDoc|addDoc|batch\.|\.set\(|\.update\(/.test(src.slice(src.indexOf('Cero por falta de entrega'), src.indexOf('Estado del parcial'))), 'la regla no escribe nada')
+  })
+
+  caso('cero: cierre manual sin fecha de cierre guardada — no hay marca de tiempo; se compara contra el momento actual', () => {
+    const cerrada = ev('a', 1, { fechaLimiteTS: ts(FUTURO), cerradaManual: true })
+    assert.strictEqual(cero(cerrada, undefined, subj(), { id: 'x', createdAt: ts('2026-10-01T00:00:00Z') }), true)
+    assert.strictEqual(cero(cerrada, undefined, subj(), { id: 'y', createdAt: ts('2026-10-16T00:00:00Z') }), false, 'alta posterior a este momento')
+    // Con fecha límite ya vencida, el alta posterior a ella queda exenta aunque además esté cerrada a mano.
+    const vencidaYCerrada = ev('a', 1, { cerradaManual: true })
+    assert.strictEqual(cero(vencidaYCerrada, undefined, subj(), { id: 'z', createdAt: ts('2026-10-12T00:00:00Z') }), false)
+  })
+
+  caso('cero: informe de IA del docente excluye borradores y «sin calificación» (mismo filtro que la tabla)', () => {
+    const ia = readFileSync(new globalThis.URL('../functions/ia.js', import.meta.url), 'utf8')
+    const i = ia.indexOf('async function resumenAsignaturaParaGeneral')
+    assert.ok(/\.filter\(cuentaParaCalificacion\)/.test(ia.slice(i, i + 1800)))
+    const an = readFileSync(new globalThis.URL('../functions/analisisAcademico.js', import.meta.url), 'utf8')
+    assert.ok(/function actividadElegible[\s\S]{0,200}cuentaParaCalificacion/.test(an))
+  })
+}
+
+// ═══ Promedio ponderado: Σ(nota·peso) / 10 (los pesos de las actividades evaluables suman 10) ═══
+{
+  const AHORA = Date.parse('2026-10-15T12:00:00Z')
+  const ts = (iso) => ({ toMillis: () => Date.parse(iso) })
+  const subj = (extra = {}) => ({ id: 's1', parciales: 3, ponderacionParciales: { 1: true }, ...extra })
+  const alumno = { id: 'al1', createdAt: ts('2026-08-01T00:00:00Z') }
+  const tardia = { id: 'al2', createdAt: ts('2026-10-12T00:00:00Z') }
+  const ev = (id, peso, extra = {}) => ({
+    id, parcial: 1, maxCalif: 10, oculta: false, pesoCalificacion: peso,
+    fechaLimite: '2026-10-10T10:00', fechaLimiteTS: ts('2026-10-10T16:00:00Z'), ...extra,
+  })
+  const vigente = { fechaLimiteTS: ts('2026-10-20T16:00:00Z') }
+  const conNota = (n) => ({ calificacion: n, estado: 'calificado' })
+  // Lo que hace cada pantalla: actividades que cuentan → notas → notas para promediar → promedio.
+  const pond = (acts, subs, subject = subj(), al = alumno) => {
+    const cuentan = acts.filter(cuentaParaCalificacion)
+    const ss = cuentan.map((a) => subs[acts.indexOf(a)])
+    const grades = ss.map((s, i) => normalizeGrade(s?.calificacion, cuentan[i].maxCalif, { decimals: 1 }))
+    return promedioParcial(cuentan, notasParaPromedio(cuentan, grades, ss, { subject, alumno: al, ahora: AHORA }), ponderacionActivaEnParcial(subject, 1))
+  }
+  const cerca = (a, b) => Math.abs(a - b) < 1e-9
+
+  caso('ponderado: el Excel de referencia — 26.6 / 10 = 2.66, que se muestra 2.7', () => {
+    const pesos = [0.5, 0.5, 0.5, 0.5, 1, 1, 1, 5, 0, 0]
+    const notas = [10, 10, 9.2, 10, 7]
+    // (a) lo no entregado ya venció → ceros virtuales; (b) sigue vigente → aporta 0 sin cero virtual. Mismo divisor.
+    const vencidas = pesos.map((p, i) => ev('a' + i, p))
+    const subsV = pesos.map((_, i) => (i < 5 ? conNota(notas[i]) : undefined))
+    assert.ok(cerca(pond(vencidas, subsV), 2.66))
+    const vigentes = pesos.map((p, i) => ev('a' + i, p, i < 5 ? {} : vigente))
+    assert.ok(cerca(pond(vigentes, subsV), 2.66), 'vigente: mismo 2.66, el divisor no baja')
+    assert.strictEqual(pond(vigentes, subsV).toFixed(1), '2.7')
+    assert.ok(cerca(promedioParcial(vencidas, [10, 10, 9.2, 10, 7, null, null, null, null, null], true), 2.66), 'el divisor es 10 aunque falten notas')
+  })
+
+  caso('ponderado: el Excel del docente con los pesos 0.5,0.5,0.5,0.5,1,1,1,5,0,0 sigue dando 26.6/10 = 2.66', () => {
+    const pesos = [0.5, 0.5, 0.5, 0.5, 1, 1, 1, 5, 0, 0]
+    const notas = [10, 10, 9.2, 10, 7]
+    const acts = pesos.map((p, i) => ev('a' + i, p, i < 5 ? {} : vigente))
+    const subs = pesos.map((_, i) => (i < 5 ? conNota(notas[i]) : undefined))
+    assert.ok(cerca(pond(acts, subs), 2.66))
+    assert.strictEqual(pond(acts, subs).toFixed(1), '2.7')
+    assert.ok(cerca(pesos.reduce((x, y) => x + y, 0), 10), 'los pesos del Excel suman 10')
+  })
+
+  caso('ponderado: parcial sin resultados que deban contar → null; todos en cero → 0', () => {
+    const vigentes = [ev('a', 5, vigente), ev('b', 5, vigente)]
+    assert.strictEqual(pond(vigentes, [undefined, undefined]), null)
+    const pendientes = [ev('a', 5), ev('b', 5)]
+    assert.strictEqual(pond(pendientes, [{ calificacion: null }, { calificacion: null }]), null, 'todo pendiente de calificar')
+    const vencidas = [ev('a', 5), ev('b', 5)]
+    assert.strictEqual(pond(vencidas, [undefined, undefined]), 0)
+    assert.strictEqual(pond([ev('a', 5), ev('b', 5)], [conNota(0), conNota(0)]), 0, 'ceros reales')
+    assert.strictEqual(pond([], []), null)
+  })
+
+  caso('ponderado: promedio final — un parcial en 0 participa y uno en null no', () => {
+    const final = (parciales) => {
+      const v = parciales.filter((x) => x !== null)
+      return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null
+    }
+    const p1 = pond([ev('a', 5), ev('b', 5)], [undefined, undefined]) // 0
+    const p2 = pond([ev('a', 5, vigente), ev('b', 5, vigente)], [undefined, undefined]) // null
+    assert.strictEqual(p1, 0)
+    assert.strictEqual(p2, null)
+    assert.strictEqual(final([p1, 8, p2]), 4, '(0 + 8) / 2; el null no entra')
+    assert.strictEqual(final([p2, p2]), null)
+  })
+
+  // Parcial de N actividades (todas cuentan): `pesos[i]` y `estados[i]`:
+  //   número = nota real · 'G' = guion («—», vencida sin entrega → cero virtual) · 'F' = vigente sin entrega
+  //   'P' = entrega pendiente de calificar · 'V' = vencida sin entrega (igual que 'G')
+  const parcialDe = (pesos, estados, al = alumno, subject = subj()) => {
+    const acts = pesos.map((w, i) => ev('x' + i, w, estados[i] === 'F' ? vigente : {}))
+    const subs = estados.map((e) => (typeof e === 'number' ? conNota(e) : e === 'P' ? { estado: 'entregado', calificacion: null } : undefined))
+    return pond(acts, subs, subject, al)
+  }
+  const suma = (a) => a.reduce((x, y) => x + y, 0)
+
+  caso('ponderado: DIEZ actividades con pesos que suman 10 — Σ(nota·peso) / 10', () => {
+    const pesos = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    assert.ok(cerca(suma(pesos), 10))
+    // notas 10,9,8,7,6,5,4,3,2,1 → Σ = 55 → 55/10
+    assert.ok(cerca(parcialDe(pesos, [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]), 5.5))
+    // pesos desiguales, 10 actividades: Σ = 5·10 + 3·8 + 2·6 + 0 = 86 → 8.6
+    const desiguales = [5, 3, 2, 0, 0, 0, 0, 0, 0, 0]
+    assert.ok(cerca(suma(desiguales), 10))
+    assert.ok(cerca(parcialDe(desiguales, [10, 8, 6, 10, 10, 10, 10, 10, 10, 10]), 8.6), 'los pesos cero no aportan, pero cuentan en N=10')
+  })
+
+  caso('ponderado: OCHO actividades con pesos que suman 10 — todas en 10 dan 10; el divisor es 10', () => {
+    const pesos = [2, 2, 1, 1, 1, 1, 1, 1]
+    assert.ok(cerca(suma(pesos), 10))
+    assert.ok(cerca(parcialDe(pesos, [10, 10, 10, 10, 10, 10, 10, 10]), 10), 'ocho en 10 → 10')
+    // Σ = 2·10 + 2·8 + 1·6 + 1·4 + 1·10 + 1·10 + 0 + 0 = 66 → 66/10 = 6.6
+    assert.ok(cerca(parcialDe(pesos, [10, 8, 6, 4, 10, 10, 0, 0]), 6.6))
+    // Las ocho en 5: Σ = 5·10 = 50 → 5.0
+    assert.ok(cerca(parcialDe(pesos, [5, 5, 5, 5, 5, 5, 5, 5]), 5))
+  })
+
+  caso('ponderado: DOCE actividades con pesos que suman 10 — todas en 10 dan 10; el divisor es 10', () => {
+    const pesos = [1, 1, 1, 1, 1, 1, 1, 1, 0.5, 0.5, 0.5, 0.5]
+    assert.ok(cerca(suma(pesos), 10))
+    assert.ok(cerca(parcialDe(pesos, [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10]), 10), 'doce en 10 → 10')
+    // Mezcla: 8·1·9 + 4·0.5·6 = 72 + 12 = 84 → 84/10 = 8.4
+    assert.ok(cerca(parcialDe(pesos, [9, 9, 9, 9, 9, 9, 9, 9, 6, 6, 6, 6]), 8.4))
+  })
+
+  caso('ponderado: con pesos que suman 10, todas las notas en 10 dan 10 sin importar cuántas actividades haya', () => {
+    for (const n of [4, 5, 8, 10, 12, 15]) {
+      const pesos = Array(n).fill(10 / n)
+      assert.ok(cerca(suma(pesos), 10))
+      assert.ok(cerca(parcialDe(pesos, Array(n).fill(10)), 10), `${n} actividades en 10`)
+      assert.ok(cerca(parcialDe(pesos, Array(n).fill(5)), 5), `${n} actividades en 5`)
+    }
+  })
+
+  caso('ponderado: nunca pasa de 10 (si los pesos suman más de 10 se advierte y el promedio se topa)', () => {
+    // Pesos que suman 20 con todo en 10: Σ = 200 → 20 → tope 10.
+    assert.strictEqual(parcialDe(Array(10).fill(2), Array(10).fill(10)), 10)
+  })
+
+  caso('ponderado: los guiones de actividades que cuentan son cero, y cuentan en el divisor', () => {
+    const pesos = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    // seis en 10 y cuatro guiones vencidos: Σ = 60 → 60/10 = 6 (los guiones no se quitan del divisor)
+    assert.ok(cerca(parcialDe(pesos, [10, 10, 10, 10, 10, 10, 'G', 'G', 'G', 'G']), 6))
+    // 'V' (vencida sin entrega) es lo mismo que el guion
+    assert.ok(cerca(parcialDe(pesos, [10, 10, 10, 10, 10, 10, 'V', 'V', 'V', 'V']), 6))
+    // Excel: 26.6/10 con 5 notas y 5 guiones (dos de peso 0)
+    const excel = [0.5, 0.5, 0.5, 0.5, 1, 1, 1, 5, 0, 0]
+    assert.ok(cerca(parcialDe(excel, [10, 10, 9.2, 10, 7, 'G', 'G', 'G', 'G', 'G']), 2.66))
+  })
+
+  caso('ponderado: pendientes, vigentes, vencidas y guiones — aportan 0 y cuentan en N', () => {
+    const pesos = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    // 6 en 10; 1 pendiente; 1 vigente; 1 vencida; 1 guion → Σ = 60 → 6.0
+    assert.ok(cerca(parcialDe(pesos, [10, 10, 10, 10, 10, 10, 'P', 'F', 'V', 'G']), 6))
+    // La pendiente NO es cero virtual (se queda sin nota) ni la vigente: solo no suman al numerador.
+    const acts = pesos.map((w, i) => ev('y' + i, w, i === 7 ? vigente : {}))
+    assert.strictEqual(ceroPorFaltaDeEntrega(acts[6], { estado: 'entregado', calificacion: null }, { subject: subj(), alumno, ahora: AHORA }), false)
+    assert.strictEqual(ceroPorFaltaDeEntrega(acts[7], undefined, { subject: subj(), alumno, ahora: AHORA }), false)
+    assert.strictEqual(ceroPorFaltaDeEntrega(acts[8], undefined, { subject: subj(), alumno, ahora: AHORA }), true)
+  })
+
+  caso('ponderado: peso cero — no contribuye, aunque tenga nota', () => {
+    // 10 actividades: cinco de peso 2 (en 10) y cinco de peso 0 (en 10): Σ = 100 → 100/10 = 10; las de peso 0 no suman.
+    assert.ok(cerca(parcialDe([2, 2, 2, 2, 2, 0, 0, 0, 0, 0], [10, 10, 10, 10, 10, 10, 10, 10, 10, 10]), 10))
+    assert.ok(cerca(parcialDe([2, 2, 2, 2, 2, 0, 0, 0, 0, 0], [5, 5, 5, 5, 5, 10, 10, 10, 10, 10]), 5), 'solo cuentan las de peso: Σ = 50 → 5')
+    // Solo las de peso cero tienen nota: nada que contabilizar → null.
+    assert.strictEqual(promedioParcial([ev('a', 10), ev('b', 0)], [null, 10], true), null)
+  })
+
+  caso('ponderado: todos los resultados en cero → 0; ninguna con resultado → null', () => {
+    const pesos = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    assert.strictEqual(parcialDe(pesos, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), 0, 'ceros reales')
+    assert.strictEqual(parcialDe(pesos, ['G', 'G', 'G', 'G', 'G', 'G', 'G', 'G', 'G', 'G']), 0, 'guiones = ceros')
+    assert.strictEqual(parcialDe(pesos, ['F', 'F', 'F', 'F', 'F', 'F', 'F', 'F', 'F', 'F']), null, 'todo vigente')
+    assert.strictEqual(parcialDe(pesos, ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P', 'P', 'P']), null, 'todo pendiente de calificar')
+    assert.strictEqual(parcialDe(pesos, ['F', 'F', 'F', 'F', 'F', 'F', 'F', 'F', 'F', 'P']), null, 'vigentes y pendientes')
+  })
+
+  caso('ponderado: alta tardía y actividades que no le tocan — sin cero virtual; la actividad sigue contando en N', () => {
+    const pesos = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    const acts = pesos.map((w, i) => ev('t' + i, w))
+    assert.strictEqual(ceroPorFaltaDeEntrega(acts[9], undefined, { subject: subj(), alumno: tardia, ahora: AHORA }), false)
+    // Dos notas (10 y 10), el resto sin entrega: para quien ya estaba, Σ = 20/10 = 2; para la alta tardía también 2 (sin cero virtual, mismo N).
+    const subs = [conNota(10), conNota(10)]
+    assert.ok(cerca(pond(acts, subs, subj(), alumno), 2))
+    assert.ok(cerca(pond(acts, subs, subj(), tardia), 2))
+  })
+
+  caso('ponderado: borradores y «sin calificación» no cuentan (ni en N)', () => {
+    const pesos = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    const acts = pesos.map((w, i) => ev('b' + i, w))
+    acts.push(ev('bor', 3, { oculta: true }), ev('sc', 2, { sinCalificacion: true }))
+    const subs = [conNota(10), conNota(10), conNota(10), conNota(10), conNota(10), conNota(10), conNota(10), conNota(10), conNota(10), conNota(10), conNota(10), conNota(10)]
+    assert.ok(cerca(pond(acts, subs), 10), '10 actividades que cuentan: Σ = 100 → 100/10; el borrador y la «sin calificación» no entran')
+    assert.strictEqual(actividadesQueCuentan(acts, 1).length, 10)
+  })
+
+  caso('ponderado: pesos que NO suman 10 — se advierte y se aplica la restricción; la fórmula no los normaliza', () => {
+    const pesos10 = (w) => Array(10).fill(w)
+    const incompletos = pesos10(0.5) // suman 5
+    const exceso = pesos10(2) // suman 20
+    assert.strictEqual(estadoSumaPesos(incompletos.map((w, i) => ev('i' + i, w))), 'menor')
+    assert.strictEqual(estadoSumaPesos(exceso.map((w, i) => ev('e' + i, w))), 'mayor')
+    assert.strictEqual(estadoSumaPesos(pesos10(1).map((w, i) => ev('c' + i, w))), 'completa')
+    // Sin normalizar: pesos que suman 5 con todo en 10 → 50/10 = 5 (no 10).
+    assert.ok(cerca(parcialDe(incompletos, pesos10(10)), 5))
+    // Pesos que suman 20: 200/10 = 20 → tope 10.
+    assert.strictEqual(parcialDe(exceso, pesos10(10)), 10)
+    // Las restricciones existentes siguen: sin 10 exacto no se publica ni se inicia atención.
+    const s = subj()
+    const cerrado = { ...s, parcialesCerrados: { 1: '2026-10-01T00:00:00Z' } }
+    for (const [acts, ok] of [[incompletos, false], [exceso, false], [pesos10(1), true]]) {
+      const list = acts.map((w, i) => ev('k' + i, w))
+      assert.strictEqual(resultadoPublicadoAlumno(cerrado, 1, list), ok)
+      assert.strictEqual(puedeIniciarAtencion(s, 1, list), ok)
+      assert.strictEqual(pesosSumanDiez(list), ok)
+    }
+    const tab = readFileSync(new globalThis.URL('../src/pages/teacher/subject/TabCalificaciones.jsx', import.meta.url), 'utf8')
+    assert.ok(/pesoTotalVivo\(acts\) !== 10 && <AlertTriangle/.test(tab), 'advertencia visible al docente')
+  })
+
+  caso('ponderado: no escribe ni altera datos — notas visibles intactas, documentos congelados', () => {
+    const acts = [ev('a', 5), ev('b', 5)]
+    const notas = Object.freeze([10, null])
+    const subs = Object.freeze([Object.freeze(conNota(10)), undefined])
+    const para = notasParaPromedio(acts, notas, subs, { subject: subj(), alumno, ahora: AHORA })
+    assert.deepStrictEqual(para, [10, 0])
+    assert.deepStrictEqual([...notas], [10, null], 'la tabla sigue mostrando «—»')
+    assert.ok(cerca(promedioParcial(acts, para, true), 5), 'Σ = 5·10 + 5·0 = 50 → 50/10 = 5')
+  })
+
+  caso('ponderado: Docente, estudiante y reportes dan el MISMO número (también con actividades ocultas)', () => {
+    // 10 actividades de peso 1: a0 publicada y luego oculta (nota 10), a1 con 6, a2 programada con nota 10, el resto vencidas sin entrega.
+    const mk = (extra0 = {}, extra2 = {}) => Array.from({ length: 10 }, (_, i) => ev('c' + i, 1, i === 0 ? extra0 : i === 2 ? extra2 : {}))
+    const ocultaPub = { oculta: true, publishedAt: '2026-09-01T00:00' }
+    const prog = { oculta: true, publishedAt: null, publishAt: '2099-01-01T00:00' }
+    const subs = { c0: conNota(10), c1: conNota(6), c2: conNota(10) }
+    const porId = (acts) => acts.map((a) => subs[a.id])
+    const docenteVista = (acts, subject = subj()) => {
+      const a = acts.filter(cuentaParaCalificacion)
+      const g = a.map((x) => normalizeGrade(subs[x.id]?.calificacion, x.maxCalif, { decimals: 1 }))
+      return promedioParcial(a, notasParaPromedio(a, g, porId(a), { subject, alumno, ahora: AHORA }), true)
+    }
+    const estudianteVista = (acts, subject = subj()) => {
+      const a = acts.filter((x) => cuentaEnPromedioDelAlumno(x, subs[x.id], subject))
+      const g = a.map((x) => normalizeGrade(subs[x.id]?.calificacion, x.maxCalif, { decimals: 1 }))
+      return promedioParcial(a, notasParaPromedio(a, g, porId(a), { subject, alumno, ahora: AHORA }), true)
+    }
+    // Todo visible: (10 + 6 + 10 + 0·7) / 10 = 2.6
+    assert.ok(cerca(docenteVista(mk()), 2.6))
+    assert.ok(cerca(estudianteVista(mk()), 2.6))
+    // a0 oculta tras publicarse y a2 programada con nota real: siguen contando para los dos.
+    assert.ok(cerca(docenteVista(mk(ocultaPub, prog)), 2.6))
+    assert.ok(cerca(estudianteVista(mk(ocultaPub, prog)), 2.6))
+    // Parcial oculto: el docente lo ve; el estudiante no ve nada.
+    const oculto = subj({ parcialesOcultos: [1] })
+    assert.ok(cerca(docenteVista(mk(), oculto), 2.6))
+    assert.strictEqual(estudianteVista(mk(), oculto), null)
+    // Mismo resultado con la función común del servidor (_shared).
+    const srv = createRequire(import.meta.url)('../functions/_shared/ponderacion.js')
+    const acts = mk()
+    const g = acts.map((x) => subs[x.id]?.calificacion ?? null)
+    assert.strictEqual(srv.promedioParcial(acts, g, true), promedioParcial(acts, g, true))
+  })
+
+  caso('ponderado: modo simple intacto — media de lo que tiene resultado, los pesos no cuentan', () => {
+    const acts = [ev('a', 7), ev('b', 3), ev('c', 0)]
+    assert.strictEqual(promedioParcial(acts, [10, 6, null], false), 8)
+    assert.strictEqual(promedioParcial(acts, [null, null, null], false), null)
+    assert.strictEqual(promedioParcial(acts, [10, null, null], false), 10)
+    // Ponderación «encendida» pero sin ningún peso → cae al simple, como siempre.
+    assert.strictEqual(promedioParcial([ev('a', null), ev('b', 0)], [10, 6], true), 8)
+    const simple = subj({ ponderacionParciales: { 1: false } })
+    assert.strictEqual(pond([ev('a', 7), ev('b', 3)], [conNota(10), conNota(6)], simple), 8)
+  })
+
+  caso('ponderado: misma cuenta en docente, estudiante, dashboard, Excel, PDF, análisis e IA (una sola función)', () => {
+    const leer = (f) => readFileSync(new globalThis.URL(`../${f}`, import.meta.url), 'utf8')
+    for (const f of ['src/pages/teacher/SubjectPage.jsx', 'src/pages/student/SubjectPage.jsx', 'src/pages/student/Dashboard.jsx',
+      'src/utils/excel.js', 'src/utils/pdf.js', 'functions/analisisAcademico.js', 'functions/ia.js']) {
+      const src = leer(f)
+      assert.ok(/promedioParcial\(/.test(src) && /notasParaPromedio\(/.test(src), `${f} usa la función común`)
+      assert.ok(!/\/\s*sw\b|Σ\s*peso con nota/.test(src), `${f} no trae su propio divisor`)
+    }
+    // El mismo dato da el mismo número en los dos módulos (cliente y copia del servidor).
+    const srv = createRequire(import.meta.url)('../functions/_shared/ponderacion.js')
+    const acts = [ev('a', 5), ev('b', 3), ev('c', 2)]
+    const grades = [10, 8, null]
+    assert.strictEqual(srv.promedioParcial(acts, grades, true), promedioParcial(acts, grades, true))
+    assert.strictEqual(srv.pesoTotalParcial(), 10)
+  })
+}
+
+// ═══ Coherencia docente–estudiante: la nota real cuenta aunque se oculte ═════
+{
+  const AHORA = Date.parse('2026-10-15T12:00:00Z')
+  const ts = (iso) => ({ toMillis: () => Date.parse(iso) })
+  const alumno = { id: 'al1', createdAt: ts('2026-08-01T00:00:00Z') }
+  const subj = (extra = {}) => ({ id: 's1', parciales: 3, ponderacionParciales: { 1: true }, ...extra })
+  const act = (id, peso, extra = {}) => ({
+    id, parcial: 1, maxCalif: 10, oculta: false, publishedAt: '2026-09-01T00:00', pesoCalificacion: peso,
+    fechaLimite: '2026-10-10T10:00', fechaLimiteTS: ts('2026-10-10T16:00:00Z'), ...extra,
+  })
+  const nota = (n) => ({ calificacion: n })
+  const vigente = { fechaLimiteTS: ts('2026-10-20T16:00:00Z') }
+  const publicadaYOculta = { oculta: true, publishedAt: '2026-09-01T00:00' }
+  const programada = { oculta: true, publishedAt: null, publishAt: '2099-01-01T00:00' }
+  const borrador = { oculta: true, publishedAt: null, publishAt: null }
+  // DOCENTE: todo lo que cuenta para la calificación (sin filtro de publicación), nota a 1 decimal.
+  const docente = (acts, subs, subject = subj(), pond = true) => {
+    const a = acts.filter(cuentaParaCalificacion)
+    const g = a.map((x) => normalizeGrade(subs[x.id]?.calificacion, x.maxCalif, { decimals: 1 }))
+    return promedioParcial(a, notasParaPromedio(a, g, a.map((x) => subs[x.id]), { subject, alumno, ahora: AHORA }), pond)
+  }
+  // ESTUDIANTE: lo que hacen student/SubjectPage.calcParcialAvg y el Dashboard con cuentaEnPromedioDelAlumno.
+  const estudiante = (acts, subs, subject = subj(), pond = true) => {
+    const a = acts.filter((x) => cuentaEnPromedioDelAlumno(x, subs[x.id], subject))
+    const g = a.map((x) => normalizeGrade(subs[x.id]?.calificacion, x.maxCalif, { decimals: 1 }))
+    return promedioParcial(a, notasParaPromedio(a, g, a.map((x) => subs[x.id]), { subject, alumno, ahora: AHORA }), pond)
+  }
+  const cerca = (a, b) => (a === null || b === null ? a === b : Math.abs(a - b) < 1e-9)
+  const igual = (acts, subs, esperado, nombre, subject = subj()) => {
+    const d = docente(acts, subs, subject), e = estudiante(acts, subs, subject)
+    assert.ok(cerca(d, esperado), `${nombre}: docente ${d} ≠ ${esperado}`)
+    assert.ok(cerca(e, esperado), `${nombre}: estudiante ${e} ≠ ${esperado}`)
+  }
+
+  caso('coherencia: qué actividades entran al promedio del estudiante', () => {
+    const s = subj()
+    const c = (a, sub, subject = s) => cuentaEnPromedioDelAlumno(a, sub, subject)
+    assert.strictEqual(c(act('a', 5), nota(8)), true, 'publicada con nota')
+    assert.strictEqual(c(act('a', 5), undefined), true, 'publicada sin nota (cuenta; su cero virtual lo decide el plazo)')
+    assert.strictEqual(c(act('a', 5, publicadaYOculta), nota(10)), true, 'publicada y luego oculta, con nota real')
+    assert.strictEqual(c(act('a', 5, publicadaYOculta), undefined), true, 'oculta sin nota: aporta 0 y su peso sigue en el divisor')
+    assert.strictEqual(c(act('a', 5, publicadaYOculta), { calificacion: null, estado: 'entregado' }), true, 'oculta con entrega pendiente: peso en el divisor')
+    assert.strictEqual(c(act('a', 5, programada), nota(10)), true, 'programada nunca publicada con nota real')
+    assert.strictEqual(c(act('a', 5, programada), undefined), true, 'programada sin nota: peso en el divisor')
+    assert.strictEqual(c(act('a', 5, borrador), nota(10)), false, 'el borrador nunca cuenta')
+    assert.strictEqual(c(act('a', 5, { sinCalificacion: true }), nota(10)), false, 'sin calificación nunca cuenta')
+    assert.strictEqual(c(act('a', 5), nota(8), subj({ parcialesOcultos: [1] })), false, 'parcial oculto: ni con nota')
+    assert.strictEqual(c(act('a', 5, publicadaYOculta), nota(0)), true, 'un cero REAL también es nota real')
+  })
+
+  caso('coherencia: las listas que ve el estudiante NO cambian (lo oculto sigue invisible)', () => {
+    const leer = (f) => readFileSync(new globalThis.URL(`../${f}`, import.meta.url), 'utf8')
+    const sp = leer('src/pages/student/SubjectPage.jsx')
+    assert.ok(/const acts = allActs\s*\n\s*\.filter\(\(a\) => isActivityPublished\(a, parcialesOcultos\.includes\(a\.parcial\)\)\)\s*\n\s*setActivities\(acts\)/.test(sp), 'la lista de actividades sigue filtrada por publicación')
+    assert.ok(/if \(actIds\.has\(data\.actividadId\)\) subsMap\[data\.actividadId\]/.test(sp), 'el mapa de entregas visibles sigue filtrado')
+    // Las entregas de actividades ocultas SOLO se usan dentro de calcParcialAvg (promedio), nunca para pintar.
+    const usos = sp.split('\n').filter((l) => /todasSubmissions\[/.test(l))
+    assert.strictEqual(usos.length, 1, 'un único uso de lectura: el promedio')
+    assert.ok(/const subDe = \(a\) => submissions\[a\.id\] \?\? todasSubmissions\[a\.id\]/.test(sp))
+    // El parcial oculto sigue fuera de la pantalla.
+    assert.ok(/\.filter\(\(p\) => !\(subject\?\.parcialesOcultos \|\| \[\]\)\.includes\(p\)\)/.test(sp))
+    const dash = leer('src/pages/student/Dashboard.jsx')
+    assert.ok(/cuentaEnPromedioDelAlumno\(a, subByActivity\[a\.id\], s\)/.test(dash) && /todasBySubject\[s\.id\]/.test(dash), 'dashboard: misma regla')
+  })
+
+  caso('coherencia: ceros virtuales, pesos y modo simple no cambian', () => {
+    // Publicada y vencida sin nota → cero virtual (solo con actividad publicada).
+    assert.strictEqual(ceroPorFaltaDeEntrega(act('a', 5), undefined, { subject: subj(), alumno, ahora: AHORA }), true)
+    assert.strictEqual(ceroPorFaltaDeEntrega(act('a', 5, publicadaYOculta), undefined, { subject: subj(), alumno, ahora: AHORA }), false, 'oculta sin entrega: no hay cero virtual')
+    assert.strictEqual(ceroPorFaltaDeEntrega(act('a', 5, programada), undefined, { subject: subj(), alumno, ahora: AHORA }), false)
+    // Modo simple: media de lo que tiene nota, sin pesos; una oculta con nota real también cuenta.
+    const simple = subj({ ponderacionParciales: { 1: false } })
+    const acts = [act('a', 7, publicadaYOculta), act('b', 3), act('c', 0, vigente)]
+    assert.strictEqual(docente(acts, { a: nota(10), b: nota(6) }, simple, false), 8)
+    assert.strictEqual(estudiante(acts, { a: nota(10), b: nota(6) }, simple, false), 8)
+    // La función no escribe nada ni toca las entregas.
+    const subs = Object.freeze({ a: Object.freeze(nota(10)) })
+    assert.ok(cerca(estudiante([act('a', 5, publicadaYOculta)], subs), 5), 'peso 5 con un 10: 50/10')
+  })
+}
+
 
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)

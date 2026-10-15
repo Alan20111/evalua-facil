@@ -16,7 +16,6 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import { BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Archive, Trash2, Download, ArrowUp, ArrowDown, GripVertical, Globe, Smartphone,  } from 'lucide-react'
 import SubjectIcon from '../../components/SubjectIcon'
-import { isActivityPublished, cuentaParaCalificacion } from '../../utils/activityVisibility'
 import { fetchContentBatch } from '../../utils/apiContent'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
@@ -24,7 +23,7 @@ import { getEnrollments, updateAllEnrollments, visibleEnrollments } from '../../
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import StudentLayout from '../../components/StudentLayout'
 import AvatarCropModal from '../../components/AvatarCropModal'
-import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade, resultadoPublicadoAlumno } from '../../utils/ponderacion'
+import { promedioParcial, notasParaPromedio, cuentaEnPromedioDelAlumno, ponderacionActivaEnParcial, normalizeGrade, resultadoPublicadoAlumno } from '../../utils/ponderacion'
 import PonderacionPendiente from '../../components/PonderacionPendiente'
 import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
@@ -269,8 +268,6 @@ export default function StudentDashboard() {
       const subjSnaps = await Promise.all(asignaturaIds.map((id) => getDoc(doc(db, 'subjects', id))))
       const subs = subjSnaps.filter((s) => s.exists()).map((s) => ({ id: s.id, ...s.data() }))
       if (subs.length === 0) { setSubjects([]); return }
-      const subjectById = {}
-      subs.forEach((s) => { subjectById[s.id] = s })
 
       // Everything else in ONE parallel batch — a constant number of round trips:
       //  · teacher names  · all activities (chunked `in`)  · all my submissions (chunked `in`)
@@ -292,27 +289,24 @@ export default function StudentDashboard() {
 
       // Group activities by subject and index this student's grade per activity
       // (activities are subject-unique, so keying by activity id never collides).
-      const actsBySubject = {}
       // Todas, sin filtrar por visibilidad: deciden si un parcial ponderado ya
-      // publicó su resultado (resultadoPublicadoAlumno).
+      // publicó su resultado (resultadoPublicadoAlumno) y de ellas sale el
+      // promedio (cuentaEnPromedioDelAlumno decide cuáles entran).
       const todasBySubject = {}
       actDocs.forEach((a) => {
         if (!todasBySubject[a.asignaturaId]) todasBySubject[a.asignaturaId] = []
         todasBySubject[a.asignaturaId].push(a)
-        const parcialesOcultos = subjectById[a.asignaturaId]?.parcialesOcultos || []
-        if (!isActivityPublished(a, parcialesOcultos.includes(a.parcial))) return
-        if (!actsBySubject[a.asignaturaId]) actsBySubject[a.asignaturaId] = []
-        actsBySubject[a.asignaturaId].push(a)
       })
       const gradeByActivity = {}
+      const subByActivity = {}
       mySubmissions.forEach((d) => {
         const data = d.data()
+        subByActivity[data.actividadId] = data
         if (data.calificacion != null) gradeByActivity[data.actividadId] = data.calificacion
       })
 
       // Compute each subject's average in memory.
       const enriched = subs.map((s) => {
-        const acts = actsBySubject[s.id] || []
         // A09 · MISMO criterio que la pantalla del docente (SubjectPage.jsx),
         // número por número: excluye lo que no cuenta para calificación
         // (`cuentaParaCalificacion` — antes solo isActivityPublished, así que
@@ -328,13 +322,17 @@ export default function StudentDashboard() {
         // pendiente: mostrar el de los demás parciales sería otro número.
         let avgPendiente = false
         const parcAvgs = PARC.map((p) => {
-          const pacts = acts.filter((a) => a.parcial === p && cuentaParaCalificacion(a))
+          // Misma cuenta que el docente: una nota real cuenta aunque la actividad se haya ocultado después (cuentaEnPromedioDelAlumno).
+          const pacts = (todasBySubject[s.id] || []).filter((a) => a.parcial === p && cuentaEnPromedioDelAlumno(a, subByActivity[a.id], s))
           const grades = pacts.map((a) => normalizeGrade(gradeByActivity[a.id], a.maxCalif, { decimals: 1 }))
           if (!resultadoPublicadoAlumno(s, p, todasBySubject[s.id] || [])) {
             if (grades.some((g) => g != null)) avgPendiente = true
             return null
           }
-          const raw = promedioParcial(pacts, grades, ponderacionActivaEnParcial(s, p))
+          // Cero de lo que ya no se puede entregar (misma regla que la tabla del docente).
+          const enr = enrollments.find((e) => e.asignaturaId === s.id)
+          const paraPromedio = notasParaPromedio(pacts, grades, pacts.map((a) => subByActivity[a.id]), { subject: s, alumno: enr })
+          const raw = promedioParcial(pacts, paraPromedio, ponderacionActivaEnParcial(s, p))
           return raw !== null ? parseFloat(raw.toFixed(1)) : null
         }).filter((v) => v !== null)
         const avg = !avgPendiente && parcAvgs.length

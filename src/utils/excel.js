@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx'
 import { subjectDisplayName } from './subjectName'
 import { subjectPeriodLabel } from './dateRange'
-import { promedioParcial, pesoDe, ponderacionActivaEnParcial, normalizeGrade } from './ponderacion'
+import { promedioParcial, notasParaPromedio, pesoDe, ponderacionActivaEnParcial, normalizeGrade } from './ponderacion'
 import { attendanceState, countPresence, fmtAttDateParts } from './attendance'
 import { studentFullName } from './studentSearch'
 import { cuentaParaCalificacion } from './activityVisibility'
@@ -255,7 +255,8 @@ export async function exportParcialGrades({ subject, activities, students, submi
       return normalizeGrade(sub?.calificacion, a.maxCalif, { decimals: 1 })
     })
     grades.forEach((g) => row.push(g !== null ? g : ''))
-    const rawAvg = promedioParcial(acts, grades, pondOn)
+    const subs = acts.map((a) => submissions.find((x) => x.alumnoId === s.id && x.actividadId === a.id))
+    const rawAvg = promedioParcial(acts, notasParaPromedio(acts, grades, subs, { subject, alumno: s }), pondOn)
     row.push(rawAvg !== null ? parseFloat(rawAvg.toFixed(1)) : '')
     return row
   })
@@ -353,6 +354,7 @@ export async function exportSubjectGrades({
     PARCIALES.forEach((p, pi) => {
       const { acts } = parcialMeta[pi]
       const parGrades = []
+      const parSubs = []
       acts.forEach((a) => {
         const sub = submissions.find(
           (sub) => sub.alumnoId === s.id && sub.actividadId === a.id
@@ -360,8 +362,10 @@ export async function exportSubjectGrades({
         const norm = normalizeGrade(sub?.calificacion, a.maxCalif, { decimals: 1 })
         row.push(norm !== null ? norm : '')
         parGrades.push(norm)
+        parSubs.push(sub)
       })
-      const rawAvg = promedioParcial(acts, parGrades, ponderacionActivaEnParcial(subject, p))
+      const paraPromedio = notasParaPromedio(acts, parGrades, parSubs, { subject, alumno: s })
+      const rawAvg = promedioParcial(acts, paraPromedio, ponderacionActivaEnParcial(subject, p))
       const parAvg = rawAvg !== null ? parseFloat(rawAvg.toFixed(1)) : ''
       row.push(parAvg)
       if (parAvg !== '') finalGrades.push(parAvg)
