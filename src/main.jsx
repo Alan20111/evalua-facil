@@ -40,13 +40,25 @@ window.addEventListener('vite:preloadError', (event) => {
   window.location.reload()
 })
 
-const root = createRoot(document.getElementById('root'))
+function montar() {
+  createRoot(document.getElementById('root')).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  )
+}
 
-root.render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+// Montar DESPUÉS del primer cuadro (rendimiento, oct-2026): si el JS ya está
+// en caché, el navegador lo ejecuta antes de pintar y React reemplazaba la
+// pantalla inicial de index.html sin que llegara a verse (Lighthouse en
+// celular: FCP 2.6 s en vez de ~1.2 s). requestAnimationFrame + setTimeout
+// deja pintar un cuadro (~16 ms) y luego monta. En una pestaña oculta
+// requestAnimationFrame no corre, así que ahí se monta de inmediato.
+if (document.visibilityState === 'visible') {
+  requestAnimationFrame(() => setTimeout(montar, 0))
+} else {
+  montar()
+}
 
 // Solo en dev: audita el DOM real con axe-core y reporta violaciones en la
 // consola sin tocar el bundle de producción. Import dinámico para que ni el
