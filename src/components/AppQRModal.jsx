@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react'
 import { Download } from 'lucide-react'
 import Modal from './ui/Modal'
 import { useToast } from './Toast'
-import { exportAppQRPDF } from '../utils/pdf'
 import { Skeleton, Button } from './ui'
 
 export default function AppQRModal({ open, url, onClose }) {
@@ -30,6 +29,9 @@ export default function AppQRModal({ open, url, onClose }) {
   async function handleDescargarPDF() {
     setDescargando(true)
     try {
+      // utils/pdf se carga al pedir el PDF, no al abrir la página: así no
+      // viaja en el JS inicial de todas las pantallas (Layout usa este modal).
+      const { exportAppQRPDF } = await import('../utils/pdf')
       await exportAppQRPDF({ url })
     } catch (err) {
       toast('No se pudo generar el PDF: ' + err.message, 'error')

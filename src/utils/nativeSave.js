@@ -18,7 +18,6 @@
 // escribir directo sin permisos de almacenamiento aparte, y este camino ya
 // resuelve guardar Y compartir en un solo paso, sin pedir ningún permiso
 // extra (Share/Filesystem-en-caché no los necesitan).
-import * as XLSX from 'xlsx'
 import { Filesystem, Directory } from '@capacitor/filesystem'
 import { Share } from '@capacitor/share'
 import { IS_NATIVE_APP } from './platform'
@@ -48,6 +47,10 @@ function downloadInBrowser(blob, filename) {
 
 // `wb` = libro de SheetJS (XLSX.utils.book_new() ya armado con sus hojas).
 export async function saveWorkbook(wb, filename) {
+  // SheetJS se carga aquí y no arriba (rendimiento, oct-2026): este módulo lo
+  // importa utils/pdf.js, que llega al arranque por el botón del QR, y con él
+  // ~300 KB de Excel viajaban en el JS inicial de todas las páginas.
+  const XLSX = await import('xlsx')
   if (!IS_NATIVE_APP) {
     XLSX.writeFile(wb, filename)
     return

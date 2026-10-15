@@ -13,9 +13,15 @@
 // Props: subtitle=false → variante compacta (solo icono).
 export default function EFLogo({ className = '', subtitle = true }) {
   const src = subtitle ? '/logo-evalua-facil.webp' : '/logo-icon.webp'
+  // srcSet (rendimiento, oct-2026): el logo completo es lo más grande que se
+  // pinta en la portada y en los inicios de sesión. Con 520 px (15 KB) basta
+  // para su tamaño en pantalla en la mayoría de los teléfonos; el de 900 px
+  // queda para pantallas de alta densidad.
   return (
     <img
       src={src}
+      srcSet={subtitle ? '/logo-evalua-facil-520.webp 520w, /logo-evalua-facil.webp 900w' : undefined}
+      sizes={subtitle ? '(max-width: 640px) 224px, 280px' : undefined}
       alt="Evalúa Fácil"
       decoding="async"
       className={className}

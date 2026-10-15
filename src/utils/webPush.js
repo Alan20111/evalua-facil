@@ -12,7 +12,19 @@
 // se genera en Firebase Console → Configuración del proyecto → Cloud
 // Messaging). Sin ella, todo esto es un no-op silencioso.
 import { Capacitor } from '@capacitor/core'
-import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging'
+// firebase/messaging (~120 KB con installations) se carga bajo demanda, no
+// arriba (rendimiento, oct-2026): este módulo lo importan AuthContext y el
+// aviso de notificaciones, así que con un import estático viajaba en el JS
+// inicial de todas las páginas, aunque el web push se registre después de
+// iniciar sesión.
+const cargarMessaging = () => import('firebase/messaging')
+
+// Comprobación barata del navegador, sin cargar messaging.
+function navegadorConPush() {
+  if (Capacitor.isNativePlatform()) return false
+  if (typeof window === 'undefined') return false
+  return 'serviceWorker' in navigator && 'Notification' in window && 'PushManager' in window
+}
 import { setDoc, doc, arrayUnion, arrayRemove } from 'firebase/firestore'
 import app, { db } from '../firebase'
 
@@ -38,10 +50,9 @@ function swUrlWithConfig() {
 
 // ¿Este entorno puede recibir web push? La app nativa NO (usa Capacitor).
 export async function isWebPushSupported() {
-  if (Capacitor.isNativePlatform()) return false
-  if (typeof window === 'undefined') return false
-  if (!('serviceWorker' in navigator) || !('Notification' in window) || !('PushManager' in window)) return false
+  if (!navegadorConPush()) return false
   try {
+    const { isSupported } = await cargarMessaging()
     return await isSupported()
   } catch {
     return false
@@ -74,7 +85,10 @@ async function reasignarToken(token, uid) {
 // Devuelve true si el token quedó registrado.
 export async function initWebPush(uid, { requestPermission = false } = {}) {
   if (!uid) return false
-  if (!(await isWebPushSupported())) return false
+  // Solo la comprobación barata antes de pedir permiso: requestPermission debe
+  // llamarse mientras dura el gesto del usuario, y esperar la descarga de
+  // messaging aquí podría agotarlo. isSupported() va después.
+  if (!navegadorConPush()) return false
   if (!VAPID_KEY) {
     // Sin la Web Push certificate no se puede obtener un token — avisa una vez
     // en consola para que sea fácil de diagnosticar en producción.
@@ -87,8 +101,10 @@ export async function initWebPush(uid, { requestPermission = false } = {}) {
     permission = await Notification.requestPermission()
   }
   if (permission !== 'granted') return false
+  if (!(await isWebPushSupported())) return false
 
   try {
+    const { getMessaging, getToken, onMessage } = await cargarMessaging()
     const registration = await navigator.serviceWorker.register(swUrlWithConfig())
     const messaging = getMessaging(app)
     const token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: registration })
