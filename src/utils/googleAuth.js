@@ -1,7 +1,7 @@
 import { doc, getDoc } from 'firebase/firestore'
 import {
   GoogleAuthProvider, reauthenticateWithCredential, reauthenticateWithPopup,
-  signInWithCredential, signInWithPopup,
+  signInWithCredential, signInWithPopup, browserPopupRedirectResolver,
 } from 'firebase/auth'
 import { auth, db } from '../firebase'
 import { createTeacherAccount } from './teacherAccount'
@@ -22,7 +22,8 @@ export async function signInWithGoogle() {
     const cred = await signInWithCredential(auth, credential)
     return cred.user
   }
-  const result = await signInWithPopup(auth, new GoogleAuthProvider())
+  // El resolvedor va aquí, no en initializeAuth (ver firebase.js).
+  const result = await signInWithPopup(auth, new GoogleAuthProvider(), browserPopupRedirectResolver)
   return result.user
 }
 
@@ -44,7 +45,7 @@ export async function reauthenticateWithGoogle(user) {
     await reauthenticateWithCredential(user, credential)
     return
   }
-  await reauthenticateWithPopup(user, new GoogleAuthProvider())
+  await reauthenticateWithPopup(user, new GoogleAuthProvider(), browserPopupRedirectResolver)
 }
 
 // Traduce un error de "Continuar con Google" a lo que hay que mostrar. Devuelve

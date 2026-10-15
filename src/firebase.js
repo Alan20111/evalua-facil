@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getAuth, connectAuthEmulator } from 'firebase/auth'
+import { initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence, connectAuthEmulator } from 'firebase/auth'
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore'
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions'
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
@@ -34,7 +34,15 @@ export const appCheck = CLAVE_APP_CHECK && import.meta.env.VITE_EMULADORES !== '
       })
     })()
   : null
-export const auth = getAuth(app)
+// initializeAuth y no getAuth (rendimiento, oct-2026): getAuth trae el
+// resolvedor de popups ya puesto, y ese resolvedor carga al arrancar el
+// iframe de autenticación de firebaseapp.com y gapi (~130 KB) en TODAS las
+// páginas, aunque nadie vaya a entrar con Google. Misma persistencia que
+// getAuth; el resolvedor se pasa solo en las llamadas con popup
+// (utils/googleAuth.js).
+export const auth = initializeAuth(app, {
+  persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence],
+})
 export const db = getFirestore(app)
 // Cloud Functions invocables (región por omisión us-central1, igual que las
 // desplegadas). Hoy solo las usa el sistema de créditos IA.
