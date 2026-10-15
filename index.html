@@ -31,11 +31,13 @@
          logo de 520 px, que ya es el que usa la portada. Todo en línea: aquí aún
          no hay CSS de la app. El logo va INCRUSTADO (data URI, ~20 KB): como
          petición aparte quedaba en cola detrás del JS y a veces no se pintaba
-         antes de que React montara (medido con Lighthouse en celular). -->
+         antes de que React montara (medido con Lighthouse en celular). Mide
+         256 px: igual o más que cualquier logo que pinte después la página
+         (portada 230 px), así no aparece un elemento LCP nuevo más tarde. -->
     <style>
       html, body { margin: 0; background: #e6f1fb; }
       .pantalla-inicial { min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center; }
-      .pantalla-inicial img { width: 224px; height: auto; animation: pantalla-inicial 1.2s ease-in-out infinite alternate; }
+      .pantalla-inicial img { width: 256px; height: auto; animation: pantalla-inicial 1.2s ease-in-out infinite alternate; }
       @keyframes pantalla-inicial { from { opacity: 1; } to { opacity: .6; } }
       @media (prefers-reduced-motion: reduce) { .pantalla-inicial img { animation: none; } }
     </style>
