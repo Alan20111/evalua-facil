@@ -3720,6 +3720,20 @@ ok('F-05 · admin CAN read publicProfiles')
   await assertFails(getDoc(doc(asT1, 'appCheckMetricas', '2026-10-14')))
   await assertFails(setDoc(doc(asT1, 'appCheckMetricas', '2026-10-15'), { x: 1 }))
   ok('APP CHECK · solo el admin lee las métricas; nadie las escribe desde el cliente')
+
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'erroresCliente', 'E1'), { tipo: 'render', mensaje: 'x', cuenta: 3 })
+    await setDoc(doc(ctx.firestore(), 'erroresCliente', 'E2'), { tipo: 'error', mensaje: 'y', cuenta: 1 })
+  })
+  await assertSucceeds(getDoc(doc(asAdmin, 'erroresCliente', 'E1')))
+  await assertFails(getDoc(doc(asT1, 'erroresCliente', 'E1')))
+  await assertFails(getDoc(doc(asJuan, 'erroresCliente', 'E1')))
+  await assertFails(setDoc(doc(asT1, 'erroresCliente', 'E3'), { mensaje: 'falso' }))
+  await assertFails(setDoc(doc(anonimo, 'erroresCliente', 'E4'), { mensaje: 'falso' }))
+  await assertFails(updateDoc(doc(asAdmin, 'erroresCliente', 'E1'), { cuenta: 0 }))
+  await assertFails(deleteDoc(doc(asT1, 'erroresCliente', 'E2')))
+  await assertSucceeds(deleteDoc(doc(asAdmin, 'erroresCliente', 'E2')))
+  ok('ERRORES · solo el admin los lee y los borra (resueltos); nadie los escribe desde el cliente')
 }
 
 await testEnv.cleanup()

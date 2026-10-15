@@ -11,6 +11,7 @@ import { initWebPush, clearWebPushToken } from '../utils/webPush'
 import { createTeacherAccount } from '../utils/teacherAccount'
 import { escuelaValida } from '../utils/escuela'
 import { refreshTeacherReminders, installReminderResumeListener, installReminderDeliveryListener } from '../utils/localReminders'
+import { fijarRolParaErrores } from '../utils/registroErrores'
 
 const AuthContext = createContext(null)
 
@@ -42,6 +43,12 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
   const { pathname } = useLocation()
+
+  // El registro de errores (utils/registroErrores.js) anota en qué lado pasó:
+  // docente, alumno, admin o sin sesión. Nunca el uid.
+  const rolActual = !currentUser ? 'sin sesión'
+    : userProfile?.role === 'docente' || userProfile?.role === 'admin' ? userProfile.role : 'alumno'
+  useEffect(() => { fijarRolParaErrores(rolActual) }, [rolActual])
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {

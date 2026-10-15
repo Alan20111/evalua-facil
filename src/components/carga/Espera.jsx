@@ -7,6 +7,7 @@ import { Component, useEffect, useState } from 'react'
 import { RefreshCw } from 'lucide-react'
 import { Button } from '../ui'
 import { ICONO } from '../../config/iconos'
+import { reportarError } from '../../utils/registroErrores'
 
 const LIMITE_MS = 12000
 
@@ -39,19 +40,28 @@ export function Espera({ children }) {
   )
 }
 
-// Si el código de una página no llega (sin red, o un deploy nuevo cambió los
-// archivos y la recarga automática de main.jsx ya se usó), en vez de dejar la
-// pantalla en blanco se ofrece reintentar.
+// Límite de errores de las pantallas. Dos casos:
+//  · el código de la página no llega (sin red, o un deploy nuevo cambió los
+//    archivos y la recarga automática de main.jsx ya se usó);
+//  · la pantalla truena al dibujarse (un error del código).
+// En los dos, en vez de dejar la pantalla en blanco se ofrece reintentar, y el
+// error queda en el registro (utils/registroErrores.js, O3 del plan de Play).
+const ARCHIVO_NO_LLEGO = /dynamically imported module|Importing a module script failed|Loading chunk|error loading dynamically/i
+
 export class CargaFallida extends Component {
   state = { error: null }
   static getDerivedStateFromError(error) { return { error } }
+  componentDidCatch(error, info) {
+    reportarError(error, { tipo: 'render', pilaComponentes: info?.componentStack || '' })
+  }
   render() {
     if (!this.state.error) return this.props.children
+    const deRed = ARCHIVO_NO_LLEGO.test(String(this.state.error?.message || ''))
     return (
       <div className="min-h-[60dvh] flex items-center justify-center px-4">
         <div className="bg-surface-card rounded-card shadow-card p-8 max-w-sm w-full text-center">
-          <p className="text-on-surface font-semibold mb-2">No se pudo cargar esta pantalla</p>
-          <p className="text-muted text-sm mb-4">Revisa tu conexión e intenta de nuevo.</p>
+          <p className="text-on-surface font-semibold mb-2">{deRed ? 'No se pudo cargar esta pantalla' : 'Algo salió mal en esta pantalla'}</p>
+          <p className="text-muted text-sm mb-4">{deRed ? 'Revisa tu conexión e intenta de nuevo.' : 'El error quedó registrado. Intenta de nuevo.'}</p>
           <Button onClick={() => window.location.reload()}>Reintentar</Button>
         </div>
       </div>

@@ -13,6 +13,7 @@ import AdminChat from './components/AdminChat'
 import DownloadLinks from './components/DownloadLinks'
 import EscuelasConfig from './components/EscuelasConfig'
 import ReportesIAPanel from './components/ReportesIAPanel'
+import ErroresPanel from './components/ErroresPanel'
 import { SkeletonCards, Button } from '../../components/ui'
 import { ICONO } from '../../config/iconos'
 
@@ -79,6 +80,7 @@ export default function AdminDashboard() {
               usa `stats`, que no incluye métricas internas de tokens. */}
           {activeTab === 'costosIA' && <CostosIAPanel />}
           {activeTab === 'reportesIA' && <ReportesIAPanel />}
+          {activeTab === 'errores' && <ErroresPanel />}
           {activeTab === 'zonas' && <VentasPorZona stats={stats} />}
           {activeTab === 'cobros' && <PaymentConfig />}
           {activeTab === 'escuelas' && <EscuelasConfig />}
