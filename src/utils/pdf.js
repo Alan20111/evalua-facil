@@ -1,7 +1,7 @@
 // Lazy-loads jsPDF + autotable + qrcode only when the teacher actually exports,
 // so these heavy libs stay out of the main bundle.
 import { subjectDisplayName } from './subjectName'
-import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade } from './ponderacion'
+import { promedioParcial, notasParaPromedio, ponderacionActivaEnParcial, normalizeGrade } from './ponderacion'
 import { cuentaParaCalificacion } from './activityVisibility'
 import { subjectPeriodLabel } from './dateRange'
 import { studentFullName as fullName } from './studentSearch'
@@ -241,7 +241,9 @@ export async function exportSubjectGradesPDF({ subject, activities, students, su
         const sub = submissions.find((x) => x.alumnoId === s.id && x.actividadId === a.id)
         return normalizeGrade(sub?.calificacion, a.maxCalif, { decimals: 1 })
       })
-      const rawAvg = promedioParcial(acts, grades, ponderacionActivaEnParcial(subject, p))
+      const subs = acts.map((a) => submissions.find((x) => x.alumnoId === s.id && x.actividadId === a.id))
+      const paraPromedio = notasParaPromedio(acts, grades, subs, { subject, alumno: s })
+      const rawAvg = promedioParcial(acts, paraPromedio, ponderacionActivaEnParcial(subject, p))
       const avg = rawAvg != null ? parseFloat(rawAvg.toFixed(1)) : null
       row.push(avg != null ? avg.toFixed(1) : '—')
       if (avg != null) finals.push(avg)
@@ -299,7 +301,8 @@ export async function exportParcialGradesPDF({ subject, activities, students, su
       return normalizeGrade(sub?.calificacion, a.maxCalif, { decimals: 1 })
     })
     grades.forEach((g) => row.push(g != null ? g.toFixed(1) : '—'))
-    const avg = promedioParcial(acts, grades, pondOn)
+    const subs = acts.map((a) => submissions.find((x) => x.alumnoId === s.id && x.actividadId === a.id))
+    const avg = promedioParcial(acts, notasParaPromedio(acts, grades, subs, { subject, alumno: s }), pondOn)
     row.push(avg != null ? avg.toFixed(1) : '—')
     return row
   })

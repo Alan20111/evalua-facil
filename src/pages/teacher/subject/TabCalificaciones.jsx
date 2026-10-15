@@ -4,7 +4,7 @@
 import AnalisisAsignaturaIA from '../../../components/analisis/AnalisisAsignaturaIA'
 import { Button, IconButton, SkeletonTable } from '../../../components/ui'
 import { ExportSplitButton } from './piezas'
-import { FileSpreadsheet, FileText, Lock, MessageCircleQuestion, MoreVertical, Sparkles, X } from 'lucide-react'
+import { AlertTriangle, FileSpreadsheet, FileText, Lock, MessageCircleQuestion, MoreVertical, Sparkles, X } from 'lucide-react'
 import { ICONO } from '../../../config/iconos'
 import { IS_NATIVE_APP, PUEDE_AUTOFOCUS } from '../../../utils/platform'
 import SearchInput from '../../../components/SearchInput'
@@ -366,7 +366,8 @@ export default function TabCalificaciones() {
                             )),
                             <th key={`pw-${p}`} className={`w-14 px-1 py-1 text-center text-[11px] font-bold border-l border-outline-variant bg-amber-50 ${pesoTotalVivo(acts) === 10 ? 'text-emerald-600' : 'text-amber-700'}`}>
                               <div className="flex items-center justify-center gap-0.5">
-                                <span data-tooltip={pesoTotalVivo(acts) === 10 ? 'Los pesos suman 10' : 'Suma libre — para exportar este parcial deberá sumar 10'}>{pesoTotalVivo(acts)}</span>
+                                <span data-tooltip={pesoTotalVivo(acts) === 10 ? 'Los pesos suman 10' : `Los pesos suman ${pesoTotalVivo(acts)}, no 10. El promedio se calcula siempre entre 10 y los pesos no se ajustan solos${pesoTotalVivo(acts) > 10 ? '; nunca pasa de 10' : ''}. Para exportar, cerrar o publicar este parcial deberá sumar 10`}>{pesoTotalVivo(acts)}</span>
+                                {pesoTotalVivo(acts) !== 10 && <AlertTriangle size={ICONO.xs} aria-label="Los pesos de este parcial no suman 10" className="flex-shrink-0 text-amber-600" />}
                                 <button type="button" onClick={() => toggleParcialPonderacion(p)}
                                   aria-label={`Quitar la ponderación solo del Parcial ${p}`}
                                   data-tooltip={parcialCerrado(subject, p) ? mensajeParcialCerrado(p) : `Quitar la ponderación solo del Parcial ${p}`}

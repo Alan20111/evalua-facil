@@ -46,8 +46,8 @@ const videoInteractivoIA = require('./videoInteractivoIA')
 const { calcularSesionesReales } = require('./_shared/sesionesReales.js')
 const { fechasVacacionParaClases } = require('./_shared/vacaciones.js')
 const { parcialForDate } = require('./_shared/parciales.js')
-const { promedioParcial, normalizeGrade, ponderacionActivaEnParcial, parcialCerrado, mensajeParcialCerrado } = require('./_shared/ponderacion.js')
-const { resolveVisibilidad } = require('./_shared/activityVisibility.js')
+const { promedioParcial, notasParaPromedio, normalizeGrade, ponderacionActivaEnParcial, parcialCerrado, mensajeParcialCerrado } = require('./_shared/ponderacion.js')
+const { resolveVisibilidad, cuentaParaCalificacion } = require('./_shared/activityVisibility.js')
 const { EVALUACION_DEFAULTS } = require('./_shared/evaluacionDefaults.js')
 const { calcularTarifaExamen } = require('./_shared/tarifaExamen.js')
 
@@ -5364,7 +5364,9 @@ async function resumenAsignaturaParaGeneral(db, subjectId, subj) {
     db.collection('activities').where('asignaturaId', '==', subjectId).where('parcial', '==', parcialActual).get(),
     db.collection('students').where('asignaturaId', '==', subjectId).get(),
   ])
-  const actividades = actsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  // Solo lo que cuenta para la calificación (sin borradores ni «sin calificación»),
+  // igual que la tabla del docente; antes entraba todo el parcial.
+  const actividades = actsSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter(cuentaParaCalificacion)
   const actIds = actividades.map((a) => a.id)
 
   const submissions = []
@@ -5383,9 +5385,10 @@ async function resumenAsignaturaParaGeneral(db, subjectId, subj) {
   const promedios = studentsSnap.docs.map((alumnoDoc) => {
     const grades = actividades.map((a) => {
       const sub = subMap[`${alumnoDoc.id}-${a.id}`]
-      return sub?.calificacion != null ? normalizeGrade(sub.calificacion, a.maxCalif || 10) : null
+      return sub?.calificacion != null ? normalizeGrade(sub.calificacion, a.maxCalif || 10, { decimals: 1 }) : null
     })
-    return promedioParcial(actividades, grades, ponderacionOn)
+    const paraPromedio = notasParaPromedio(actividades, grades, actividades.map((a) => subMap[`${alumnoDoc.id}-${a.id}`]), { subject: subj, alumno: { id: alumnoDoc.id, createdAt: alumnoDoc.data().createdAt } })
+    return promedioParcial(actividades, paraPromedio, ponderacionOn)
   }).filter((p) => p != null)
 
   const promedioGrupo = promedios.length ? promedios.reduce((s, p) => s + p, 0) / promedios.length : null

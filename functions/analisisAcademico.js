@@ -29,7 +29,7 @@ const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const { logger } = require('firebase-functions')
 const ledger = require('./creditosLedger')
 const {
-  promedioParcial, normalizeGrade, ponderacionActivaEnParcial, estadoParcial, esNotaAutomaticaDeCierre, pesoDe,
+  promedioParcial, notasParaPromedio, normalizeGrade, ponderacionActivaEnParcial, estadoParcial, esNotaAutomaticaDeCierre, pesoDe,
 } = require('./_shared/ponderacion.js')
 const { cuentaParaCalificacion, isActivityPublished } = require('./_shared/activityVisibility.js')
 const { resumenAsistencia, estadoAsistencia, fechaHoyMexico } = require('./_shared/asistenciaResumen.js')
@@ -267,7 +267,9 @@ function agregarAsignatura({ subject, students, activities, todasLasActividades 
     const promedios = []
     for (const al of alumnos) {
       const grades = actsP.map((a) => normalizeGrade(subDe(a, al.id)?.calificacion, a.maxCalif, { decimals: 1 }))
-      const crudo = actsP.length ? promedioParcial(actsP, grades, ponderacionActivaEnParcial(subject, p)) : null
+      // Cero de lo que ya no se puede entregar: la misma regla que la tabla.
+      const paraPromedio = notasParaPromedio(actsP, grades, actsP.map((a) => subDe(a, al.id)), { subject, alumno: al, ahora: ahoraMs })
+      const crudo = actsP.length ? promedioParcial(actsP, paraPromedio, ponderacionActivaEnParcial(subject, p)) : null
       const prom = crudo == null ? null : parseFloat(crudo.toFixed(1))
       const info = porAlumno.get(al.id)
       info.promedios[p] = prom

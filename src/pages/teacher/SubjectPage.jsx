@@ -37,7 +37,7 @@ import { buildVacacionMap, fechasVacacionParaClases } from '../../utils/vacacion
 import { lockLandscape, lockPortrait } from '../../utils/orientation'
 import { hideStatusBar, showStatusBar } from '../../utils/statusBar'
 import { withDefaultTime, isDraftActivity, cuentaParaCalificacion } from '../../utils/activityVisibility'
-import { pesoDe, promedioParcial, ponderacionActivaEnParcial, normalizeGrade, puedeIniciarAtencion, parcialCerrado, mensajeParcialCerrado, esNotaAutomaticaDeCierre } from '../../utils/ponderacion'
+import { pesoDe, promedioParcial, notasParaPromedio, ponderacionActivaEnParcial, normalizeGrade, puedeIniciarAtencion, parcialCerrado, mensajeParcialCerrado, esNotaAutomaticaDeCierre } from '../../utils/ponderacion'
 import { motivoNoSePuedeMover, parcialesDestino, planMoverActividad } from '../../utils/moverActividadParcial'
 import { playAlertSound } from '../../utils/notify'
 import { subjectDisplayName } from '../../utils/subjectName'
@@ -176,7 +176,7 @@ export default function SubjectPage() {
   const [closeParcialConfirm, setCloseParcialConfirm] = useState(null)
   const [closingParcial, setClosingParcial] = useState(false)
   // Grade applied to all no-entregas when closing a parcial (default 5)
-  const [closeParcialGrade, setCloseParcialGrade] = useState('5')
+  const [closeParcialGrade, setCloseParcialGrade] = useState('0')
   // Número de sesiones confirmado por el docente al cerrar — pre-llenado con la estimación del servidor
   const [closeParcialSesiones, setCloseParcialSesiones] = useState('')
   // Umbral institucional de inasistencia (%) leído del documento de la escuela; por defecto 20 si no existe
@@ -3577,7 +3577,7 @@ export default function SubjectPage() {
     // para todas; al escribir se vuelve a acotar contra la de cada actividad.
     const topeCalif = acts.length ? Math.min(...acts.map((a) => a.maxCalif ?? 10)) : 10
     playAlertSound()
-    setCloseParcialGrade(String(Math.min(5, topeCalif)))
+    setCloseParcialGrade('0')
     const calculado = sesionesPorParcialCliente?.[String(p)]
     setCloseParcialSesiones(calculado != null ? String(calculado) : '')
     setCloseParcialConfirm({ p, missing, ungraded, pondError, topeCalif })
@@ -4331,7 +4331,10 @@ export default function SubjectPage() {
         const sub = gradeSubMap[`${s.id}-${a.id}`]
         return !!(sub && sub.cierreParcial)
       })
-      const rawAvg = promedioParcial(acts, grades, pondParcial(p))
+      // `grades` es lo que se MUESTRA (— si no hay nota); el promedio usa
+      // además el cero de lo que ya no se puede entregar (notasParaPromedio).
+      const paraPromedio = notasParaPromedio(acts, grades, acts.map((a) => gradeSubMap[`${s.id}-${a.id}`]), { subject, alumno: s })
+      const rawAvg = promedioParcial(acts, paraPromedio, pondParcial(p))
       const avg = rawAvg !== null ? parseFloat(rawAvg.toFixed(1)) : null
       return { p, grades, gradesCierre, avg }
     })

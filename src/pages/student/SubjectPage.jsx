@@ -32,7 +32,7 @@ import AttachmentList from '../../components/AttachmentList'
 import { ArrowLeft, ChevronDown, ChevronUp, Clock, Star, FolderOpen, BookOpen, Paperclip, GraduationCap, ListChecks, FileText, ClipboardCheck, ExternalLink, Download, Megaphone, CheckCircle2, Bookmark, ChevronRight, Trash2, LogOut, RotateCcw, Sparkles,  } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
-import { promedioParcial, ponderacionActivaEnParcial, normalizeGrade, resultadoPublicadoAlumno, pesosVisiblesAlumno } from '../../utils/ponderacion'
+import { promedioParcial, notasParaPromedio, cuentaEnPromedioDelAlumno, ponderacionActivaEnParcial, normalizeGrade, resultadoPublicadoAlumno, pesosVisiblesAlumno } from '../../utils/ponderacion'
 import PonderacionPendiente from '../../components/PonderacionPendiente'
 import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
@@ -124,6 +124,7 @@ export default function StudentSubjectPage() {
   // guarda las prórrogas individuales. Sin guardarlo, la lista de abajo no
   // tenía forma de saber si ESTE alumno tiene una prórroga vigente.
   const [studentId, setStudentId] = useState(null)
+  const [alumnoCtx, setAlumnoCtx] = useState(null)
   // Segundos (epoch) desde que el docente dio de alta al alumno en esta
   // asignatura — un aviso publicado antes de esa fecha no le corresponde,
   // aunque siga activo. `null` mientras no se sabe aún (no filtra).
@@ -135,6 +136,9 @@ export default function StudentSubjectPage() {
   const [todasActividades, setTodasActividades] = useState([])
   const [activityLabels, setActivityLabels] = useState({})
   const [submissions, setSubmissions] = useState({})
+  // TODAS sus entregas (también las de actividades que el docente ocultó después de
+  // calificarlas): solo alimentan el promedio, nunca una lista que se le muestre.
+  const [todasSubmissions, setTodasSubmissions] = useState({})
   const [resources, setResources] = useState([])
   const [materials, setMaterials] = useState([])
   const [avisos, setAvisos] = useState([])
@@ -447,6 +451,7 @@ export default function StudentSubjectPage() {
       const subData = { id: subSnap.id, ...subSnap.data() }
       setSubject(subData)
       setStudentId(studData.id)
+      setAlumnoCtx({ id: studData.id, createdAt: studData.createdAt })
       setEnrollmentSince(avisosDesde(studData))
 
       // Fetch teacher name separately — best-effort
@@ -493,11 +498,14 @@ export default function StudentSubjectPage() {
       const subsSnap = await getDocs(query(collection(db, 'submissions'), where('alumnoId', '==', studData.id)))
       const actIds = new Set(acts.map((a) => a.id))
       const subsMap = {}
+      const subsTodas = {}
       subsSnap.docs.forEach((d) => {
         const data = d.data()
+        subsTodas[data.actividadId] = { id: d.id, ...data }
         if (actIds.has(data.actividadId)) subsMap[data.actividadId] = { id: d.id, ...data }
       })
       setSubmissions(subsMap)
+      setTodasSubmissions(subsTodas)
       // attendanceSummary se carga vía onSnapshot (efecto separado) una vez que studentId queda asignado
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -509,13 +517,16 @@ export default function StudentSubjectPage() {
   function calcParcialAvg(parcial) {
     // Las actividades sin calificación (un diagnóstico, una encuesta) no entran
     // en el promedio — misma regla que la tabla del docente.
-    const acts = activities.filter((a) => a.parcial === parcial && cuentaParaCalificacion(a))
-    const grades = acts.map((a) => {
-      const sub = submissions[a.id]
-      return normalizeGrade(sub?.calificacion, a.maxCalif)
-    })
+    // Mismas actividades que el docente (cuentaEnPromedioDelAlumno): una nota
+    // real sigue contando aunque la actividad se haya ocultado después, y esa
+    // actividad no aparece en ninguna lista de esta pantalla.
+    const subDe = (a) => submissions[a.id] ?? todasSubmissions[a.id]
+    const acts = todasActividades.filter((a) => a.parcial === parcial && cuentaEnPromedioDelAlumno(a, subDe(a), subject))
+    // Cada nota a 1 decimal antes de promediar — igual que la tabla del docente.
+    const grades = acts.map((a) => normalizeGrade(subDe(a)?.calificacion, a.maxCalif, { decimals: 1 }))
     // Same math as the teacher's table — weighted when THIS parcial uses ponderación
-    const avg = promedioParcial(acts, grades, ponderacionActivaEnParcial(subject, parcial))
+    const paraPromedio = notasParaPromedio(acts, grades, acts.map(subDe), { subject, alumno: alumnoCtx })
+    const avg = promedioParcial(acts, paraPromedio, ponderacionActivaEnParcial(subject, parcial))
     return avg !== null ? avg.toFixed(1) : null
   }
 
