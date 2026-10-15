@@ -9,7 +9,7 @@ import EFLogo from '../components/EFLogo'
 // correo. Mientras el correo de dominio no esté activo, cámbialo aquí por uno
 // que funcione (una sola línea, marcada abajo con CONTACTO).
 const CONTACTO = 'soporte@evaluafacil.mx'
-const ACTUALIZADO = '14 de octubre de 2026'
+const ACTUALIZADO = '15 de octubre de 2026'
 
 function Seccion({ titulo, children }) {
   return (
@@ -67,8 +67,10 @@ export default function Privacidad() {
             </li>
             <li>
               <span className="font-semibold text-on-surface">Datos técnicos:</span> token
-              de dispositivo para notificaciones y datos básicos de uso necesarios para el
-              funcionamiento del servicio.
+              de dispositivo para notificaciones y, cuando la aplicación falla, un informe
+              del error (qué falló, en qué pantalla, versión, plataforma y navegador) para
+              poder corregirlo. Estos informes no incluyen tu nombre, correo ni
+              identificador de cuenta.
             </li>
             <li>
               <span className="font-semibold text-on-surface">Datos de compra (docentes):</span>{' '}

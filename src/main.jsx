@@ -7,6 +7,11 @@ import { initStatusBar } from './utils/nativeInit.js'
 import { lockPortrait } from './utils/orientation.js'
 import { IS_NATIVE_APP } from './utils/platform.js'
 import { watchViewportWidth } from './utils/viewportWidth.js'
+import { instalarRegistroErrores } from './utils/registroErrores.js'
+import { CargaFallida } from './components/carga/Espera.jsx'
+
+// Antes que nada: así también se registran los errores del arranque.
+instalarRegistroErrores()
 
 initStatusBar()
 // La app arranca (y se mantiene) en vertical; solo la pestaña Asistencias la
@@ -43,7 +48,11 @@ window.addEventListener('vite:preloadError', (event) => {
 function montar() {
   createRoot(document.getElementById('root')).render(
     <StrictMode>
-      <App />
+      {/* Límite exterior: atrapa lo que truene fuera de las rutas (proveedores,
+          avisos globales), que antes dejaba la pantalla en blanco. */}
+      <CargaFallida>
+        <App />
+      </CargaFallida>
     </StrictMode>,
   )
 }

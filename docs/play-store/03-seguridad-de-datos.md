@@ -47,20 +47,21 @@ Marca **Recopilado = Sí** en cada uno. Ninguno se procesa solo de forma efímer
 | **Actividad en la app → Otro contenido generado por el usuario** | Obligatorio | Funcionalidad de la app | Calificaciones, actividades, evaluaciones, respuestas de exámenes y asistencia. |
 | **Actividad en la app → Interacciones con la app** | Obligatorio | Funcionalidad de la app | Avance del video interactivo y lecturas de avisos. |
 | **ID del dispositivo u otros → ID del dispositivo u otros** | Opcional | Funcionalidad de la app | Token de notificaciones (FCM). Solo si se permiten las notificaciones. |
+| **Información y rendimiento de la app → Registros de fallos** | Obligatorio | Análisis | Errores de la app (mensaje, pila, ruta sin ids, versión, plataforma, navegador y rol). Sin uid, correo ni URL completa (`api/error-report.js`, O3). |
+| **Información y rendimiento de la app → Diagnóstico** | Obligatorio | Análisis | Lo mismo: se agrupan por error distinto con un contador. |
 
 ### Datos que NO se recopilan (responde «No»)
 - Ubicación (precisa o aproximada).
 - Números de tarjeta o de cuenta bancaria.
 - Contactos, calendario del teléfono, SMS, historial de navegación, salud y
   actividad física, audio, música.
-- Registros de fallos y diagnósticos. Si se agrega un registro de errores (plan,
-  O3), cambiar esta respuesta.
 
 ## Propósitos
 - Para todos: **«Funcionalidad de la app»**.
 - Para nombre, correo e ID de usuario, además: **«Gestión de la cuenta»**.
-- **No** marques «Publicidad o marketing», «Analíticas», «Personalización» ni
-  «Prevención de fraude».
+- Para registros de fallos y diagnóstico: **«Análisis»**, porque sirven para encontrar
+  y corregir errores. Son propios: no van a un servicio de analíticas de terceros.
+- **No** marques «Publicidad o marketing», «Personalización» ni «Prevención de fraude».
 
 ## Resumen en una frase (por si pide justificación)
 > Evalúa Fácil recopila el nombre y correo del docente, el nombre de usuario y la
