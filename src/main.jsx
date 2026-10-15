@@ -54,11 +54,27 @@ function montar() {
 // celular: FCP 2.6 s en vez de ~1.2 s). requestAnimationFrame + setTimeout
 // deja pintar un cuadro (~16 ms) y luego monta. En una pestaña oculta
 // requestAnimationFrame no corre, así que ahí se monta de inmediato.
-if (document.visibilityState === 'visible') {
-  requestAnimationFrame(() => setTimeout(montar, 0))
-} else {
-  montar()
+// En el build, el CSS de la app llega como `preload` (vite.config.js,
+// cssSinBloquearPlugin) para no frenar la pantalla inicial: aquí se activa y
+// React monta cuando ya cargó, así nada aparece sin estilo.
+function cssListo() {
+  const link = document.querySelector('link[data-css-app]')
+  if (!link) return Promise.resolve()
+  return new Promise((resolve) => {
+    link.addEventListener('load', resolve, { once: true })
+    link.addEventListener('error', resolve, { once: true })
+    link.rel = 'stylesheet'
+    if (link.sheet) resolve()
+  })
 }
+
+cssListo().then(() => {
+  if (document.visibilityState === 'visible') {
+    requestAnimationFrame(() => setTimeout(montar, 0))
+  } else {
+    montar()
+  }
+})
 
 // Solo en dev: audita el DOM real con axe-core y reporta violaciones en la
 // consola sin tocar el bundle de producción. Import dinámico para que ni el

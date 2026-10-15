@@ -78,8 +78,31 @@ function apiLocalPlugin() {
 }
 
 // https://vite.dev/config/
+// CSS de la app sin bloquear el primer pintado (rendimiento, oct-2026): en
+// celular, ese CSS competía por el ancho de banda con ~180 KB de JS y la
+// pantalla inicial de index.html (que ya trae su estilo en línea) no se
+// pintaba hasta ~2 s. Se precarga como `preload`, y src/main.jsx lo activa
+// y espera a que cargue antes de montar React, así nada se ve sin estilo.
+// Sin onload en línea (lo bloquearía la CSP). Solo en el build: en dev el
+// CSS lo inyecta Vite por JS.
+function cssSinBloquearPlugin() {
+  return {
+    name: 'css-sin-bloquear',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html) {
+        return html.replace(
+          /<link rel="stylesheet" crossorigin href="([^"]+\.css)">/,
+          '<link rel="preload" as="style" crossorigin href="$1" data-css-app>',
+        )
+      },
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), versionFilePlugin(), apiLocalPlugin()],
+  plugins: [react(), versionFilePlugin(), apiLocalPlugin(), cssSinBloquearPlugin()],
   define: {
     __BUILD_ID__: JSON.stringify(buildId),
     __BUILD_TIMESTAMP__: JSON.stringify(buildTimestamp),
