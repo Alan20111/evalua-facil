@@ -24,9 +24,23 @@
 
     <!-- Android Chrome splash -->
     <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- Pantalla inicial (rendimiento, oct-2026): se pinta en cuanto llega el
+         HTML, sin esperar el JS (~200 KB con Firebase), y React la reemplaza al
+         montar (createRoot vacía #root). Mismo fondo que la app (--surface) y el
+         logo de 520 px, que ya es el que usa la portada. Todo en línea: aquí aún
+         no hay CSS de la app. -->
+    <link rel="preload" as="image" href="/logo-evalua-facil-520.webp" fetchpriority="high" />
+    <style>
+      html, body { margin: 0; background: #e6f1fb; }
+      .pantalla-inicial { min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center; }
+      .pantalla-inicial img { width: 224px; height: auto; animation: pantalla-inicial 1.2s ease-in-out infinite alternate; }
+      @keyframes pantalla-inicial { from { opacity: 1; } to { opacity: .6; } }
+      @media (prefers-reduced-motion: reduce) { .pantalla-inicial img { animation: none; } }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div class="pantalla-inicial" role="status" aria-label="Cargando Evalúa Fácil"><img src="/logo-evalua-facil-520.webp" alt="Evalúa Fácil" width="520" height="117" fetchpriority="high" /></div></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
