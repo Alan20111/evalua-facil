@@ -9147,6 +9147,27 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
   })
 }
 
+grupo('Vista de entregas — sin «Analizar con IA»; «Calificar» con IA intacto')
+
+const fuenteEntregas = () => ['teacher/activity/ListaEntregas.jsx', 'teacher/activity/PanelCalificar.jsx', 'teacher/ActivityPage.jsx']
+  .map((f) => readFileSync(new globalThis.URL(`../src/pages/${f}`, import.meta.url), 'utf8')).join(' ')
+
+caso('la vista de entregas ya no monta el análisis de entregable ni su modal', () => {
+  const src = fuenteEntregas()
+  assert.ok(!/AnalisisEntregableIA/.test(src), 'sin referencia al componente retirado')
+  assert.ok(!/Analizar con IA/.test(src), 'sin el texto del botón')
+})
+caso('la vista de entregas conserva calificar con IA (individual, lote, recalificar, aplicar)', () => {
+  const src = fuenteEntregas()
+  for (const k of ['CalificarConIAModal', 'contarEntregasIA', 'contarRecalificarIA', 'contarAplicarTodasIA', 'puedeCalificarConIA', 'labelCalificarConIA']) {
+    assert.ok(src.includes(k), `sigue presente: ${k}`)
+  }
+})
+caso('el backend del análisis de entregable no se tocó (operación y tarifa siguen registradas)', () => {
+  assert.ok(readFileSync(new globalThis.URL('../functions/ia.js', import.meta.url), 'utf8').includes('analizar_entregable'))
+  assert.ok(readFileSync(new globalThis.URL('../seeds-db/seed-ia-tarifas.js', import.meta.url), 'utf8').includes('analizar_entregable'))
+})
+
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)
   fallos.forEach((f) => console.log(`  ✗ ${f.nombre}\n    ${f.e.message}`))

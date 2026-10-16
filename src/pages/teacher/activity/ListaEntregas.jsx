@@ -1,7 +1,6 @@
 // Parte del render de ActivityPage.jsx (fase 5 de PLAN_NORMALIZACION_UI:
 // dividir sin cambio visual). Recibe lo que usa del componente principal por
 // el contexto Actividad.
-import AnalisisEntregableIA from '../../../components/analisis/AnalisisEntregableIA'
 import { ArrowLeft, CalendarDays, CheckCheck, Clock, FolderDown, Pencil, Sparkles, Star } from 'lucide-react'
 import AttachmentList from '../../../components/AttachmentList'
 import { Button, IconButton } from '../../../components/ui'
@@ -13,7 +12,7 @@ import { IS_NATIVE_APP, PUEDE_AUTOFOCUS } from '../../../utils/platform'
 import JuegoManager from '../../../components/juego/JuegoManager'
 import SearchInput from '../../../components/SearchInput'
 import { TEACHER_CONTAINER } from '../../../config/layout'
-import { cuentaParaCalificacion, formatDeadline, formatPublishAt } from '../../../utils/activityVisibility'
+import { formatDeadline, formatPublishAt } from '../../../utils/activityVisibility'
 import { richTextContentClass, sanitizeHtml, toRichHtml } from '../../../utils/sanitizeHtml'
 import { rubricaFirma } from '../../../utils/rubrica'
 import { studentFullName } from '../../../utils/studentSearch'
@@ -228,15 +227,6 @@ export default function ListaEntregas() {
                 ? `Comprimiendo ${zipProgress.done}/${zipProgress.total}…`
                 : 'Descargar entregas como ZIP'}
             </Button>
-          </div>
-        )}
-
-        {/* Análisis con IA de esta actividad («solo resultados»): web de
-            escritorio y teléfono, solo entregables publicados. Solo lee, así
-            que no depende de la rúbrica ni de que el parcial esté abierto. */}
-        {!IS_NATIVE_APP && !isObservacion && activity && cuentaParaCalificacion(activity) && (
-          <div className="px-4 pt-3">
-            <AnalisisEntregableIA activity={activity} subject={subject} />
           </div>
         )}
 
