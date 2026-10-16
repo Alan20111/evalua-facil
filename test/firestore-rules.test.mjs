@@ -3800,11 +3800,73 @@ ok('F-05 · admin CAN read publicProfiles')
   await assertFails(updateDoc(doc(alumno, 'subjects', 'S_VIS'), { 'calificacionesOcultas.actividades.AV_1': true }))
   ok('VISIBILIDAD · otro docente y el estudiante NO pueden cambiarla')
 
-  // PR 1 no cambia la lectura del estudiante: eso es el PR 2 (sigue leyendo sus entregas como siempre).
-  const mias = await getDocs(query(collection(alumno, 'submissions'), where('alumnoId', '==', 'SV_ALU')))
-  assert.strictEqual(mias.size, 1)
-  assert.strictEqual(mias.docs[0].data().calificacion, 8)
-  ok('VISIBILIDAD · PR 1 no toca la lectura del estudiante (sin cambio de reglas)')
+  // ── Fase 2 (PR 2c): el estudiante no lee DIRECTO una nota oculta ──────────────────────────────
+  // La nota vive en el mismo documento que su entrega; las reglas la cierran por actividad mientras
+  // `subjects.calificacionesOcultas.actividades.{id}` sea true. Visible = como siempre.
+  const subAlu = doc(alumno, 'submissions', 'AV_1_SV_ALU')
+  const porActividad = () => query(collection(alumno, 'submissions'), where('actividadId', '==', 'AV_1'), where('alumnoId', '==', 'SV_ALU'))
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const d = ctx.firestore()
+    await setDoc(doc(d, 'submissions', 'AV_1_SV_ALU', 'respuestas', 'p1'), { opcionSeleccionada: 'a', puntosObtenidos: 8, correcta: true })
+  })
+  // Con la nota VISIBLE todo sigue igual: lectura de un documento, consulta por actividad y respuestas.
+  assert.strictEqual((await assertSucceeds(getDoc(subAlu))).data().calificacion, 8)
+  assert.strictEqual((await assertSucceeds(getDocs(porActividad()))).size, 1)
+  await assertSucceeds(getDocs(collection(alumno, 'submissions', 'AV_1_SV_ALU', 'respuestas')))
+  ok('FASE 2 · con la nota visible el estudiante lee su entrega y sus respuestas como siempre')
+
+  // El docente oculta la nota de la actividad.
+  await assertSucceeds(updateDoc(doc(docente, 'subjects', 'S_VIS'), { 'calificacionesOcultas.actividades.AV_1': true }))
+  await assertFails(getDoc(subAlu))
+  await assertFails(getDocs(porActividad()))
+  await assertFails(getDocs(collection(alumno, 'submissions', 'AV_1_SV_ALU', 'respuestas')))
+  await assertFails(getDoc(doc(alumno, 'submissions', 'AV_1_SV_ALU', 'respuestas', 'p1')))
+  ok('FASE 2 · con la nota OCULTA el estudiante no puede leer su entrega ni sus respuestas directo')
+
+  // Ocultar una actividad no cierra las demás: otra actividad de la misma asignatura sigue legible.
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const d = ctx.firestore()
+    await setDoc(doc(d, 'activities', 'AV_2'), { docenteId: T1, asignaturaId: 'S_VIS', parcial: 1, tipo: 'archivo', categoria: 'entregable', maxCalif: 10, oculta: false, publishedAt: HOY })
+    await setDoc(doc(d, 'submissions', 'AV_2_SV_ALU'), { alumnoId: 'SV_ALU', actividadId: 'AV_2', calificacion: 9, estado: 'calificado' })
+  })
+  assert.strictEqual((await assertSucceeds(getDoc(doc(alumno, 'submissions', 'AV_2_SV_ALU')))).data().calificacion, 9)
+  ok('FASE 2 · ocultar una actividad no cierra la lectura de las demás')
+
+  // Una consulta SIN filtrar por actividad (la forma de las pantallas anteriores al PR 2b) se rechaza:
+  // las reglas no pueden probar que no devolvería una nota oculta. Por eso las pantallas leen por el servidor.
+  await assertFails(getDocs(query(collection(alumno, 'submissions'), where('alumnoId', '==', 'SV_ALU'))))
+  ok('FASE 2 · la consulta por alumno sin actividad ya no se permite (las pantallas nuevas leen por el servidor)')
+
+  // Lo que el docente y los demás hacen no cambia.
+  assert.strictEqual((await assertSucceeds(getDoc(doc(docente, 'submissions', 'AV_1_SV_ALU')))).data().calificacion, 8)
+  await assertSucceeds(getDocs(query(collection(docente, 'submissions'), where('actividadId', '==', 'AV_1'))))
+  await assertSucceeds(getDocs(collection(docente, 'submissions', 'AV_1_SV_ALU', 'respuestas')))
+  await assertFails(getDoc(doc(otroDocente, 'submissions', 'AV_1_SV_ALU')))
+  const mallory = testEnv.authenticatedContext('authuid_otro_alumno', { email: 'x.e1@evalua.local' }).firestore()
+  await assertFails(getDoc(doc(mallory, 'submissions', 'AV_2_SV_ALU')))
+  ok('FASE 2 · el docente dueño sigue leyendo todo; un docente o alumno ajeno, nada')
+
+  // Las ESCRITURAS del estudiante no dependen de poder leer: con la nota oculta (y en una asignatura
+  // con el parcial abierto) sigue pudiendo guardar su entrega.
+  const U_W = 'authuid_escribe'
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const d = ctx.firestore()
+    await setDoc(doc(d, 'subjects', 'S_W'), { docenteId: T1, escuelaId: 'E1', accessCode: 'w', parciales: 3, calificacionesOcultas: { actividades: { AW_1: true } } })
+    await setDoc(doc(d, 'activities', 'AW_1'), { docenteId: T1, asignaturaId: 'S_W', parcial: 1, tipo: 'archivo', categoria: 'entregable', maxCalif: 10, oculta: false, publishedAt: HOY })
+    await setDoc(doc(d, 'students', 'SW_ALU'), { asignaturaId: 'S_W', escuelaId: 'E1', username: 'SW', uid: U_W, activado: true })
+    await setDoc(doc(d, 'submissions', 'AW_1_SW_ALU'), { alumnoId: 'SW_ALU', actividadId: 'AW_1', calificacion: null, estado: 'entregado', archivoURL: 'x', nombreArchivo: 'x' })
+  })
+  const alumnoW = testEnv.authenticatedContext(U_W, { email: 'sw.e1@evalua.local' }).firestore()
+  await assertFails(getDoc(doc(alumnoW, 'submissions', 'AW_1_SW_ALU')))
+  await assertSucceeds(updateDoc(doc(alumnoW, 'submissions', 'AW_1_SW_ALU'), { archivoURL: 'y', nombreArchivo: 'y' }))
+  ok('FASE 2 · escribir su entrega con la nota oculta no requiere poder leerla')
+
+  // Volver a publicar la reabre.
+  await assertSucceeds(updateDoc(doc(docente, 'subjects', 'S_VIS'), { 'calificacionesOcultas.actividades.AV_1': deleteField() }))
+  assert.strictEqual((await assertSucceeds(getDoc(subAlu))).data().calificacion, 8)
+  await assertSucceeds(getDocs(porActividad()))
+  await assertSucceeds(getDocs(collection(alumno, 'submissions', 'AV_1_SV_ALU', 'respuestas')))
+  ok('FASE 2 · al volver a publicar, el estudiante vuelve a leer su entrega y sus respuestas')
 }
 
 await testEnv.cleanup()

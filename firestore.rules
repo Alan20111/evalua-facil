@@ -140,6 +140,21 @@ service cloud.firestore {
         get(/databases/$(database)/documents/activities/$(actId)).data.docenteId == request.auth.uid;
     }
 
+    // Visibilidad de calificaciones (Fase 2): el docente puede ocultar la nota de una
+    // actividad (`subjects.calificacionesOcultas.actividades.{actId}` = true; campo
+    // ausente = visible). El estudiante no puede leer DIRECTO ni su entrega ni sus
+    // respuestas mientras esté oculta: la nota vive en el mismo documento que su
+    // entrega y Firestore no oculta un solo campo. Su pantalla la lee por
+    // /api/student/mis-entregas, que sí quita la nota. El docente y el servidor
+    // (Admin SDK) no pasan por esta función.
+    // Una actividad o asignatura que ya no existe no cuenta como oculta.
+    function notaOcultaAlAlumno(actId) {
+      return exists(/databases/$(database)/documents/activities/$(actId)) &&
+        exists(/databases/$(database)/documents/subjects/$(get(/databases/$(database)/documents/activities/$(actId)).data.asignaturaId)) &&
+        get(/databases/$(database)/documents/subjects/$(get(/databases/$(database)/documents/activities/$(actId)).data.asignaturaId))
+          .data.get('calificacionesOcultas', {}).get('actividades', {}).get(actId, false) == true;
+    }
+
     // True when the signed-in student owns the enrollment doc `studentId`
     // (their auth uid is stamped on it — set during activation).
     function ownsStudentDoc(studentId) {
@@ -1247,7 +1262,8 @@ service cloud.firestore {
       // Las consultas de alumno siguen filtrando alumnoId con `==`.
       allow read: if isAdmin() ||
         (isDocente() && ownsActivity(resource.data.actividadId)) ||
-        (request.auth != null && ownsStudentDoc(resource.data.alumnoId)) ||
+        (request.auth != null && ownsStudentDoc(resource.data.alumnoId) &&
+          !notaOcultaAlAlumno(resource.data.actividadId)) ||
         docenteLeeSubmissionInexistente(submissionId);
 
       // A submission is written either by the student who owns it (submit /
@@ -1356,7 +1372,8 @@ service cloud.firestore {
         allow read: if request.auth != null && (
           (
             exists(/databases/$(database)/documents/submissions/$(submissionId)) &&
-            ownsStudentDoc(get(/databases/$(database)/documents/submissions/$(submissionId)).data.alumnoId)
+            ownsStudentDoc(get(/databases/$(database)/documents/submissions/$(submissionId)).data.alumnoId) &&
+            !notaOcultaAlAlumno(get(/databases/$(database)/documents/submissions/$(submissionId)).data.actividadId)
           ) || (
             exists(/databases/$(database)/documents/submissions/$(submissionId)) &&
             ownsActivity(get(/databases/$(database)/documents/submissions/$(submissionId)).data.actividadId)

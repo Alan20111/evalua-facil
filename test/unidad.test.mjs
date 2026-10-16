@@ -8583,11 +8583,11 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     assert.ok(/deleteField\(\)/.test(cuerpo), 'mostrar = borrar la llave (campo ausente = visible)')
   })
 
-  caso('la fila está APAGADA hasta el PR 2b: una constante en false que no toca lo guardado', () => {
-    // Mientras las pantallas del estudiante lean sus notas directo de Firestore, ocultar no oculta
-    // nada. Al llegar el PR 2b se pone FILA_VISIBILIDAD_ACTIVA en true y se actualiza este caso.
+  caso('la fila «Visible al alumno» está ENCENDIDA (PR 2c): la constante sigue gobernando fila y avisos', () => {
+    // Desde el PR 2b las pantallas del estudiante leen sus notas por el servidor y desde el 2c las
+    // reglas cierran la lectura directa de las notas ocultas, así que ocultar ya oculta de verdad.
     const tab = leerFuente('src/pages/teacher/subject/TabCalificaciones.jsx')
-    assert.ok(tab.includes('const FILA_VISIBILIDAD_ACTIVA = false'), 'la constante está en false')
+    assert.ok(tab.includes('const FILA_VISIBILIDAD_ACTIVA = true'), 'la constante está en true')
     // La fila y sus avisos al pie solo existen detrás de la constante.
     assert.ok(/\{FILA_VISIBILIDAD_ACTIVA && \(\s*<tr data-fila="visibilidad"/.test(tab), 'la fila está condicionada')
     assert.ok(tab.includes('{FILA_VISIBILIDAD_ACTIVA && hayOcultas && ('), 'los avisos al pie también')
@@ -8619,11 +8619,11 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     assert.ok(!tab.includes('text-[10px] font-bold text-accent uppercase tracking-wide'))
   })
 
-  caso('PR 1 no toca las pantallas del estudiante ni las reglas ni el API del alumno', () => {
+  caso('PR 1 no toca las pantallas del estudiante ni el API del alumno (las reglas se cierran en el 2c)', () => {
     for (const f of [
       'src/pages/student/ActivityPage.jsx', 'src/pages/student/SubjectPage.jsx', 'src/pages/student/Dashboard.jsx',
       'src/pages/student/Agenda.jsx', 'src/pages/student/EvaluacionRunner.jsx', 'src/pages/student/JuegoRunner.jsx',
-      'src/pages/student/EvaluacionRevision.jsx', 'firestore.rules', 'api/student/[action].js',
+      'src/pages/student/EvaluacionRevision.jsx', 'api/student/[action].js',
     ]) {
       assert.ok(!/calificacionesOcultas|visibilidadCalificaciones/.test(leerFuente(f)), `${f} no debe leer la visibilidad todavía`)
     }
@@ -8881,10 +8881,10 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     assert.ok(leerFuente2a('scripts/sync-functions-shared.mjs').includes("'visibilidadCalificaciones.js'"))
   })
 
-  caso('PR 2a no toca las pantallas del estudiante ni las reglas ni la tabla del docente', () => {
+  caso('PR 2a no toca las pantallas del estudiante ni la tabla del docente (las reglas se cierran en el 2c)', () => {
     ;['src/pages/student/ActivityPage.jsx', 'src/pages/student/SubjectPage.jsx', 'src/pages/student/Dashboard.jsx', 'src/pages/student/Agenda.jsx',
       'src/pages/student/EvaluacionRunner.jsx', 'src/pages/student/JuegoRunner.jsx', 'src/pages/student/EvaluacionRevision.jsx',
-      'firestore.rules', 'src/pages/teacher/subject/TabCalificaciones.jsx'].forEach((f) => {
+      'src/pages/teacher/subject/TabCalificaciones.jsx'].forEach((f) => {
       assert.ok(!/entregasAlumno|mis-entregas|cliente-ping/.test(leerFuente2a(f)), `${f} no debe cambiar en el 2a`)
     })
   })
@@ -8993,8 +8993,7 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
 
   caso('el 2b no toca las reglas, la tabla del docente, las fórmulas ni las exportaciones', () => {
     assert.ok(!/entregasCliente|NotaOculta/.test(leerFuente2b('firestore.rules')))
-    // La fila del docente sigue apagada: encenderla es el PR 2c.
-    assert.ok(leerFuente2b('src/pages/teacher/subject/TabCalificaciones.jsx').includes('const FILA_VISIBILIDAD_ACTIVA = false'))
+    assert.ok(leerFuente2b('src/pages/teacher/subject/TabCalificaciones.jsx').includes('const FILA_VISIBILIDAD_ACTIVA = true'), 'encendida en el 2c')
     for (const f of ['src/utils/ponderacion.js', 'src/utils/excel.js', 'src/utils/pdf.js']) {
       assert.ok(!/entregasCliente|promedioParcialVisible|promedioFinalVisible/.test(leerFuente2b(f)), `${f} sin cambios`)
     }
@@ -9120,10 +9119,31 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
   })
 
   caso('PR 2b-2 no toca reglas, la tabla del docente, las fórmulas, las exportaciones, la API ni las funciones', () => {
-    assert.ok(leerFuente2c('src/pages/teacher/subject/TabCalificaciones.jsx').includes('const FILA_VISIBILIDAD_ACTIVA = false'), 'la fila sigue apagada hasta el 2c')
+    assert.ok(leerFuente2c('src/pages/teacher/subject/TabCalificaciones.jsx').includes('const FILA_VISIBILIDAD_ACTIVA'), 'la constante sigue existiendo')
     for (const f of ['src/utils/ponderacion.js', 'src/utils/excel.js', 'src/utils/pdf.js', 'firestore.rules', 'api/_lib/entregasAlumno.js']) {
       assert.ok(!/useSondeoEntrega|entregaMasReciente/.test(leerFuente2c(f)), f)
     }
+  })
+}
+
+
+// ═══ Fase 2 (PR 2c): las reglas cierran la lectura directa de las notas ocultas ═══
+{
+  grupo('PR 2c — reglas de lectura del estudiante y fila del docente')
+  const leerFuente2d = (f) => readFileSync(new globalThis.URL(`../${f}`, import.meta.url), 'utf8').split('\r\n').join('\n')
+  caso('las reglas niegan al estudiante leer su entrega y sus respuestas mientras la nota esté oculta', () => {
+    const r = leerFuente2d('firestore.rules')
+    assert.ok(r.includes('function notaOcultaAlAlumno(actId)'))
+    assert.ok(r.includes(".data.get('calificacionesOcultas', {}).get('actividades', {}).get(actId, false) == true"), 'lee la configuración del docente')
+    assert.ok(/ownsStudentDoc\(resource\.data\.alumnoId\) &&\n\s+!notaOcultaAlAlumno\(resource\.data\.actividadId\)/.test(r), 'submissions')
+    assert.ok(r.includes('!notaOcultaAlAlumno(get(/databases/$(database)/documents/submissions/$(submissionId)).data.actividadId)'), 'respuestas')
+    // El docente (ownsActivity) y el Admin SDK no pasan por esa condición.
+    assert.ok(/\(isDocente\(\) && ownsActivity\(resource\.data\.actividadId\)\)/.test(r))
+  })
+  caso('la fila «Visible al alumno» del docente está encendida y las reglas solo cambian las lecturas', () => {
+    assert.ok(leerFuente2d('src/pages/teacher/subject/TabCalificaciones.jsx').includes('const FILA_VISIBILIDAD_ACTIVA = true'))
+    const r = leerFuente2d('firestore.rules')
+    assert.strictEqual((r.match(/notaOcultaAlAlumno\(/g) || []).length, 3, 'definición + submissions + respuestas, nada más')
   })
 }
 
