@@ -438,6 +438,23 @@ exports.onAvisoEscrito = onDocumentWritten('avisos/{avisoId}', async (event) => 
 // al crearse el doc así, o en una actualización null->valor) — ediciones
 // posteriores de una calificación ya notificada no vuelven a avisar (evita
 // spam si el docente ajusta la nota después).
+//
+// Si el docente OCULTÓ esa nota al estudiante (subjects.calificacionesOcultas),
+// no se avisa: «Te calificaron» ya delataría que existe una nota. Tampoco se
+// marca `notificadoCalificacion`, así que un aviso posterior (al volver a
+// mostrarla) sigue siendo posible. Ante cualquier duda —no se pudo leer la
+// actividad o la asignatura— no se envía: perder un aviso es mejor que delatar
+// una nota que el docente quiso esconder.
+const { actividadOculta: actividadOcultaAlEstudiante } = require('./_shared/visibilidadCalificaciones.js')
+
+async function notaOcultaAlEstudiante(actividadId) {
+  const actSnap = await db.collection('activities').doc(actividadId).get()
+  const asignaturaId = actSnap.exists ? actSnap.data().asignaturaId : null
+  if (!asignaturaId) return false
+  const subjSnap = await db.collection('subjects').doc(asignaturaId).get()
+  return subjSnap.exists && actividadOcultaAlEstudiante(subjSnap.data(), actividadId)
+}
+
 exports.onSubmissionActualizada = onDocumentWritten('submissions/{submissionId}', async (event) => {
   const after = event.data?.after
   if (!after?.exists) return // borrada
@@ -445,6 +462,13 @@ exports.onSubmissionActualizada = onDocumentWritten('submissions/{submissionId}'
   const afterData = after.data()
   if (before?.calificacion != null || afterData.calificacion == null) return
   if (afterData.notificadoCalificacion) return
+
+  try {
+    if (await notaOcultaAlEstudiante(afterData.actividadId)) return
+  } catch (err) {
+    logger.warn(`onSubmissionActualizada(${event.params.submissionId}): no se pudo comprobar la visibilidad de la nota; no se notifica (${err?.name || 'Error'})`)
+    return
+  }
 
   const studentSnap = await db.collection('students').doc(afterData.alumnoId).get()
   await enviarPush(studentSnap.data()?.uid, 'calificaciones', { actividadId: afterData.actividadId })
@@ -1576,6 +1600,7 @@ exports._pruebas = {
   resolverPendienteRevision,
   resolverCalificacionFinal,
   idsAfectados,
+  notaOcultaAlEstudiante,
   actividadVisible,
   parsearFechaLimiteMs,
   vigenciaDe,

@@ -63,6 +63,9 @@ import { usernameCandidates } from '../src/utils/generate.js'
 import { esNombreParecido, findSimilarIdentity, findStudentIdentity, studentNameKey } from '../src/utils/studentIdentity.js'
 import { tieneEvidencia, elegibleSinEntrega, firmaEntrega } from '../src/utils/submissionGuard.js'
 import {
+  proyectarEntrega, proyectarRespuesta, promediosAlumno, paraJSON, CAMPOS_ENTREGA_OCULTA,
+} from '../src/utils/entregasAlumno.js'
+import {
   leerOcultas, actividadOculta, promedioOculto, finalOculto, rutaVisibilidad, estaOculto, conVisibilidad,
   promedioDeduceOcultas, finalDeduceOcultas, CAMPO_OCULTAS,
 } from '../src/utils/visibilidadCalificaciones.js'
@@ -8606,6 +8609,266 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     ]) {
       assert.ok(!/calificacionesOcultas|visibilidadCalificaciones/.test(leerFuente(f)), `${f} no debe leer la visibilidad todavía`)
     }
+  })
+}
+
+
+// ═══ Entregas del estudiante filtradas en el servidor (PR 2a) ═════════════════
+// La proyección QUITA campos, nunca documentos; con la nota oculta solo sale una
+// lista blanca; y los promedios del servidor usan las mismas funciones que el
+// Dashboard del alumno y la tabla del docente (ninguna fórmula nueva).
+{
+  grupo('entregasAlumno — lista blanca, respuestas y promedios del servidor')
+  const leerFuente2a = (f) => readFileSync(new globalThis.URL(`../${f}`, import.meta.url), 'utf8').split('\r\n').join('\n')
+
+  // Un documento con la FORMA REAL de producción (campos leídos de 2,481 entregas, oct-2026) más un
+  // campo que nadie ha inventado todavía. Las notas «centinela» (7.77, 6.66, 9.99) y los textos
+  // secretos sirven para buscarlos en lo que sale: si aparecen, hay fuga.
+  const subReal = () => ({
+    id: 'a1_al1', actividadId: 'a1', alumnoId: 'al1', alumnoUid: 'u1', estado: 'calificado',
+    calificacion: 7.77, comentario: 'COMENTARIO-SECRETO', comentarioVisibleAlumno: true, rubricaEval: [3, 3, 1],
+    pendienteRevision: false, notificadoCalificacion: true, notificadoEntregaDocente: true,
+    motivoSinEntrega: 'MOTIVO-CERO', cierreParcial: true, sinEntrega: true,
+    intentos: [{ numero: 1, calificacion: 6.66, tiempoSegundos: 40 }, { numero: 2, calificacion: 9.99 }],
+    intentoActual: 2, estadoEvaluacion: 'finalizado', tiempoInicio: { seconds: 10, nanoseconds: 0 }, tiempoSegundos: 55,
+    ordenSeed: 123, fechaEntrega: { seconds: 20, nanoseconds: 0 }, tarde: false, completadoSinArchivo: false,
+    archivos: [{ url: 'https://x/a.pdf', nombre: 'a.pdf' }], archivoURL: 'https://x/y.pdf', nombreArchivo: 'y.pdf',
+    enlaceURL: 'https://e.com', respuestasJuego: { celdas: { '0-0': 'A' }, encontradas: [1] }, historial: [],
+    campoFuturoDesconocido: 'NO-DEBE-SALIR',
+  })
+  const PROHIBIDOS = ['calificacion', 'rubricaEval', 'comentario', 'comentarioVisibleAlumno', 'pendienteRevision',
+    'notificadoCalificacion', 'notificadoEntregaDocente', 'motivoSinEntrega', 'cierreParcial', 'campoFuturoDesconocido']
+
+  caso('con la nota oculta NO sale nada que la delate: ni nota, ni intentos con nota, ni comentario, rúbrica o motivo', () => {
+    const salida = proyectarEntrega(subReal(), { notaOculta: true })
+    const json = JSON.stringify(salida)
+    ;['7.77', '6.66', '9.99', 'COMENTARIO-SECRETO', 'MOTIVO-CERO', 'NO-DEBE-SALIR'].forEach((s) => assert.ok(!json.includes(s), `se coló ${s}`))
+    PROHIBIDOS.forEach((k) => assert.ok(!(k in salida), `el campo ${k} no debe salir`))
+    assert.strictEqual(salida.calificada, true)
+    assert.strictEqual(salida.notaOculta, true)
+  })
+
+  caso('lista blanca: TODO lo que sale está permitido (un campo nuevo no viaja solo)', () => {
+    const permitidos = new Set([...CAMPOS_ENTREGA_OCULTA, 'id', 'intentos', 'estado', 'calificada', 'notaOculta'])
+    Object.keys(proyectarEntrega(subReal(), { notaOculta: true })).forEach((k) => assert.ok(permitidos.has(k), `salió ${k}`))
+    // Y ningún campo permitido es uno de los que delatan la nota.
+    CAMPOS_ENTREGA_OCULTA.forEach((k) => assert.ok(!PROHIBIDOS.includes(k), `${k} está en la lista blanca y es de los que delatan`))
+  })
+
+  caso('lo que necesitan entregar, autosave, reintentos, reanudar, juegos y anular SÍ sale intacto', () => {
+    const origen = subReal()
+    const salida = proyectarEntrega(origen, { notaOculta: true })
+    ;['actividadId', 'alumnoId', 'alumnoUid', 'estadoEvaluacion', 'intentoActual', 'tiempoInicio', 'ordenSeed', 'tiempoSegundos',
+      'fechaEntrega', 'tarde', 'sinEntrega', 'completadoSinArchivo', 'archivos', 'archivoURL', 'nombreArchivo', 'enlaceURL',
+      'respuestasJuego', 'historial'].forEach((k) => assert.deepStrictEqual(salida[k], origen[k], `${k} cambió`))
+    assert.strictEqual(salida.id, 'a1_al1')
+    // Los intentos: cuántos lleva y el tiempo, no su nota. La cuenta decide si le quedan intentos.
+    assert.deepStrictEqual(salida.intentos, [{ numero: 1, tiempoSegundos: 40 }, { numero: 2, tiempoSegundos: null }])
+    assert.strictEqual(salida.intentos.length, origen.intentos.length)
+  })
+
+  caso('estado: «calificado» delata la nota y sale como «entregado»; los demás se conservan', () => {
+    assert.strictEqual(proyectarEntrega({ ...subReal(), estado: 'calificado' }, { notaOculta: true }).estado, 'entregado')
+    assert.strictEqual(proyectarEntrega({ ...subReal(), estado: 'pendiente' }, { notaOculta: true }).estado, 'pendiente')
+    const sinEstado = subReal(); delete sinEstado.estado
+    assert.ok(!('estado' in proyectarEntrega(sinEstado, { notaOculta: true })))
+    const sinIntentos = subReal(); delete sinIntentos.intentos
+    assert.ok(!('intentos' in proyectarEntrega(sinIntentos, { notaOculta: true })))
+  })
+
+  caso('con la nota VISIBLE la entrega sale íntegra (+ banderas) y no se muta lo recibido', () => {
+    const origen = Object.freeze(subReal())
+    assert.deepStrictEqual(proyectarEntrega(origen, { notaOculta: false }), { ...subReal(), calificada: true, notaOculta: false })
+    assert.deepStrictEqual(proyectarEntrega(origen), { ...subReal(), calificada: true, notaOculta: false }, 'sin opciones = visible')
+  })
+
+  caso('«calificada» ya no se deduce de calificacion != null: llega como bandera (0 cuenta, null no)', () => {
+    assert.strictEqual(proyectarEntrega({ id: 'x', calificacion: 0 }, { notaOculta: true }).calificada, true)
+    assert.strictEqual(proyectarEntrega({ id: 'x', calificacion: null, estado: 'entregado' }, { notaOculta: true }).calificada, false)
+    assert.strictEqual(proyectarEntrega({ id: 'x', calificacion: null, estado: 'calificado' }, { notaOculta: true }).calificada, true)
+  })
+
+  caso('la entrega EXISTE aunque su nota esté oculta: no se pierde el cero por falta de entrega ni su ausencia', () => {
+    const subject = { id: 's1', parciales: 3 }
+    const al = { id: 'al1', createdAt: { toMillis: () => Date.parse('2026-08-01T00:00:00Z') } }
+    const vencida = { id: 'a1', parcial: 1, maxCalif: 10, oculta: false, fechaLimite: '2026-10-10T10:00', fechaLimiteTS: { toMillis: () => Date.parse('2026-10-10T16:00:00Z') } }
+    const ctx = { subject, alumno: al, ahora: Date.parse('2026-10-15T12:00:00Z') }
+    const proyectada = proyectarEntrega(subReal(), { notaOculta: true })
+    assert.strictEqual(ceroPorFaltaDeEntrega(vencida, proyectada, ctx), ceroPorFaltaDeEntrega(vencida, subReal(), ctx))
+    assert.strictEqual(ceroPorFaltaDeEntrega(vencida, proyectada, ctx), false, 'hay documento: no hay cero virtual')
+    assert.strictEqual(ceroPorFaltaDeEntrega(vencida, undefined, ctx), true, 'sin documento sí')
+  })
+
+  caso('respuestas: sin claves solo lo que escribe el alumno; con claves se suman las 4; un campo nuevo nunca', () => {
+    const resp = {
+      id: 'q1', opcionSeleccionada: 'b', textoRespuesta: null, otraTexto: null, respondidaEn: { seconds: 5, nanoseconds: 0 },
+      archivoURL: null, nombreArchivo: null, tamanoArchivo: null,
+      correcta: true, respuestaCorrecta: 'b', puntosObtenidos: 2.5, comentarioDocente: 'CLAVE-SECRETA', campoFuturo: 'NO',
+    }
+    const sin = proyectarRespuesta(resp)
+    assert.deepStrictEqual(Object.keys(sin).sort(), ['archivoURL', 'id', 'nombreArchivo', 'opcionSeleccionada', 'otraTexto', 'respondidaEn', 'tamanoArchivo', 'textoRespuesta'])
+    ;['correcta', 'respuestaCorrecta', 'puntosObtenidos', 'comentarioDocente', 'campoFuturo'].forEach((k) => assert.ok(!(k in sin), k))
+    const con = proyectarRespuesta(resp, { claves: true })
+    ;['correcta', 'respuestaCorrecta', 'puntosObtenidos', 'comentarioDocente'].forEach((k) => assert.strictEqual(con[k], resp[k]))
+    assert.ok(!('campoFuturo' in con))
+    // Reanudar un examen necesita el id y el sello de tiempo de cada respuesta.
+    assert.strictEqual(sin.id, 'q1')
+    assert.deepStrictEqual(sin.respondidaEn, { seconds: 5, nanoseconds: 0 })
+  })
+
+  caso('paraJSON convierte los Timestamps del Admin SDK a { seconds, nanoseconds }, también anidados', () => {
+    const t = { toDate: () => new Date(), _seconds: 7, _nanoseconds: 9 }
+    assert.deepStrictEqual(paraJSON({ a: t, b: [t, { c: t }], d: null, e: 'x', f: 3 }),
+      { a: { seconds: 7, nanoseconds: 9 }, b: [{ seconds: 7, nanoseconds: 9 }, { c: { seconds: 7, nanoseconds: 9 } }], d: null, e: 'x', f: 3 })
+    assert.strictEqual(paraJSON(undefined), undefined)
+  })
+
+  // ── Promedios: mismas funciones, mismo orden de pasos que el Dashboard del alumno ──
+  const AHORA2 = Date.parse('2026-10-15T12:00:00Z')
+  const ts2 = (iso) => ({ toMillis: () => Date.parse(iso) })
+  const inscripcion = { id: 'al1', createdAt: ts2('2026-08-01T00:00:00Z') }
+  const ev2 = (id, parcial, extra = {}) => ({
+    id, parcial, maxCalif: 10, oculta: false, pesoCalificacion: null,
+    fechaLimite: '2026-10-10T10:00', fechaLimiteTS: ts2('2026-10-10T16:00:00Z'), ...extra,
+  })
+  const conNota2 = (n) => ({ calificacion: n, estado: 'calificado' })
+
+  // La cuenta del Dashboard (src/pages/student/Dashboard.jsx), paso por paso. Es la REFERENCIA.
+  const referenciaDashboard = (subject, activities, subs, enr) => {
+    const PARC = Array.from({ length: subject.parciales || 3 }, (_, i) => i + 1)
+    let avgPendiente = false
+    const porParcial = {}
+    const valores = []
+    PARC.forEach((p) => {
+      const pacts = activities.filter((a) => a.parcial === p && cuentaEnPromedioDelAlumno(a, subs[a.id], subject))
+      const grades = pacts.map((a) => normalizeGrade(subs[a.id]?.calificacion, a.maxCalif, { decimals: 1 }))
+      if (!resultadoPublicadoAlumno(subject, p, activities)) {
+        if (grades.some((g) => g != null)) avgPendiente = true
+        porParcial[p] = null
+        return
+      }
+      const paraPromedio = notasParaPromedio(pacts, grades, pacts.map((a) => subs[a.id]), { subject, alumno: enr, ahora: AHORA2 })
+      const raw = promedioParcial(pacts, paraPromedio, ponderacionActivaEnParcial(subject, p))
+      porParcial[p] = raw !== null ? parseFloat(raw.toFixed(1)) : null
+      if (porParcial[p] !== null) valores.push(porParcial[p])
+    })
+    const final = !avgPendiente && valores.length ? parseFloat((valores.reduce((x, y) => x + y, 0) / valores.length).toFixed(1)) : null
+    return { porParcial, final, avgPendiente }
+  }
+  const compararConDashboard = (subject, activities, subs) => {
+    const ref = referenciaDashboard(subject, activities, subs, inscripcion)
+    const mio = promediosAlumno(subject, activities, subs, inscripcion, AHORA2)
+    Object.keys(ref.porParcial).forEach((p) => assert.strictEqual(mio.parciales[p].valor, ref.porParcial[p], `parcial ${p}`))
+    assert.strictEqual(mio.final.valor, ref.final, 'final')
+    assert.strictEqual(mio.final.pendiente, ref.avgPendiente, 'pendiente')
+    return mio
+  }
+
+  caso('promedios = Dashboard: promedio simple, con otra escala (sobre 20) y un parcial sin actividades', () => {
+    const acts = [ev2('a1', 1), ev2('a2', 1), ev2('a3', 1), ev2('b1', 2, { maxCalif: 20 })]
+    const subs = { a1: conNota2(6), a2: conNota2(8), a3: conNota2(10), b1: conNota2(15) }
+    const mio = compararConDashboard({ id: 's1', parciales: 3 }, acts, subs)
+    assert.strictEqual(mio.parciales[1].valor, 8)
+    assert.strictEqual(mio.parciales[2].valor, 7.5)
+    assert.strictEqual(mio.parciales[3].valor, null)
+    assert.strictEqual(mio.final.valor, 7.8, '(8 + 7.5) / 2 = 7.75 → 7.8')
+  })
+
+  caso('promedios = Dashboard: ponderado publicado (atención de inquietudes), Σ(nota·peso)/10', () => {
+    const subject = { id: 's1', parciales: 3, ponderacionParciales: { 1: true }, parcialesAtencion: { 1: '2026-10-14T00:00:00Z' } }
+    const acts = [ev2('a1', 1, { pesoCalificacion: 5 }), ev2('a2', 1, { pesoCalificacion: 3 }), ev2('a3', 1, { pesoCalificacion: 2 })]
+    const mio = compararConDashboard(subject, acts, { a1: conNota2(10), a2: conNota2(8), a3: conNota2(6) })
+    assert.strictEqual(mio.parciales[1].valor, 8.6)
+    assert.strictEqual(mio.parciales[1].publicado, true)
+  })
+
+  caso('promedios = Dashboard: ponderado SIN publicar no entra en nada y deja el final pendiente', () => {
+    const subject = { id: 's1', parciales: 3, ponderacionParciales: { 1: true } } // parcial abierto
+    const acts = [ev2('a1', 1, { pesoCalificacion: 5 }), ev2('a2', 1, { pesoCalificacion: 5 }), ev2('b1', 2)]
+    const mio = compararConDashboard(subject, acts, { a1: conNota2(10), a2: conNota2(10), b1: conNota2(9) })
+    assert.strictEqual(mio.parciales[1].publicado, false)
+    assert.strictEqual(mio.parciales[1].valor, null)
+    assert.strictEqual(mio.final.valor, null)
+    assert.strictEqual(mio.final.pendiente, true)
+  })
+
+  caso('promedios = Dashboard: cero por falta de entrega, parcial oculto del docente y sin datos', () => {
+    const acts = [ev2('a1', 1), ev2('a2', 1), ev2('b1', 2)]
+    // a2 venció y no hay documento → cero virtual (igual que la tabla del docente).
+    const conCero = compararConDashboard({ id: 's1', parciales: 3 }, acts, { a1: conNota2(10), b1: conNota2(8) })
+    assert.strictEqual(conCero.parciales[1].valor, 5)
+    // Parcial 2 oculto por el docente: sus actividades ni su efecto en el final cuentan.
+    const oculto = compararConDashboard({ id: 's1', parciales: 3, parcialesOcultos: [2] }, acts, { a1: conNota2(10), a2: conNota2(10), b1: conNota2(2) })
+    assert.strictEqual(oculto.parciales[2].valor, null)
+    assert.strictEqual(oculto.final.valor, 10)
+    // Sin actividades ni entregas.
+    const vacio = compararConDashboard({ id: 's1', parciales: 3 }, [], {})
+    assert.strictEqual(vacio.final.valor, null)
+    assert.strictEqual(vacio.parciales[1].valor, null)
+  })
+
+  caso('promedios: lo OCULTO solo enmascara, nunca cambia el número real ni afecta a los demás controles', () => {
+    const acts = [ev2('a1', 1), ev2('a2', 1), ev2('b1', 2)]
+    const subs = { a1: conNota2(8), a2: conNota2(7.77), b1: conNota2(9) }
+    const base = promediosAlumno({ id: 's1', parciales: 3 }, acts, subs, inscripcion, AHORA2)
+    // Actividad oculta: el promedio del parcial sigue siendo el REAL (incluye la nota oculta), y se avisa.
+    const actOculta = promediosAlumno({ id: 's1', parciales: 3, calificacionesOcultas: { actividades: { a2: true } } }, acts, subs, inscripcion, AHORA2)
+    assert.strictEqual(actOculta.parciales[1].valor, base.parciales[1].valor)
+    assert.strictEqual(actOculta.parciales[1].conOcultas, true)
+    assert.strictEqual(actOculta.parciales[2].conOcultas, false)
+    assert.strictEqual(actOculta.final.valor, base.final.valor)
+    assert.strictEqual(actOculta.final.conOcultas, true)
+    // Promedio de un parcial oculto: ese valor sale null; el otro parcial y el final no se tocan.
+    const promOculto = promediosAlumno({ id: 's1', parciales: 3, calificacionesOcultas: { promedios: { 1: true } } }, acts, subs, inscripcion, AHORA2)
+    assert.strictEqual(promOculto.parciales[1].valor, null)
+    assert.strictEqual(promOculto.parciales[1].oculto, true)
+    assert.strictEqual(promOculto.parciales[2].valor, base.parciales[2].valor)
+    assert.strictEqual(promOculto.final.valor, base.final.valor, 'ocultar un promedio no oculta el final')
+    // Final oculto: solo el final.
+    const finOculto = promediosAlumno({ id: 's1', parciales: 3, calificacionesOcultas: { final: true } }, acts, subs, inscripcion, AHORA2)
+    assert.strictEqual(finOculto.final.valor, null)
+    assert.strictEqual(finOculto.final.oculto, true)
+    assert.strictEqual(finOculto.parciales[1].valor, base.parciales[1].valor)
+    // Sin configuración todo es visible (campo ausente).
+    assert.strictEqual(base.parciales[1].oculto, false)
+    assert.strictEqual(base.final.oculto, false)
+  })
+
+  caso('no se tocan fórmulas: entregasAlumno.js solo ORQUESTA funciones que ya existen', () => {
+    const fuente = leerFuente2a('src/utils/entregasAlumno.js')
+    ;['notasParaPromedio', 'promedioParcial', 'normalizeGrade', 'resultadoPublicadoAlumno', 'cuentaEnPromedioDelAlumno', 'ponderacionActivaEnParcial']
+      .forEach((f) => assert.ok(fuente.includes(f), `usa ${f}`))
+    assert.ok(!/reduce\([^)]*\/ *10/.test(fuente) && !/pesoCalificacion/.test(fuente), 'no reimplementa pesos ni el divisor')
+    // Y ponderacion.js / exportaciones siguen sin conocer este módulo.
+    ;['src/utils/ponderacion.js', 'src/utils/excel.js', 'src/utils/pdf.js'].forEach((f) => assert.ok(!/entregasAlumno/.test(leerFuente2a(f)), f))
+  })
+
+  caso('cableado: el endpoint responde por el uid del token, solo a estudiantes, sin caché y sin datos en logs', () => {
+    const api2a = leerFuente2a('api/student/[action].js')
+    assert.ok(api2a.includes("'mis-entregas': misEntregas") && api2a.includes("'cliente-ping': clientePing"))
+    assert.ok(api2a.includes("endsWith('@evalua.local')") && api2a.includes("res.setHeader('Cache-Control', 'no-store')"))
+    const lib = leerFuente2a('api/_lib/entregasAlumno.js')
+    assert.ok(lib.includes("where('uid', '==', uid)"), 'las inscripciones salen del uid del token')
+    assert.ok(!/body\.uid|body\.alumnoId|body\.studentId/.test(lib), 'el cuerpo no puede cambiar la identidad')
+    assert.ok(!/console\./.test(lib), 'el módulo no escribe en logs')
+    assert.ok(/console\.error\(`\[\$\{req\.query\.action\}\] \$\{err\?\.name \|\| 'Error'\}`\)/.test(api2a), 'el error solo registra su nombre')
+  })
+
+  caso('el push y la solución del juego consultan la MISMA lectura de «oculta» que la tabla del docente', () => {
+    const idx = leerFuente2a('functions/index.js')
+    assert.ok(idx.includes("require('./_shared/visibilidadCalificaciones.js')") && idx.includes('notaOcultaAlEstudiante(afterData.actividadId)'))
+    assert.ok(idx.includes('no se pudo comprobar la visibilidad de la nota; no se notifica'), 'ante la duda no se envía')
+    const juego = leerFuente2a('functions/juego.js')
+    assert.ok(juego.includes("require('./_shared/visibilidadCalificaciones.js')") && juego.includes('actividadOculta(asignaturaSnap.data(), actividadId)'))
+    assert.ok(leerFuente2a('scripts/sync-functions-shared.mjs').includes("'visibilidadCalificaciones.js'"))
+  })
+
+  caso('PR 2a no toca las pantallas del estudiante ni las reglas ni la tabla del docente', () => {
+    ;['src/pages/student/ActivityPage.jsx', 'src/pages/student/SubjectPage.jsx', 'src/pages/student/Dashboard.jsx', 'src/pages/student/Agenda.jsx',
+      'src/pages/student/EvaluacionRunner.jsx', 'src/pages/student/JuegoRunner.jsx', 'src/pages/student/EvaluacionRevision.jsx',
+      'firestore.rules', 'src/pages/teacher/subject/TabCalificaciones.jsx'].forEach((f) => {
+      assert.ok(!/entregasAlumno|mis-entregas|cliente-ping/.test(leerFuente2a(f)), `${f} no debe cambiar en el 2a`)
+    })
   })
 }
 

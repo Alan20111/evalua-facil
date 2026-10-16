@@ -13,6 +13,7 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const { logger } = require('firebase-functions')
 const { normalizarPalabra } = require('./_shared/normalizarPalabra.js')
+const { actividadOculta } = require('./_shared/visibilidadCalificaciones.js')
 const { construirSopaDeLetras, construirCrucigrama } = require('./juegoGenerator')
 const ledger = require('./creditosLedger')
 
@@ -565,6 +566,14 @@ async function obtenerSolucionJuegoImpl(request) {
   const sub = subSnap.exists ? subSnap.data() : null
   if (!sub || sub.estadoEvaluacion !== 'finalizado') {
     throw new HttpsError('failed-precondition', 'Todavía no has terminado este juego')
+  }
+
+  // Si el docente OCULTÓ la nota de este juego, la solución tampoco se entrega:
+  // con el tablero resuelto y sus propias celdas el estudiante podría calcular
+  // su calificación. Se lee aquí, en el servidor; ninguna pantalla decide esto.
+  const asignaturaSnap = await db.doc(`subjects/${act.asignaturaId}`).get()
+  if (asignaturaSnap.exists && actividadOculta(asignaturaSnap.data(), actividadId)) {
+    throw new HttpsError('failed-precondition', 'El docente todavía no publica el resultado de este juego')
   }
 
   // Las MISMAS dos condiciones que hasta hoy decidía el navegador, ahora aquí:
