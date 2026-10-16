@@ -16,13 +16,28 @@ export function membreteDe(userProfile) {
   const escuela = userProfile?.schoolName && userProfile.schoolName !== SIN_ESCUELA
     ? userProfile.schoolName
     : ''
-  return { escuela, docente: teacherDisplayName(userProfile) }
+  // CCT (`claveSEP`): la clave oficial del plantel; AuthContext la carga junto
+  // con el nombre. Solo se imprime si hay escuela — sin plantel no hay CCT.
+  const cct = escuela ? (userProfile?.claveSEP || '') : ''
+  return { escuela, cct, docente: teacherDisplayName(userProfile) }
 }
 
-// Una sola línea con lo que haya: "CBTIS 255 · Docente: Ing. Ana Ruiz". Para el
-// Excel, donde no hay dos tamaños de letra que jerarquicen como en el PDF.
-export function membreteLinea(membrete) {
-  return [membrete?.escuela, membrete?.docente ? `Docente: ${membrete.docente}` : '']
+// "CBTIS 255 · CCT: 19DCT0255X" — la escuela con su clave, como la pide una
+// dirección para aceptar el documento como oficial.
+export function escuelaConCct(membrete) {
+  if (!membrete?.escuela) return ''
+  return membrete.cct ? `${membrete.escuela} · CCT: ${membrete.cct}` : membrete.escuela
+}
+
+// Una sola línea con lo que haya: "CBTIS 255 · CCT: 19DCT0255X · Docente: Ing.
+// Ana Ruiz · Ciclo Escolar 2025-2026". Para el Excel, donde no hay dos tamaños
+// de letra que jerarquicen como en el PDF. `ciclo` sale de cicloEscolarDe().
+export function membreteLinea(membrete, ciclo = '') {
+  return [
+    escuelaConCct(membrete),
+    membrete?.docente ? `Docente: ${membrete.docente}` : '',
+    ciclo ? `Ciclo Escolar ${ciclo}` : '',
+  ]
     .filter(Boolean)
     .join(' · ')
 }
