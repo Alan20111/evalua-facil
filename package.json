@@ -23,6 +23,7 @@
     "pretest:server": "node scripts/sync-functions-shared.mjs",
     "test:server": "firebase emulators:exec --only firestore,auth --project demo-test \"node test/servidor.test.mjs\"",
     "pretest:ia": "node scripts/sync-functions-shared.mjs",
+    "test:lote-ia": "firebase emulators:exec --only firestore,auth --project demo-test \"node test/calificar-lote-imagenes.test.mjs\"",
     "test:ia": "firebase emulators:exec --only firestore,auth --project demo-test \"node test/ia-creditos.test.mjs\"",
     "deploy:rules": "firebase deploy --only firestore --project evalua-facil-app",
     "check:design": "bash scripts/check-ui-standards.sh",

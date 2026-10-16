@@ -301,6 +301,15 @@ async function bloquePlaneacionVigente(db, asignaturaId, parcial = null) {
 //     'crear_actividad_ia' (11-ago-2026, misma autorización) · OP-11
 //     'calificar_entregable_ia' (21-ago-2026, autorizado por Kike en esta
 //     conversación — función CENTRAL de valor de la IA, no secundaria).
+// Claves de tarifa diferenciada que el cliente usa para ESTIMAR el costo (imágenes cobran más que
+// documentos) y que no son operaciones: la tarifa efectiva la deriva ejecutarOperacionIA del precheck
+// (`operacionEfectiva`), nunca del cliente. Sin este mapa, «Calificar todas con IA» en una actividad de
+// imágenes respondía «Esta operación de IA aún no está disponible» (501) antes de mirar la rúbrica.
+const OPERACION_BASE_DE_TARIFA = {
+  calificar_entregable_ia_imagenes: 'calificar_entregable_ia',
+  calificar_entregable_ia_lote_imagenes: 'calificar_entregable_ia_lote',
+}
+
 const OPERACIONES = {
   aviso: ejecutarAviso,
   calificar_abierta: ejecutarCalificarAbierta,
@@ -6696,7 +6705,10 @@ function crearCallableIA(opciones, { soloOperacion = null } = {}) {
       throw new HttpsError('permission-denied', 'La IA de Evalúa Fácil es para docentes')
     }
 
-    const { operacion, idempotencyKey, params = {}, unidades = 1 } = request.data || {}
+    const { operacion: operacionRecibida, idempotencyKey, params = {}, unidades = 1 } = request.data || {}
+    // El cliente manda a veces la CLAVE DE TARIFA (…_imagenes) para mostrar el costo; la operación
+    // real es la base y la tarifa la decide el servidor más abajo con el tipo de evidencia.
+    const operacion = OPERACION_BASE_DE_TARIFA[operacionRecibida] || operacionRecibida
     const ejecutor = OPERACIONES[operacion]
     if (!ejecutor || (soloOperacion && operacion !== soloOperacion)) {
       throw new HttpsError('unimplemented', 'Esta operación de IA aún no está disponible')
