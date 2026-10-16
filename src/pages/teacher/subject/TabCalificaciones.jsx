@@ -548,7 +548,7 @@ export default function TabCalificaciones() {
                                   }
                                   onClick={() => goToActivityFromGrades(`/activity/${a.id}`, { state: { openStudentId: s.id, returnTo: 'calificaciones' } })}
                                   onContextMenu={(e) => openGradeQuickEdit(e, gradeSubMap[`${s.id}-${a.id}`], a, s)}
-                                  className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-estandar cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradesCierre[ai] ? 'text-red-500' : est === ESTADO_ENTREGA.POR_CALIFICAR ? 'text-emerald-600' : est === ESTADO_ENTREGA.NO_ENTREGADO && publicada ? 'text-red-500' : grades[ai] == null ? 'text-hint' : 'text-on-surface'} ${hl || gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
+                                  className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-estandar cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradesCierre[ai] ? 'text-red-500' : est === ESTADO_ENTREGA.POR_CALIFICAR ? 'text-emerald-600' : est === ESTADO_ENTREGA.NO_ENTREGADO && publicada ? 'text-red-500' : grades[ai] == null && est !== ESTADO_ENTREGA.PRORROGA ? 'text-hint' : 'text-on-surface'} ${est === ESTADO_ENTREGA.PRORROGA ? 'bg-amber-100' : (hl || gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i))}`}
                                 >
                                   {grades[ai] != null ? grades[ai]
                                     : est === ESTADO_ENTREGA.POR_CALIFICAR ? <span aria-label="Entregada, pendiente de calificación">+</span>

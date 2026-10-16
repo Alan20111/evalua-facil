@@ -9349,6 +9349,45 @@ caso('el backend del análisis de entregable no se tocó (operación y tarifa si
   })
 }
 
+
+// ── Promedio simple: la celda PR (prórroga vigente) cuenta como 0 ──────────
+{
+  const AHORA = Date.parse('2026-10-16T12:00:00-06:00')
+  const subj = { parcialesCerrados: {}, ponderacionParciales: {} }
+  const alumno = { id: 'e1' }
+  const mk = (id, extra = {}) => ({ id, parcial: 1, maxCalif: 10, publishedAt: '2026-09-01T00:00', fechaLimite: '2026-10-10T23:59', ...extra })
+  const PR = { extensiones: { e1: '2026-10-20T23:59' } }
+  const prom = (acts, notas, subs, s = subj) => {
+    const r = promedioParcial(acts, notasParaPromedio(acts, notas, subs, { subject: s, alumno, ahora: AHORA }), false)
+    return r === null ? null : parseFloat(r.toFixed(1))
+  }
+  const entregada = { estado: 'entregado', archivoURL: 'u' }
+  caso('promedio simple: caso Evelin — 5 notas (0,10,10,10,8.8) + 5 PR = 3.9, no 7.8', () => {
+    const acts = [...Array(5)].map((_, i) => mk(`n${i}`)).concat([...Array(5)].map((_, i) => mk(`p${i}`, PR)))
+    const notas = [0, 10, 10, 10, 8.8, null, null, null, null, null]
+    const subs = [{ calificacion: 0 }, {}, {}, {}, {}, undefined, undefined, undefined, undefined, undefined]
+    assert.strictEqual(prom(acts, notas, subs), 3.9)
+  })
+  caso('promedio simple: «+» sin nota cuenta 0; «—» vencido cuenta 0; un 0 explícito cuenta 0', () => {
+    const acts = [mk('a'), mk('b'), mk('c'), mk('d')]
+    assert.strictEqual(prom(acts, [10, null, null, 10], [{}, entregada, undefined, {}]), 5)
+    assert.strictEqual(prom([mk('a'), mk('b')], [10, 0], [{}, { calificacion: 0 }]), 5)
+  })
+  caso('promedio simple: todas calificadas = media normal', () => {
+    assert.strictEqual(prom([mk('a'), mk('b')], [10, 8], [{}, {}]), 9)
+  })
+  caso('promedio simple: PR con prórroga VENCIDA y sin entrega también es 0 (ya lo era)', () => {
+    assert.strictEqual(prom([mk('a'), mk('b', { extensiones: { e1: '2026-10-12T23:59' } })], [10, null], [{}, undefined]), 5)
+  })
+  caso('ponderado: la prórroga vigente NO cambia su fórmula (Σ nota·peso / 10)', () => {
+    const sp = { ponderacionParciales: { 1: true } }
+    const acts = [mk('a', { pesoCalificacion: 5 }), mk('b', { pesoCalificacion: 5, ...PR })]
+    const nota = notasParaPromedio(acts, [10, null], [{}, undefined], { subject: sp, alumno, ahora: AHORA })
+    assert.deepStrictEqual(nota, [10, null])
+    assert.strictEqual(promedioParcial(acts, nota, true), 5)
+  })
+}
+
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)
   fallos.forEach((f) => console.log(`  ✗ ${f.nombre}\n    ${f.e.message}`))
