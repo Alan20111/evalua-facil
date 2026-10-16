@@ -349,7 +349,7 @@ export default function ListaEntregas() {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {hasExtension && <CalendarDays size={ICONO.sm} className="text-orange-400" />}
                       {sub?.tarde && (
-                        <span data-tooltip="Entregó después de la fecha límite" className="text-[11px] font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex-shrink-0">
+                        <span data-tooltip="Entregó después de la fecha límite" data-tooltip-pos={i === 0 ? 'bottom' : undefined} className="text-[11px] font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full flex-shrink-0">
                           Tarde
                         </span>
                       )}

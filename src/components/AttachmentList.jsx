@@ -222,7 +222,7 @@ export function FilePreviewModal({ url, nombre, onClose }) {
     >
       <div className="flex items-center gap-2 px-4 py-2 border-b border-outline-variant flex-shrink-0">
         <span className="flex-1 text-sm font-medium text-on-surface truncate">{nombre}</span>
-        <a href={openInTabUrl} target="_blank" rel="noreferrer" data-tooltip="Abrir en pestaña nueva" aria-label="Abrir en pestaña nueva"
+        <a href={openInTabUrl} target="_blank" rel="noreferrer" data-tooltip="Abrir en pestaña nueva" data-tooltip-pos="bottom" aria-label="Abrir en pestaña nueva"
           className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0">
           <ExternalLink size={ICONO.md} />
         </a>
@@ -239,7 +239,7 @@ export function FilePreviewModal({ url, nombre, onClose }) {
           title="Descargar"
           className="p-2 text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded transition-colors flex-shrink-0 disabled:opacity-60"
         />
-        <IconButton icon={X} label="Cerrar" tooltip={false} onClick={onClose} data-tooltip="Cerrar" />
+        <IconButton icon={X} label="Cerrar" tooltip={false} onClick={onClose} data-tooltip="Cerrar" data-tooltip-pos="bottom" />
       </div>
       <div className="flex-1 min-h-0 overflow-auto bg-surface">
         <FilePreview url={url} nombre={nombre} fill />
