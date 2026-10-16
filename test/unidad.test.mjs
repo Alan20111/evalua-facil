@@ -9334,6 +9334,31 @@ caso('el backend del análisis de entregable no se tocó (operación y tarifa si
     assert.strictEqual(estadoEntrega({ ...act, tipo: 'evaluacion' }, { estadoEvaluacion: 'en_progreso' }, 'e1', AHORA), 'noentregado')
     assert.strictEqual(estadoEntrega({ ...conPror('2026-10-20T23:59'), tipo: 'evaluacion' }, { estadoEvaluacion: 'en_progreso' }, 'e1', AHORA), 'prorroga')
   })
+  for (const tipoJuego of ['crucigrama', 'sopa_letras']) {
+    const juego = { ...act, categoria: 'juego', juego: { estructura: { tipo: tipoJuego } } }
+    const juegoPror = { ...juego, extensiones: { e1: '2026-10-20T23:59' } }
+    const enCurso = { estado: 'pendiente', estadoEvaluacion: 'en_progreso', calificacion: null, intentos: [] }
+    caso(`estado ${tipoJuego}: intento en curso NO es por calificar (no entregado, o prórroga si la tiene)`, () => {
+      assert.strictEqual(estadoEntrega(juego, enCurso, 'e1', AHORA), 'noentregado')
+      assert.strictEqual(estadoEntrega(juegoPror, enCurso, 'e1', AHORA), 'prorroga')
+    })
+    caso(`estado ${tipoJuego}: finalizado sin nota = por calificar (+)`, () => {
+      assert.strictEqual(estadoEntrega(juego, { ...enCurso, estadoEvaluacion: 'finalizado' }, 'e1', AHORA), 'entregado')
+    })
+    caso(`estado ${tipoJuego}: con nota numérica o con cero = calificado`, () => {
+      const fin = { estado: 'calificado', estadoEvaluacion: 'finalizado' }
+      assert.strictEqual(estadoEntrega(juego, { ...fin, calificacion: 8.9 }, 'e1', AHORA), 'calificado')
+      assert.strictEqual(estadoEntrega(juego, { ...fin, calificacion: 0 }, 'e1', AHORA), 'calificado')
+    })
+    caso(`estado ${tipoJuego}: «no entregó» del docente sin nota no es por calificar`, () => {
+      assert.strictEqual(estadoEntrega(juego, { sinEntrega: true, estadoEvaluacion: 'finalizado' }, 'e1', AHORA), 'noentregado')
+    })
+    caso(`estado ${tipoJuego}: iniciar el juego SIGUE bloqueando la prórroga (tieneEntregaReal intacta)`, () => {
+      assert.strictEqual(tieneEntregaReal(enCurso, juego), true)
+      assert.strictEqual(tieneEntregaReal({ ...enCurso, estadoEvaluacion: 'finalizado' }, juego), true)
+      assert.strictEqual(tieneEntregaReal(undefined, juego), false)
+    })
+  }
   caso('estado: los cuatro estados son excluyentes y suman al grupo', () => {
     const a = { ...act, extensiones: { e2: '2026-10-20T23:59' } }
     const subs = { e3: { archivoURL: 'u' }, e4: { calificacion: 9 } }
