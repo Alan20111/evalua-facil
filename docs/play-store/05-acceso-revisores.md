@@ -10,6 +10,11 @@ credenciales de prueba.
 
 ## Qué preparar *(esto lo haces tú — yo no puedo crear cuentas ni contraseñas)*
 
+> Atajo: `seeds-db/seed-google-review.js` deja listas una cuenta de docente
+> (`google.review@evaluafacil.mx`) y una de alumno (`alumno.demo`) con escuela,
+> asignatura y actividades de ejemplo. Las contraseñas se pasan por variables de
+> entorno (`REVISION_DOCENTE_PASSWORD`, `REVISION_ALUMNO_PASSWORD`), nunca en el repo.
+
 Crea **una cuenta de docente de prueba** con datos de ejemplo, para que el revisor vea
 la app funcionando:
 
