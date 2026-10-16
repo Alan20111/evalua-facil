@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore'
+import { getDoc, doc } from 'firebase/firestore'
 import { db, auth } from '../../firebase'
 import { fetchApi } from '../../utils/apiBase'
-import { fetchActivity } from '../../utils/apiContent'
+import { fetchActivity, fetchMisEntregas } from '../../utils/apiContent'
+import { TEXTO_NOTA_OCULTA } from '../../components/NotaOculta'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import { ArrowLeft } from 'lucide-react'
@@ -54,13 +55,18 @@ export default function EvaluacionRevision() {
       if (!studData) {
         navigate('/alumno/dashboard'); return
       }
-      const subsSnap = await getDocs(query(
-        collection(db, 'submissions'), where('actividadId', '==', activityId), where('alumnoId', '==', studData.id)
-      ))
-      if (subsSnap.empty || subsSnap.docs[0].data().estadoEvaluacion !== 'finalizado') {
+      // La entrega y sus respuestas llegan por el servidor en UNA llamada. Las claves y
+      // los puntos solo vienen si el docente publicó las respuestas Y la nota está a la
+      // vista; si la nota está oculta, esta pantalla no existe para el estudiante.
+      const { entregas, respuestas: respuestasGuardadas } = await fetchMisEntregas({ actividadId: activityId, respuestas: true })
+      const subData = entregas[0]
+      if (!subData || subData.estadoEvaluacion !== 'finalizado') {
         navigate(`/alumno/actividad/${activityId}`); return
       }
-      const subData = { id: subsSnap.docs[0].id, ...subsSnap.docs[0].data() }
+      if (subData.notaOculta) {
+        toast(TEXTO_NOTA_OCULTA)
+        navigate(`/alumno/actividad/${activityId}`); return
+      }
 
       // The answer sheet is only reachable once the teacher publishes answers
       // (independent from the grade). Otherwise bounce back to the activity.
@@ -84,9 +90,8 @@ export default function EvaluacionRevision() {
       const lista = preguntasEnOrden(crudas, seccionesDe(actData?.evaluacion))
       setPreguntas(lista)
 
-      const respSnap = await getDocs(collection(db, 'submissions', subData.id, 'respuestas'))
       const respMap = {}
-      respSnap.docs.forEach((d) => { respMap[d.id] = d.data() })
+      respuestasGuardadas.forEach((r) => { respMap[r.id] = r })
       setRespuestas(respMap)
     } catch (err) {
       toast('Error: ' + err.message, 'error')

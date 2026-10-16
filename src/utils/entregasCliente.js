@@ -54,3 +54,43 @@ export function promedioFinalVisible(local, servidor) {
   }
   return { valor: local.valor, pendiente: local.pendiente, oculto: false }
 }
+
+// ── Qué entrega conservar cuando llegan dos lecturas de la misma ───────────
+//
+// El sondeo de ActivityPage pregunta al servidor cada pocos segundos, y una
+// respuesta lenta puede llegar DESPUÉS de que la pantalla ya tenga algo más
+// nuevo (p. ej. ya abrió el intento 2). `entregaMasReciente` devuelve la que
+// debe quedarse: la nueva, salvo que sea claramente más vieja que la actual.
+//
+// «Más viejo» se mide con lo que solo avanza en una entrega: el número de
+// intento en curso, cuántos intentos lleva, si el examen está en curso o
+// finalizado, y la fecha de entrega. Un empate se queda con la nueva: es la
+// verdad del servidor (así llega, por ejemplo, la nota que acaba de escribir la
+// Cloud Function). Un documento distinto siempre gana.
+const RANGO_ESTADO = { en_progreso: 1, finalizado: 2 }
+const segundosDe = (t) => (t && typeof t.seconds === 'number' ? t.seconds : 0)
+const huella = (e) => [
+  e.intentoActual || 0,
+  Array.isArray(e.intentos) ? e.intentos.length : 0,
+  RANGO_ESTADO[e.estadoEvaluacion] || 0,
+  segundosDe(e.fechaEntrega),
+]
+
+export function entregaMasReciente(actual, nueva) {
+  if (!nueva) return actual
+  if (!actual || actual.id !== nueva.id) return nueva
+  const a = huella(actual)
+  const n = huella(nueva)
+  for (let i = 0; i < a.length; i++) {
+    if (n[i] > a[i]) return nueva
+    if (n[i] < a[i]) return actual
+  }
+  return nueva
+}
+
+// ¿Está esperando la nota? El examen, juego o video ya terminó pero la Cloud
+// Function todavía no escribió la calificación (y no queda nada por revisar a
+// mano). Mientras tanto la pantalla pregunta seguido; después, de vez en cuando.
+export function esperandoNota(sub) {
+  return !!sub && sub.estadoEvaluacion === 'finalizado' && !estaCalificada(sub) && !sub.pendienteRevision
+}

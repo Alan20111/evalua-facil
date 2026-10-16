@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  collection, query, where, getDocs, getDoc, doc, setDoc, updateDoc, serverTimestamp,
+  getDoc, doc, setDoc, updateDoc, serverTimestamp,
 } from 'firebase/firestore'
 import { db, auth } from '../../firebase'
 import { fetchApi } from '../../utils/apiBase'
-import { fetchActivity } from '../../utils/apiContent'
+import { fetchActivity, fetchMisEntregas } from '../../utils/apiContent'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import Spinner from '../../components/Spinner'
@@ -108,13 +108,15 @@ export default function EvaluacionRunner() {
           .then((s) => { if (s.exists()) { const d = s.data(); setTeacherName(teacherDisplayName(d)) } })
           .catch(() => {})
       }
-      const subsSnap = await getDocs(query(
-        collection(db, 'submissions'), where('actividadId', '==', activityId), where('alumnoId', '==', studData.id)
-      ))
-      if (subsSnap.empty || subsSnap.docs[0].data().estadoEvaluacion !== 'en_progreso') {
+      // La entrega y sus respuestas llegan por el servidor en UNA llamada (antes eran
+      // dos lecturas directas a Firestore): sin la nota ni las claves, que el estudiante
+      // no tiene por qué ver mientras contesta. Las ESCRITURAS —autosave, finalizar,
+      // limpiar lo rezagado— siguen yendo directo a Firestore, igual que siempre.
+      const { entregas, respuestas: respuestasGuardadas } = await fetchMisEntregas({ actividadId: activityId, respuestas: true })
+      const subData = entregas[0]
+      if (!subData || subData.estadoEvaluacion !== 'en_progreso') {
         navigate(`/alumno/actividad/${activityId}`); return
       }
-      const subData = { id: subsSnap.docs[0].id, ...subsSnap.docs[0].data() }
       setSubmission(subData)
 
       const idToken = await auth.currentUser.getIdToken()
@@ -162,7 +164,6 @@ export default function EvaluacionRunner() {
       }
       setPreguntas(lista)
 
-      const respSnap = await getDocs(collection(db, 'submissions', subData.id, 'respuestas'))
       // A26 · Segunda línea de defensa contra las respuestas del intento
       // anterior. Todos los intentos comparten un documento por pregunta, y lo
       // que las deja "sin responder" al empezar de nuevo es la limpieza de
@@ -174,12 +175,12 @@ export default function EvaluacionRunner() {
       // Y no basta con ocultarlo: la Cloud Function califica lo que esté vivo
       // en la subcolección, así que se vuelve a limpiar. Ahora sí puede,
       // porque el reloj que miran las reglas ya es el de este intento.
-      const rezagadas = respSnap.docs.filter((d) =>
-        esDeIntentoAnterior(d.data(), subData.tiempoInicio) && tieneRespuestaGuardada(d.data())
+      const rezagadas = respuestasGuardadas.filter((r) =>
+        esDeIntentoAnterior(r, subData.tiempoInicio) && tieneRespuestaGuardada(r)
       )
       if (rezagadas.length) {
         try {
-          await limpiarRespuestas(db, rezagadas.map((d) => d.ref))
+          await limpiarRespuestas(db, rezagadas.map((r) => doc(db, 'submissions', subData.id, 'respuestas', r.id)))
         } catch {
           toast('No pudimos borrar del todo tus respuestas anteriores. Recarga la página antes de seguir.', 'error')
         }
@@ -195,24 +196,23 @@ export default function EvaluacionRunner() {
       lista.forEach((p) => { tipoPorPreguntaId[p.id] = p.tipo })
       const respMap = {}
       const otraMap = {}
-      respSnap.docs.forEach((d) => {
-        const data = d.data()
+      respuestasGuardadas.forEach((data) => {
         if (esDeIntentoAnterior(data, subData.tiempoInicio)) return
-        const tipo = tipoPorPreguntaId[d.id]
+        const tipo = tipoPorPreguntaId[data.id]
         if (tipo === 'respuesta_corta') {
-          respMap[d.id] = typeof data.textoRespuesta === 'string' ? data.textoRespuesta : ''
+          respMap[data.id] = typeof data.textoRespuesta === 'string' ? data.textoRespuesta : ''
         } else if (tipo === 'subir_archivo') {
-          respMap[d.id] = data.archivoURL
+          respMap[data.id] = data.archivoURL
             ? { archivoURL: data.archivoURL, nombreArchivo: data.nombreArchivo || 'Documento' }
             : null
         } else {
           // opcion_multiple / verdadero_falso: guarda el id de la opción
           // elegida como string. Si viene null/undefined/'' es "sin responder".
-          respMap[d.id] = (data.opcionSeleccionada === null || data.opcionSeleccionada === undefined || data.opcionSeleccionada === '')
+          respMap[data.id] = (data.opcionSeleccionada === null || data.opcionSeleccionada === undefined || data.opcionSeleccionada === '')
             ? null
             : data.opcionSeleccionada
         }
-        if (data.otraTexto) otraMap[d.id] = data.otraTexto
+        if (data.otraTexto) otraMap[data.id] = data.otraTexto
       })
       setRespuestas(respMap)
       setOtraTextos(otraMap)
