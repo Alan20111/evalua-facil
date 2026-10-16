@@ -28,6 +28,7 @@ import { subjectPaletteProps } from '../../utils/subjectPalette'
 import EFDateTimePicker from '../../components/EFDateTimePicker'
 import { nowIsoLocal } from '../../utils/nowIso'
 import { fechaLimiteTimestamp } from '../../utils/deadline'
+import { estadoEntrega } from '../../utils/estadoEntrega'
 import { tieneEntregaReal, leerEntregasReales, MENSAJE_PRORROGA_CON_ENTREGA } from '../../utils/extensiones'
 import { withDefaultTime, cuentaParaCalificacion } from '../../utils/activityVisibility'
 import { parcialCerrado as esParcialCerrado, mensajeParcialCerrado } from '../../utils/ponderacion'
@@ -302,9 +303,7 @@ export default function ActivityPage() {
 
   function getStatus(studentId) {
     const sub = submissions[studentId]
-    if (!sub) return 'pendiente'
-    if (sub.calificacion != null) return 'calificado'
-    return 'entregado'
+    return estadoEntrega(activity, sub, studentId)
   }
 
   function openGrade(student) {
@@ -1007,7 +1006,8 @@ export default function ActivityPage() {
   }
 
   const counts = {
-    pendiente: students.filter((s) => getStatus(s.id) === 'pendiente').length,
+    noentregado: students.filter((s) => getStatus(s.id) === 'noentregado').length,
+    prorroga: students.filter((s) => getStatus(s.id) === 'prorroga').length,
     entregado: students.filter((s) => getStatus(s.id) === 'entregado').length,
     calificado: students.filter((s) => getStatus(s.id) === 'calificado').length,
   }

@@ -6,7 +6,7 @@ import AttachmentList from '../../../components/AttachmentList'
 import { Button, IconButton } from '../../../components/ui'
 import { CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../../config/fileTypes'
 import EvaluacionManager from '../../../components/EvaluacionManager'
-import { FILE_TYPE_SHORT_LABELS, FILTER_LABELS, STATUS_COLORS, STATUS_LABELS } from './utilidades'
+import { FILE_TYPE_SHORT_LABELS, FILTER_LABELS, FILTROS_ENTREGAS, STATUS_COLORS, STATUS_LABELS } from './utilidades'
 import { ICONO } from '../../../config/iconos'
 import { IS_NATIVE_APP, PUEDE_AUTOFOCUS } from '../../../utils/platform'
 import JuegoManager from '../../../components/juego/JuegoManager'
@@ -287,7 +287,7 @@ export default function ListaEntregas() {
           {/* Filter tabs — they belong to the Entregas list, so they live inside
               its container; clicking one scrolls the list into full view */}
           <div className={IS_NATIVE_APP ? 'grid grid-cols-2 gap-1 mx-4 mt-3 bg-surface-container p-1 rounded-card' : 'flex gap-1 mx-4 mt-3 bg-surface-container p-1 rounded-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'}>
-            {['todos', 'pendiente', 'calificado', 'entregado'].map((f) => (
+            {FILTROS_ENTREGAS.map((f) => (
               <button
                 type="button"
                 key={f}

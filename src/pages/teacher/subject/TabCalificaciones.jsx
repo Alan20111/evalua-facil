@@ -8,6 +8,8 @@ import { AlertTriangle, Eye, EyeOff, FileSpreadsheet, FileText, Lock, MessageCir
 import { ICONO } from '../../../config/iconos'
 import { IS_NATIVE_APP, PUEDE_AUTOFOCUS } from '../../../utils/platform'
 import SearchInput from '../../../components/SearchInput'
+import { ESTADO_ENTREGA, estadoEntrega } from '../../../utils/estadoEntrega'
+import { isActivityPublished } from '../../../utils/activityVisibility'
 import { estadoParcial, mensajeParcialCerrado, parcialCerrado } from '../../../utils/ponderacion'
 import { formatShortDate } from '../../../utils/dateRange'
 import {
@@ -526,22 +528,35 @@ export default function TabCalificaciones() {
                             const grades = pd?.grades || []
                             const gradesCierre = pd?.gradesCierre || []
                             return [
-                              ...acts.map((a, ai) => (
+                              ...acts.map((a, ai) => {
+                                // Solo la presentación de lo que NO tiene nota; el número
+                                // nunca se sustituye (ver utils/estadoEntrega.js).
+                                const est = grades[ai] == null
+                                  ? estadoEntrega(a, gradeSubMap[`${s.id}-${a.id}`], s.id)
+                                  : ESTADO_ENTREGA.CALIFICADO
+                                const publicada = isActivityPublished(a, (subject?.parcialesOcultos || []).includes(a.parcial))
+                                return (
                                 <td
                                   key={a.id}
                                   data-col={colIndexByKey[`act-${a.id}`]}
                                   data-tooltip={
                                     gradesCierre[ai] ? 'Calificación asignada al cerrar el parcial (no entregó) — reabre el parcial para corregirla'
+                                    : est === ESTADO_ENTREGA.POR_CALIFICAR ? 'Entregada, pendiente de calificación · clic derecho para calificar rápido'
+                                    : est === ESTADO_ENTREGA.PRORROGA ? 'En prórroga vigente: aún no entrega · clic derecho para calificar rápido'
                                     : grades[ai] != null ? `${a.tipo === 'evaluacion' ? 'Ver resultado' : 'Ver entrega'} · clic derecho para corregir rápido`
                                     : `${a.tipo === 'evaluacion' ? 'Ver resultado' : 'Ver entrega'} · clic derecho para calificar rápido`
                                   }
                                   onClick={() => goToActivityFromGrades(`/activity/${a.id}`, { state: { openStudentId: s.id, returnTo: 'calificaciones' } })}
                                   onContextMenu={(e) => openGradeQuickEdit(e, gradeSubMap[`${s.id}-${a.id}`], a, s)}
-                                  className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-estandar cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradesCierre[ai] ? 'text-red-500' : grades[ai] == null ? 'text-hint' : 'text-on-surface'} ${hl || gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
+                                  className={`w-9 px-0.5 py-1 text-center font-semibold border-l border-outline-variant transition-colors duration-estandar cursor-pointer hover:ring-2 hover:ring-inset hover:ring-[var(--accent)] ${gradesCierre[ai] ? 'text-red-500' : est === ESTADO_ENTREGA.POR_CALIFICAR ? 'text-emerald-600' : est === ESTADO_ENTREGA.NO_ENTREGADO && publicada ? 'text-red-500' : grades[ai] == null ? 'text-hint' : 'text-on-surface'} ${hl || gradeBodyCellBg(colIndexByKey[`act-${a.id}`], i)}`}
                                 >
-                                  {grades[ai] != null ? grades[ai] : '—'}
+                                  {grades[ai] != null ? grades[ai]
+                                    : est === ESTADO_ENTREGA.POR_CALIFICAR ? <span aria-label="Entregada, pendiente de calificación">+</span>
+                                    : est === ESTADO_ENTREGA.PRORROGA ? <span aria-label="En prórroga vigente">PR</span>
+                                    : '—'}
                                 </td>
-                              )),
+                                )
+                              }),
                               <td key={`avg-${p}`} data-col={colIndexByKey[`avg-${p}`]} className={`w-14 px-1.5 py-1 text-center font-bold border-l border-outline-variant transition-colors duration-estandar ${gradeColor(pd?.avg ?? null)} ${hl || gradeBodyCellBg(colIndexByKey[`avg-${p}`], i)}`}>
                                 {pd?.avg != null ? pd.avg : '—'}
                               </td>,
@@ -558,6 +573,12 @@ export default function TabCalificaciones() {
                     </tbody>
                   </table>
                 </div>
+
+                <ul data-nota="leyenda-estados" className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] leading-snug text-hint">
+                  <li><span className="font-semibold text-emerald-600">+</span> — Entregada, pendiente de calificación.</li>
+                  <li><span className="font-semibold text-red-500">—</span> — No entregada.</li>
+                  <li><span className="font-semibold text-on-surface">PR</span> — En prórroga vigente.</li>
+                </ul>
 
                 {FILA_VISIBILIDAD_ACTIVA && hayOcultas && (
                   <div data-nota="visibilidad" className="space-y-1 text-[11px] leading-snug text-hint">

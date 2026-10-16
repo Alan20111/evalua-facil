@@ -63,25 +63,29 @@ export function submissionFiles(sub) {
 }
 
 export const STATUS_COLORS = {
-  pendiente: 'bg-surface-container text-muted',
+  noentregado: 'bg-red-100 text-red-700',
+  prorroga: 'bg-orange-100 text-orange-700',
   entregado: 'bg-blue-100 text-blue-700',
   calificado: 'bg-emerald-100 text-emerald-700',
 }
 
 export const STATUS_LABELS = {
-  pendiente: 'Pendiente',
-  entregado: 'Entregado',
+  noentregado: 'No entregado',
+  prorroga: 'En prórroga',
+  entregado: 'Por calificar',
   calificado: 'Calificado',
 }
 
-// Filter-tab labels (plural, aligned with the badges): 'entregado' filters
-// what's delivered but not yet graded → 'Por calificar'
+// Filter-tab labels (plural, aligned with the badges). Los cuatro estados son
+// excluyentes (utils/estadoEntrega.js), así que suman el total de "Todos".
 export const FILTER_LABELS = {
   todos: 'Todos',
-  pendiente: 'Pendientes',
-  calificado: 'Calificados',
+  noentregado: 'No entregados',
+  prorroga: 'En prórroga',
   entregado: 'Por calificar',
+  calificado: 'Calificados',
 }
+export const FILTROS_ENTREGAS = ['todos', 'noentregado', 'prorroga', 'entregado', 'calificado']
 
 // Mientras el overlay de evaluar está abierto en nativo, el viewport background
 // (el área fuera del layout viewport) coincide con el fondo del overlay (blanco),

@@ -11,7 +11,7 @@
 // (EntregableEditor) y evaluaciones (EvaluacionEditor).
 
 import { collection, getDocs, query, where } from 'firebase/firestore'
-import { studentFullName } from './studentSearch'
+import { studentFullName } from './studentSearch.js'
 
 export function groupExtensions(extensiones, extensionesMotivo, students) {
   const byKey = new Map()

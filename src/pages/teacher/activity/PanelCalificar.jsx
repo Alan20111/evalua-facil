@@ -7,7 +7,7 @@ import { Button, Checkbox, Input } from '../../../components/ui'
 import CalificarConIAModal from '../../../components/rubrica/CalificarConIAModal'
 import EFDateTimePicker from '../../../components/EFDateTimePicker'
 import EnlaceEntregado from '../../../components/EnlaceEntregado'
-import { FILTER_LABELS, STATUS_COLORS, STATUS_LABELS, formatLateness, isImageFile } from './utilidades'
+import { FILTER_LABELS, FILTROS_ENTREGAS, STATUS_COLORS, STATUS_LABELS, formatLateness, isImageFile } from './utilidades'
 import { FilePreview, canPreviewFile } from '../../../components/AttachmentList'
 import { ICONO } from '../../../config/iconos'
 import { IS_NATIVE_APP, PUEDE_AUTOFOCUS } from '../../../utils/platform'
@@ -328,7 +328,7 @@ export default function PanelCalificar() {
 
                 {/* Filter tabs — same sets as the list; switching re-freezes navigation */}
                 <div className="grid grid-cols-2 gap-1.5 bg-surface-container p-1 rounded">
-                  {['todos', 'pendiente', 'calificado', 'entregado'].map((f) => (
+                  {FILTROS_ENTREGAS.map((f) => (
                     <button
                       type="button"
                       key={f}
