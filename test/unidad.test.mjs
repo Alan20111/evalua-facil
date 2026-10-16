@@ -19,7 +19,7 @@ import { extraerAssets } from '../api/_lib/cloudinary.js'
 import {
   promedioParcial, notasParaPromedio, cuentaEnPromedioDelAlumno, ceroPorFaltaDeEntrega, estadoSumaPesos, actividadesQueCuentan, pesosSumanDiez, ponderacionActivaEnParcial, normalizeGrade,
   estadoParcial, resultadoPublicadoAlumno, pesosVisiblesAlumno, puedeIniciarAtencion, ocultarPesosNoPublicados,
-  parcialCerrado, esNotaAutomaticaDeCierre,
+  parcialCerrado, esNotaAutomaticaDeCierre, esSinEntregaSinNota,
 } from '../src/utils/ponderacion.js'
 import {
   totalRubrica, validarCotejo, validarRubrica, RUBRICA_TOTAL,
@@ -8006,6 +8006,104 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     const acts = [ev('a'), ev('b', 1, { fechaLimiteTS: ts(FUTURO) }), ev('c', 1, { sinCalificacion: true }), ev('d', 1, { oculta: true })]
     const subs = [conNota(10), undefined, { estado: 'entregado', calificacion: null }, { estado: 'entregado', calificacion: null }]
     assert.strictEqual(prom(acts, [10, null, null, null], subs), 10)
+  })
+
+  // ── «No entregó» sin nota: estado `calificado` + `sinEntrega: true` + sin calificación ──
+  const sinNota = { estado: 'calificado', sinEntrega: true }          // calificacion AUSENTE (forma real de producción)
+  const sinNotaNull = { estado: 'calificado', sinEntrega: true, calificacion: null }
+
+  caso('sinEntrega sin nota: calificacion ausente cuenta como 0 y entra al divisor (caso real 55/10, no 55/9)', () => {
+    // Arroyo, «Mtto impresoras y multif»: 10, 9, 0, 0, [sinEntrega sin nota], [sin documento y vencida], 8, 8, 10, 10
+    const acts = Array.from({ length: 10 }, (_, i) => ev('r' + i))
+    const subs = [conNota(10), conNota(9), conNota(0), conNota(0), sinNota, undefined, conNota(8), conNota(8), conNota(10), conNota(10)]
+    const notas = subs.map((s) => s?.calificacion ?? null)
+    assert.strictEqual(prom(acts, notas, subs), 5.5)
+    assert.strictEqual(promedioParcial(acts, notas, false), 55 / 8, 'sin ninguna regla de cero')
+  })
+
+  caso('sinEntrega sin nota: calificacion null también cuenta como 0', () => {
+    const acts = [ev('a'), ev('b')]
+    assert.strictEqual(prom(acts, [10, null], [conNota(10), sinNotaNull]), 5)
+    assert.strictEqual(prom(acts, [10, null], [conNota(10), sinNota]), 5)
+  })
+
+  caso('sinEntrega con nota numérica: conserva la nota y no se cuenta dos veces', () => {
+    const acts = [ev('a'), ev('b')]
+    const conNotaSE = { estado: 'calificado', sinEntrega: true, calificacion: 7 }
+    assert.strictEqual(prom(acts, [10, 7], [conNota(10), conNotaSE]), 8.5)
+    assert.deepStrictEqual(notasParaPromedio(acts, [10, 7], [conNota(10), conNotaSE], { subject: subj(), alumno, ahora: AHORA }), [10, 7])
+    // Un 0 numérico es una nota real, no ausencia de nota.
+    assert.strictEqual(prom(acts, [10, 0], [conNota(10), { ...conNotaSE, calificacion: 0 }]), 5)
+    assert.strictEqual(esSinEntregaSinNota({ ...conNotaSE, calificacion: 0 }), false)
+  })
+
+  caso('sinEntrega sin nota: NO toca lo demás — pendiente entregado, sin documento vigente o vencido, intento en curso', () => {
+    const acts = [ev('a'), ev('b', 1, { fechaLimiteTS: ts(FUTURO) })]
+    assert.strictEqual(prom(acts, [10, null], [conNota(10), undefined]), 10, 'sin documento y vigente: fuera')
+    assert.strictEqual(prom([ev('a'), ev('b')], [10, null], [conNota(10), { estado: 'entregado', calificacion: null }]), 5, 'pendiente entregado: sigue valiendo 0 (regla de #1637)')
+    assert.strictEqual(prom([ev('a'), ev('b')], [10, null], [conNota(10), { estado: 'pendiente', sinEntrega: true, estadoEvaluacion: 'en_progreso' }]), 10, 'no es calificado: no entra')
+    assert.strictEqual(prom([ev('a'), ev('b')], [10, null], [conNota(10), undefined]), 5, 'sin documento y vencida: sigue valiendo 0')
+  })
+
+  caso('sinEntrega sin nota: actividad sin calificación o borrador sigue fuera; parcial oculto no entra al promedio del estudiante', () => {
+    const subs = [conNota(10), sinNota]
+    assert.strictEqual(prom([ev('a'), ev('b', 1, { sinCalificacion: true })], [10, null], subs), 10)
+    assert.strictEqual(prom([ev('a'), ev('b', 1, { evaluacion: { sinCalificacion: true } })], [10, null], subs), 10)
+    assert.strictEqual(prom([ev('a'), ev('b', 1, { oculta: true })], [10, null], subs), 10, 'borrador')
+    const oculto = subj({ parcialesOcultos: [1] })
+    assert.strictEqual(cuentaEnPromedioDelAlumno(ev('b'), sinNota, oculto), false, 'parcial oculto: la actividad no entra a su promedio')
+    assert.strictEqual(cuentaEnPromedioDelAlumno(ev('b'), sinNota, subj()), true)
+  })
+
+  caso('sinEntrega sin nota: promedio ponderado idéntico (aporta 0 con divisor 10; la nota no se toca)', () => {
+    const sp = subj({ ponderacionActivada: true })
+    const pond = [ev('a', 1, { pesoCalificacion: 6 }), ev('b', 1, { pesoCalificacion: 4 })]
+    const subs = [conNota(10), sinNota]
+    assert.deepStrictEqual(notasParaPromedio(pond, [10, null], subs, { subject: sp, alumno, ahora: AHORA }), [10, null])
+    assert.strictEqual(prom(pond, [10, null], subs, sp, true), 6)
+  })
+
+  caso('sinEntrega sin nota: el 0 del parcial entra al promedio final (media de parciales con valor)', () => {
+    const p1 = prom([ev('a'), ev('b')], [10, null], [conNota(10), sinNota])        // 5
+    const p2 = prom([ev('c', 2)], [8], [conNota(8)])                               // 8
+    assert.deepStrictEqual([p1, p2], [5, 8])
+    assert.strictEqual(parseFloat(((p1 + p2) / 2).toFixed(1)), 6.5)
+  })
+
+  caso('clasificación de documentos: solo calificado + sinEntrega + sin nota numérica es «sin entrega sin nota»', () => {
+    // [estado, sinEntrega, calificacion, ¿es sinEntrega sin nota?]
+    const tabla = [
+      ['calificado', true, undefined, true], ['calificado', true, null, true],
+      ['calificado', true, 0, false], ['calificado', true, 7.5, false],
+      ['calificado', undefined, undefined, false], ['calificado', false, undefined, false],
+      ['entregado', true, undefined, false], ['pendiente', true, undefined, false],
+    ]
+    for (const [estado, sinEntrega, calificacion, esperado] of tabla) {
+      const doc = { estado, ...(sinEntrega !== undefined ? { sinEntrega } : {}), ...(calificacion !== undefined ? { calificacion } : {}) }
+      assert.strictEqual(esSinEntregaSinNota(doc), esperado, JSON.stringify(doc))
+      // Nunca queda excluido (null) cuando es «sin entrega sin nota», en promedio simple.
+      if (esperado) assert.deepStrictEqual(notasParaPromedio([ev('a')], [null], [doc], { subject: subj(), alumno, ahora: AHORA }), [0], JSON.stringify(doc))
+    }
+    assert.strictEqual(esSinEntregaSinNota(undefined), false)
+  })
+
+  caso('paridad: tabla del docente, estudiante/servidor (promediosAlumno) e informe de asignatura dan el MISMO promedio', () => {
+    const acts = Array.from({ length: 5 }, (_, i) => ev('z' + i, 1, { orden: i + 1, publishedAt: '2026-08-01T08:00' }))
+    const subs = { z0: conNota(10), z1: conNota(8), z2: sinNota, z3: { estado: 'entregado', calificacion: null } /* z4: sin documento, vencida */ }
+    const notas = acts.map((a) => normalizeGrade(subs[a.id]?.calificacion, a.maxCalif, { decimals: 1 }))
+    const docente = parseFloat(promedioParcial(acts, notasParaPromedio(acts, notas, acts.map((a) => subs[a.id]), { subject: subj(), alumno, ahora: AHORA }), false).toFixed(1))
+    const estudiante = promediosAlumno(subj(), acts, subs, alumno, AHORA).parciales[1].valor
+    const entregas = new Map(acts.filter((a) => subs[a.id]).map((a) => [a.id, new Map([['al1', subs[a.id]]])]))
+    const informe = FAA.agregarAsignatura({
+      subject: { ...subj(), parcialesFechas: [{ inicio: '2026-08-01', fin: '2026-10-31' }] },
+      students: [{ id: 'al1', nombre: 'A', apellidoPaterno: 'B', apellidoMaterno: 'C', createdAt: alumno.createdAt }],
+      activities: acts.map((a) => ({ ...a, categoria: 'entregable', tipo: 'archivo', nombre: a.id })),
+      entregas, attendance: [], parciales: [1], fuentes: ['entregables'], umbrales: UMBRALES_AA, ahora: new Date(AHORA), textoPlano: FIA.textoPlano,
+    }).datos.parciales[0].promedioGrupo
+    // 10 + 8 + 0 (sinEntrega sin nota) + 0 (pendiente) + 0 (sin documento vencida) = 18 / 5 = 3.6
+    assert.strictEqual(docente, 3.6)
+    assert.strictEqual(estudiante, 3.6)
+    assert.strictEqual(informe, 3.6)
   })
 
   caso('ponderado intacto: la entrega pendiente sigue aportando 0 con divisor 10, y el resultado no cambia', () => {

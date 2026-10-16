@@ -194,18 +194,27 @@ const entregaPendienteDeCalificar = (a, sub) =>
   !!sub && sub.calificacion == null && sub.estado === 'entregado' &&
   sub.estadoEvaluacion !== 'en_progreso' && cuentaParaCalificacion(a)
 
+// «No entregó» registrado por el docente sin nota: documento `calificado`, con
+// `sinEntrega: true` y SIN calificación (ausente o null; un 0 numérico es una
+// nota legítima y no entra aquí). Es una decisión explícita, no un pendiente.
+export const esSinEntregaSinNota = (sub) =>
+  !!sub && sub.estado === 'calificado' && sub.sinEntrega === true && sub.calificacion == null
+
 // Notas (normalizadas, null = sin nota) → notas para PROMEDIAR: igual que
 // `grades`, salvo las actividades que valen cero por falta de entrega y, SOLO en
-// el promedio simple, la entrega ya recibida pero pendiente de calificar (cuenta
-// como 0 en el numerador y en el denominador). En el ponderado esa entrega ya
-// aporta 0 con el divisor fijo de 10, así que aquí no se toca.
+// el promedio simple, la entrega ya recibida pero pendiente de calificar y el
+// «no entregó» sin nota (esSinEntregaSinNota): cuentan como 0 en el numerador y
+// en el denominador. En el ponderado esos casos ya aportan 0 con el divisor fijo
+// de 10, así que aquí no se tocan.
 // `subs[i]` es el documento del estudiante en `acts[i]` (o undefined).
 export function notasParaPromedio(acts, grades, subs, ctx) {
   const simple = !(ponderacionActivaEnParcial(ctx?.subject, acts[0]?.parcial) && acts.some((a) => pesoDe(a) > 0))
   return grades.map((g, i) => {
     if (g !== null && g !== undefined) return g
     if (ceroPorFaltaDeEntrega(acts[i], subs?.[i], ctx)) return 0
-    return simple && entregaPendienteDeCalificar(acts[i], subs?.[i]) ? 0 : g
+    if (!simple) return g
+    if (entregaPendienteDeCalificar(acts[i], subs?.[i])) return 0
+    return esSinEntregaSinNota(subs?.[i]) && cuentaParaCalificacion(acts[i]) ? 0 : g
   })
 }
 
