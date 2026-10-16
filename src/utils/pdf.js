@@ -3,7 +3,8 @@
 import { subjectDisplayName } from './subjectName'
 import { promedioParcial, notasParaPromedio, ponderacionActivaEnParcial, normalizeGrade } from './ponderacion'
 import { cuentaParaCalificacion } from './activityVisibility'
-import { subjectPeriodLabel } from './dateRange'
+import { subjectPeriodLabel, cicloEscolarDe } from './dateRange'
+import { escuelaConCct } from './membrete'
 import { studentFullName as fullName } from './studentSearch'
 import { savePdfDoc } from './exportGuard'
 // Exentos a propósito del candado de descarga por saldo de créditos (ver
@@ -101,7 +102,7 @@ function drawDocHeader(doc, { membrete, subject, subtitulo = '', destacado = '' 
   let y = 16
   if (membrete?.escuela) {
     doc.setFont(undefined, 'bold'); doc.setFontSize(9); doc.setTextColor(120)
-    doc.text(membrete.escuela.toUpperCase(), 14, y - 6)
+    doc.text(escuelaConCct(membrete).toUpperCase(), 14, y - 6)
   }
   doc.setFont(undefined, 'bold'); doc.setFontSize(15); doc.setTextColor(20)
   doc.text(subjectDisplayName(subject) || 'Asignatura', 14, y)
@@ -113,7 +114,8 @@ function drawDocHeader(doc, { membrete, subject, subtitulo = '', destacado = '' 
   // Docente y periodo comparten renglón: son las dos señas del documento que
   // se leen al final, no el título.
   const periodo = subjectPeriodLabel(subject)
-  const pie = [membrete?.docente ? `Docente: ${membrete.docente}` : '', periodo].filter(Boolean).join(' · ')
+  const ciclo = cicloEscolarDe(subject)
+  const pie = [membrete?.docente ? `Docente: ${membrete.docente}` : '', periodo, ciclo ? `Ciclo Escolar ${ciclo}` : ''].filter(Boolean).join(' · ')
   if (pie) {
     y += 5.5
     doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(120)
@@ -125,6 +127,16 @@ function drawDocHeader(doc, { membrete, subject, subtitulo = '', destacado = '' 
     doc.text(destacado, 14, y)
   }
   return y + 8
+}
+
+// Firma del docente bajo la tabla de los reportes de calificaciones: el PDF
+// se entrega a dirección tal cual. Si no cabe en la página, abre una nueva.
+function drawFirma(doc, membrete) {
+  let y = (doc.lastAutoTable?.finalY ?? 20) + 22
+  if (y > doc.internal.pageSize.getHeight() - 20) { doc.addPage(); y = 30 }
+  doc.setFont(undefined, 'normal'); doc.setFontSize(9); doc.setTextColor(60)
+  doc.text('_________________________________', 14, y)
+  doc.text(membrete?.docente || 'Nombre y firma del docente', 14, y + 5)
 }
 
 function safeFile(subject) {
@@ -206,6 +218,7 @@ export async function exportRankingPDF({ subject, rows, label, membrete = null, 
       2: { halign: 'center', cellWidth: 26, fontStyle: 'bold' },
     },
   })
+  drawFirma(doc, membrete)
   if (watermark) addPdfFooter(doc)
   const safeLabel = label.toLowerCase().replace(/\s+/g, '')
   await savePdfDoc(doc, `ranking_${safeLabel}_${safeFile(subject)}.pdf`)
@@ -267,6 +280,7 @@ export async function exportSubjectGradesPDF({ subject, activities, students, su
     },
   })
 
+  drawFirma(doc, membrete)
   if (watermark) addPdfFooter(doc)
   await savePdfDoc(doc, `calificaciones_${safeFile(subject)}.pdf`)
 }
@@ -321,6 +335,7 @@ export async function exportParcialGradesPDF({ subject, activities, students, su
     },
   })
 
+  drawFirma(doc, membrete)
   if (watermark) addPdfFooter(doc)
   await savePdfDoc(doc, `calificaciones_parcial${parcial}_${safeFile(subject)}.pdf`)
 }

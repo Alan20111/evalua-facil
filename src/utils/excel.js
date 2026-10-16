@@ -1,8 +1,8 @@
 import * as XLSX from 'xlsx'
 import { subjectDisplayName } from './subjectName'
-import { subjectPeriodLabel } from './dateRange'
+import { subjectPeriodLabel, cicloEscolarDe } from './dateRange'
 import { promedioParcial, notasParaPromedio, pesoDe, ponderacionActivaEnParcial, normalizeGrade } from './ponderacion'
-import { attendanceState, countPresence, fmtAttDateParts } from './attendance'
+import { attendanceState, countPresence, fmtAttDateParts, fmtAttMonth } from './attendance'
 import { studentFullName } from './studentSearch'
 import { cuentaParaCalificacion, sinCalificacion } from './activityVisibility'
 import { saveBlob } from './exportGuard'
@@ -75,19 +75,25 @@ function spacerRow(watermark) {
 
 // Los tres renglones con que abre TODA hoja exportada:
 //   1  Cultura Digital I — 1A   (Ago 2025 – Ene 2026)   ← título del reporte
-//   2  CBTIS 255 · Docente: Ing. Ana Ruiz               ← membrete
+//   2  CBTIS 255 · CCT: … · Docente: … · Ciclo Escolar …  ← membrete
 //   3  (separador; en periodo de prueba, la leyenda de marca de agua)
 // Siempre son TRES, aunque el docente no tenga escuela o el membrete venga
 // vacío: los encabezados de columna quedan en la fila 4 y los datos en la 5 en
 // todas las hojas, así que los merges y los altos de fila no tienen que
 // calcularse caso por caso.
 const HEADER_ROWS = 3
-function headerRows(titulo, membrete, watermark, totalCols) {
+function headerRows(titulo, membrete, watermark, totalCols, subject = null) {
   const titleRow = Array(totalCols).fill('')
   titleRow[0] = titulo
   const membreteRow = Array(totalCols).fill('')
-  membreteRow[0] = membreteLinea(membrete)
+  membreteRow[0] = membreteLinea(membrete, cicloEscolarDe(subject))
   return [titleRow, membreteRow, spacerRow(watermark)]
+}
+
+// Renglones de firma al final de los reportes de calificaciones/asistencia:
+// así el documento se entrega a dirección sin escribirle nada a mano.
+function firmaRows(membrete) {
+  return [[], [], ['_________________________________'], [membrete?.docente || 'Nombre y firma del docente']]
 }
 
 // Merges de esos dos renglones de texto (título y membrete) a lo ancho de la
@@ -208,7 +214,7 @@ export async function exportRankingExcel({ subject, rows, label, membrete = null
   const titulo = `${subjectDisplayName(subject)} — Ranking · ${label}${periodo ? `   (${periodo})` : ''}`
   const nameRow = ['LUGAR', 'NOMBRE', label]
   const dataRows = rows.map((r) => [r.lugar, r.nombre, r.promedio != null ? r.promedio : '—'])
-  const allRows = [...headerRows(titulo, membrete, watermark, 3), nameRow, ...dataRows]
+  const allRows = [...headerRows(titulo, membrete, watermark, 3, subject), nameRow, ...dataRows, ...firmaRows(membrete)]
 
   addSheetFromRows(workbook, 'Ranking', allRows, {
     merges: headerMerges(3),
@@ -261,10 +267,10 @@ export async function exportParcialGrades({ subject, activities, students, submi
     return row
   })
 
-  const cabecera = headerRows(titulo, membrete, watermark, totalCols)
+  const cabecera = headerRows(titulo, membrete, watermark, totalCols, subject)
   const allRows = pondOn
-    ? [...cabecera, pesoRow, nameRow, ...dataRows]
-    : [...cabecera, nameRow, ...dataRows]
+    ? [...cabecera, pesoRow, nameRow, ...dataRows, ...firmaRows(membrete)]
+    : [...cabecera, nameRow, ...dataRows, ...firmaRows(membrete)]
 
   addSheetFromRows(workbook, `Parcial ${parcial}`, allRows, {
     merges: headerMerges(totalCols),
@@ -379,10 +385,10 @@ export async function exportSubjectGrades({
     return row
   })
 
-  const cabecera = headerRows(titulo, membrete, watermark, totalCols)
+  const cabecera = headerRows(titulo, membrete, watermark, totalCols, subject)
   const allRows = anyPond
-    ? [...cabecera, sectionRow, pesoRowFull, nameRow, ...dataRows]
-    : [...cabecera, sectionRow, nameRow, ...dataRows]
+    ? [...cabecera, sectionRow, pesoRowFull, nameRow, ...dataRows, ...firmaRows(membrete)]
+    : [...cabecera, sectionRow, nameRow, ...dataRows, ...firmaRows(membrete)]
 
   // Merges: los dos renglones de texto del encabezado + el nombre de cada
   // parcial sobre sus columnas (la fila de secciones va justo después).
@@ -420,6 +426,21 @@ function attendanceColumnHeaders(days) {
     })
   })
   return headers
+}
+
+// Tramos "Mes Año" que agrupan las columnas de día por mes — el mismo
+// agrupamiento que la tabla en pantalla (`months` lo arma SubjectPage con
+// groupDaysByMonth). `start` es 0-indexado dentro del bloque de días de ESE
+// parcial; `span`, cuántas columnas (sesiones) ocupa el mes.
+function attendanceMonthSpans(months) {
+  const spans = []
+  let col = 0
+  ;(months || []).forEach((mo) => {
+    const span = mo.days.reduce((n, d) => n + d.records.length, 0)
+    spans.push({ label: fmtAttMonth(mo.ym), start: col, span })
+    col += span
+  })
+  return spans
 }
 
 // Sesión sin registro del alumno (no tiene llave: alta posterior a la
@@ -467,7 +488,7 @@ export async function exportEvaluacionResultadosExcel({
   // ── Hoja 1: Resumen ──
   const entregas = Object.values(submissions || {}).filter((s) => s?.estadoEvaluacion === 'finalizado').length
   addSheetFromRows(workbook, 'Resumen', [
-    ...headerRows(titulo, membrete, watermark, 2),
+    ...headerRows(titulo, membrete, watermark, 2, subject),
     ['MÉTRICA', 'VALOR'],
     ['Promedio', stats?.promedio ?? 0],
     ['Calificación máxima', stats?.maxima ?? 0],
@@ -498,7 +519,7 @@ export async function exportEvaluacionResultadosExcel({
     ]
   })
   addSheetFromRows(workbook, 'Calificaciones', [
-    ...headerRows(titulo, membrete, watermark, califHead.length), califHead, ...califRows,
+    ...headerRows(titulo, membrete, watermark, califHead.length, subject), califHead, ...califRows,
   ], {
     merges: headerMerges(califHead.length),
     colWidths: [4, 42, 15, 14, 16, 20, 15, 9],
@@ -513,7 +534,7 @@ export async function exportEvaluacionResultadosExcel({
     ...(preguntas || []).map((p) => textoRespuestaAlumno(p, porAlumno?.[s.id]?.[p.id])),
   ])
   addSheetFromRows(workbook, 'Respuestas', [
-    ...headerRows(titulo, membrete, watermark, respHead.length), respHead, ...respRows,
+    ...headerRows(titulo, membrete, watermark, respHead.length, subject), respHead, ...respRows,
   ], {
     merges: headerMerges(respHead.length),
     colWidths: [4, 42, ...(preguntas || []).map(() => 30)],
@@ -521,7 +542,7 @@ export async function exportEvaluacionResultadosExcel({
   })
 
   // ── Hoja 4: Por reactivo ──
-  const porReactivo = [...headerRows(titulo, membrete, watermark, 4)]
+  const porReactivo = [...headerRows(titulo, membrete, watermark, 4, subject)]
   if (!graficables.length) {
     porReactivo.push(['Este cuestionario/examen no tiene reactivos de opción múltiple ni de verdadero/falso.'])
   }
@@ -565,6 +586,11 @@ export async function exportParcialAttendance({ subject, students, attendancePar
   const periodo = subjectPeriodLabel(subject)
   const titulo = `${subjectDisplayName(subject)} — Asistencia · Parcial ${parcial}${periodo ? `   (${periodo})` : ''}`
 
+  // Rejilla mensual: una fila "Mes Año" sobre los días, como en pantalla.
+  const monthSpans = attendanceMonthSpans(g?.months)
+  const monthRow = Array(totalCols).fill('')
+  monthSpans.forEach(({ label, start }) => { monthRow[FIXED + start] = label })
+
   const nameRow = ['#', 'NOMBRE', ...dayHeaders, 'Asist.', 'Faltas', 'Justif.', '% Asist.', 'Sesiones']
 
   const todayISO = new Date().toISOString().slice(0, 10)
@@ -579,12 +605,16 @@ export async function exportParcialAttendance({ subject, students, attendancePar
     return row
   })
 
-  const allRows = [...headerRows(titulo, membrete, watermark, totalCols), nameRow, ...dataRows]
+  const allRows = [...headerRows(titulo, membrete, watermark, totalCols, subject), monthRow, nameRow, ...dataRows, ...firmaRows(membrete)]
 
+  const MONTH_ROW = HEADER_ROWS + 1
   addSheetFromRows(workbook, `Parcial ${parcial}`, allRows, {
-    merges: headerMerges(totalCols),
+    merges: [
+      ...headerMerges(totalCols),
+      ...monthSpans.filter((m) => m.span > 1).map((m) => [MONTH_ROW, FIXED + m.start + 1, MONTH_ROW, FIXED + m.start + m.span]),
+    ],
     colWidths: [4, 42, ...Array(dayHeaders.length).fill(9), 8, 8, 8, 9, 9],
-    rowHeights: [[1, 22], [HEADER_ROWS + 1, 18]],
+    rowHeights: [[1, 22], [MONTH_ROW + 1, 18]],
   })
 
   const safeName = safeExcelName(subject)
@@ -617,6 +647,18 @@ export async function exportSubjectAttendance({ subject, students, attendancePar
   })
   sectionRow[col] = 'TOTAL'
 
+  // Rejilla mensual: dentro del bloque de cada parcial, una celda "Mes Año"
+  // por mes (un nivel por debajo de sectionRow), como en pantalla.
+  const monthRow = Array(totalCols).fill('')
+  const monthMerges = []
+  parcialMeta.forEach((m) => {
+    const base = parcialRanges[m.parcial].start
+    attendanceMonthSpans(m.months).forEach(({ label, start, span }) => {
+      monthRow[base + start] = label
+      if (span > 1) monthMerges.push([base + start, base + start + span - 1])
+    })
+  })
+
   const nameRow = ['#', 'NOMBRE']
   parcialMeta.forEach((m) => { nameRow.push(...m.dayHeaders, 'Asist.', 'Faltas', 'Justif.', '% Asist.', 'Sesiones') })
   nameRow.push('Total Asist.', 'Total Faltas')
@@ -640,19 +682,21 @@ export async function exportSubjectAttendance({ subject, students, attendancePar
     return row
   })
 
-  const allRows = [...headerRows(titulo, membrete, watermark, totalCols), sectionRow, nameRow, ...dataRows]
+  const allRows = [...headerRows(titulo, membrete, watermark, totalCols, subject), sectionRow, monthRow, nameRow, ...dataRows, ...firmaRows(membrete)]
 
   const SECTION_ROW = HEADER_ROWS + 1
+  const MONTH_ROW = SECTION_ROW + 1
   const merges = [
     ...headerMerges(totalCols),
     ...parcialMeta.map((m) => [SECTION_ROW, parcialRanges[m.parcial].start + 1, SECTION_ROW, parcialRanges[m.parcial].end + 1]),
+    ...monthMerges.map(([c1, c2]) => [MONTH_ROW, c1 + 1, MONTH_ROW, c2 + 1]),
   ]
 
   const dayColWidths = parcialMeta.flatMap((m) => [...Array(m.dayHeaders.length).fill(9), 8, 8, 8, 9, 9])
   addSheetFromRows(workbook, 'Asistencia', allRows, {
     merges,
     colWidths: [4, 42, ...dayColWidths, 9, 9],
-    rowHeights: [[1, 22], [SECTION_ROW, 18], [SECTION_ROW + 1, 18]],
+    rowHeights: [[1, 22], [SECTION_ROW, 18], [MONTH_ROW + 1, 18]],
   })
 
   const safeName = safeExcelName(subject)
