@@ -2,16 +2,13 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   collection,
-  query,
-  where,
-  getDocs,
   getDoc,
   setDoc,
   updateDoc,
   doc,
-  onSnapshot,
   serverTimestamp,
   writeBatch,
+  Timestamp,
 } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { submissionDocId } from '../../utils/submissionId'
@@ -34,7 +31,10 @@ import { isActivityPublished, cuentaParaCalificacion } from '../../utils/activit
 import { publicacionVisible } from '../../utils/evaluacionGrading'
 import { normalizeGrade, parcialCerrado } from '../../utils/ponderacion'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
-import { fetchActivity, fetchContent } from '../../utils/apiContent'
+import { fetchActivity, fetchContent, fetchMisEntregas } from '../../utils/apiContent'
+import { estaCalificada, notaEstaOculta } from '../../utils/entregasCliente'
+import useSondeoEntrega from '../../hooks/useSondeoEntrega'
+import NotaOculta from '../../components/NotaOculta'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../../utils/sanitizeHtml'
 import AttachmentList from '../../components/AttachmentList'
 import { uploadToCloudinary, downloadUrl } from '../../utils/cloudinary'
@@ -129,16 +129,13 @@ export default function StudentActivityPage() {
 
   // La calificación de una evaluación la escribe el SERVIDOR (Cloud Function
   // onEvaluacionFinalizada) unos instantes después de que el alumno finaliza —
-  // este listener refleja esa nota (y cualquier calificación del docente) en
-  // vivo, sin que el alumno tenga que recargar.
-  useEffect(() => {
-    if (!submission?.id) return
-    const unsub = onSnapshot(doc(db, 'submissions', submission.id), (snap) => {
-      if (snap.exists()) setSubmission({ id: snap.id, ...snap.data() })
-    })
-    return () => unsub()
-    // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- solo re-suscribe al cambiar el doc
-  }, [submission?.id])
+  // este sondeo refleja esa nota (y cualquier calificación del docente) sin que
+  // el alumno tenga que recargar. Antes era un `onSnapshot` directo a Firestore;
+  // ahora la entrega llega por el servidor, que le quita lo que el docente ocultó
+  // (hooks/useSondeoEntrega.js). Mientras espera la nota pregunta cada 3 s; luego, cada 60 s.
+  const { invalidar: invalidarSondeo } = useSondeoEntrega({
+    activityId, activo: !!submission?.id && !!currentUser, submission, setSubmission,
+  })
 
   // One-time load for everything else (student, subject, submission). Guarded on
   // `currentUser` — on a fresh/incognito session Firebase Auth may not have restored
@@ -149,6 +146,7 @@ export default function StudentActivityPage() {
 
   async function loadOther() {
     setLoading(true)
+    invalidarSondeo() // lo que el sondeo tenga en vuelo ya es viejo: esta carga manda
     try {
       // F-09: el servidor verifica la inscripción antes de entregar la actividad
       let actData
@@ -205,14 +203,10 @@ export default function StudentActivityPage() {
       }
       setStudent(studData)
 
-      const subsSnap = await getDocs(query(
-        collection(db, 'submissions'),
-        where('actividadId', '==', activityId),
-        where('alumnoId', '==', studData.id)
-      ))
-      if (subsSnap && !subsSnap.empty) {
-        setSubmission({ id: subsSnap.docs[0].id, ...subsSnap.docs[0].data() })
-      }
+      // La entrega llega por el servidor SIN lo que el docente ocultó (la nota se
+      // quita allá, no aquí). Las ESCRITURAS siguen yendo directo a Firestore.
+      const { entregas } = await fetchMisEntregas({ actividadId: activityId })
+      if (entregas.length) setSubmission(entregas[0])
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {
@@ -357,7 +351,10 @@ export default function StudentActivityPage() {
         actividadId: activityId,
         alumnoId: student.id,
         submissionId: submission.id,
-        fechaEntrega: submission.fechaEntrega ?? null,
+        // Llega del servidor como { seconds, nanoseconds, toDate }; Firestore solo guarda un Timestamp.
+        fechaEntrega: submission.fechaEntrega?.seconds != null
+          ? new Timestamp(submission.fechaEntrega.seconds, submission.fechaEntrega.nanoseconds || 0)
+          : null,
         tarde: submission.tarde === true,
         fechaAnulacion: serverTimestamp(),
         anuladaPor: 'estudiante',
@@ -371,6 +368,7 @@ export default function StudentActivityPage() {
       batch.delete(doc(db, 'submissions', submission.id))
       await batch.commit()
       setSubmission(null)
+      invalidarSondeo() // un sondeo que ya salió no debe resucitar la entrega anulada
       setConfirmandoAnular(false)
       setRecienAnulada(true)
       toast('Entrega anulada')
@@ -444,9 +442,11 @@ export default function StudentActivityPage() {
         // reintentarlo lo retoma y lo limpia (el Runner también se autolimpia
         // al cargar, ver EvaluacionRunner.jsx) — nunca se sigue de largo
         // dando por buena una limpieza que no ocurrió.
-        const respAnterioresSnap = await getDocs(collection(db, 'submissions', submission.id, 'respuestas'))
+        // (Los ids de las respuestas anteriores vienen del servidor; la limpieza en sí
+        // sigue escribiendo directo, igual que siempre.)
+        const { respuestas: respAnteriores } = await fetchMisEntregas({ actividadId: activityId, respuestas: true })
         try {
-          await limpiarRespuestas(db, respAnterioresSnap.docs.map((d) => d.ref))
+          await limpiarRespuestas(db, respAnteriores.map((r) => doc(db, 'submissions', submission.id, 'respuestas', r.id)))
         } catch {
           toast('No pudimos dejar tu examen en blanco para el intento nuevo. Revisa tu conexión y vuelve a pulsar el botón.', 'error')
           return
@@ -556,7 +556,9 @@ export default function StudentActivityPage() {
     const conPuntos = ev.ponderarReactivos !== false
     const resultadosVisibles = finalizado && conPuntos &&
       publicacionVisible(ev.publicarResultados, ev.publicarResultadosFecha, ev.resultadosPublicados, ahoraISO)
-    const respuestasVisibles = finalizado &&
+    // Con la nota oculta tampoco hay revisión: con las respuestas correctas y las
+    // suyas se podría calcular la nota. (El servidor tampoco manda las claves.)
+    const respuestasVisibles = finalizado && !notaEstaOculta(submission) &&
       publicacionVisible(ev.publicarRespuestas || 'inmediato', ev.publicarRespuestasFecha, ev.respuestasPublicadas, ahoraISO)
     // `submission.calificacion` es la que MANDA (la que fija la política
     // "Calificación a conservar" — mejor/primero/promedio/último) y no se
@@ -606,7 +608,9 @@ export default function StudentActivityPage() {
             {finalizado && (
               <div className="bg-surface-card rounded-card p-4 shadow-card">
                 {/* Grade — published independently from answers */}
-                {submission.pendienteRevision ? (
+                {notaEstaOculta(submission) ? (
+                  <NotaOculta />
+                ) : submission.pendienteRevision ? (
                   <p className="text-sm text-muted flex items-center gap-2">
                     <Clock size={ICONO.sm} className="flex-shrink-0" />
                     Tu evaluación fue entregada — algunas preguntas requieren revisión de tu maestro, tu calificación se actualizará cuando termine.
@@ -763,7 +767,8 @@ export default function StudentActivityPage() {
     //   2. el docente ya autorizó la publicación de la solución
     //      ("Publicar solución" en la configuración del juego).
     // Que la calificación esté publicada NO libera la solución, ni al revés.
-    const solucionVisibleJ = finalizadoJ && sinIntentosRestantesJ && publicacionVisible(
+    // Con la nota oculta tampoco hay solución (el servidor tampoco la entrega).
+    const solucionVisibleJ = finalizadoJ && !notaEstaOculta(submission) && sinIntentosRestantesJ && publicacionVisible(
       ev.publicarSolucion || 'inmediato', ev.publicarSolucionFecha, ev.solucionPublicada, new Date().toISOString()
     )
     const extendedDateJ = activity?.fechaLimite ? activity?.extensiones?.[student?.id] : null
@@ -807,7 +812,9 @@ export default function StudentActivityPage() {
           <div className={`px-4 py-5 space-y-3 ${STUDENT_CONTAINER}`}>
             {finalizadoJ && (
               <div className="bg-surface-card rounded-card p-4 shadow-card">
-                {submission.calificacion != null ? (
+                {notaEstaOculta(submission) ? (
+                  <NotaOculta />
+                ) : submission.calificacion != null ? (
                   <>
                     <div className="flex items-center gap-3 mb-3">
                       <Star size={ICONO.md} className="text-amber-400" />
@@ -912,7 +919,9 @@ export default function StudentActivityPage() {
     )
   }
 
-  const isGraded = submission?.calificacion != null
+  // «Calificada» ya no se deduce de `calificacion != null`: con la nota oculta el
+  // servidor quita ese campo y manda la bandera `calificada` (entregasCliente.js).
+  const isGraded = estaCalificada(submission)
   const isDelivered = !!submission && !isGraded
   const noFile = submission?.completadoSinArchivo
   // Modalidades de entrega que acepta la actividad (ver LINK_KEY en fileTypes.js)
@@ -1081,7 +1090,16 @@ export default function StudentActivityPage() {
         )}
 
         {/* Grade */}
-        {isGraded && (
+        {isGraded && notaEstaOculta(submission) && (
+          <div className="bg-surface-card rounded-card p-4 shadow-card">
+            <div className="flex items-center gap-3 mb-3">
+              <Star size={ICONO.md} className="text-amber-400" />
+              <h2 className="font-semibold text-on-surface">Tu calificación</h2>
+            </div>
+            <NotaOculta />
+          </div>
+        )}
+        {isGraded && !notaEstaOculta(submission) && (
           <div className="bg-surface-card rounded-card p-4 shadow-card">
             <div className="flex items-center gap-3 mb-3">
               <Star size={ICONO.md} className="text-amber-400" />
@@ -1146,7 +1164,7 @@ export default function StudentActivityPage() {
             )}
             <RubricaTable
               rubrica={activity.rubrica}
-              seleccion={isGraded ? submission?.rubricaEval : null}
+              seleccion={isGraded && !notaEstaOculta(submission) ? submission?.rubricaEval : null}
             />
           </div>
         )}

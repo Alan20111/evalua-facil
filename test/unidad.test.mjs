@@ -66,7 +66,7 @@ import {
   proyectarEntrega, proyectarRespuesta, promediosAlumno, paraJSON, CAMPOS_ENTREGA_OCULTA,
 } from '../src/utils/entregasAlumno.js'
 import {
-  estaCalificada, notaEstaOculta, promedioParcialVisible, promedioFinalVisible,
+  estaCalificada, notaEstaOculta, promedioParcialVisible, promedioFinalVisible, entregaMasReciente, esperandoNota,
 } from '../src/utils/entregasCliente.js'
 import {
   leerOcultas, actividadOculta, promedioOculto, finalOculto, rutaVisibilidad, estaOculto, conVisibilidad,
@@ -8991,18 +8991,138 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     assert.ok(api.includes('export function rehydrateTimestamps'))
   })
 
-  caso('PR 2b-1 NO toca los flujos con escrituras, ni reglas, ni la tabla del docente, ni fórmulas ni exportaciones', () => {
-    // ActivityPage, Runner, Juego y Revisión son del 2b-2: siguen leyendo como hoy.
-    for (const f of ['src/pages/student/ActivityPage.jsx', 'src/pages/student/EvaluacionRunner.jsx', 'src/pages/student/JuegoRunner.jsx', 'src/pages/student/EvaluacionRevision.jsx']) {
-      const src = leerFuente2b(f)
-      assert.ok(!/fetchMisEntregas|NotaOculta|entregasCliente/.test(src), `${f} es del 2b-2`)
-      assert.ok(/collection\(db, 'submissions'/.test(src), `${f} sigue como estaba`)
-    }
+  caso('el 2b no toca las reglas, la tabla del docente, las fórmulas ni las exportaciones', () => {
     assert.ok(!/entregasCliente|NotaOculta/.test(leerFuente2b('firestore.rules')))
     // La fila del docente sigue apagada: encenderla es el PR 2c.
     assert.ok(leerFuente2b('src/pages/teacher/subject/TabCalificaciones.jsx').includes('const FILA_VISIBILIDAD_ACTIVA = false'))
     for (const f of ['src/utils/ponderacion.js', 'src/utils/excel.js', 'src/utils/pdf.js']) {
       assert.ok(!/entregasCliente|promedioParcialVisible|promedioFinalVisible/.test(leerFuente2b(f)), `${f} sin cambios`)
+    }
+  })
+}
+
+
+// ═══ Flujos con escrituras del estudiante: lectura por el servidor, escrituras intactas (PR 2b-2) ═══
+// ActivityPage, Runner, Juego y Revisión leen la entrega por el endpoint filtrado (sin la nota
+// que el docente ocultó) y el `onSnapshot` pasa a un sondeo. Las ESCRITURAS no cambian.
+{
+  grupo('PR 2b-2 — entregaMasReciente, sondeo y cableado de los flujos con escrituras')
+  const leerFuente2c = (f) => readFileSync(new globalThis.URL(`../${f}`, import.meta.url), 'utf8').split('\r\n').join('\n')
+  const ts = (s) => ({ seconds: s, nanoseconds: 0 })
+
+  caso('entregaMasReciente: una lectura más vieja NUNCA pisa un estado más nuevo', () => {
+    const intento1 = { id: 'x', intentoActual: 1, intentos: [{ numero: 1 }], estadoEvaluacion: 'finalizado' }
+    const intento2 = { id: 'x', intentoActual: 2, intentos: [{ numero: 1 }], estadoEvaluacion: 'en_progreso' }
+    assert.strictEqual(entregaMasReciente(intento2, intento1), intento2, 'ya abrió el intento 2: no vuelve al 1')
+    assert.strictEqual(entregaMasReciente(intento1, intento2), intento2, 'y el nuevo sí reemplaza al viejo')
+    // Mismo intento: finalizado le gana a en_progreso, nunca al revés.
+    const enCurso = { id: 'x', intentoActual: 1, intentos: [], estadoEvaluacion: 'en_progreso' }
+    const final = { id: 'x', intentoActual: 1, intentos: [{ numero: 1 }], estadoEvaluacion: 'finalizado' }
+    assert.strictEqual(entregaMasReciente(final, enCurso), final)
+    assert.strictEqual(entregaMasReciente(enCurso, final), final)
+    // Un entregable: la fecha de entrega más nueva gana.
+    const e1 = { id: 'y', fechaEntrega: ts(100) }
+    const e2 = { id: 'y', fechaEntrega: ts(200) }
+    assert.strictEqual(entregaMasReciente(e2, e1), e2)
+    assert.strictEqual(entregaMasReciente(e1, e2), e2)
+  })
+
+  caso('entregaMasReciente: un empate se queda con la nueva (así llega la nota que acaba de escribir el servidor)', () => {
+    const sinNota = { id: 'x', intentoActual: 1, intentos: [{ numero: 1 }], estadoEvaluacion: 'finalizado', calificada: false }
+    const conNota = { id: 'x', intentoActual: 1, intentos: [{ numero: 1 }], estadoEvaluacion: 'finalizado', calificada: true }
+    assert.strictEqual(entregaMasReciente(sinNota, conNota), conNota)
+    const oculta = { ...conNota, notaOculta: true }
+    assert.strictEqual(entregaMasReciente(sinNota, oculta), oculta)
+  })
+
+  caso('entregaMasReciente: sin actual, sin nueva o con otro documento', () => {
+    const a = { id: 'a', intentoActual: 3 }
+    const b = { id: 'b', intentoActual: 1 }
+    assert.strictEqual(entregaMasReciente(null, a), a)
+    assert.strictEqual(entregaMasReciente(undefined, a), a)
+    assert.strictEqual(entregaMasReciente(a, null), a, 'sin entrega nueva no se borra nada')
+    assert.strictEqual(entregaMasReciente(a, undefined), a)
+    assert.strictEqual(entregaMasReciente(a, b), b, 'otro documento: manda el nuevo')
+    assert.strictEqual(entregaMasReciente(null, null), null)
+  })
+
+  caso('esperandoNota: terminó, no hay nota y no queda nada por revisar a mano', () => {
+    assert.strictEqual(esperandoNota({ estadoEvaluacion: 'finalizado' }), true)
+    assert.strictEqual(esperandoNota({ estadoEvaluacion: 'finalizado', calificada: true }), false, 'ya llegó (también si está oculta)')
+    assert.strictEqual(esperandoNota({ estadoEvaluacion: 'finalizado', calificacion: 0 }), false)
+    assert.strictEqual(esperandoNota({ estadoEvaluacion: 'finalizado', pendienteRevision: true }), false, 'espera al docente, no a la función')
+    assert.strictEqual(esperandoNota({ estadoEvaluacion: 'en_progreso' }), false)
+    assert.strictEqual(esperandoNota({}), false)
+    assert.strictEqual(esperandoNota(null), false)
+  })
+
+  caso('el sondeo sustituye al onSnapshot: 3 s mientras espera la nota, 60 s después, y descarta lo viejo', () => {
+    const hook = leerFuente2c('src/hooks/useSondeoEntrega.js')
+    assert.ok(hook.includes('const RAPIDO_MS = 3000') && hook.includes('const VENTANA_RAPIDA_MS = 60000') && hook.includes('const LENTO_MS = 60000'))
+    assert.ok(hook.includes('entregaMasReciente(actual, nueva)'), 'nunca pisa un estado más nuevo')
+    assert.ok(hook.includes('mia !== generacion.current'), 'lo que estaba en vuelo al escribir o recargar se descarta')
+    assert.ok(hook.includes("addEventListener('visibilitychange'") && hook.includes("removeEventListener('visibilitychange'"), 'pregunta al volver a la pestaña')
+    assert.ok(/if \(nueva\) setSubmission/.test(hook), 'sin entrega en el servidor no se borra nada local')
+    assert.ok(!/setDoc|updateDoc|deleteDoc|writeBatch/.test(hook), 'el sondeo solo lee')
+    const ap = leerFuente2c('src/pages/student/ActivityPage.jsx')
+    assert.ok(ap.includes('useSondeoEntrega({') && ap.includes('invalidarSondeo()'))
+    assert.ok(!/onSnapshot\(|import \{[^}]*onSnapshot/.test(ap), 'ya no hay escucha directa a Firestore')
+  })
+
+  caso('las 4 pantallas leen por el servidor y ya no consultan submissions ni respuestas directo', () => {
+    for (const f of ['src/pages/student/ActivityPage.jsx', 'src/pages/student/EvaluacionRunner.jsx', 'src/pages/student/JuegoRunner.jsx', 'src/pages/student/EvaluacionRevision.jsx']) {
+      const src = leerFuente2c(f)
+      assert.ok(src.includes('fetchMisEntregas'), `${f} usa fetchMisEntregas`)
+      assert.ok(!/\bgetDocs\(|\bonSnapshot\(/.test(src), `${f} ya no lee colecciones directo`)
+      assert.ok(!/collection\(db, 'submissions'/.test(src), `${f} ya no consulta submissions ni respuestas`)
+    }
+    // Ninguna pantalla de estudiante lee ya `submissions` de Firestore, salvo el progreso del video.
+    for (const f of ['Dashboard', 'Agenda', 'SubjectPage', 'ActivityPage', 'EvaluacionRunner', 'JuegoRunner', 'EvaluacionRevision']) {
+      assert.ok(!/collection\(db, 'submissions'/.test(leerFuente2c(`src/pages/student/${f}.jsx`)), f)
+    }
+  })
+
+  caso('las ESCRITURAS siguen yendo directo a Firestore, sin cambios', () => {
+    const ap = leerFuente2c('src/pages/student/ActivityPage.jsx')
+    assert.ok(ap.includes("setDoc(doc(db, 'submissions', submissionDocId(activityId, student.id))"), 'entrega y abrir intento')
+    assert.ok(ap.includes("batch.delete(doc(db, 'submissions', submission.id))") && ap.includes("batch.set(doc(collection(db, 'entregasAnuladas')), traza)"), 'anular')
+    assert.ok(ap.includes("updateDoc(doc(db, 'submissions', submission.id)"), 'reintento')
+    assert.ok(ap.includes('limpiarRespuestas(db, respAnteriores.map((r) => doc(db, \'submissions\', submission.id, \'respuestas\', r.id)))'), 'limpiar respuestas escribe igual, con los ids del servidor')
+    assert.ok(ap.includes('new Timestamp(submission.fechaEntrega.seconds'), 'la traza de anulación usa un Timestamp real, no el objeto con toDate que llega del servidor')
+    const runner = leerFuente2c('src/pages/student/EvaluacionRunner.jsx')
+    assert.ok(runner.includes("updateDoc(doc(db, 'submissions', subData.id), { ordenSeed: seed })"), 'semilla')
+    assert.ok(runner.includes("doc(db, 'submissions', submission.id, 'respuestas', preguntaId)"), 'autosave')
+    assert.ok(runner.includes("updateDoc(doc(db, 'submissions', submission.id), {"), 'finalizar')
+    assert.ok(runner.includes("limpiarRespuestas(db, rezagadas.map((r) => doc(db, 'submissions', subData.id, 'respuestas', r.id)))"), 'limpiar lo rezagado')
+    assert.ok(runner.includes('respuestasGuardadas.forEach((data) => {') && runner.includes('esDeIntentoAnterior(data, subData.tiempoInicio)'), 'reanudar sigue usando respondidaEn')
+    const juego = leerFuente2c('src/pages/student/JuegoRunner.jsx')
+    assert.strictEqual((juego.match(/updateDoc\(doc\(db, 'submissions', submission\.id\)/g) || []).length, 2, 'guardar avance y finalizar el juego')
+  })
+
+  caso('con la nota oculta: tarjeta de aviso, sin rúbrica, sin revisión, sin solución y sin anular', () => {
+    const ap = leerFuente2c('src/pages/student/ActivityPage.jsx')
+    assert.ok(ap.includes('const isGraded = estaCalificada(submission)'), '«calificada» sale de la bandera')
+    assert.strictEqual((ap.match(/<NotaOculta \/>/g) || []).length, 3, 'examen, juego y entregable')
+    assert.ok(ap.includes('const respuestasVisibles = finalizado && !notaEstaOculta(submission) &&'))
+    assert.ok(ap.includes('const solucionVisibleJ = finalizadoJ && !notaEstaOculta(submission) &&'))
+    assert.ok(ap.includes('seleccion={isGraded && !notaEstaOculta(submission) ? submission?.rubricaEval : null}'))
+    // «Anular» exige no estar calificada; con la nota oculta `calificada` es true.
+    assert.ok(/const isDelivered = !!submission && !isGraded/.test(ap) && /const puedeAnular = !isObservacion && isDelivered/.test(ap))
+    const rev = leerFuente2c('src/pages/student/EvaluacionRevision.jsx')
+    assert.ok(rev.includes('if (subData.notaOculta) {') && rev.includes('toast(TEXTO_NOTA_OCULTA)'), 'la revisión no existe con la nota oculta')
+  })
+
+  caso('Runner y Revisión piden la entrega Y sus respuestas en UNA sola llamada', () => {
+    for (const f of ['src/pages/student/EvaluacionRunner.jsx', 'src/pages/student/EvaluacionRevision.jsx']) {
+      assert.strictEqual((leerFuente2c(f).match(/fetchMisEntregas\(\{/g) || []).length, 1, f)
+      assert.ok(leerFuente2c(f).includes('respuestas: true'), f)
+    }
+  })
+
+  caso('PR 2b-2 no toca reglas, la tabla del docente, las fórmulas, las exportaciones, la API ni las funciones', () => {
+    assert.ok(leerFuente2c('src/pages/teacher/subject/TabCalificaciones.jsx').includes('const FILA_VISIBILIDAD_ACTIVA = false'), 'la fila sigue apagada hasta el 2c')
+    for (const f of ['src/utils/ponderacion.js', 'src/utils/excel.js', 'src/utils/pdf.js', 'firestore.rules', 'api/_lib/entregasAlumno.js']) {
+      assert.ok(!/useSondeoEntrega|entregaMasReciente/.test(leerFuente2c(f)), f)
     }
   })
 }

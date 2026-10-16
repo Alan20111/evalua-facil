@@ -14,9 +14,9 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { doc, getDoc, getDocs, collection, query, where, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
-import { fetchActivity } from '../../utils/apiContent'
+import { fetchActivity, fetchMisEntregas } from '../../utils/apiContent'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import { Timer, CheckCircle2, LogOut } from 'lucide-react'
@@ -76,13 +76,13 @@ export default function JuegoRunner() {
       }
       setStudent(studData)
 
-      const subsSnap = await getDocs(query(
-        collection(db, 'submissions'), where('actividadId', '==', activityId), where('alumnoId', '==', studData.id)
-      ))
-      if (subsSnap.empty || subsSnap.docs[0].data().estadoEvaluacion !== 'en_progreso') {
+      // La entrega llega por el servidor (sin la nota, que el estudiante no tiene por
+      // qué ver mientras juega). El guardado del avance sigue yendo directo a Firestore.
+      const { entregas } = await fetchMisEntregas({ actividadId: activityId })
+      const subData = entregas[0]
+      if (!subData || subData.estadoEvaluacion !== 'en_progreso') {
         navigate(`/alumno/actividad/${activityId}`); return
       }
-      const subData = { id: subsSnap.docs[0].id, ...subsSnap.docs[0].data() }
       setSubmission(subData)
       setCeldas(subData.respuestasJuego?.celdas || {})
       setEncontradas(Array.isArray(subData.respuestasJuego?.encontradas) ? subData.respuestasJuego.encontradas : [])
