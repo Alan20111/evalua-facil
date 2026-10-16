@@ -12,14 +12,15 @@ import {
   Sparkles,
   Settings,
 } from 'lucide-react'
-import { signOut } from 'firebase/auth'
 import {
   collection,
   query,
   where,
   onSnapshot,
 } from 'firebase/firestore'
-import { auth, db } from '../firebase'
+import { db } from '../firebase'
+import { cerrarSesion } from '../utils/cerrarSesion'
+import { useToast } from './Toast'
 import { useAuth } from '../context/AuthContext'
 import { configurarBloqueoExportacion } from '../utils/exportGuard'
 import { subjectDisplayName } from '../utils/subjectName'
@@ -70,6 +71,7 @@ export default function TeacherLayout({ children }) {
   const [ajustesManual, setAjustesManual] = useState(null)
   const enAjustes = RUTAS_AJUSTES.some((r) => pathname === r || pathname.startsWith(`${r}/`))
   const ajustesAbierto = ajustesManual ?? enAjustes
+  const toast = useToast()
 
   const [subjects, setSubjects] = useState([])
   const [loadingSidebar, setLoadingSidebar] = useState(true)
@@ -97,8 +99,12 @@ export default function TeacherLayout({ children }) {
   }, [currentUser])
 
   const handleLogout = async () => {
-    await signOut(auth)
-    navigate('/')
+    try {
+      await cerrarSesion()
+      navigate('/', { replace: true })
+    } catch (err) {
+      toast('No se pudo cerrar la sesión: ' + err.message, 'error')
+    }
   }
   // En la app nativa se pide confirmación antes de salir (es fácil tocar el
   // botón sin querer en el celular); en la web se sale directo, como siempre.

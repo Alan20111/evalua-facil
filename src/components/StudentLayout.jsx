@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { LogOut, ChevronRight, CalendarDays, Plus, Archive, Lightbulb, Cloud } from 'lucide-react'
-import { signOut } from 'firebase/auth'
 import { getDoc, doc } from 'firebase/firestore'
-import { auth, db } from '../firebase'
+import { db } from '../firebase'
+import { cerrarSesion } from '../utils/cerrarSesion'
+import { useToast } from './Toast'
 import { useAuth } from '../context/AuthContext'
 import SubjectIcon from './SubjectIcon'
 import { subjectDisplayName } from '../utils/subjectName'
@@ -39,6 +40,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
   useClientePing()
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const toast = useToast()
   const [subjects, setSubjects] = useState([])
   const [loadingSidebar, setLoadingSidebar] = useState(true)
   const [schoolName, setSchoolName] = useState('')
@@ -99,8 +101,12 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
   }, [subjects, userProfile?.escuelaId, studentInfo?.escuelaId])
 
   const handleLogout = async () => {
-    await signOut(auth)
-    navigate('/alumno')
+    try {
+      await cerrarSesion()
+      navigate('/alumno', { replace: true })
+    } catch (err) {
+      toast('No se pudo cerrar la sesión: ' + err.message, 'error')
+    }
   }
 
   // El username va SIN capitalizar (es identificador, no nombre).

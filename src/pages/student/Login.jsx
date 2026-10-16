@@ -284,6 +284,7 @@ export default function StudentLogin() {
                 <PasswordInput
                   label="Contraseña"
                     id="login-password"
+                    autoComplete="new-password"
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); setError('') }}
                     required
@@ -347,6 +348,7 @@ export default function StudentLogin() {
               <PasswordInput
                   label="Nueva contraseña"
                   id="recover-new-pwd"
+                  autoComplete="new-password"
                   value={resetNewPwd}
                   onChange={(e) => { setResetNewPwd(e.target.value); setResetError('') }}
                   required
@@ -354,6 +356,7 @@ export default function StudentLogin() {
               <PasswordInput
                   label="Confirmar nueva contraseña"
                   id="recover-confirm-pwd"
+                  autoComplete="new-password"
                   value={resetConfirmPwd}
                   onChange={(e) => { setResetConfirmPwd(e.target.value); setResetError('') }}
                   required
