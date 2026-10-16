@@ -136,8 +136,7 @@ async function analizar(id) {
 
   // Efectos secundarios de escribir `calificacion` (null → número).
   const efectos = []
-  let oculta = null
-  try { oculta = await notaOcultaAlEstudiante(sub.actividadId) } catch { oculta = 'desconocido' }
+  const oculta = await notaOcultaAlEstudiante(sub.actividadId).catch(() => 'desconocido')
   ficha.notaOcultaAlEstudiante = oculta
   if (sub.notificadoCalificacion === true) efectos.push('NO enviará push: notificadoCalificacion ya es true')
   else if (oculta === true) efectos.push('NO enviará push: la nota está oculta al estudiante')
