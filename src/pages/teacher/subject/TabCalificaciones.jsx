@@ -4,12 +4,16 @@
 import AnalisisAsignaturaIA from '../../../components/analisis/AnalisisAsignaturaIA'
 import { Button, IconButton, SkeletonTable } from '../../../components/ui'
 import { ExportSplitButton } from './piezas'
-import { AlertTriangle, FileSpreadsheet, FileText, Lock, MessageCircleQuestion, MoreVertical, Sparkles, X } from 'lucide-react'
+import { AlertTriangle, Eye, EyeOff, FileSpreadsheet, FileText, Lock, MessageCircleQuestion, MoreVertical, Sparkles, X } from 'lucide-react'
 import { ICONO } from '../../../config/iconos'
 import { IS_NATIVE_APP, PUEDE_AUTOFOCUS } from '../../../utils/platform'
 import SearchInput from '../../../components/SearchInput'
 import { estadoParcial, mensajeParcialCerrado, parcialCerrado } from '../../../utils/ponderacion'
 import { formatShortDate } from '../../../utils/dateRange'
+import {
+  actividadOculta, promedioOculto, finalOculto, promedioDeduceOcultas, finalDeduceOcultas,
+  AVISO_APP_ANTERIOR, AVISO_PROMEDIO_DEDUCE,
+} from '../../../utils/visibilidadCalificaciones'
 import { gradeColor } from './utilidades'
 import { showNear } from '../../../utils/notify'
 import { studentFullName } from '../../../utils/studentSearch'
@@ -22,6 +26,7 @@ export default function TabCalificaciones() {
     activityLabelById,
     analisisAsignaturaAbierto,
     anyPonderacionOn,
+    cambiarVisibilidadAlumno,
     colIndexByKey,
     doExportParcialExcel,
     doExportParcialPDF,
@@ -39,6 +44,7 @@ export default function TabCalificaciones() {
     gradeSubMap,
     gradeTopIds,
     groupStudents,
+    guardandoVisibilidad,
     handleExport,
     handleExportGradesPDF,
     handleGradeTableHover,
@@ -75,6 +81,11 @@ export default function TabCalificaciones() {
     totalStudents,
     visibleParcials,
   } = useAsignatura()
+  // ¿Hay algo oculto al estudiante? Activa las notas al pie de la tabla.
+  const hayOcultas = tableParcials.some(({ p, acts }) =>
+    promedioOculto(subject, p) || acts.some((a) => actividadOculta(subject, a.id))) || finalOculto(subject)
+  const hayAvisoDeduce = tableParcials.some(({ p, acts }) => promedioDeduceOcultas(subject, p, acts)) ||
+    (showFinalCol && finalDeduceOcultas(subject, tableParcials))
   return (
     <>
       {activeTab === 'calificaciones' && (
@@ -317,6 +328,56 @@ export default function TabCalificaciones() {
                           </th>
                         )}
                       </tr>
+                      {/* Fila VISIBLE AL ALUMNO — qué notas puede consultar el estudiante.
+                          Siempre está (con o sin ponderación) y va justo arriba de
+                          PONDERACIÓN; sin ponderación ocupa el mismo lugar entre el
+                          encabezado del parcial y los nombres. Un control por
+                          actividad, por promedio de parcial y por Final, todos
+                          independientes. Solo regula lo que ve el estudiante: el
+                          docente conserva todo, y no cambia ninguna nota ni promedio.
+                          Se puede usar con el parcial cerrado. Mismas columnas y
+                          anchos que las demás filas. */}
+                      <tr data-fila="visibilidad" className="bg-accent-light border-b border-outline-variant">
+                        <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-0.5 border-r border-outline-variant"><span className="sr-only">Visibilidad para el estudiante</span></th>
+                        <th aria-label="Visible al alumno" className="sticky left-8 z-10 bg-accent-light w-[210px] px-2 py-0.5 border-r border-outline-variant">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <span className="text-[10px] font-bold text-accent-hover uppercase tracking-wide" data-tooltip={`Decide qué notas ve el estudiante. ${AVISO_APP_ANTERIOR}`}>Visible al alumno</span>
+                          </div>
+                        </th>
+                        {visibleParcials.map(({ p, acts }) => [
+                          ...acts.map((a) => (
+                            <th key={a.id} className="w-9 px-0.5 py-0.5 border-l border-outline-variant bg-accent-light">
+                              <BotonVisibilidad
+                                oculto={actividadOculta(subject, a.id)}
+                                guardando={!!guardandoVisibilidad[`actividad:${a.id}`]}
+                                objeto={`la calificación de ${activityLabelById[a.id] || a.nombre}`}
+                                onClick={() => cambiarVisibilidadAlumno('actividad', a.id)} />
+                            </th>
+                          )),
+                          <th key={`vis-avg-${p}`} className="w-14 px-1 py-0.5 border-l border-outline-variant bg-accent-light">
+                            <div className="flex items-center justify-center gap-0.5">
+                              <BotonVisibilidad
+                                oculto={promedioOculto(subject, p)}
+                                guardando={!!guardandoVisibilidad[`promedio:${p}`]}
+                                objeto={`el promedio del Parcial ${p}`}
+                                onClick={() => cambiarVisibilidadAlumno('promedio', p)} />
+                              {promedioDeduceOcultas(subject, p, acts) && <AvisoDeduce />}
+                            </div>
+                          </th>,
+                        ])}
+                        {showFinalCol && (
+                          <th className="w-14 px-1 py-0.5 border-l border-outline-variant bg-accent-light">
+                            <div className="flex items-center justify-center gap-0.5">
+                              <BotonVisibilidad
+                                oculto={finalOculto(subject)}
+                                guardando={!!guardandoVisibilidad['final:']}
+                                objeto="la calificación final"
+                                onClick={() => cambiarVisibilidadAlumno('final')} />
+                              {finalDeduceOcultas(subject, tableParcials) && <AvisoDeduce />}
+                            </div>
+                          </th>
+                        )}
+                      </tr>
                       {/* PONDERACIÓN row — weights per activity, per PARCIAL.
                           Active parciales show their weight inputs (with an ✕
                           to turn just that parcial off); inactive ones show an
@@ -488,6 +549,13 @@ export default function TabCalificaciones() {
                   </table>
                 </div>
 
+                {hayOcultas && (
+                  <div data-nota="visibilidad" className="space-y-1 text-[11px] leading-snug text-hint">
+                    <p>{AVISO_APP_ANTERIOR}</p>
+                    {hayAvisoDeduce && <p>El triángulo junto a un promedio avisa que incluye notas que el estudiante no ve; podría deducirlas.</p>}
+                  </div>
+                )}
+
                 {filteredGradeStudents.length === 0 && searchGrade && (
                   <p className="text-center text-sm text-hint">Sin resultados para &ldquo;{searchGrade}&rdquo;</p>
                 )}
@@ -498,5 +566,44 @@ export default function TabCalificaciones() {
           </div>
         )}
     </>
+  )
+}
+
+// Botón de ojo de la fila «Visible al alumno»: ojo abierto = el estudiante ve
+// la nota; ojo tachado = oculta. Es un interruptor (role="switch"): su nombre
+// no cambia y el estado lo da aria-checked (encendido = visible), así que un
+// lector de pantalla no oye un verbo que se contradice con el estado.
+//
+// Mientras guarda NO usa `disabled`: un botón que se deshabilita pierde el foco
+// y quien navega con teclado queda fuera de la tabla. Se queda enfocable con
+// aria-disabled y el clic se ignora.
+//
+// Ocupa todo el ancho de su columna (la tabla usa colgroup fijo) y mide al
+// menos 24 px de alto (WCAG 2.2, 2.5.8). En px y no en rem: la raíz del
+// proyecto es de 14.4 px, así que min-h-6 daría 21.6 px y no cumpliría.
+function BotonVisibilidad({ oculto, guardando, objeto, onClick }) {
+  const Icono = oculto ? EyeOff : Eye
+  const estado = oculto ? 'Oculta al estudiante' : 'Visible para el estudiante'
+  return (
+    <button type="button" role="switch" aria-checked={!oculto}
+      aria-disabled={guardando ? true : undefined}
+      onClick={guardando ? undefined : onClick}
+      aria-label={`Mostrar al estudiante ${objeto}`}
+      data-tooltip-follow={`${estado} — clic para ${oculto ? 'mostrar' : 'ocultar'}`}
+      className={`flex min-h-[24px] w-full items-center justify-center rounded transition-colors aria-disabled:cursor-wait aria-disabled:opacity-60 ${oculto
+        ? 'bg-surface-container text-hint hover:text-accent'
+        : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
+      <Icono size={ICONO.xs} aria-hidden="true" />
+    </button>
+  )
+}
+
+// Triángulo junto a un promedio visible que incluye notas ocultas.
+function AvisoDeduce() {
+  return (
+    <span data-tooltip-follow={AVISO_PROMEDIO_DEDUCE} className="flex-shrink-0 text-amber-600">
+      <AlertTriangle size={ICONO.xs} aria-hidden="true" />
+      <span className="sr-only">{AVISO_PROMEDIO_DEDUCE}</span>
+    </span>
   )
 }
