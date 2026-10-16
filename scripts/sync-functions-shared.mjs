@@ -86,6 +86,11 @@ const ARCHIVOS = [
   // distribución y de la URL de YouTube — mismas reglas en pantalla y en el
   // servidor que cobrará.
   'videoInteractivo.js',
+  // Visibilidad de calificaciones para el estudiante (oct-2026): qué notas
+  // ocultó el docente. El push «Te calificaron» y la solución de un juego lo
+  // consultan en el servidor con ESTA misma lectura que usa la tabla del
+  // docente — una sola copia, para que «oculta» signifique lo mismo en todas partes.
+  'visibilidadCalificaciones.js',
 ]
 
 function fallar(mensaje) {
@@ -180,8 +185,10 @@ function generar() {
     const claves = Object.keys(mod)
     if (claves.length === 0) fallar(`el archivo generado ${nombre} no exporta nada`)
     for (const clave of claves) {
-      if (typeof mod[clave] !== 'function' && typeof mod[clave] !== 'object') {
-        fallar(`${nombre}: el export '${clave}' no es una función ni un objeto/array (¿transformación incompleta?)`)
+      // Una constante de texto (p. ej. el nombre de un campo de Firestore) es un
+      // export legítimo; lo que delata una conversión rota es un export `undefined`.
+      if (typeof mod[clave] !== 'function' && typeof mod[clave] !== 'object' && typeof mod[clave] !== 'string') {
+        fallar(`${nombre}: el export '${clave}' no es una función, un objeto/array ni un texto (¿transformación incompleta?)`)
       }
     }
   }

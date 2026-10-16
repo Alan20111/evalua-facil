@@ -32,6 +32,7 @@ import { aplicarCors } from '../_lib/cors.js'
 import { borrarAssets, extraerAssets } from '../_lib/cloudinary.js'
 import { getAuth, getBucket, getDb, verifyRequest } from '../_lib/firebaseAdmin.js'
 import * as miEspacio from '../_lib/miEspacio.js'
+import { ErrorEntregas, misEntregas, clientePing } from '../_lib/entregasAlumno.js'
 // La MISMA función que usa el navegador para decidir con qué formas buscar un
 // usuario. Importada, no copiada: tener dos copias fue exactamente el bug de
 // la ñ (ver el encabezado de src/utils/usernameMatch.js).
@@ -523,6 +524,44 @@ async function handleMiEspacio(req, res, operacion) {
   }
 }
 
+// ── /api/student/{mis-entregas|cliente-ping} ───────────────────────────
+// `mis-entregas`: las entregas, respuestas y promedios del estudiante SIN lo
+// que el docente ocultó (la nota se quita aquí, en el servidor, no en la
+// pantalla). `cliente-ping`: registra desde qué versión de la app entra, para
+// saber qué clientes siguen leyendo Firestore directo. La lógica vive en
+// api/_lib/entregasAlumno.js; aquí solo se autentica y se traduce a HTTP.
+//
+// El estudiante es SIEMPRE el uid del token. Solo cuentas de estudiante
+// (@evalua.local). La respuesta no se guarda en ninguna caché.
+const OPERACIONES_ENTREGAS = {
+  'mis-entregas': misEntregas,
+  'cliente-ping': clientePing,
+}
+
+async function handleEntregas(req, res, operacion) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Método no permitido' })
+  const decoded = await verifyRequest(req)
+  if (!decoded.email?.endsWith('@evalua.local')) {
+    return res.status(403).json({ error: 'Esto es solo para estudiantes.' })
+  }
+  let body
+  try {
+    body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {})
+  } catch {
+    return res.status(400).json({ error: 'Body inválido.' })
+  }
+  try {
+    const resultado = await operacion(getDb(), decoded.uid, body)
+    res.setHeader('Cache-Control', 'no-store')
+    return res.status(200).json(resultado)
+  } catch (err) {
+    if (err instanceof ErrorEntregas) return res.status(err.status).json({ error: err.message })
+    // Solo el nombre del error: nunca el mensaje (podría citar datos) ni el uid.
+    console.error(`[${req.query.action}] ${err?.name || 'Error'}`)
+    return res.status(500).json({ error: 'No se pudo completar. Inténtalo de nuevo.' })
+  }
+}
+
 export default async function handler(req, res) {
   if (aplicarCors(req, res)) return
   if (await exigirAppCheck(req, res, `student/${req.query.action}`)) return // S3: mide; rechaza solo con APP_CHECK_OBLIGATORIO=1
@@ -535,6 +574,7 @@ export default async function handler(req, res) {
     if (action === 'recover-password') return await handleRecoverPassword(req, res)
     if (action === 'last-access') return await handleLastAccess(req, res)
     if (OPERACIONES_MI_ESPACIO[action]) return await handleMiEspacio(req, res, OPERACIONES_MI_ESPACIO[action])
+    if (OPERACIONES_ENTREGAS[action]) return await handleEntregas(req, res, OPERACIONES_ENTREGAS[action])
     return res.status(404).json({ error: 'Acción no encontrada.' })
   } catch (err) {
     return res.status(err.status || 500).json({ error: err.message || 'Error interno.' })
