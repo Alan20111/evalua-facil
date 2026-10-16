@@ -8564,7 +8564,7 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     assert.ok(tab.includes("cambiarVisibilidadAlumno('promedio', p)"))
     assert.ok(tab.includes("cambiarVisibilidadAlumno('final')"))
     // La celda de Final solo existe con la columna Final (y por tanto respeta soloParcial).
-    assert.ok(/\{showFinalCol && \(\s*<th className="w-14 px-1 py-1 border-l border-outline-variant bg-accent-light">/.test(tab))
+    assert.ok(/\{showFinalCol && \(\s*<th className="w-14 px-1 py-0\.5 border-l border-outline-variant bg-accent-light">/.test(tab))
   })
 
   caso('se puede cambiar con el parcial cerrado: el guardado no consulta parcialCerrado', () => {
@@ -8575,6 +8575,27 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     assert.ok(ini > 0 && cuerpo.includes("doc(db, 'subjects', subjectId)"), 'escribe en subjects')
     assert.ok(!/parcialCerrado|mensajeParcialCerrado/.test(cuerpo), 'no se bloquea por parcial cerrado')
     assert.ok(/deleteField\(\)/.test(cuerpo), 'mostrar = borrar la llave (campo ausente = visible)')
+  })
+
+  caso('accesibilidad de los controles: interruptor con nombre estable, foco que no se pierde, 24 px y contraste', () => {
+    const tab = leerFuente('src/pages/teacher/subject/TabCalificaciones.jsx')
+    const ini = tab.indexOf('function BotonVisibilidad')
+    const cuerpo = tab.slice(ini, tab.indexOf('\n}\n', ini))
+    assert.ok(ini > 0 && cuerpo.length > 100, 'existe el botón')
+    // Interruptor: el estado lo da aria-checked (encendido = visible) y el nombre no cambia con él.
+    assert.ok(cuerpo.includes('role="switch"') && cuerpo.includes('aria-checked={!oculto}'), 'es un interruptor')
+    assert.ok(!cuerpo.includes('aria-pressed'), 'no mezcla aria-pressed con un nombre que cambia')
+    assert.ok(!/aria-label=\{[^}]*(oculto|estado)/.test(cuerpo), 'el nombre accesible no depende del estado')
+    // Mientras guarda no se deshabilita (perdería el foco del teclado): aria-disabled y clic ignorado.
+    assert.ok(!/\sdisabled=\{/.test(cuerpo), 'no usa disabled')
+    assert.ok(cuerpo.includes('aria-disabled=') && cuerpo.includes('onClick={guardando ? undefined : onClick}'))
+    // Alto mínimo de 24 px (WCAG 2.2, 2.5.8) y el ícono decorativo fuera del árbol de accesibilidad.
+    // En px, no en rem: la raíz del proyecto es de 14.4 px y min-h-6 daría 21.6 px.
+    assert.ok(cuerpo.includes('min-h-[24px]') && !/min-h-6\b/.test(cuerpo), 'mide al menos 24 px de alto')
+    assert.ok(cuerpo.includes('aria-hidden="true"'))
+    // La etiqueta de la fila usa el tono oscuro del acento (text-accent sobre accent-light daba 4.23:1).
+    assert.ok(tab.includes('text-[10px] font-bold text-accent-hover uppercase tracking-wide'), 'contraste de la etiqueta')
+    assert.ok(!tab.includes('text-[10px] font-bold text-accent uppercase tracking-wide'))
   })
 
   caso('PR 1 no toca las pantallas del estudiante ni las reglas ni el API del alumno', () => {

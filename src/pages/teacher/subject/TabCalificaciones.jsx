@@ -338,15 +338,15 @@ export default function TabCalificaciones() {
                           Se puede usar con el parcial cerrado. Mismas columnas y
                           anchos que las demás filas. */}
                       <tr data-fila="visibilidad" className="bg-accent-light border-b border-outline-variant">
-                        <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-1 border-r border-outline-variant"><span className="sr-only">Visibilidad para el estudiante</span></th>
-                        <th aria-label="Visible al alumno" className="sticky left-8 z-10 bg-accent-light w-[210px] px-2 py-1 border-r border-outline-variant">
+                        <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-0.5 border-r border-outline-variant"><span className="sr-only">Visibilidad para el estudiante</span></th>
+                        <th aria-label="Visible al alumno" className="sticky left-8 z-10 bg-accent-light w-[210px] px-2 py-0.5 border-r border-outline-variant">
                           <div className="flex items-center justify-end gap-1.5">
-                            <span className="text-[10px] font-bold text-accent uppercase tracking-wide" data-tooltip={`Decide qué notas ve el estudiante. ${AVISO_APP_ANTERIOR}`}>Visible al alumno</span>
+                            <span className="text-[10px] font-bold text-accent-hover uppercase tracking-wide" data-tooltip={`Decide qué notas ve el estudiante. ${AVISO_APP_ANTERIOR}`}>Visible al alumno</span>
                           </div>
                         </th>
                         {visibleParcials.map(({ p, acts }) => [
                           ...acts.map((a) => (
-                            <th key={a.id} className="w-9 px-0.5 py-1 border-l border-outline-variant bg-accent-light">
+                            <th key={a.id} className="w-9 px-0.5 py-0.5 border-l border-outline-variant bg-accent-light">
                               <BotonVisibilidad
                                 oculto={actividadOculta(subject, a.id)}
                                 guardando={!!guardandoVisibilidad[`actividad:${a.id}`]}
@@ -354,7 +354,7 @@ export default function TabCalificaciones() {
                                 onClick={() => cambiarVisibilidadAlumno('actividad', a.id)} />
                             </th>
                           )),
-                          <th key={`vis-avg-${p}`} className="w-14 px-1 py-1 border-l border-outline-variant bg-accent-light">
+                          <th key={`vis-avg-${p}`} className="w-14 px-1 py-0.5 border-l border-outline-variant bg-accent-light">
                             <div className="flex items-center justify-center gap-0.5">
                               <BotonVisibilidad
                                 oculto={promedioOculto(subject, p)}
@@ -366,7 +366,7 @@ export default function TabCalificaciones() {
                           </th>,
                         ])}
                         {showFinalCol && (
-                          <th className="w-14 px-1 py-1 border-l border-outline-variant bg-accent-light">
+                          <th className="w-14 px-1 py-0.5 border-l border-outline-variant bg-accent-light">
                             <div className="flex items-center justify-center gap-0.5">
                               <BotonVisibilidad
                                 oculto={finalOculto(subject)}
@@ -570,21 +570,30 @@ export default function TabCalificaciones() {
 }
 
 // Botón de ojo de la fila «Visible al alumno»: ojo abierto = el estudiante ve
-// la nota; ojo tachado = oculta. Ocupa todo el ancho de su columna (la tabla
-// usa colgroup fijo) y no agrega altura de más a la fila.
+// la nota; ojo tachado = oculta. Es un interruptor (role="switch"): su nombre
+// no cambia y el estado lo da aria-checked (encendido = visible), así que un
+// lector de pantalla no oye un verbo que se contradice con el estado.
+//
+// Mientras guarda NO usa `disabled`: un botón que se deshabilita pierde el foco
+// y quien navega con teclado queda fuera de la tabla. Se queda enfocable con
+// aria-disabled y el clic se ignora.
+//
+// Ocupa todo el ancho de su columna (la tabla usa colgroup fijo) y mide al
+// menos 24 px de alto (WCAG 2.2, 2.5.8). En px y no en rem: la raíz del
+// proyecto es de 14.4 px, así que min-h-6 daría 21.6 px y no cumpliría.
 function BotonVisibilidad({ oculto, guardando, objeto, onClick }) {
   const Icono = oculto ? EyeOff : Eye
   const estado = oculto ? 'Oculta al estudiante' : 'Visible para el estudiante'
-  const accion = oculto ? 'Mostrar' : 'Ocultar'
   return (
-    <button type="button" onClick={onClick} disabled={guardando}
-      aria-pressed={oculto}
-      aria-label={`${accion} ${objeto} al estudiante. Ahora: ${estado.toLowerCase()}`}
-      data-tooltip-follow={`${estado} — clic para ${accion.toLowerCase()}`}
-      className={`flex w-full items-center justify-center rounded py-0.5 transition-colors disabled:cursor-wait disabled:opacity-60 ${oculto
+    <button type="button" role="switch" aria-checked={!oculto}
+      aria-disabled={guardando ? true : undefined}
+      onClick={guardando ? undefined : onClick}
+      aria-label={`Mostrar al estudiante ${objeto}`}
+      data-tooltip-follow={`${estado} — clic para ${oculto ? 'mostrar' : 'ocultar'}`}
+      className={`flex min-h-[24px] w-full items-center justify-center rounded transition-colors aria-disabled:cursor-wait aria-disabled:opacity-60 ${oculto
         ? 'bg-surface-container text-hint hover:text-accent'
         : 'text-accent hover:bg-[var(--accent-medium)]'}`}>
-      <Icono size={ICONO.xs} />
+      <Icono size={ICONO.xs} aria-hidden="true" />
     </button>
   )
 }
