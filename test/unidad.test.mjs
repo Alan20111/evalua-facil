@@ -4655,12 +4655,12 @@ caso('no entran borradores, actividades sin calificación ni juegos sin confirma
 
 caso('con todas las fuentes de actividades, el promedio es el de la tabla de Calificaciones', () => {
   const { datos } = agregarAA()
-  // Parcial 1 — a: (9+10+10)/3=9.7 · b: (4+5+5)/3=4.7 · c: (8+9)/2=8.5 · d: (0+7)/2=3.5 → grupo 6.6.
+  // Parcial 1 — a: (9+10+10)/3=9.7 · b: (4+5+5)/3=4.7 · c: (8+0+9)/3=5.7 · d: (0+7)/2=3.5 → grupo 5.9.
   // d no entregó E1 (vencida el 20-ago): vale CERO en el promedio (antes quedaba fuera → d=7, grupo 7.5).
-  // E2 no tiene fecha límite y el parcial sigue abierto, así que no le cuenta.
-  assert.strictEqual(datos.parciales[0].promedioGrupo, 6.6)
-  assert.strictEqual(datos.parciales[0].aprobados, 2)
-  assert.strictEqual(datos.parciales[0].reprobados, 2)
+  // c entregó E2 y está pendiente de calificar: también vale CERO en el promedio simple (antes quedaba fuera → c=8.5, grupo 6.6).
+  assert.strictEqual(datos.parciales[0].promedioGrupo, 5.9)
+  assert.strictEqual(datos.parciales[0].aprobados, 1)
+  assert.strictEqual(datos.parciales[0].reprobados, 3)
   assert.strictEqual(datos.rotuloPromedio, null, 'con los cuatro tipos no hay aviso de promedio parcial')
   assert.strictEqual(datos.parciales[2].promedioGrupo, null, 'el Parcial 3 no tiene calificaciones')
 })
@@ -4858,11 +4858,11 @@ caso('evolución: con varios parciales con datos compara; con uno solo NO existe
   const varios = agregarAA().datos.evolucion
   assert.deepStrictEqual(varios.porParcial.map((p) => p.parcial), [1, 2])
   assert.strictEqual(varios.comparables, 4)
-  // a: 9.7 → 6.5 (baja) · b: 4.7 → 8.5 (sube) · c: 8.5 → 8 (estable)
+  // a: 9.7 → 6.5 (baja) · b: 4.7 → 8.5 (sube) · c: 5.7 → 8 (sube: en P1 su E2 pendiente de calificar vale cero)
   // d: 3.5 → 0 (baja): no hizo el cuestionario ni el crucigrama vencidos → cero en P2, ahora comparable.
   assert.strictEqual(varios.bajaron, 2)
-  assert.strictEqual(varios.mejoraron, 1)
-  assert.strictEqual(varios.estables, 1)
+  assert.strictEqual(varios.mejoraron, 2)
+  assert.strictEqual(varios.estables, 0)
   const uno = agregarAA({ parciales: [1] })
   assert.strictEqual(uno.datos.evolucion, null)
   const prompt = promptAA(uno, { parciales: [1] })
@@ -4872,11 +4872,13 @@ caso('evolución: con varios parciales con datos compara; con uno solo NO existe
 
 caso('patrón grupal: si más de la mitad del grupo queda señalada, se avisa como patrón', () => {
   const { datos, candidatos } = agregarAA()
-  assert.strictEqual(candidatos.length, 2)
-  assert.strictEqual(datos.patronGrupal, false, '2 de 4 no es MÁS de la mitad')
-  const tres = agregarAA({ students: ALUMNOS_AA.slice(1) })
-  assert.strictEqual(tres.datos.patronGrupal, true, '2 de 3')
-  assert.ok(promptAA(tres).includes('PATRÓN DEL GRUPO'))
+  // b, c y d quedan señalados (c por su entrega pendiente de calificar, que vale cero).
+  assert.strictEqual(candidatos.length, 3)
+  assert.strictEqual(datos.patronGrupal, true, '3 de 4 es MÁS de la mitad')
+  assert.ok(promptAA({ datos, candidatos }).includes('PATRÓN DEL GRUPO'))
+  const dos = agregarAA({ students: ALUMNOS_AA.slice(0, 2) })
+  assert.strictEqual(dos.candidatos.length, 1)
+  assert.strictEqual(dos.datos.patronGrupal, false, '1 de 2 no es MÁS de la mitad')
 })
 
 caso('privacidad: al modelo no viaja ningún nombre, comentario, motivo, archivo ni contenido de juego', () => {
@@ -5093,23 +5095,23 @@ caso('"Mayor promedio" va de mayor a menor y "Menor promedio" de menor a mayor, 
 
 caso('estudiantes: el informe conserva el orden de la lista y guarda el número de cada uno', () => {
   const doc = docOrdenAA({ students: conOrdenAA })
-  assert.deepStrictEqual(doc.estudiantesAtencion.map((e) => e.numeroLista), [19, 38])
+  assert.deepStrictEqual(doc.estudiantesAtencion.map((e) => e.numeroLista), [19, 25, 38])
   const plan = INF.planInformeAsignatura(doc)
   const filas = plan.secciones[5].bloques.find((b) => b.tipo === 'tabla').body.map((f) => f[0])
-  assert.deepStrictEqual(filas, ['19. Yáñez Kuri Wenceslao', '38. Urquidi Zendejas Ximena'])
+  assert.deepStrictEqual(filas, ['19. Yáñez Kuri Wenceslao', '25. Villaseñor Ibargüengoitia Hermenegildo', '38. Urquidi Zendejas Ximena'])
 })
 
 caso('estudiantes sin número de lista: no se inventa uno; se muestra solo el nombre', () => {
   const doc = docOrdenAA()
-  assert.deepStrictEqual(doc.estudiantesAtencion.map((e) => e.numeroLista), [null, null])
+  assert.deepStrictEqual(doc.estudiantesAtencion.map((e) => e.numeroLista), [null, null, null])
   const filas = INF.planInformeAsignatura(doc).secciones[5].bloques.find((b) => b.tipo === 'tabla').body.map((f) => f[0])
-  assert.deepStrictEqual(filas, ['Yáñez Kuri Wenceslao', 'Urquidi Zendejas Ximena'])
+  assert.deepStrictEqual(filas, ['Yáñez Kuri Wenceslao', 'Villaseñor Ibargüengoitia Hermenegildo', 'Urquidi Zendejas Ximena'])
 })
 
 caso('estudiantes con el mismo número de lista: se respeta el orden recibido y cada uno muestra su número', () => {
   const repetidos = ALUMNOS_AA.map((s) => ({ ...s, orden: 7 }))
   const doc = docOrdenAA({ students: repetidos })
-  assert.deepStrictEqual(doc.estudiantesAtencion.map((e) => [e.numeroLista, e.apellidoPaterno]), [[7, 'Yáñez'], [7, 'Urquidi']])
+  assert.deepStrictEqual(doc.estudiantesAtencion.map((e) => [e.numeroLista, e.apellidoPaterno]), [[7, 'Yáñez'], [7, 'Villaseñor'], [7, 'Urquidi']])
 })
 
 caso('recomendaciones específicas: aunque la IA las devuelva en otro orden, salen por número de lista', () => {
@@ -5150,7 +5152,7 @@ caso('informe HISTÓRICO (sin número de lista ni etiqueta): se muestra igual qu
   historico.estudiantesAtencion.forEach((e) => { delete e.numeroLista })
   for (const lista of [historico.datos.actividades, historico.datos.mejores, historico.datos.criticas, historico.datos.sinEntrega.actividades]) lista.forEach((a) => { delete a.etiqueta })
   const plan = INF.planInformeAsignatura(historico)
-  assert.deepStrictEqual(plan.secciones[5].bloques.find((b) => b.tipo === 'tabla').body.map((f) => f[0]), ['Yáñez Kuri Wenceslao', 'Urquidi Zendejas Ximena'])
+  assert.deepStrictEqual(plan.secciones[5].bloques.find((b) => b.tipo === 'tabla').body.map((f) => f[0]), ['Yáñez Kuri Wenceslao', 'Villaseñor Ibargüengoitia Hermenegildo', 'Urquidi Zendejas Ximena'])
   const mayor = plan.secciones[1].bloques.find((b) => b.tipo === 'tabla')
   assert.ok(mayor.body.every((f) => !f[0].includes('—')), 'sin etiqueta: solo el nombre de la actividad')
   assert.ok(!/undefined|null|NaN/.test(JSON.stringify(plan)))
@@ -5185,7 +5187,7 @@ caso('el cambio no altera ningún número calculado ni quién queda señalado', 
   const sinNuevos = (x) => JSON.parse(JSON.stringify(x, (k, v) => (k === 'etiqueta' || k === 'numeroLista' ? undefined : v)))
   assert.deepStrictEqual(sinNuevos(a.datos), sinNuevos(b.datos))
   assert.deepStrictEqual(a.candidatos.map((c) => [c.anonId, c.senales]), b.candidatos.map((c) => [c.anonId, c.senales]))
-  assert.strictEqual(a.datos.parciales[0].promedioGrupo, 6.6)
+  assert.strictEqual(a.datos.parciales[0].promedioGrupo, 5.9)
 })
 
 grupo('Filtro «solo actividades que se califican» (presentación, docente y estudiante)')
