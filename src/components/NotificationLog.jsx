@@ -214,7 +214,7 @@ export default function NotificationLog({ uid, describeEntry, emptyLabel = 'Aún
                           <td className="border border-outline-variant text-center align-top">
                             <button type="button"
                               onClick={(ev) => { ev.stopPropagation(); setEntryToDelete(e) }}
-                              aria-label="Borrar notificación" data-tooltip="Borrar"
+                              aria-label="Borrar notificación" data-tooltip="Borrar" data-tooltip-pos={i === 0 ? 'bottom' : undefined}
                               className="size-control inline-flex items-center justify-center text-muted hover:text-error rounded-full transition-colors">
                               <Trash2 size={ICONO.xs} />
                             </button>

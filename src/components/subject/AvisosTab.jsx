@@ -499,11 +499,11 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                   <h3 className="text-lg font-bold">¿Qué deseas comunicar?</h3>
                   <div className="flex items-center gap-1">
                     <button type="button" onClick={() => setStep('plantillas')}
-                      data-tooltip="Editar tus plantillas"
+                      data-tooltip="Editar tus plantillas" data-tooltip-pos="bottom"
                       className="size-control inline-flex items-center justify-center text-hint hover:text-accent hover:bg-[var(--accent-medium)] rounded-full transition-colors">
                       <Settings size={ICONO.md} />
                     </button>
-                    <IconButton icon={X} label="Cerrar" tooltip={false} onClick={() => setStep(null)} data-tooltip="Cerrar" />
+                    <IconButton icon={X} label="Cerrar" tooltip={false} onClick={() => setStep(null)} data-tooltip="Cerrar" data-tooltip-pos="bottom" />
                   </div>
                 </div>
                 {!plantillasLoaded ? (
@@ -532,7 +532,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                 <div className="flex items-center gap-2 mb-4">
                   <span className="text-2xl flex-shrink-0" aria-hidden="true">{form.emoji}</span>
                   <h3 className="text-lg font-bold flex-1">{form.titulo || 'Nuevo aviso'}</h3>
-                  <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-1" onClick={() => setStep(null)} data-tooltip="Cerrar" />
+                  <IconButton icon={X} label="Cerrar" tooltip={false} className="-mr-1" onClick={() => setStep(null)} data-tooltip="Cerrar" data-tooltip-pos="bottom" />
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-1">
@@ -580,7 +580,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                   <Button icon={Plus} iconEffect="gira90" onClick={() => openPlantillaForm(null)}>
                      Nueva
                   </Button>
-                  <IconButton icon={X} label="Cerrar" tooltip={false} onClick={() => setStep(null)} data-tooltip="Cerrar" />
+                  <IconButton icon={X} label="Cerrar" tooltip={false} onClick={() => setStep(null)} data-tooltip="Cerrar" data-tooltip-pos="bottom" />
                 </div>
                 <p className="text-sm text-muted mb-3">
                   Edítalas, cámbiales el ícono, {IS_NATIVE_APP ? 'mantén y arrastra para reordenar' : 'reordénalas'} o crea las tuyas — son tuyas, se usan en todas tus asignaturas.
@@ -629,7 +629,7 @@ export default function AvisosTab({ subjectId, docenteId, canCreate = true, bloc
                     <ArrowLeft size={ICONO.md} />
                   </button>
                   <h3 className="text-lg font-bold flex-1">{plantillaForm.id ? 'Editar plantilla' : 'Nueva plantilla'}</h3>
-                  <IconButton icon={X} label="Cerrar" tooltip={false} onClick={() => setStep(null)} data-tooltip="Cerrar" />
+                  <IconButton icon={X} label="Cerrar" tooltip={false} onClick={() => setStep(null)} data-tooltip="Cerrar" data-tooltip-pos="bottom" />
                 </div>
                 <div className="space-y-3">
                   <div>

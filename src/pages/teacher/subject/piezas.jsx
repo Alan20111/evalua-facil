@@ -440,6 +440,7 @@ export const AttendanceTable = memo(function AttendanceTable({
               return (
                 <th key={fecha} colSpan={records.length}
                   ref={setAttDayEl(fecha)}
+                  data-tooltip-pos="bottom"
                   data-tooltip={`${etiqueta} (${esSimple ? `${dia}/${mes}/${anio}` : fmtAttDateLong(fecha)}): no se registra asistencia`}
                   aria-label={`${etiqueta}: no se registra asistencia`}
                   className={`px-0.5 ${diaPy} font-semibold text-center border-l border-outline-variant tabular-nums cursor-default ${vac ? 'bg-purple-100 text-purple-700' : 'bg-amber-100 text-amber-700'}`}>
@@ -452,6 +453,7 @@ export const AttendanceTable = memo(function AttendanceTable({
               <th key={fecha} colSpan={records.length}
                 ref={setAttDayEl(fecha)}
                 onClick={() => onDeleteDay(fecha)}
+                data-tooltip-pos="bottom"
                 data-tooltip={esSimple
                   ? `Eliminar la asistencia del ${dia}/${mes}/${anio}`
                   : `Eliminar la asistencia del ${fmtAttDateLong(fecha)}`}
@@ -460,21 +462,21 @@ export const AttendanceTable = memo(function AttendanceTable({
               </th>
             )
           }),
-          <th key={`ha-${g.parcial}`} data-tooltip="Asistencias del parcial"
+          <th key={`ha-${g.parcial}`} data-tooltip="Asistencias del parcial" data-tooltip-pos="bottom"
             className={`px-0.5 ${diaPy} text-center border-l-2 border-outline`}>
             <CheckIcon size={ICONO.xs} className="inline text-green-600" />
           </th>,
-          <th key={`hi-${g.parcial}`} data-tooltip="Faltas del parcial"
+          <th key={`hi-${g.parcial}`} data-tooltip="Faltas del parcial" data-tooltip-pos="bottom"
             className={`px-0.5 ${diaPy} text-center`}>
             <X size={ICONO.xs} className="inline text-red-500" />
           </th>,
         ])}
         {!esSimple && (
           <>
-            <th data-tooltip="Total de asistencias" className="px-0.5 py-1 text-center border-l-2 border-outline">
+            <th data-tooltip="Total de asistencias" data-tooltip-pos="bottom" className="px-0.5 py-1 text-center border-l-2 border-outline">
               <CheckIcon size={ICONO.xs} className="inline text-green-600" />
             </th>
-            <th data-tooltip="Total de faltas" className="px-0.5 py-1 text-center">
+            <th data-tooltip="Total de faltas" data-tooltip-pos="bottom" className="px-0.5 py-1 text-center">
               <X size={ICONO.xs} className="inline text-red-500" />
             </th>
           </>
