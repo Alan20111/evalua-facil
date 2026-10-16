@@ -7984,13 +7984,37 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     assert.strictEqual(cero(ev('a', 1, { evaluacion: { sinCalificacion: true } }), undefined), false)
   })
 
-  caso('cero: una entrega o intento pendiente de calificar NO se vuelve cero', () => {
+  caso('simple: la entrega pendiente de calificar cuenta como 0 (numerador y denominador); el intento en curso no', () => {
     const acts = [ev('a'), ev('b')]
     const pendiente = { estado: 'entregado', calificacion: null }
-    assert.strictEqual(cero(acts[1], pendiente), false)
-    assert.strictEqual(prom(acts, [10, null], [conNota(10), pendiente]), 10)
+    assert.strictEqual(cero(acts[1], pendiente), false, 'no es «falta de entrega»: la regla es otra')
+    assert.strictEqual(prom(acts, [10, null], [conNota(10), pendiente]), 5)
     const intento = { estadoEvaluacion: 'en_progreso', intentoActual: 1, calificacion: null }
     assert.strictEqual(prom(acts, [10, null], [conNota(10), intento]), 10, 'cuestionario/examen/juego a medias')
+    assert.strictEqual(prom(acts, [10, null], [conNota(10), { ...intento, estado: 'entregado' }]), 10, 'reintento en curso')
+  })
+
+  caso('simple: calificadas + no entregadas vencidas + pendientes — (10+8+0+0)/4', () => {
+    const acts = [ev('a'), ev('b'), ev('c'), ev('d')]
+    const subs = [conNota(10), conNota(8), { estado: 'entregado', calificacion: null }, undefined]
+    assert.strictEqual(prom(acts, [10, 8, null, null], subs), 4.5)
+  })
+
+  caso('simple: lo que todavía no debe evaluarse sigue fuera (vigente, borrador, sin calificación)', () => {
+    const acts = [ev('a'), ev('b', 1, { fechaLimiteTS: ts(FUTURO) }), ev('c', 1, { sinCalificacion: true }), ev('d', 1, { oculta: true })]
+    const subs = [conNota(10), undefined, { estado: 'entregado', calificacion: null }, { estado: 'entregado', calificacion: null }]
+    assert.strictEqual(prom(acts, [10, null, null, null], subs), 10)
+  })
+
+  caso('ponderado intacto: la entrega pendiente sigue aportando 0 con divisor 10, y el resultado no cambia', () => {
+    const sp = subj({ ponderacionActivada: true })
+    const pend = { estado: 'entregado', calificacion: null }
+    const pond = [ev('a', 1, { pesoCalificacion: 5 }), ev('b', 1, { pesoCalificacion: 5 })]
+    assert.strictEqual(prom(pond, [10, null], [conNota(10), pend], sp, true), 5)
+    assert.deepStrictEqual(notasParaPromedio(pond, [10, null], [conNota(10), pend], { subject: sp, alumno, ahora: AHORA }), [10, null], 'no se vuelve 0 en ponderado')
+    const g = [10, 9, 0, 10, 10, 0, 8, 8, 10, 10]
+    const unos = g.map((_, i) => ev('p' + i, 1, { pesoCalificacion: 1 }))
+    assert.ok(Math.abs(prom(unos, g, g.map(conNota), sp, true) - 7.5) < 1e-9)
   })
 
   caso('cero: una calificación explícita de cero se conserva como cero', () => {

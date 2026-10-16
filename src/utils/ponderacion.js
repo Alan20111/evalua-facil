@@ -80,7 +80,8 @@ export function estadoSumaPesos(acts) {
 //    aporta 0 y los pesos cero no aportan. null solo si NINGUNA actividad con peso
 //    tiene resultado; si todos los resultados son cero, el promedio es 0. Nunca
 //    pasa de 10 (si los pesos suman más de 10 el docente ve la advertencia).
-//  · Simple: media de las notas que no son null (sin cambios).
+//  · Simple: media de las notas que no son null (las entregas pendientes de
+//    calificar ya llegan como 0 desde `notasParaPromedio`).
 export function promedioParcial(acts, grades, ponderacionOn) {
   const usePesos = ponderacionOn && acts.some((a) => pesoDe(a) > 0)
   if (usePesos) {
@@ -187,11 +188,25 @@ export function cuentaEnPromedioDelAlumno(a, sub, subject) {
   return !(subject?.parcialesOcultos || []).includes(a.parcial)
 }
 
+// Entrega recibida que todavía no tiene calificación. Un intento en curso
+// (`estadoEvaluacion: 'en_progreso'`) NO es una entrega: no entra aquí.
+const entregaPendienteDeCalificar = (a, sub) =>
+  !!sub && sub.calificacion == null && sub.estado === 'entregado' &&
+  sub.estadoEvaluacion !== 'en_progreso' && cuentaParaCalificacion(a)
+
 // Notas (normalizadas, null = sin nota) → notas para PROMEDIAR: igual que
-// `grades`, salvo las actividades que valen cero por falta de entrega.
+// `grades`, salvo las actividades que valen cero por falta de entrega y, SOLO en
+// el promedio simple, la entrega ya recibida pero pendiente de calificar (cuenta
+// como 0 en el numerador y en el denominador). En el ponderado esa entrega ya
+// aporta 0 con el divisor fijo de 10, así que aquí no se toca.
 // `subs[i]` es el documento del estudiante en `acts[i]` (o undefined).
 export function notasParaPromedio(acts, grades, subs, ctx) {
-  return grades.map((g, i) => (g !== null && g !== undefined ? g : (ceroPorFaltaDeEntrega(acts[i], subs?.[i], ctx) ? 0 : g)))
+  const simple = !(ponderacionActivaEnParcial(ctx?.subject, acts[0]?.parcial) && acts.some((a) => pesoDe(a) > 0))
+  return grades.map((g, i) => {
+    if (g !== null && g !== undefined) return g
+    if (ceroPorFaltaDeEntrega(acts[i], subs?.[i], ctx)) return 0
+    return simple && entregaPendienteDeCalificar(acts[i], subs?.[i]) ? 0 : g
+  })
 }
 
 // ── Estado del parcial y publicación del resultado ponderado ──────────────
