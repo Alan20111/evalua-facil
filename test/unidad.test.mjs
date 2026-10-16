@@ -6103,6 +6103,38 @@ caso('ponderaciones: es compatible con el motor — la calificación se normaliz
   assert.deepStrictEqual(G.repartirPonderacionParejo(3), [3.33, 3.33, 3.34])
 })
 
+// ── Entrega finalizada sin nota ("null/10") ───────────────────────────────────
+caso('entrega finalizada SIN nota: texto «Por calificar», nunca "null/10" ni "undefined/10"', () => {
+  for (const calificacion of [null, undefined, NaN]) {
+    const t = G.textoCalificacionEntrega({ estadoEvaluacion: 'finalizado', calificacion }, 10)
+    assert.strictEqual(t, 'Por calificar')
+    assert.ok(!/null|undefined|NaN/.test(t))
+  }
+  assert.strictEqual(G.textoCalificacionEntrega(undefined, 10), 'Por calificar')
+})
+
+caso('notas numéricas se muestran igual que antes, incluido el 0 (que es una nota real)', () => {
+  assert.strictEqual(G.textoCalificacionEntrega({ calificacion: 8 }, 10), '8/10')
+  assert.strictEqual(G.textoCalificacionEntrega({ calificacion: 7.5 }, 10), '7.5/10')
+  assert.strictEqual(G.textoCalificacionEntrega({ calificacion: 0 }, 10), '0/10')
+  assert.strictEqual(G.textoCalificacionEntrega({ calificacion: 40 }, 50), '40/50')
+  assert.strictEqual(G.textoCalificacionEntrega({ calificacion: 6 }, 0), '6/10', 'maxCalif vacío cae a 10, como el resto de la pantalla')
+})
+
+caso('estado: finalizada sin nota NO es «Calificado/Realizado»; con nota (0 incluido) sí; el diagnóstico sin nota sigue «Realizado»', () => {
+  const sinNota = { estadoEvaluacion: 'finalizado', calificacion: null }
+  assert.strictEqual(G.estadoEvaluacionLabel(sinNota, false), 'Por calificar')
+  assert.strictEqual(G.estadoEvaluacionLabel(sinNota, true), 'Por calificar')
+  assert.strictEqual(G.estadoEvaluacionLabel({ estadoEvaluacion: 'finalizado', calificacion: 0 }, true), 'Calificado')
+  assert.strictEqual(G.estadoEvaluacionLabel({ estadoEvaluacion: 'finalizado', calificacion: 8 }, false), 'Realizado')
+  assert.strictEqual(G.estadoEvaluacionLabel(sinNota, false, true), 'Realizado', 'instrumento sin calificación: la ausencia de nota es lo normal')
+  // Lo que ya existía no cambia.
+  assert.strictEqual(G.estadoEvaluacionLabel(null, true), 'No iniciado')
+  assert.strictEqual(G.estadoEvaluacionLabel({ estadoEvaluacion: 'en_progreso' }, true), 'En proceso')
+  assert.strictEqual(G.estadoEvaluacionLabel({ estadoEvaluacion: 'finalizado', pendienteRevision: true, calificacion: 3 }, true), 'Por calificar')
+})
+
+
 caso('propuestas: aprobar dos veces no duplica (ya aprobada = nada que escribir; misma id si la pantalla estaba vieja)', () => {
   const p = propDe(iaOM)
   assert.deepStrictEqual(PV.planAprobacion({ propuesta: { ...p, estado: 'aprobada' }, activas: [], duracionSeg: 487 }), { yaAprobada: true })

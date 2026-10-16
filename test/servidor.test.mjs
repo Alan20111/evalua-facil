@@ -679,25 +679,156 @@ await caso('3-4. dos intentos generan dos snapshots distintos; el del intento 1 
   assert.strictEqual(s1.respuestas.p1.opcionSeleccionada, 'b')
 })
 
-await caso('5-6. un snapshot existente nunca se sobrescribe ni se borra (tx.create rechaza, no tx.set)', async () => {
+await caso('5-6. snapshot HUÉRFANO (existe pero intentos[] no lo registra): el intento SÍ se califica y el huérfano se reemplaza', async () => {
   await limpiar()
   await sembrarEvaluacion({ conservar: 'ultimo' })
-  // Estado deliberadamente inconsistente: el snapshot del intento 1 ya
-  // existe, pero `intentos[]` todavía no lo sabe — no debería pasar nunca en
-  // producción (se escriben juntos, en la misma transacción), pero si pasara,
-  // `tx.create` debe abortar en vez de pisar el snapshot existente.
+  // Estado real que deja anular una entrega: se borran la entrega y sus
+  // respuestas, pero `intentosRespuestas/1` queda. El alumno vuelve a
+  // presentar y su intento es otra vez el número 1. Antes `tx.create` abortaba
+  // y la entrega quedaba finalizada con calificacion null ("null/10").
   await db.doc(`submissions/${SUB1}`).set({
     actividadId: ACT1, alumnoId: 'AL1', alumnoUid: 'UAL1', estadoEvaluacion: 'finalizado',
     intentoActual: 1, intentos: [], calificacion: null,
   })
-  await db.doc(`submissions/${SUB1}/intentosRespuestas/1`).set({ numero: 1, calificacion: 999, respuestas: { yaExistia: true } })
+  await db.doc(`submissions/${SUB1}/intentosRespuestas/1`).set({ numero: 1, calificacion: 999, respuestas: { huerfano: true } })
+  await contestar(['b', 'a']) // 5/10
+
+  await correrOnEvaluacionFinalizada()
+
+  const sub = (await db.doc(`submissions/${SUB1}`).get()).data()
+  assert.deepStrictEqual(sub.intentos, [{ numero: 1, calificacion: 5 }])
+  assert.strictEqual(sub.calificacion, 5)
+  assert.strictEqual(sub.estado, 'calificado')
+  const snap1 = (await db.doc(`submissions/${SUB1}/intentosRespuestas/1`).get()).data()
+  assert.strictEqual(snap1.calificacion, 5, 'el huérfano se reemplazó por el snapshot de ESTE intento')
+  assert.strictEqual(snap1.respuestas.huerfano, undefined, 'set reemplaza el documento completo, no lo mezcla')
+  assert.strictEqual(snap1.respuestas.p1.opcionSeleccionada, 'b')
+})
+
+await caso('5-6b. un intento YA calificado no se recalifica ni toca su snapshot aunque llegue el evento otra vez', async () => {
+  await limpiar()
+  await sembrarEvaluacion({ conservar: 'ultimo' })
+  await db.doc(`submissions/${SUB1}`).set({
+    actividadId: ACT1, alumnoId: 'AL1', alumnoUid: 'UAL1', estadoEvaluacion: 'finalizado',
+    intentoActual: 1, intentos: [], calificacion: null,
+  })
+  await contestar(['b', 'b']) // 10/10
+  await correrOnEvaluacionFinalizada()
+  const antes = (await db.doc(`submissions/${SUB1}/intentosRespuestas/1`).get()).data()
+
+  // Las respuestas vivas cambian (p. ej. el reintento ya las limpió y puso
+  // otras) y el evento se repite: nada debe moverse.
+  await contestar(['a', 'a'])
+  await correrOnEvaluacionFinalizada()
+
+  const sub = (await db.doc(`submissions/${SUB1}`).get()).data()
+  assert.deepStrictEqual(sub.intentos, [{ numero: 1, calificacion: 10 }])
+  assert.strictEqual(sub.calificacion, 10)
+  const despues = (await db.doc(`submissions/${SUB1}/intentosRespuestas/1`).get()).data()
+  assert.deepStrictEqual(despues.respuestas, antes.respuestas, 'el snapshot del intento calificado sigue intacto')
+  assert.strictEqual(despues.calificacion, 10)
+})
+
+await caso('5-6c. con snapshot huérfano y un reactivo de respuesta corta: queda pendienteRevision, sin convertir lo abierto en 0', async () => {
+  await limpiar()
+  await sembrarEvaluacion({ conservar: 'ultimo' })
+  await db.doc(`activities/${ACT1}/preguntas/p3`).set({ tipo: 'respuesta_corta', ponderacion: 1, enunciado: '¿3?' })
+  await db.doc(`submissions/${SUB1}`).set({
+    actividadId: ACT1, alumnoId: 'AL1', alumnoUid: 'UAL1', estadoEvaluacion: 'finalizado',
+    intentoActual: 1, intentos: [], calificacion: null,
+  })
+  await db.doc(`submissions/${SUB1}/intentosRespuestas/1`).set({ numero: 1, calificacion: 999, respuestas: {} })
+  await contestar(['b', 'b'])
+  await db.doc(`submissions/${SUB1}/respuestas/p3`).set({ textoRespuesta: 'algo', opcionSeleccionada: null })
+
+  await correrOnEvaluacionFinalizada()
+
+  const sub = (await db.doc(`submissions/${SUB1}`).get()).data()
+  assert.strictEqual(sub.pendienteRevision, true)
+  assert.strictEqual(sub.estado, 'entregado', 'sigue en revisión: no se marca calificada')
+  assert.strictEqual(sub.intentos.length, 1)
+  const p3 = (await db.doc(`submissions/${SUB1}/respuestas/p3`).get()).data()
+  assert.strictEqual(p3.puntosObtenidos, null, 'la abierta queda pendiente, no se convierte en 0')
+})
+
+await caso('5-6d. parcial cerrado definitivamente: no se califica ni se toca el snapshot huérfano', async () => {
+  await limpiar()
+  await sembrarEvaluacion({ conservar: 'ultimo' })
+  await db.doc(`activities/${ACT1}`).update({ parcial: 1 })
+  await db.doc('subjects/S1').set({ docenteId: DOCENTE, parcialesCerrados: { '1': '2026-09-01T00:00:00.000Z' } })
+  await db.doc(`submissions/${SUB1}`).set({
+    actividadId: ACT1, alumnoId: 'AL1', alumnoUid: 'UAL1', estadoEvaluacion: 'finalizado',
+    intentoActual: 1, intentos: [], calificacion: null,
+  })
+  await db.doc(`submissions/${SUB1}/intentosRespuestas/1`).set({ numero: 1, calificacion: 999, respuestas: { huerfano: true } })
   await contestar(['b', 'b'])
 
-  await assert.rejects(() => correrOnEvaluacionFinalizada())
+  await correrOnEvaluacionFinalizada()
 
+  const sub = (await db.doc(`submissions/${SUB1}`).get()).data()
+  assert.deepStrictEqual(sub.intentos, [])
+  assert.strictEqual(sub.calificacion, null, 'no se escribe ninguna calificación')
   const snap1 = (await db.doc(`submissions/${SUB1}/intentosRespuestas/1`).get()).data()
-  assert.strictEqual(snap1.calificacion, 999, 'el snapshot preexistente no se modificó')
-  assert.deepStrictEqual(snap1.respuestas, { yaExistia: true })
+  assert.strictEqual(snap1.calificacion, 999)
+})
+
+await caso('5-6e. reintento: el intento 2 califica aunque exista un huérfano del número 2, y el snapshot 1 vigente no se toca', async () => {
+  await limpiar()
+  await sembrarEvaluacion({ conservar: 'ultimo' })
+  await db.doc(`submissions/${SUB1}`).set({
+    actividadId: ACT1, alumnoId: 'AL1', alumnoUid: 'UAL1', estadoEvaluacion: 'finalizado',
+    intentoActual: 1, intentos: [], calificacion: null,
+  })
+  await contestar(['b', 'b'])
+  await correrOnEvaluacionFinalizada()
+  // Huérfano del número 2 (de una entrega anulada antes) y reintento real.
+  await db.doc(`submissions/${SUB1}/intentosRespuestas/2`).set({ numero: 2, calificacion: 999, respuestas: { huerfano: true } })
+  await db.doc(`submissions/${SUB1}`).update({ estadoEvaluacion: 'en_progreso', intentoActual: 2 })
+  await contestar(['b', 'a'])
+  await db.doc(`submissions/${SUB1}`).update({ estadoEvaluacion: 'finalizado' })
+  await correrOnEvaluacionFinalizada()
+
+  const sub = (await db.doc(`submissions/${SUB1}`).get()).data()
+  assert.deepStrictEqual(sub.intentos, [{ numero: 1, calificacion: 10 }, { numero: 2, calificacion: 5 }])
+  const s1 = (await db.doc(`submissions/${SUB1}/intentosRespuestas/1`).get()).data()
+  assert.strictEqual(s1.calificacion, 10, 'el snapshot del intento 1 no se tocó')
+  const s2 = (await db.doc(`submissions/${SUB1}/intentosRespuestas/2`).get()).data()
+  assert.strictEqual(s2.calificacion, 5)
+})
+
+grupo('Anular entrega — limpieza de snapshots huérfanos (limpiarIntentosRespuestasHuerfanos)')
+
+await caso('al borrarse la entrega se eliminan SUS snapshots y los de otras entregas no se tocan', async () => {
+  await limpiar()
+  await db.doc('submissions/A_AL1').set({ actividadId: 'A', alumnoId: 'AL1' })
+  await db.doc('submissions/A_AL2').set({ actividadId: 'A', alumnoId: 'AL2' })
+  await db.doc('submissions/A_AL1/intentosRespuestas/1').set({ numero: 1, calificacion: 7 })
+  await db.doc('submissions/A_AL1/intentosRespuestas/2').set({ numero: 2, calificacion: 8 })
+  await db.doc('submissions/A_AL2/intentosRespuestas/1').set({ numero: 1, calificacion: 9 })
+  await db.doc('submissions/A_AL1').delete() // lo que hace «Anular la entrega»
+
+  const n = await F.limpiarIntentosRespuestasHuerfanos('A_AL1')
+
+  assert.strictEqual(n, 2)
+  assert.strictEqual((await db.collection('submissions/A_AL1/intentosRespuestas').get()).size, 0)
+  assert.strictEqual((await db.doc('submissions/A_AL2/intentosRespuestas/1').get()).data().calificacion, 9, 'otra entrega intacta')
+  assert.strictEqual((await db.doc('submissions/A_AL2').get()).exists, true)
+})
+
+await caso('si la entrega YA fue recreada (mismo id determinista) no se borra nada: es vigente', async () => {
+  await limpiar()
+  await db.doc('submissions/A_AL1').set({ actividadId: 'A', alumnoId: 'AL1', intentoActual: 1 }) // recreada por el alumno
+  await db.doc('submissions/A_AL1/intentosRespuestas/1').set({ numero: 1, calificacion: 7 })
+
+  const n = await F.limpiarIntentosRespuestasHuerfanos('A_AL1') // el evento de borrado llega tarde
+
+  assert.strictEqual(n, 0)
+  assert.strictEqual((await db.doc('submissions/A_AL1/intentosRespuestas/1').get()).exists, true, 'el snapshot de una entrega vigente no se elimina')
+})
+
+await caso('entrega sin snapshots: no falla ni escribe nada', async () => {
+  await limpiar()
+  assert.strictEqual(await F.limpiarIntentosRespuestasHuerfanos('NO_EXISTE'), 0)
 })
 
 grupo('OP-10 · Capa 2 — selección del intento ganador (precheckAnalisisResultados)')

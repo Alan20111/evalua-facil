@@ -4,7 +4,7 @@ import { subjectPeriodLabel } from './dateRange'
 import { promedioParcial, notasParaPromedio, pesoDe, ponderacionActivaEnParcial, normalizeGrade } from './ponderacion'
 import { attendanceState, countPresence, fmtAttDateParts } from './attendance'
 import { studentFullName } from './studentSearch'
-import { cuentaParaCalificacion } from './activityVisibility'
+import { cuentaParaCalificacion, sinCalificacion } from './activityVisibility'
 import { saveBlob } from './exportGuard'
 // Plantilla en blanco (sin datos reales que "llevarse") — exenta a propósito
 // del candado de descarga en trial, ver exportGuard.js.
@@ -489,7 +489,7 @@ export async function exportEvaluacionResultadosExcel({
     return [
       s.orden,
       studentFullName(s),
-      estadoEvaluacionLabel(sub, hasManual),
+      estadoEvaluacionLabel(sub, hasManual, sinCalificacion(activity)),
       done && sub.calificacion != null ? sub.calificacion : '',
       aciertos && done ? aciertos.correctas : '',
       fechaHoraCell(sub?.fechaEntrega),
