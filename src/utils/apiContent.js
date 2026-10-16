@@ -12,7 +12,7 @@
 import { auth } from '../firebase'
 import { fetchApi } from './apiBase'
 
-function rehydrateTimestamps(v) {
+export function rehydrateTimestamps(v) {
   if (!v || typeof v !== 'object') return v
   if (Array.isArray(v)) return v.map(rehydrateTimestamps)
   const keys = Object.keys(v)
@@ -54,4 +54,51 @@ export async function fetchContentBatch(subjectIds, tipo) {
 export async function fetchActivity(activityId) {
   const docs = await callContentApi({ tipo: 'activities', docId: activityId })
   return docs[0] || null
+}
+
+// ── Entregas del estudiante (PR 2b-1) ──────────────────────────────────────
+// Las entregas, los promedios y —con `respuestas: true`— las respuestas de UNA
+// actividad, leídas por el servidor SIN lo que el docente ocultó (la nota se
+// quita allá, no en la pantalla). Sustituye a las consultas directas a
+// `submissions`. Ver api/_lib/entregasAlumno.js.
+//
+//   fetchMisEntregas()                          → todas las asignaturas (Dashboard, Agenda)
+//   fetchMisEntregas({ asignaturaId })          → una asignatura
+//   fetchMisEntregas({ actividadId, respuestas }) → una actividad (+ sus respuestas)
+//
+// Devuelve { entregas, promedios, respuestas }; los tiempos vienen rehidratados
+// igual que en fetchContent. `promedios[asignaturaId]` = { parciales, final }.
+export async function fetchMisEntregas({ asignaturaId, actividadId, respuestas } = {}) {
+  const token = await auth.currentUser?.getIdToken()
+  if (!token) throw new Error('No autenticado')
+  const body = {}
+  if (asignaturaId) body.asignaturaId = asignaturaId
+  if (actividadId) body.actividadId = actividadId
+  if (respuestas) body.respuestas = true
+  const res = await fetchApi('/api/student/mis-entregas', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(json?.error || 'No pudimos cargar tus entregas')
+  return {
+    entregas: (json.entregas || []).map(rehydrateTimestamps),
+    promedios: json.promedios || {},
+    respuestas: (json.respuestas || []).map(rehydrateTimestamps),
+  }
+}
+
+// Avisa desde qué versión entra el estudiante (hooks/useClientePing.js). No
+// espera ni propaga errores: registrar la versión nunca debe estorbar a nadie.
+export async function registrarClienteAlumno({ plataforma, versionName, buildId }) {
+  try {
+    const token = await auth.currentUser?.getIdToken()
+    if (!token) return
+    await fetchApi('/api/student/cliente-ping', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ plataforma, versionName, buildId }),
+    })
+  } catch { /* sin red o sin sesión: no pasa nada */ }
 }

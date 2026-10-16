@@ -121,7 +121,9 @@ export function isDueToday(activity) {
 // ya fuera visible en "Actividades" (issue reportado: entregable nuevo, sin
 // fecha límite, no aparecía en la agenda del día de publicación).
 export function estadoAgenda(activity, submission) {
-  const graded = submission?.calificacion != null
+  // Con la nota oculta el servidor quita `calificacion` y manda `calificada`:
+  // una entrega calificada pero oculta NO debe verse «Entregada» ni «Vencida».
+  const graded = submission?.calificada === true || submission?.calificacion != null
   const delivered = submission && !graded
   if (graded) return 'calificada'
   if (delivered) return 'entregada'

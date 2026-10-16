@@ -66,6 +66,9 @@ import {
   proyectarEntrega, proyectarRespuesta, promediosAlumno, paraJSON, CAMPOS_ENTREGA_OCULTA,
 } from '../src/utils/entregasAlumno.js'
 import {
+  estaCalificada, notaEstaOculta, promedioParcialVisible, promedioFinalVisible,
+} from '../src/utils/entregasCliente.js'
+import {
   leerOcultas, actividadOculta, promedioOculto, finalOculto, rutaVisibilidad, estaOculto, conVisibilidad,
   promedioDeduceOcultas, finalDeduceOcultas, CAMPO_OCULTAS,
 } from '../src/utils/visibilidadCalificaciones.js'
@@ -8884,6 +8887,123 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
       'firestore.rules', 'src/pages/teacher/subject/TabCalificaciones.jsx'].forEach((f) => {
       assert.ok(!/entregasAlumno|mis-entregas|cliente-ping/.test(leerFuente2a(f)), `${f} no debe cambiar en el 2a`)
     })
+  })
+}
+
+
+// ═══ Pantallas de LECTURA del estudiante por el endpoint filtrado (PR 2b-1) ═══
+// Dashboard, Agenda y asignatura dejan de leer `submissions` de Firestore y usan lo
+// que entrega el servidor (sin lo que el docente ocultó). Las fórmulas de promedio
+// no cambian: el servidor solo manda su número cuando al estudiante le falta una
+// nota oculta; sin nada oculto queda el cálculo local de siempre.
+{
+  grupo('entregasCliente — «calificada», promedios mezclados y cableado de las pantallas')
+  const leerFuente2b = (f) => readFileSync(new globalThis.URL(`../${f}`, import.meta.url), 'utf8').split('\r\n').join('\n')
+  const { estadoAgenda: estadoAgenda2b } = await import('../src/utils/activityVisibility.js')
+
+  caso('estaCalificada: la bandera del servidor manda; sin bandera, la deducción de siempre', () => {
+    assert.strictEqual(estaCalificada({ calificada: true }), true, 'oculta pero calificada')
+    assert.strictEqual(estaCalificada({ calificada: false, calificacion: 9 }), false, 'la bandera manda sobre el número')
+    assert.strictEqual(estaCalificada({ calificacion: 0 }), true, 'un 0 cuenta como calificada')
+    assert.strictEqual(estaCalificada({ calificacion: null }), false)
+    assert.strictEqual(estaCalificada({}), false)
+    assert.strictEqual(estaCalificada(undefined), false)
+    assert.strictEqual(estaCalificada(null), false)
+    assert.strictEqual(notaEstaOculta({ notaOculta: true }), true)
+    assert.strictEqual(notaEstaOculta({ notaOculta: false }), false)
+    assert.strictEqual(notaEstaOculta({}), false)
+    assert.strictEqual(notaEstaOculta(undefined), false)
+  })
+
+  caso('promedioParcialVisible: local sin nada oculto; servidor con ocultas; enmascarado si el docente lo oculta', () => {
+    // Sin bloque del servidor (lo normal si no hay nada que decidir): el local, intacto.
+    assert.deepStrictEqual(promedioParcialVisible('8.0', undefined), { valor: '8.0', oculto: false })
+    assert.deepStrictEqual(promedioParcialVisible(null, undefined), { valor: null, oculto: false })
+    // Bloque sin ocultas: sigue mandando el local (ninguna fórmula nueva).
+    assert.deepStrictEqual(promedioParcialVisible('8.0', { valor: 7, oculto: false, conOcultas: false }), { valor: '8.0', oculto: false })
+    // Notas ocultas dentro del parcial: al estudiante le falta esa nota, así que el local saldría mal.
+    assert.deepStrictEqual(promedioParcialVisible('9.0', { valor: 7.9, oculto: false, conOcultas: true }), { valor: '7.9', oculto: false })
+    assert.deepStrictEqual(promedioParcialVisible('9.0', { valor: 8, oculto: false, conOcultas: true }), { valor: '8.0', oculto: false }, '1 decimal')
+    assert.deepStrictEqual(promedioParcialVisible('9.0', { valor: null, oculto: false, conOcultas: true }), { valor: null, oculto: false })
+    // El docente ocultó este promedio: sin número, y se avisa.
+    assert.deepStrictEqual(promedioParcialVisible('9.0', { valor: null, oculto: true, conOcultas: false }), { valor: null, oculto: true })
+    // Oculto gana sobre «con ocultas»: no se muestra nada.
+    assert.deepStrictEqual(promedioParcialVisible('9.0', { valor: null, oculto: true, conOcultas: true }), { valor: null, oculto: true })
+  })
+
+  caso('promedioFinalVisible: igual lógica, y conserva el «pendiente» que ya calculaba la pantalla', () => {
+    assert.deepStrictEqual(promedioFinalVisible({ valor: '8.5', pendiente: false }, undefined), { valor: '8.5', pendiente: false, oculto: false })
+    assert.deepStrictEqual(promedioFinalVisible({ valor: null, pendiente: true }, undefined), { valor: null, pendiente: true, oculto: false })
+    assert.deepStrictEqual(promedioFinalVisible({ valor: '8.5', pendiente: false }, { valor: 7, pendiente: false, oculto: false, conOcultas: false }), { valor: '8.5', pendiente: false, oculto: false })
+    assert.deepStrictEqual(promedioFinalVisible({ valor: '9.0', pendiente: false }, { valor: 7.6, pendiente: false, oculto: false, conOcultas: true }), { valor: '7.6', pendiente: false, oculto: false })
+    assert.deepStrictEqual(promedioFinalVisible({ valor: '9.0', pendiente: false }, { valor: null, pendiente: true, oculto: false, conOcultas: true }), { valor: null, pendiente: true, oculto: false })
+    // Oculto: sin número y sin «pendiente» (no es lo mismo que «ponderación pendiente»).
+    assert.deepStrictEqual(promedioFinalVisible({ valor: '9.0', pendiente: true }, { valor: null, pendiente: true, oculto: true, conOcultas: false }), { valor: null, pendiente: false, oculto: true })
+  })
+
+  caso('estadoAgenda: una nota oculta sigue siendo «calificada» (no «entregada» ni «vencida»)', () => {
+    const vencida = { fechaLimite: '2020-01-01T10:00' }
+    assert.strictEqual(estadoAgenda2b(vencida, { calificada: true, notaOculta: true }), 'calificada')
+    assert.strictEqual(estadoAgenda2b(vencida, { calificacion: 7 }), 'calificada', 'como siempre')
+    assert.strictEqual(estadoAgenda2b(vencida, { calificada: false }), 'entregada')
+    assert.strictEqual(estadoAgenda2b(vencida, undefined), 'vencida')
+    assert.strictEqual(estadoAgenda2b({}, undefined), 'hoy')
+  })
+
+  caso('NotaOculta lleva el texto acordado, accesible y sin depender del color', () => {
+    const fuente = leerFuente2b('src/components/NotaOculta.jsx')
+    assert.ok(fuente.includes("'Tu docente aún no publica esta calificación'"), 'texto acordado')
+    assert.ok(fuente.includes('aria-hidden="true"') && fuente.includes('sr-only'), 'el ícono no se anuncia y el texto sí')
+    assert.ok(fuente.includes('EyeOff') && fuente.includes('compacta'))
+  })
+
+  caso('Dashboard, Agenda y asignatura leen las entregas por el servidor y ya no consultan submissions', () => {
+    for (const f of ['src/pages/student/Dashboard.jsx', 'src/pages/student/Agenda.jsx', 'src/pages/student/SubjectPage.jsx']) {
+      const src = leerFuente2b(f)
+      assert.ok(src.includes('fetchMisEntregas'), `${f} usa fetchMisEntregas`)
+      assert.ok(!/collection\(db, 'submissions'\)/.test(src), `${f} ya no consulta submissions directo`)
+      assert.ok(!/fetchSubmissionsForStudents/.test(src), `${f} ya no trae la consulta por inscripción`)
+    }
+  })
+
+  caso('las pantallas aplican la mezcla de promedios y NotaOculta donde iría el número', () => {
+    const dash = leerFuente2b('src/pages/student/Dashboard.jsx')
+    assert.ok(dash.includes('promedioFinalVisible(') && dash.includes('misEntregas.promedios[s.id]?.final') && dash.includes('s.avgOculto'))
+    assert.ok(dash.includes('<NotaOculta compacta'))
+    const sp = leerFuente2b('src/pages/student/SubjectPage.jsx')
+    assert.ok(sp.includes('promedioParcialVisible(calcParcialAvg(p), promediosServidor?.parciales?.[p])'))
+    assert.ok(sp.includes('estaCalificada(sub)') && sp.includes('sub?.notaOculta ?') && sp.includes('promParcial.oculto'))
+    // El cálculo local sigue siendo el de siempre: la pantalla no reimplementa nada.
+    assert.ok(sp.includes('notasParaPromedio(acts, grades, acts.map(subDe)') && sp.includes('promedioParcial(acts, paraPromedio'))
+    assert.ok(dash.includes('notasParaPromedio(pacts, grades,') && dash.includes('promedioParcial(pacts, paraPromedio'))
+    const agenda = leerFuente2b('src/pages/student/Agenda.jsx')
+    assert.ok(agenda.includes('misEntregas.entregas.forEach'))
+  })
+
+  caso('cliente-ping: StudentLayout lo llama una vez por sesión y el hook nunca estorba', () => {
+    assert.ok(leerFuente2b('src/components/StudentLayout.jsx').includes('useClientePing()'))
+    const hook = leerFuente2b('src/hooks/useClientePing.js')
+    assert.ok(hook.includes('sessionStorage.getItem(clave)') && hook.includes("IS_NATIVE_APP ? 'android' : 'web'"))
+    assert.ok(hook.includes('__BUILD_ID__') && hook.includes('androidVersion'))
+    const api = leerFuente2b('src/utils/apiContent.js')
+    assert.ok(api.includes("'/api/student/cliente-ping'") && api.includes("'/api/student/mis-entregas'"))
+    assert.ok(/registrarClienteAlumno[\s\S]*catch \{/.test(api), 'registrar la versión no propaga errores')
+    assert.ok(api.includes('export function rehydrateTimestamps'))
+  })
+
+  caso('PR 2b-1 NO toca los flujos con escrituras, ni reglas, ni la tabla del docente, ni fórmulas ni exportaciones', () => {
+    // ActivityPage, Runner, Juego y Revisión son del 2b-2: siguen leyendo como hoy.
+    for (const f of ['src/pages/student/ActivityPage.jsx', 'src/pages/student/EvaluacionRunner.jsx', 'src/pages/student/JuegoRunner.jsx', 'src/pages/student/EvaluacionRevision.jsx']) {
+      const src = leerFuente2b(f)
+      assert.ok(!/fetchMisEntregas|NotaOculta|entregasCliente/.test(src), `${f} es del 2b-2`)
+      assert.ok(/collection\(db, 'submissions'/.test(src), `${f} sigue como estaba`)
+    }
+    assert.ok(!/entregasCliente|NotaOculta/.test(leerFuente2b('firestore.rules')))
+    // La fila del docente sigue apagada: encenderla es el PR 2c.
+    assert.ok(leerFuente2b('src/pages/teacher/subject/TabCalificaciones.jsx').includes('const FILA_VISIBILIDAD_ACTIVA = false'))
+    for (const f of ['src/utils/ponderacion.js', 'src/utils/excel.js', 'src/utils/pdf.js']) {
+      assert.ok(!/entregasCliente|promedioParcialVisible|promedioFinalVisible/.test(leerFuente2b(f)), `${f} sin cambios`)
+    }
   })
 }
 

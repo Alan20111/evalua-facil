@@ -8,7 +8,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, List, Columns3, CalendarRange, La
 import { formatHora12 } from '../../utils/formatHora'
 import MiniSelect from '../../components/calendar/MiniSelect'
 import { getEnrollments } from '../../utils/studentLookup'
-import { fetchContentBatch } from '../../utils/apiContent'
+import { fetchContentBatch, fetchMisEntregas } from '../../utils/apiContent'
 import { isActivityPublished, estadoAgenda, withDefaultTime } from '../../utils/activityVisibility'
 import { toDateStr } from '../../utils/horarioBloques'
 import { MESES, DIAS_LARGO, addDays, addMonths, addWeeks, getWeekDays, isToday } from '../../utils/calendarGrid'
@@ -47,17 +47,6 @@ const VIEWS = [
   { id: 'semana', label: 'Semana', Icon: CalendarRange },
   { id: 'mes', label: 'Mes', Icon: LayoutGrid },
 ]
-
-// Una consulta `==` por inscripción, en paralelo — NO `in` por lotes: la regla
-// de lectura de submissions verifica la propiedad por alumnoId con un get() al
-// doc de inscripción, y una disyunción `in` multiplica esos get()s más allá del
-// límite por consulta de Firestore. (Mismo patrón que el Dashboard del alumno.)
-async function fetchSubmissionsForStudents(studentDocIds) {
-  const snaps = await Promise.all(
-    studentDocIds.map((id) => getDocs(query(collection(db, 'submissions'), where('alumnoId', '==', id))))
-  )
-  return snaps.flatMap((s) => s.docs)
-}
 
 export default function Agenda() {
   const { currentUser, userProfile } = useAuth()
@@ -136,14 +125,15 @@ export default function Agenda() {
 
       // Una materia archivada nunca aparece en la Agenda — ciclo cerrado.
       const activeSubjectIds = subjectIds.filter((id) => subjectById[id] && !subjectById[id].archived)
-      const activeDocIds = activeSubjectIds.map((id) => docIdBySubject[id])
       const teacherIds = [...new Set(activeSubjectIds.map((id) => subjectById[id].docenteId).filter(Boolean))]
       // F-09: activities/horarioBloques/academicEvents ya no son de lectura
       // abierta; el servidor verifica la inscripción en cada petición.
-      const [teacherSnaps, actDocs, subDocs, bloqueDocs, academicEventDocs, studentEventDocs] = await Promise.all([
+      // Las entregas las entrega el servidor sin lo que el docente ocultó (la nota
+      // se quita allá); aquí solo importa si hay entrega y si está calificada.
+      const [teacherSnaps, actDocs, misEntregas, bloqueDocs, academicEventDocs, studentEventDocs] = await Promise.all([
         Promise.all(teacherIds.map((tid) => getDoc(doc(db, 'publicProfiles', tid)))),
         fetchContentBatch(activeSubjectIds, 'activities'),
-        fetchSubmissionsForStudents(activeDocIds),
+        fetchMisEntregas(),
         fetchContentBatch(activeSubjectIds, 'horarioBloques'),
         fetchContentBatch(activeSubjectIds, 'academicEvents'),
         getDocs(query(collection(db, 'studentEvents'), where('alumnoId', '==', currentUser.uid))),
@@ -157,7 +147,7 @@ export default function Agenda() {
       setStudentEvents(studentEventDocs.docs.map((d) => ({ id: d.id, ...d.data() })))
 
       const submissionByActivity = {}
-      subDocs.forEach((d) => { submissionByActivity[d.data().actividadId] = { id: d.id, ...d.data() } })
+      misEntregas.entregas.forEach((e) => { submissionByActivity[e.actividadId] = e })
 
       const built = actDocs
         .filter((a) => {

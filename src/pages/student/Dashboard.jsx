@@ -3,10 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import {
   getDoc,
   doc,
-  collection,
-  query,
-  where,
-  getDocs,
   updateDoc,
   writeBatch,
   serverTimestamp,
@@ -16,7 +12,9 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import { BookOpen, ChevronRight, ChevronDown, Plus, X, Hash, Archive, Trash2, Download, ArrowUp, ArrowDown, GripVertical, Globe, Smartphone,  } from 'lucide-react'
 import SubjectIcon from '../../components/SubjectIcon'
-import { fetchContentBatch } from '../../utils/apiContent'
+import { fetchContentBatch, fetchMisEntregas } from '../../utils/apiContent'
+import { promedioFinalVisible } from '../../utils/entregasCliente'
+import NotaOculta from '../../components/NotaOculta'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { getEnrollments, updateAllEnrollments, visibleEnrollments } from '../../utils/studentLookup'
@@ -34,20 +32,6 @@ import { IS_NATIVE_APP } from '../../utils/platform'
 import { EsqueletoTableroAlumno } from '../../components/esqueletos'
 import { Button, Card, DisclosureCard, EmptyState, FlechaFila, IconButton, IconTile, Input, Modal } from '../../components/ui'
 import { ICONO } from '../../config/iconos'
-
-// All submissions belonging to a set of student enrollment docs — one `==` query
-// per enrollment, in parallel. NO `in` chunks here: the submissions read rule
-// verifies ownership per alumnoId with a get() on the enrollment doc, and an
-// `in` disjunction multiplies those get()s past Firestore's per-query limit.
-// A student has a handful of enrollments, so this stays cheap.
-async function fetchSubmissionsForStudents(studentDocIds) {
-  const snaps = await Promise.all(
-    studentDocIds.map((id) =>
-      getDocs(query(collection(db, 'submissions'), where('alumnoId', '==', id)))
-    )
-  )
-  return snaps.flatMap((s) => s.docs)
-}
 
 export default function StudentDashboard() {
   const { currentUser, userProfile, setUserProfile } = useAuth()
@@ -270,14 +254,15 @@ export default function StudentDashboard() {
       if (subs.length === 0) { setSubjects([]); return }
 
       // Everything else in ONE parallel batch — a constant number of round trips:
-      //  · teacher names  · all activities (chunked `in`)  · all my submissions (chunked `in`)
+      //  · teacher names  · all activities (chunked `in`)  · all my submissions
+      // Las entregas ya no se leen de Firestore: las entrega el servidor SIN lo que
+      // el docente ocultó (la nota se quita allá) y con los promedios calculados.
       const teacherIds = [...new Set(subs.map((s) => s.docenteId).filter(Boolean))]
       const subjectIds = subs.map((s) => s.id)
-      const myDocIds = Object.values(docIdBySubject)
-      const [teacherSnaps, actDocs, mySubmissions] = await Promise.all([
+      const [teacherSnaps, actDocs, misEntregas] = await Promise.all([
         Promise.all(teacherIds.map((tid) => getDoc(doc(db, 'publicProfiles', tid)))),
         fetchContentBatch(subjectIds, 'activities'),
-        fetchSubmissionsForStudents(myDocIds),
+        fetchMisEntregas(),
       ])
 
       const teachers = {}
@@ -299,8 +284,7 @@ export default function StudentDashboard() {
       })
       const gradeByActivity = {}
       const subByActivity = {}
-      mySubmissions.forEach((d) => {
-        const data = d.data()
+      misEntregas.entregas.forEach((data) => {
         subByActivity[data.actividadId] = data
         if (data.calificacion != null) gradeByActivity[data.actividadId] = data.calificacion
       })
@@ -343,7 +327,14 @@ export default function StudentDashboard() {
         // en SU inscripción — el `orden` de ese mismo doc ya es del docente,
         // la posición en SU lista de grupo, un campo distinto).
         const enrollment = enrollments.find((e) => e.asignaturaId === s.id)
-        return { ...s, enrollmentId: docIdBySubject[s.id], teacherName: teachers[s.docenteId] || '—', avg, avgPendiente, alumnoOrden: enrollment?.alumnoOrden }
+        // Con notas ocultas dentro del promedio —al estudiante le falta esa nota— o
+        // con el promedio oculto por el docente, manda lo que calculó el servidor. Sin
+        // nada oculto queda el cálculo de arriba, intacto.
+        const final = promedioFinalVisible({ valor: avg, pendiente: avgPendiente }, misEntregas.promedios[s.id]?.final)
+        return {
+          ...s, enrollmentId: docIdBySubject[s.id], teacherName: teachers[s.docenteId] || '—',
+          avg: final.valor, avgPendiente: final.pendiente, avgOculto: final.oculto, alumnoOrden: enrollment?.alumnoOrden,
+        }
       })
       // Mismo patrón de auto-sanado que el Dashboard del docente (Dashboard.jsx):
       // la primera vez que se ve una inscripción sin alumnoOrden, se asigna uno
@@ -522,7 +513,12 @@ export default function StudentDashboard() {
                     <p className="text-muted text-sm font-medium mt-0.5 truncate">{s.teacherName}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {s.avgPendiente ? (
+                    {s.avgOculto ? (
+                      <div className="text-right">
+                        <NotaOculta compacta className="justify-end" />
+                        <p className="text-sm text-muted">promedio</p>
+                      </div>
+                    ) : s.avgPendiente ? (
                       <div className="text-right">
                         <PonderacionPendiente className="block text-lg font-bold text-hint" />
                         <p className="text-sm text-muted">promedio</p>
