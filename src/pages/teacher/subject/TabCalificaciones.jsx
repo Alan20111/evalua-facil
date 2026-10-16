@@ -19,6 +19,14 @@ import { showNear } from '../../../utils/notify'
 import { studentFullName } from '../../../utils/studentSearch'
 import { useAsignatura } from './contexto'
 
+// La fila «Visible al alumno» guarda la configuración en
+// subjects.calificacionesOcultas, pero mientras las pantallas del estudiante no
+// lean sus notas por el endpoint filtrado del servidor (PR 2b) NO oculta nada:
+// el estudiante seguiría viendo todo. Por eso se apaga aquí, sin tocar datos:
+// lo que ya estuviera guardado se conserva y vuelve a verse al ponerla en true.
+// (Al apagarse, tampoco salen sus avisos al pie de la tabla.)
+const FILA_VISIBILIDAD_ACTIVA = false
+
 export default function TabCalificaciones() {
   const {
     activeTab,
@@ -337,6 +345,7 @@ export default function TabCalificaciones() {
                           docente conserva todo, y no cambia ninguna nota ni promedio.
                           Se puede usar con el parcial cerrado. Mismas columnas y
                           anchos que las demás filas. */}
+                      {FILA_VISIBILIDAD_ACTIVA && (
                       <tr data-fila="visibilidad" className="bg-accent-light border-b border-outline-variant">
                         <th className="sticky left-0 z-10 bg-accent-light w-8 px-1 py-0.5 border-r border-outline-variant"><span className="sr-only">Visibilidad para el estudiante</span></th>
                         <th aria-label="Visible al alumno" className="sticky left-8 z-10 bg-accent-light w-[210px] px-2 py-0.5 border-r border-outline-variant">
@@ -378,6 +387,7 @@ export default function TabCalificaciones() {
                           </th>
                         )}
                       </tr>
+                      )}
                       {/* PONDERACIÓN row — weights per activity, per PARCIAL.
                           Active parciales show their weight inputs (with an ✕
                           to turn just that parcial off); inactive ones show an
@@ -549,7 +559,7 @@ export default function TabCalificaciones() {
                   </table>
                 </div>
 
-                {hayOcultas && (
+                {FILA_VISIBILIDAD_ACTIVA && hayOcultas && (
                   <div data-nota="visibilidad" className="space-y-1 text-[11px] leading-snug text-hint">
                     <p>{AVISO_APP_ANTERIOR}</p>
                     {hayAvisoDeduce && <p>El triángulo junto a un promedio avisa que incluye notas que el estudiante no ve; podría deducirlas.</p>}
