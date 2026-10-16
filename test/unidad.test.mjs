@@ -9379,6 +9379,40 @@ caso('el backend del análisis de entregable no se tocó (operación y tarifa si
   caso('promedio simple: PR con prórroga VENCIDA y sin entrega también es 0 (ya lo era)', () => {
     assert.strictEqual(prom([mk('a'), mk('b', { extensiones: { e1: '2026-10-12T23:59' } })], [10, null], [{}, undefined]), 5)
   })
+  caso('prórroga vencida + recibirTarde: la celda es «—» y cuenta 0 (misma regla que PR)', () => {
+    const a = mk('t', { recibirTarde: true, extensiones: { e1: '2026-10-12T23:59' } })
+    assert.strictEqual(estadoEntrega(a, undefined, 'e1', AHORA), 'noentregado')
+    assert.strictEqual(prom([mk('x'), a], [10, null], [{}, undefined]), 5)
+  })
+  caso('prórroga vencida + intento en curso: «—» y 0', () => {
+    const a = mk('t', { tipo: 'evaluacion', extensiones: { e1: '2026-10-12T23:59' } })
+    const doc = { estadoEvaluacion: 'en_progreso' }
+    assert.strictEqual(estadoEntrega(a, doc, 'e1', AHORA), 'noentregado')
+    assert.strictEqual(prom([mk('x'), a], [10, null], [{}, doc]), 5)
+  })
+  caso('el mismo instante: PR+0 justo antes del límite, «—»+0 justo después (indicador y promedio coherentes)', () => {
+    const a = mk('t', { extensiones: { e1: '2026-10-16T12:30' } })
+    for (const [ahora, esperado] of [['2026-10-16T12:29:00-06:00', 'prorroga'], ['2026-10-16T12:31:00-06:00', 'noentregado']]) {
+      const ms = Date.parse(ahora)
+      assert.strictEqual(estadoEntrega(a, undefined, 'e1', ms), esperado)
+      const n = notasParaPromedio([mk('x'), a], [10, null], [{}, undefined], { subject: subj, alumno, ahora: ms })
+      assert.deepStrictEqual(n, [10, 0])
+    }
+  })
+  caso('entrega real con prórroga vencida: sigue «+» (no se pierde) y vale 0 hasta calificarse; al calificarse vale su nota', () => {
+    const a = mk('t', { extensiones: { e1: '2026-10-12T23:59' } })
+    assert.strictEqual(estadoEntrega(a, entregada, 'e1', AHORA), 'entregado')
+    assert.strictEqual(prom([mk('x'), a], [10, null], [{}, entregada]), 5)
+    assert.strictEqual(estadoEntrega(a, { ...entregada, calificacion: 8 }, 'e1', AHORA), 'calificado')
+    assert.strictEqual(prom([mk('x'), a], [10, 8], [{}, { ...entregada, calificacion: 8 }]), 9)
+  })
+  caso('ponderado idéntico con prórroga vencida y recibirTarde', () => {
+    const sp = { ponderacionParciales: { 1: true } }
+    const acts = [mk('a', { pesoCalificacion: 5 }), mk('b', { pesoCalificacion: 5, recibirTarde: true, extensiones: { e1: '2026-10-12T23:59' } })]
+    const nota = notasParaPromedio(acts, [10, null], [{}, undefined], { subject: sp, alumno, ahora: AHORA })
+    assert.deepStrictEqual(nota, [10, null])
+    assert.strictEqual(promedioParcial(acts, nota, true), 5)
+  })
   caso('ponderado: la prórroga vigente NO cambia su fórmula (Σ nota·peso / 10)', () => {
     const sp = { ponderacionParciales: { 1: true } }
     const acts = [mk('a', { pesoCalificacion: 5 }), mk('b', { pesoCalificacion: 5, ...PR })]
