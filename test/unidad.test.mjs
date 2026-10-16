@@ -8577,6 +8577,21 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     assert.ok(/deleteField\(\)/.test(cuerpo), 'mostrar = borrar la llave (campo ausente = visible)')
   })
 
+  caso('la fila está APAGADA hasta el PR 2b: una constante en false que no toca lo guardado', () => {
+    // Mientras las pantallas del estudiante lean sus notas directo de Firestore, ocultar no oculta
+    // nada. Al llegar el PR 2b se pone FILA_VISIBILIDAD_ACTIVA en true y se actualiza este caso.
+    const tab = leerFuente('src/pages/teacher/subject/TabCalificaciones.jsx')
+    assert.ok(tab.includes('const FILA_VISIBILIDAD_ACTIVA = false'), 'la constante está en false')
+    // La fila y sus avisos al pie solo existen detrás de la constante.
+    assert.ok(/\{FILA_VISIBILIDAD_ACTIVA && \(\s*<tr data-fila="visibilidad"/.test(tab), 'la fila está condicionada')
+    assert.ok(tab.includes('{FILA_VISIBILIDAD_ACTIVA && hayOcultas && ('), 'los avisos al pie también')
+    // Apagarla NO borra ni reescribe la configuración: el guardado y el util siguen intactos.
+    assert.ok(!/deleteField|updateDoc|setDoc/.test(tab), 'la pestaña no escribe nada por sí misma')
+    const sp = leerFuente('src/pages/teacher/SubjectPage.jsx')
+    assert.ok(sp.includes('async function cambiarVisibilidadAlumno') && sp.includes('calificacionesOcultas: conVisibilidad('))
+    assert.ok(leerFuente('src/utils/visibilidadCalificaciones.js').includes('export const CAMPO_OCULTAS'))
+  })
+
   caso('accesibilidad de los controles: interruptor con nombre estable, foco que no se pierde, 24 px y contraste', () => {
     const tab = leerFuente('src/pages/teacher/subject/TabCalificaciones.jsx')
     const ini = tab.indexOf('function BotonVisibilidad')
