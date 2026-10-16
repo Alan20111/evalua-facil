@@ -301,6 +301,9 @@ export default function DownloadLinks() {
           queda arriba, listo para subirlo a Play Console.
         </p>
 
+        {/* La ayuda va DEBAJO de la fila y no como `hint` del Input: con
+            `items-end` el botón se alineaba al final del bloque del campo
+            (ayuda incluida) y quedaba ~23 px más abajo que el campo. */}
         <div className="mt-4 flex flex-col sm:flex-row sm:items-end gap-3">
           <Input
             id="dl-version-auto"
@@ -308,7 +311,7 @@ export default function DownloadLinks() {
             optional
             value={versionAuto}
             onChange={(e) => setVersionAuto(e.target.value)}
-            hint="Vacío = sube sola el último dígito"
+            aria-describedby="dl-version-auto-ayuda"
             wrapperClassName="flex-1 min-w-0"
           />
           <Button onClick={handleCompilar} busy={compilando} disabled={compilando}>
@@ -316,6 +319,9 @@ export default function DownloadLinks() {
             {compilando ? 'Iniciando…' : 'Compilar y publicar'}
           </Button>
         </div>
+        <p id="dl-version-auto-ayuda" className="text-xs text-hint mt-1">
+          Vacío = sube sola el último dígito
+        </p>
 
         <p className="mt-3 flex items-start gap-1.5 text-sm text-hint">
           <ExternalLink size={ICONO.xs} className="flex-shrink-0 mt-0.5" />
