@@ -207,6 +207,15 @@ const entregaPendienteDeCalificar = (a, sub) =>
 export const esSinEntregaSinNota = (sub) =>
   !!sub && sub.estado === 'calificado' && sub.sinEntrega === true && sub.calificacion == null
 
+// Estudiante con prórroga propia y sin nota: vigente («PR») o ya vencida sin
+// entrega real («—»). En ambos casos vale 0 en el promedio simple, y no depende
+// de `recibirTarde` ni de un intento en curso: coincide con lo que muestra la
+// tabla (utils/estadoEntrega.js). Una entrega real pendiente de calificar ya
+// salió antes (entregaPendienteDeCalificar) y sigue valiendo 0 hasta calificarse;
+// entregar tarde la vuelve «+» sin tocar el documento.
+const prorrogaSinNota = (a, { alumno } = {}) =>
+  plazoProrrogaMs(a, alumno?.id) != null && cuentaParaCalificacion(a)
+
 // Notas (normalizadas, null = sin nota) → notas para PROMEDIAR: igual que
 // `grades`, salvo las actividades que valen cero por falta de entrega y, SOLO en
 // el promedio simple, la entrega ya recibida pero pendiente de calificar y el
@@ -221,6 +230,7 @@ export function notasParaPromedio(acts, grades, subs, ctx) {
     if (ceroPorFaltaDeEntrega(acts[i], subs?.[i], ctx)) return 0
     if (!simple) return g
     if (entregaPendienteDeCalificar(acts[i], subs?.[i])) return 0
+    if (prorrogaSinNota(acts[i], ctx)) return 0
     return esSinEntregaSinNota(subs?.[i]) && cuentaParaCalificacion(acts[i]) ? 0 : g
   })
 }
