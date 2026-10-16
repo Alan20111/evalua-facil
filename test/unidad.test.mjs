@@ -15,6 +15,7 @@
 import assert from 'node:assert'
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
+import { estadoEntrega } from '../src/utils/estadoEntrega.js'
 import { extraerAssets } from '../api/_lib/cloudinary.js'
 import {
   promedioParcial, notasParaPromedio, cuentaEnPromedioDelAlumno, ceroPorFaltaDeEntrega, estadoSumaPesos, actividadesQueCuentan, pesosSumanDiez, ponderacionActivaEnParcial, normalizeGrade,
@@ -9291,6 +9292,62 @@ caso('el backend del análisis de entregable no se tocó (operación y tarifa si
   assert.ok(readFileSync(new globalThis.URL('../functions/ia.js', import.meta.url), 'utf8').includes('analizar_entregable'))
   assert.ok(readFileSync(new globalThis.URL('../seeds-db/seed-ia-tarifas.js', import.meta.url), 'utf8').includes('analizar_entregable'))
 })
+
+
+// ── Estados de la entrega (Calificaciones) ───────────────────────────────────
+{
+  const AHORA = Date.parse('2026-10-16T12:00:00-06:00')
+  const act = { id: 'a1', maxCalif: 10, fechaLimite: '2026-10-10T23:59', extensiones: {}, extensionesTS: {} }
+  const conPror = (fecha) => ({ ...act, extensiones: { e1: fecha } })
+  caso('estado: sin entrega y sin prórroga = no entregado', () => {
+    assert.strictEqual(estadoEntrega(act, undefined, 'e1', AHORA), 'noentregado')
+  })
+  caso('estado: prórroga vigente sin entrega = En prórroga (PR)', () => {
+    assert.strictEqual(estadoEntrega(conPror('2026-10-20T23:59'), undefined, 'e1', AHORA), 'prorroga')
+    assert.strictEqual(estadoEntrega(conPror('2026-10-20T23:59'), undefined, 'otro', AHORA), 'noentregado', 'la prórroga es solo de su dueño')
+  })
+  caso('estado: prórroga vencida sin entrega = no entregado; el límite exacto ya venció', () => {
+    assert.strictEqual(estadoEntrega(conPror('2026-10-15T23:59'), undefined, 'e1', AHORA), 'noentregado')
+    assert.strictEqual(estadoEntrega(conPror('2026-10-16T12:00'), undefined, 'e1', AHORA), 'noentregado')
+  })
+  caso('estado: zona horaria de México (-06:00), sin desfase del dispositivo', () => {
+    const a = conPror('2026-10-16T12:30')
+    assert.strictEqual(estadoEntrega(a, undefined, 'e1', Date.parse('2026-10-16T12:29:00-06:00')), 'prorroga')
+    assert.strictEqual(estadoEntrega(a, undefined, 'e1', Date.parse('2026-10-16T12:31:00-06:00')), 'noentregado')
+  })
+  caso('estado: el Timestamp (extensionesTS) gana sobre el texto', () => {
+    const a = { ...act, extensiones: { e1: '2026-10-01T10:00' }, extensionesTS: { e1: { seconds: Math.floor(Date.parse('2026-10-30T00:00:00-06:00') / 1000) } } }
+    assert.strictEqual(estadoEntrega(a, undefined, 'e1', AHORA), 'prorroga')
+  })
+  caso('estado: entregó durante la prórroga = por calificar (+); conserva el estado aunque venza', () => {
+    const sub = { estado: 'entregado', archivoURL: 'u' }
+    assert.strictEqual(estadoEntrega(conPror('2026-10-20T23:59'), sub, 'e1', AHORA), 'entregado')
+    assert.strictEqual(estadoEntrega(conPror('2026-10-01T23:59'), sub, 'e1', AHORA), 'entregado')
+    assert.strictEqual(estadoEntrega(act, sub, 'e1', AHORA), 'entregado')
+  })
+  caso('estado: con calificación = calificado (también un 0), aunque venza el plazo o la prórroga', () => {
+    assert.strictEqual(estadoEntrega(conPror('2026-10-01T23:59'), { calificacion: 8 }, 'e1', AHORA), 'calificado')
+    assert.strictEqual(estadoEntrega(act, { calificacion: 0, sinEntrega: true }, 'e1', AHORA), 'calificado')
+  })
+  caso('estado: «no entregó» del docente sin nota e intento en curso no son entrega real', () => {
+    assert.strictEqual(estadoEntrega(act, { sinEntrega: true, estado: 'calificado' }, 'e1', AHORA), 'noentregado')
+    assert.strictEqual(estadoEntrega({ ...act, tipo: 'evaluacion' }, { estadoEvaluacion: 'en_progreso' }, 'e1', AHORA), 'noentregado')
+    assert.strictEqual(estadoEntrega({ ...conPror('2026-10-20T23:59'), tipo: 'evaluacion' }, { estadoEvaluacion: 'en_progreso' }, 'e1', AHORA), 'prorroga')
+  })
+  caso('estado: los cuatro estados son excluyentes y suman al grupo', () => {
+    const a = { ...act, extensiones: { e2: '2026-10-20T23:59' } }
+    const subs = { e3: { archivoURL: 'u' }, e4: { calificacion: 9 } }
+    const alumnos = ['e1', 'e2', 'e3', 'e4']
+    const por = {}
+    alumnos.forEach((id) => { const st = estadoEntrega(a, subs[id], id, AHORA); por[st] = (por[st] || 0) + 1 })
+    assert.deepStrictEqual(por, { noentregado: 1, prorroga: 1, entregado: 1, calificado: 1 })
+  })
+  caso('estado: el cero provisional NO se guarda: el promedio sigue su fórmula actual', () => {
+    // PR / + / — sin nota no inventan calificación; la celda solo cambia de presentación.
+    assert.strictEqual(normalizeGrade(undefined, 10, { decimals: 1 }), null)
+    assert.strictEqual(promedioParcial([{ pesoCalificacion: 5 }, { pesoCalificacion: 5 }], [10, null], true), 5)
+  })
+}
 
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)

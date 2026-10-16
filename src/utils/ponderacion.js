@@ -150,6 +150,13 @@ function plazoEfectivoMs(a, alumnoId) {
     msDe(a.fechaLimiteTS) ?? textoMexicoAMs(a.fechaLimite)
 }
 
+// Fin de la prórroga INDIVIDUAL del estudiante en ms (null = no tiene). Misma
+// lectura que `plazoEfectivoMs` pero sin caer a la fecha del grupo: el estado
+// «En prórroga» (utils/estadoEntrega.js) depende de que exista la suya.
+export function plazoProrrogaMs(a, alumnoId) {
+  return msDe(a?.extensionesTS?.[alumnoId]) ?? textoMexicoAMs(a?.extensiones?.[alumnoId])
+}
+
 export function ceroPorFaltaDeEntrega(a, sub, { subject, alumno, ahora = Date.now() } = {}) {
   if (sub || !a) return false
   if (!cuentaParaCalificacion(a)) return false

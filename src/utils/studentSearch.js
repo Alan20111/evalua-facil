@@ -1,4 +1,4 @@
-import { capitalizarNombre, sinAcentos } from './nombres'
+import { capitalizarNombre, sinAcentos } from './nombres.js'
 
 // Single source of truth for a student's full display name — Apellido Paterno,
 // Apellido Materno, Nombre(s). Must be used everywhere a student name is
