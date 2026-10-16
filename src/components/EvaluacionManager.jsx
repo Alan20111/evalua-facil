@@ -12,7 +12,7 @@ import { opcionesConfigVisibles, opcionesNavegacion } from '../utils/configEvalu
 import { esVideoInteractivo } from '../utils/videoInteractivo'
 import Spinner from './Spinner'
 import { sanitizeHtml, richTextContentClass, toRichHtml } from '../utils/sanitizeHtml'
-import { formatDeadline, formatPublishAt } from '../utils/activityVisibility'
+import { formatDeadline, formatPublishAt, sinCalificacion } from '../utils/activityVisibility'
 import { mensajeParcialCerrado } from '../utils/ponderacion'
 import { nowIsoLocal as toIsoNow } from '../utils/nowIso'
 import { fechaLimiteTimestamp } from '../utils/deadline'
@@ -34,7 +34,7 @@ import {
 } from 'lucide-react'
 import useCreditosIA from '../hooks/useCreditosIA'
 import ConfirmacionCreditosModal from './ConfirmacionCreditosModal'
-import { estadoEvaluacionLabel } from '../utils/evaluacionGrading'
+import { estadoEvaluacionLabel, textoCalificacionEntrega } from '../utils/evaluacionGrading'
 import { cargarRespuestasEvaluacion, esGraficable } from '../utils/evaluacionRespuestas'
 import { exportEvaluacionResultadosExcel } from '../utils/excel'
 import { exportEvaluacionResultadosPDF, exportAnalisisResultadosPDF } from '../utils/pdf'
@@ -848,7 +848,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
   // Misma etiqueta que sale en la columna ESTADO del Excel de resultados — la
   // lógica vive en evaluacionGrading.js para que no puedan discrepar.
   function estadoEstudiante(sub) {
-    return estadoEvaluacionLabel(sub, hasManual)
+    return estadoEvaluacionLabel(sub, hasManual, sinCalificacion(activity))
   }
 
   // Filter buckets: Pendientes (not finished), Calificados/Realizados,
@@ -2206,10 +2206,10 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                         {sub?.estadoEvaluacion === 'finalizado' && (
                           IS_NATIVE_APP ? (
                             <span className="text-xs font-bold text-emerald-600 flex items-center gap-0.5 flex-shrink-0">
-                              <Star size={ICONO.xs} /> {sub.calificacion}/{activity.maxCalif || 10}
+                              <Star size={ICONO.xs} /> {textoCalificacionEntrega(sub, activity.maxCalif)}
                             </span>
                           ) : (
-                            <span className="text-xs font-semibold text-on-surface flex-shrink-0">{sub.calificacion}/{activity.maxCalif || 10}</span>
+                            <span className="text-xs font-semibold text-on-surface flex-shrink-0">{textoCalificacionEntrega(sub, activity.maxCalif)}</span>
                           )
                         )}
                       </div>
@@ -2551,8 +2551,10 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                     </button>
                   </div>
                   <div className="flex-1 flex items-center justify-center min-w-0">
-                    <p className="text-[2.7rem] font-bold text-on-surface leading-none border-b-2 border-accent px-2 pb-1">
-                      {done ? `${sub.calificacion}/${activity.maxCalif || 10}` : '—'}
+                    <p className={`font-bold text-on-surface leading-none border-b-2 border-accent px-2 pb-1 ${
+                      done && !Number.isFinite(sub.calificacion) ? 'text-[1.5rem] h-[2.7rem] box-content flex items-end' : 'text-[2.7rem]'
+                    }`}>
+                      {done ? textoCalificacionEntrega(sub, activity.maxCalif) : '—'}
                     </p>
                   </div>
                   <div className="w-px h-9 bg-outline-variant flex-shrink-0" />
@@ -2574,7 +2576,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                   {/* Read-only obtained grade */}
                   <div className="rounded-card border border-outline-variant p-3 text-center">
                     <p className="text-sm font-medium text-muted">Calificación obtenida</p>
-                    <p className="text-2xl font-bold text-on-surface">{done ? `${sub.calificacion}/${activity.maxCalif || 10}` : '—'}</p>
+                    <p className="text-2xl font-bold text-on-surface">{done ? textoCalificacionEntrega(sub, activity.maxCalif) : '—'}</p>
                   </div>
 
                   {/* Anular la entrega actual */}

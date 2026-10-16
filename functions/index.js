@@ -33,7 +33,7 @@
 const { initializeApp } = require('firebase-admin/app')
 const { getFirestore, FieldValue, FieldPath } = require('firebase-admin/firestore')
 const { getMessaging } = require('firebase-admin/messaging')
-const { onDocumentWritten, onDocumentCreated } = require('firebase-functions/v2/firestore')
+const { onDocumentWritten, onDocumentCreated, onDocumentDeleted } = require('firebase-functions/v2/firestore')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { logger } = require('firebase-functions')
@@ -855,9 +855,16 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
     // solo pasa cuando el alumno vuelve a ActivityPage y pide empezar de
     // nuevo, después de que este intento ya quedó 'finalizado'). Mismo guard
     // de idempotencia que `intentos[]` arriba: si `num` ya se hubiera
-    // procesado, ya habríamos retornado antes de llegar aquí. `tx.create`
-    // (no `tx.set`) además rechaza de raíz cualquier intento de sobrescribir
-    // un snapshot que ya exista, aunque `intentos[]` estuviera inconsistente.
+    // procesado, ya habríamos retornado antes de llegar aquí. Por eso aquí se
+    // usa `tx.set` y NO `tx.create`: un snapshot de este número que exista
+    // mientras `intentos[]` no lo registra es, por construcción, un HUÉRFANO
+    // (los dos se escriben juntos, en esta misma transacción). Nace al anular
+    // una entrega —se borran la entrega y sus respuestas, no sus snapshots— y
+    // el siguiente intento vuelve a ser el número 1. Con `tx.create` esa
+    // colisión abortaba la transacción ENTERA y el intento se quedaba sin
+    // calificación para siempre ("null/10"). Un intento ya calificado nunca
+    // llega a esta línea (guard de `previos` arriba), así que su snapshot no
+    // se pisa.
     //
     // Solo lo que OP-10 necesita para el detalle por reactivo — nunca texto
     // libre ni archivos (no aportan al análisis, que solo mira reactivos
@@ -872,13 +879,39 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
         puntosObtenidos: puntos,
       }
     })
-    tx.create(after.ref.collection('intentosRespuestas').doc(String(num)), {
+    tx.set(after.ref.collection('intentosRespuestas').doc(String(num)), {
       numero: num,
       calificacion: calificacionIntento,
       respuestas: snapshotRespuestas,
       creadoEn: FieldValue.serverTimestamp(),
     })
   })
+})
+
+// Anular una entrega la BORRA (con sus `respuestas`), pero `intentosRespuestas`
+// solo el servidor puede tocarlo: queda huérfano. onEvaluacionFinalizada ya no
+// se rompe con uno (usa `tx.set`), pero se limpia para no acumular basura y
+// para que el análisis nunca lea el snapshot de una entrega que ya no existe.
+//
+// Seguridad: el id de la entrega es determinista (`{actividadId}_{alumnoId}`),
+// así que el alumno puede volver a presentar y recrear el MISMO id. Si ese
+// documento existe de nuevo, la entrega es vigente y NO se borra nada. Y solo
+// se borran los snapshots listados en este momento: uno que nazca después (de
+// un intento posterior) no está en la lista y no se toca.
+async function limpiarIntentosRespuestasHuerfanos(submissionId) {
+  const subRef = db.collection('submissions').doc(submissionId)
+  if ((await subRef.get()).exists) return 0 // entrega vigente: sus snapshots son válidos
+  const snaps = await subRef.collection('intentosRespuestas').get()
+  if (snaps.empty) return 0
+  const batch = db.batch()
+  snaps.docs.forEach((d) => batch.delete(d.ref))
+  await batch.commit()
+  return snaps.size
+}
+
+exports.onEntregaBorradaLimpiarIntentos = onDocumentDeleted('submissions/{submissionId}', async (event) => {
+  const n = await limpiarIntentosRespuestasHuerfanos(event.params.submissionId)
+  if (n) logger.info(`onEntregaBorradaLimpiarIntentos(${event.params.submissionId}): ${n} snapshot(s) huérfano(s) eliminado(s)`)
 })
 
 // ─── 4.5-bis) Crucigrama / Sopa de letras — calificación automática ────────
@@ -1607,6 +1640,7 @@ exports._pruebas = {
   recalcularResumenAsistencia,
   recalcularResumenesDelDia,
   marcarSinRegistroPorAlta,
+  limpiarIntentosRespuestasHuerfanos,
   TIPOS_OBJETIVOS,
   TIPOS_REVISION_MANUAL,
 }

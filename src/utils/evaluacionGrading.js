@@ -118,12 +118,27 @@ export function repartirPonderacionParejo(n) {
  * reactivos que el docente debe revisar a mano (`hasManual`). Lo comparten la
  * lista de Entregas y las exportaciones (Excel), para que la columna ESTADO
  * del archivo diga lo mismo que la pantalla.
+ *
+ * Una entrega finalizada que todavía no tiene nota (el servidor aún no la
+ * calificó) NO es "Calificado": queda "Por calificar". Un instrumento "Sin
+ * calificación" nunca lleva nota, así que ahí la ausencia es lo normal
+ * (`sinNota`).
  */
-export function estadoEvaluacionLabel(sub, hasManual) {
+export function estadoEvaluacionLabel(sub, hasManual, sinNota = false) {
   if (!sub) return 'No iniciado'
   if (sub.estadoEvaluacion === 'en_progreso') return 'En proceso'
   if (sub.pendienteRevision) return 'Por calificar'
+  if (!sinNota && sub.estadoEvaluacion === 'finalizado' && !Number.isFinite(sub.calificacion)) return 'Por calificar'
   return hasManual ? 'Calificado' : 'Realizado'
+}
+
+/**
+ * Texto de la calificación de una entrega ("8/10"), o «Por calificar» cuando
+ * todavía no hay nota. Un 0 es una nota real y se muestra como "0/10"; jamás
+ * se imprime "null" ni "undefined".
+ */
+export function textoCalificacionEntrega(sub, maxCalif = 10) {
+  return Number.isFinite(sub?.calificacion) ? `${sub.calificacion}/${maxCalif || 10}` : 'Por calificar'
 }
 
 /**
