@@ -25,7 +25,7 @@ import { useAsignatura } from './contexto'
 // el estudiante seguiría viendo todo. Por eso se apaga aquí, sin tocar datos:
 // lo que ya estuviera guardado se conserva y vuelve a verse al ponerla en true.
 // (Al apagarse, tampoco salen sus avisos al pie de la tabla.)
-const FILA_VISIBILIDAD_ACTIVA = false
+const FILA_VISIBILIDAD_ACTIVA = true
 
 export default function TabCalificaciones() {
   const {
