@@ -3736,5 +3736,76 @@ ok('F-05 · admin CAN read publicProfiles')
   ok('ERRORES · solo el admin los lee y los borra (resueltos); nadie los escribe desde el cliente')
 }
 
+// ═══ Visibilidad de calificaciones: subjects.calificacionesOcultas ═════════════
+// PR 1: SOLO configuración del docente. Estas pruebas fijan que ESCRIBIRLA no
+// choca con ninguna regla existente (en particular con el cierre de parcial) y
+// que nadie más puede tocarla. No cambian las reglas: el campo es nuevo y las
+// reglas de `subjects` no lo mencionan.
+{
+  const HOY = new Date().toISOString()
+  const U_VIS = 'authuid_visibilidad'
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, 'subjects', 'S_VIS'), {
+      docenteId: T1, escuelaId: 'E1', parciales: 3, nombre: 'Materia',
+      ponderacionActivada: true, ponderacionParciales: { 1: true, 2: false, 3: false },
+      parcialesCerrados: { 1: HOY },
+    })
+    await setDoc(doc(db, 'activities', 'AV_1'), { docenteId: T1, asignaturaId: 'S_VIS', parcial: 1, tipo: 'archivo', categoria: 'entregable', maxCalif: 10, pesoCalificacion: 6, oculta: false, publishedAt: HOY })
+    await setDoc(doc(db, 'students', 'SV_ALU'), { asignaturaId: 'S_VIS', escuelaId: 'E1', username: 'SVALU', uid: U_VIS, activado: true })
+    await setDoc(doc(db, 'submissions', 'AV_1_SV_ALU'), { alumnoId: 'SV_ALU', actividadId: 'AV_1', calificacion: 8, estado: 'calificado', comentario: '' })
+  })
+  const docente = testEnv.authenticatedContext(T1).firestore()
+  const otroDocente = testEnv.authenticatedContext(T2).firestore()
+  const alumno = testEnv.authenticatedContext(U_VIS, { email: 'svalu.e1@evalua.local' }).firestore()
+  const lee = async (ctx) => (await getDoc(doc(ctx, 'subjects', 'S_VIS'))).data()
+
+  // Con el parcial 1 CERRADO el docente cambia la visibilidad de las tres cosas.
+  await assertSucceeds(updateDoc(doc(docente, 'subjects', 'S_VIS'), { 'calificacionesOcultas.actividades.AV_1': true }))
+  await assertSucceeds(updateDoc(doc(docente, 'subjects', 'S_VIS'), { 'calificacionesOcultas.promedios.1': true }))
+  await assertSucceeds(updateDoc(doc(docente, 'subjects', 'S_VIS'), { 'calificacionesOcultas.final': true }))
+  let s = await lee(docente)
+  assert.deepStrictEqual(s.calificacionesOcultas, { actividades: { AV_1: true }, promedios: { 1: true }, final: true })
+  ok('VISIBILIDAD · el docente oculta actividad, promedio y final CON el parcial cerrado')
+
+  // Cambiar un control no altera los demás: se muestra uno (borra su llave) y el resto sigue oculto.
+  await assertSucceeds(updateDoc(doc(docente, 'subjects', 'S_VIS'), { 'calificacionesOcultas.promedios.1': deleteField() }))
+  s = await lee(docente)
+  assert.deepStrictEqual(s.calificacionesOcultas, { actividades: { AV_1: true }, promedios: {}, final: true })
+  await assertSucceeds(updateDoc(doc(docente, 'subjects', 'S_VIS'), { 'calificacionesOcultas.actividades.AV_1': deleteField() }))
+  await assertSucceeds(updateDoc(doc(docente, 'subjects', 'S_VIS'), { 'calificacionesOcultas.final': deleteField() }))
+  s = await lee(docente)
+  assert.deepStrictEqual(s.calificacionesOcultas, { actividades: {}, promedios: {} })
+  ok('VISIBILIDAD · mostrar borra solo su llave; los demás controles no se mueven')
+
+  // No reabre el parcial, ni toca la ponderación, ni una calificación.
+  assert.ok(s.parcialesCerrados && s.parcialesCerrados['1'], 'el parcial 1 sigue cerrado')
+  assert.deepStrictEqual(s.ponderacionParciales, { 1: true, 2: false, 3: false })
+  const sub = (await getDoc(doc(docente, 'submissions', 'AV_1_SV_ALU'))).data()
+  assert.strictEqual(sub.calificacion, 8)
+  ok('VISIBILIDAD · no reabre el parcial ni altera ponderación ni calificaciones')
+
+  // El candado de cierre sigue vivo para lo que sí congela.
+  await assertFails(updateDoc(doc(docente, 'subjects', 'S_VIS'), { 'ponderacionParciales.1': false }))
+  await assertFails(updateDoc(doc(docente, 'subjects', 'S_VIS'), { 'parcialesCerrados.1': deleteField() }))
+  ok('VISIBILIDAD · el candado del parcial cerrado sigue bloqueando ponderación y reapertura')
+
+  // Se puede mandar junto con otro cambio permitido, también con el parcial abierto.
+  await assertSucceeds(updateDoc(doc(docente, 'subjects', 'S_VIS'), { 'calificacionesOcultas.promedios.2': true, nombre: 'Materia 2' }))
+  ok('VISIBILIDAD · también en parciales abiertos y junto con otros cambios permitidos')
+
+  // Nadie más la toca.
+  await assertFails(updateDoc(doc(otroDocente, 'subjects', 'S_VIS'), { 'calificacionesOcultas.final': true }))
+  await assertFails(updateDoc(doc(alumno, 'subjects', 'S_VIS'), { 'calificacionesOcultas.final': deleteField() }))
+  await assertFails(updateDoc(doc(alumno, 'subjects', 'S_VIS'), { 'calificacionesOcultas.actividades.AV_1': true }))
+  ok('VISIBILIDAD · otro docente y el estudiante NO pueden cambiarla')
+
+  // PR 1 no cambia la lectura del estudiante: eso es el PR 2 (sigue leyendo sus entregas como siempre).
+  const mias = await getDocs(query(collection(alumno, 'submissions'), where('alumnoId', '==', 'SV_ALU')))
+  assert.strictEqual(mias.size, 1)
+  assert.strictEqual(mias.docs[0].data().calificacion, 8)
+  ok('VISIBILIDAD · PR 1 no toca la lectura del estudiante (sin cambio de reglas)')
+}
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

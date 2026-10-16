@@ -62,6 +62,10 @@ import { normalizarUsername, candidatosUsername, coincidenciaExacta } from '../s
 import { usernameCandidates } from '../src/utils/generate.js'
 import { esNombreParecido, findSimilarIdentity, findStudentIdentity, studentNameKey } from '../src/utils/studentIdentity.js'
 import { tieneEvidencia, elegibleSinEntrega, firmaEntrega } from '../src/utils/submissionGuard.js'
+import {
+  leerOcultas, actividadOculta, promedioOculto, finalOculto, rutaVisibilidad, estaOculto, conVisibilidad,
+  promedioDeduceOcultas, finalDeduceOcultas, CAMPO_OCULTAS,
+} from '../src/utils/visibilidadCalificaciones.js'
 import { register } from 'node:module'
 
 // extensiones.js llega a studentSearch.js, que importa './nombres' sin
@@ -8443,6 +8447,146 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
   })
 }
 
+
+
+// ═══ Visibilidad de calificaciones para el estudiante (PR 1: configuración) ═══
+{
+  grupo('visibilidadCalificaciones — configuración de la fila «Visible al alumno»')
+  // Normaliza CRLF: en Windows el árbol de trabajo trae \r\n y las búsquedas de texto no deben depender de eso.
+  const leerFuente = (f) => readFileSync(new globalThis.URL(`../${f}`, import.meta.url), 'utf8').split('\r\n').join('\n')
+
+  caso('sin configuración TODO es visible (asignatura sin campo, nula o indefinida)', () => {
+    for (const subject of [undefined, null, {}, { calificacionesOcultas: undefined }, { calificacionesOcultas: null }]) {
+      assert.strictEqual(actividadOculta(subject, 'a1'), false)
+      assert.strictEqual(promedioOculto(subject, 1), false)
+      assert.strictEqual(finalOculto(subject), false)
+    }
+    // undefined === undefined no puede volverse «oculto»: ni con id indefinido.
+    assert.strictEqual(actividadOculta({}, undefined), false)
+    assert.deepStrictEqual(leerOcultas(undefined), { actividades: {}, promedios: {}, final: false })
+  })
+
+  caso('formas raras guardadas no esconden nada: solo `true` oculta', () => {
+    const raros = [
+      [], 'texto', 5, true,
+      { actividades: [], promedios: 'x', final: 'si' },
+      { actividades: { a1: false, a2: 0, a3: 'true', a4: null }, promedios: { 1: false }, final: false },
+    ]
+    for (const crudo of raros) {
+      const subject = { [CAMPO_OCULTAS]: crudo }
+      ;['a1', 'a2', 'a3', 'a4'].forEach((id) => assert.strictEqual(actividadOculta(subject, id), false))
+      assert.strictEqual(promedioOculto(subject, 1), false)
+      assert.strictEqual(finalOculto(subject), false)
+    }
+  })
+
+  caso('cada control es independiente: actividad, promedio de cada parcial y final', () => {
+    const subject = { calificacionesOcultas: { actividades: { a1: true }, promedios: { 2: true }, final: true } }
+    assert.strictEqual(actividadOculta(subject, 'a1'), true)
+    assert.strictEqual(actividadOculta(subject, 'a2'), false)
+    assert.strictEqual(promedioOculto(subject, 2), true)
+    assert.strictEqual(promedioOculto(subject, '2'), true, 'el parcial llega como número o como texto')
+    assert.strictEqual(promedioOculto(subject, 1), false)
+    assert.strictEqual(finalOculto(subject), true)
+    // Ocultar una actividad no oculta el promedio de su parcial ni el final.
+    const soloAct = { calificacionesOcultas: { actividades: { a1: true } } }
+    assert.strictEqual(promedioOculto(soloAct, 1), false)
+    assert.strictEqual(finalOculto(soloAct), false)
+  })
+
+  caso('rutaVisibilidad escribe UNA sola llave por control', () => {
+    assert.strictEqual(rutaVisibilidad('actividad', 'abc'), 'calificacionesOcultas.actividades.abc')
+    assert.strictEqual(rutaVisibilidad('promedio', 2), 'calificacionesOcultas.promedios.2')
+    assert.strictEqual(rutaVisibilidad('final'), 'calificacionesOcultas.final')
+    assert.throws(() => rutaVisibilidad('otro', 1))
+  })
+
+  caso('conVisibilidad oculta y muestra sin tocar a los demás ni mutar el original', () => {
+    const base = Object.freeze({ calificacionesOcultas: Object.freeze({
+      actividades: Object.freeze({ a1: true }), promedios: Object.freeze({ 1: true }), final: true,
+    }) })
+    let m = conVisibilidad(base, 'actividad', 'a2', true)
+    assert.deepStrictEqual(m, { actividades: { a1: true, a2: true }, promedios: { 1: true }, final: true })
+    m = conVisibilidad({ calificacionesOcultas: m }, 'actividad', 'a1', false)
+    assert.deepStrictEqual(m, { actividades: { a2: true }, promedios: { 1: true }, final: true })
+    m = conVisibilidad({ calificacionesOcultas: m }, 'promedio', 1, false)
+    assert.deepStrictEqual(m, { actividades: { a2: true }, promedios: {}, final: true })
+    m = conVisibilidad({ calificacionesOcultas: m }, 'final', undefined, false)
+    assert.deepStrictEqual(m, { actividades: { a2: true }, promedios: {} }, 'final visible = sin llave')
+    m = conVisibilidad({}, 'final', undefined, true)
+    assert.deepStrictEqual(m, { actividades: {}, promedios: {}, final: true })
+    // Lo que se le pasó no cambió.
+    assert.deepStrictEqual(base.calificacionesOcultas.actividades, { a1: true })
+  })
+
+  caso('estaOculto lee el control que le toca', () => {
+    const subject = { calificacionesOcultas: { actividades: { a1: true }, promedios: { 3: true } } }
+    assert.strictEqual(estaOculto(subject, 'actividad', 'a1'), true)
+    assert.strictEqual(estaOculto(subject, 'promedio', 3), true)
+    assert.strictEqual(estaOculto(subject, 'final'), false)
+    assert.strictEqual(estaOculto(subject, 'desconocido', 1), false)
+  })
+
+  caso('aviso: promedio visible con notas ocultas se puede deducir; oculto o sin ocultas no', () => {
+    const acts = [{ id: 'a1' }, { id: 'a2' }]
+    const conOculta = { calificacionesOcultas: { actividades: { a1: true } } }
+    assert.strictEqual(promedioDeduceOcultas(conOculta, 1, acts), true)
+    assert.strictEqual(promedioDeduceOcultas({}, 1, acts), false, 'nada oculto')
+    const promOculto = { calificacionesOcultas: { actividades: { a1: true }, promedios: { 1: true } } }
+    assert.strictEqual(promedioDeduceOcultas(promOculto, 1, acts), false, 'si el promedio también está oculto no hay qué deducir')
+    // Final visible: se deduce si hay algo oculto por debajo (actividad o promedio de otro parcial).
+    const parciales = [{ p: 1, acts }, { p: 2, acts: [{ id: 'b1' }] }]
+    assert.strictEqual(finalDeduceOcultas(conOculta, parciales), true)
+    assert.strictEqual(finalDeduceOcultas({ calificacionesOcultas: { promedios: { 2: true } } }, parciales), true)
+    assert.strictEqual(finalDeduceOcultas({ calificacionesOcultas: { final: true, actividades: { a1: true } } }, parciales), false)
+    assert.strictEqual(finalDeduceOcultas({}, parciales), false)
+  })
+
+  caso('NO cambia fórmulas: ponderacion.js ni las exportaciones conocen la visibilidad', () => {
+    for (const f of ['src/utils/ponderacion.js', 'src/utils/excel.js', 'src/utils/pdf.js']) {
+      assert.ok(!/visibilidadCalificaciones|calificacionesOcultas/.test(leerFuente(f)), `${f} no debe depender de la visibilidad`)
+    }
+    // El promedio es el de siempre: la configuración no entra en la cuenta.
+    const acts = [{ id: 'a', pesoCalificacion: 4 }, { id: 'b', pesoCalificacion: 6 }]
+    assert.strictEqual(promedioParcial(acts, [10, 5], true), 7)
+  })
+
+  caso('la fila «Visible al alumno» siempre está y va ANTES de PONDERACIÓN', () => {
+    const tab = leerFuente('src/pages/teacher/subject/TabCalificaciones.jsx')
+    const iFila = tab.indexOf('data-fila="visibilidad"')
+    const iPond = tab.indexOf('{/* PONDERACIÓN row')
+    assert.ok(iFila > 0 && iPond > 0 && iFila < iPond, 'la fila va justo arriba de PONDERACIÓN')
+    // No depende de la ponderación: el texto previo a la fila no abre ese condicional.
+    const antes = tab.slice(Math.max(0, iFila - 600), iFila)
+    assert.ok(!/anyPonderacionOn\s*&&/.test(antes), 'la fila se muestra con o sin ponderación')
+    // Un control por actividad, por promedio de parcial y por Final.
+    assert.ok(tab.includes("cambiarVisibilidadAlumno('actividad', a.id)"))
+    assert.ok(tab.includes("cambiarVisibilidadAlumno('promedio', p)"))
+    assert.ok(tab.includes("cambiarVisibilidadAlumno('final')"))
+    // La celda de Final solo existe con la columna Final (y por tanto respeta soloParcial).
+    assert.ok(/\{showFinalCol && \(\s*<th className="w-14 px-1 py-1 border-l border-outline-variant bg-accent-light">/.test(tab))
+  })
+
+  caso('se puede cambiar con el parcial cerrado: el guardado no consulta parcialCerrado', () => {
+    const sp = leerFuente('src/pages/teacher/SubjectPage.jsx')
+    const ini = sp.indexOf('async function cambiarVisibilidadAlumno')
+    const fin = sp.indexOf('\n  }\n', ini)
+    const cuerpo = sp.slice(ini, fin)
+    assert.ok(ini > 0 && cuerpo.includes("doc(db, 'subjects', subjectId)"), 'escribe en subjects')
+    assert.ok(!/parcialCerrado|mensajeParcialCerrado/.test(cuerpo), 'no se bloquea por parcial cerrado')
+    assert.ok(/deleteField\(\)/.test(cuerpo), 'mostrar = borrar la llave (campo ausente = visible)')
+  })
+
+  caso('PR 1 no toca las pantallas del estudiante ni las reglas ni el API del alumno', () => {
+    for (const f of [
+      'src/pages/student/ActivityPage.jsx', 'src/pages/student/SubjectPage.jsx', 'src/pages/student/Dashboard.jsx',
+      'src/pages/student/Agenda.jsx', 'src/pages/student/EvaluacionRunner.jsx', 'src/pages/student/JuegoRunner.jsx',
+      'src/pages/student/EvaluacionRevision.jsx', 'firestore.rules', 'api/student/[action].js',
+    ]) {
+      assert.ok(!/calificacionesOcultas|visibilidadCalificaciones/.test(leerFuente(f)), `${f} no debe leer la visibilidad todavía`)
+    }
+  })
+}
 
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)
