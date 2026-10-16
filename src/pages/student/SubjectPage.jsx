@@ -4,7 +4,6 @@ import {
   collection,
   query,
   where,
-  getDocs,
   getDoc,
   doc,
   onSnapshot,
@@ -20,7 +19,9 @@ import { isActivityPublished, formatPublishAt, formatDeadline, isOverdue, isDraf
 import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
-import { fetchContent } from '../../utils/apiContent'
+import { fetchContent, fetchMisEntregas } from '../../utils/apiContent'
+import { estaCalificada, promedioParcialVisible } from '../../utils/entregasCliente'
+import NotaOculta from '../../components/NotaOculta'
 import { getResourceIcon, getLinkResourceIcon } from '../../utils/resourceTypes'
 import { formatFileSize } from '../../utils/formatBytes'
 import { teacherDisplayName } from '../../utils/studentSearch'
@@ -139,6 +140,9 @@ export default function StudentSubjectPage() {
   // TODAS sus entregas (también las de actividades que el docente ocultó después de
   // calificarlas): solo alimentan el promedio, nunca una lista que se le muestre.
   const [todasSubmissions, setTodasSubmissions] = useState({})
+  // Promedios que calculó el servidor ({ parciales, final }): se usan solo cuando al
+  // estudiante le falta una nota oculta o el docente ocultó el promedio.
+  const [promediosServidor, setPromediosServidor] = useState(null)
   const [resources, setResources] = useState([])
   const [materials, setMaterials] = useState([])
   const [avisos, setAvisos] = useState([])
@@ -495,17 +499,20 @@ export default function StudentSubjectPage() {
           .filter((m) => isActivityPublished(m, parcialesOcultos.includes(m.parcial)))
           .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
       )
-      const subsSnap = await getDocs(query(collection(db, 'submissions'), where('alumnoId', '==', studData.id)))
+      // Las entregas las entrega el servidor SIN lo que el docente ocultó (la nota
+      // se quita allá, no aquí) y con los promedios que el estudiante no puede
+      // calcular solo cuando le falta alguna nota oculta.
+      const { entregas, promedios } = await fetchMisEntregas({ asignaturaId: subjectId })
       const actIds = new Set(acts.map((a) => a.id))
       const subsMap = {}
       const subsTodas = {}
-      subsSnap.docs.forEach((d) => {
-        const data = d.data()
-        subsTodas[data.actividadId] = { id: d.id, ...data }
-        if (actIds.has(data.actividadId)) subsMap[data.actividadId] = { id: d.id, ...data }
+      entregas.forEach((data) => {
+        subsTodas[data.actividadId] = data
+        if (actIds.has(data.actividadId)) subsMap[data.actividadId] = data
       })
       setSubmissions(subsMap)
       setTodasSubmissions(subsTodas)
+      setPromediosServidor(promedios[subjectId] || null)
       // attendanceSummary se carga vía onSnapshot (efecto separado) una vez que studentId queda asignado
     } catch (err) {
       toast('Error: ' + err.message, 'error')
@@ -678,7 +685,13 @@ export default function StudentSubjectPage() {
             // Ponderado y todavía sin publicar: ni se calcula (el servidor no
             // mandó sus pesos; calcular daría una media simple engañosa).
             const publicado = resultadoPublicadoAlumno(subject, p, todasActividades)
-            const avg = publicado ? calcParcialAvg(p) : null
+            // Con notas ocultas dentro del parcial —al estudiante le falta esa nota— o con
+            // el promedio oculto por el docente, manda el bloque del servidor; si no, el
+            // cálculo local de siempre.
+            const promParcial = publicado
+              ? promedioParcialVisible(calcParcialAvg(p), promediosServidor?.parciales?.[p])
+              : { valor: null, oculto: false }
+            const avg = promParcial.valor
             const isOpen = openParcial === p
             return (
               <div data-esq="subj-alu-parcial" key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
@@ -695,6 +708,8 @@ export default function StudentSubjectPage() {
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {!publicado ? (
                           <PonderacionPendiente className="text-lg font-bold text-hint" />
+                        ) : promParcial.oculto ? (
+                          <NotaOculta compacta />
                         ) : avg != null && (
                           <span className="text-lg font-bold text-accent">{avg}</span>
                         )}
@@ -736,7 +751,9 @@ export default function StudentSubjectPage() {
                       if (type === 'activity') {
                         const a = item
                         const sub = submissions[a.id]
-                        const graded = sub?.calificacion != null
+                        // «Calificada» ya no se deduce de `calificacion != null`: con la nota
+                        // oculta el servidor la quita y manda `calificada` / `notaOculta`.
+                        const graded = estaCalificada(sub)
                         const delivered = sub && !graded
                         // Prórroga individual de ESTE alumno: solo cuenta si la
                         // actividad tiene fecha límite propia (misma regla que
@@ -797,7 +814,9 @@ export default function StudentSubjectPage() {
                               )}
                             </div>
                             <div className="flex-shrink-0 text-right">
-                              {graded ? (
+                              {sub?.notaOculta ? (
+                                <NotaOculta compacta />
+                              ) : graded ? (
                                 <div>
                                   <p className="text-sm font-bold text-emerald-600 flex items-center gap-0.5">
                                     <Star size={ICONO.xs} /> {sub.calificacion}

@@ -13,6 +13,7 @@ import EFLogo from './EFLogo'
 import AppQRButton from './AppQRButton'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
+import useClientePing from '../hooks/useClientePing'
 import StudentBottomNav from './StudentBottomNav'
 import PushPermissionPrimer from './PushPermissionPrimer'
 import AvisosGate from './AvisosGate'
@@ -33,6 +34,9 @@ import { ICONO } from '../config/iconos'
 // después de cada reorden confirmado; solo necesita cambiar, su valor no se usa.
 export default function StudentLayout({ children, refreshKey = 0 }) {
   const { currentUser, userProfile } = useAuth()
+  // Avisa la versión del cliente (una vez por sesión, sin estorbar): sirve para
+  // saber qué estudiantes siguen con una versión vieja. Ver hooks/useClientePing.js.
+  useClientePing()
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [subjects, setSubjects] = useState([])
