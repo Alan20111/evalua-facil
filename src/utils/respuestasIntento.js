@@ -74,13 +74,18 @@ export const CAMPOS_SIN_RESPONDER = {
 // contra el `tiempoInicio` de la submission. Hay que reiniciar el intento
 // —y con él el reloj— ANTES de limpiar, o el servidor rechaza la limpieza con
 // permission-denied por un cronómetro que ya no es el que corre.
-export async function limpiarRespuestas(db, refs, { reintentos = 2, esperaMs = 400 } = {}) {
+//
+// `intento`: el número del intento para el que se limpia. Se escribe en cada
+// documento para que las reglas rechacen la escritura TARDÍA de un intento
+// anterior (una respuesta lenta que llega cuando ya empezó el siguiente).
+export async function limpiarRespuestas(db, refs, { reintentos = 2, esperaMs = 400, intento: numeroIntento = null } = {}) {
   if (!refs.length) return
+  const campos = numeroIntento != null ? { ...CAMPOS_SIN_RESPONDER, intento: numeroIntento } : CAMPOS_SIN_RESPONDER
   let ultimoError = null
   for (let intento = 0; intento <= reintentos; intento++) {
     try {
       const batch = writeBatch(db)
-      refs.forEach((ref) => batch.set(ref, CAMPOS_SIN_RESPONDER, { merge: true }))
+      refs.forEach((ref) => batch.set(ref, campos, { merge: true }))
       await batch.commit()
       return
     } catch (err) {

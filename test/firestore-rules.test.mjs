@@ -15,6 +15,7 @@ import {
 } from '@firebase/rules-unit-testing'
 import { doc, collection, addDoc, getDoc, getDocs, query, where, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, Timestamp, deleteField } from 'firebase/firestore'
 import { EntregaCambio, elegibleSinEntrega, tieneEvidencia, crearSiNoExiste, actualizarSiNoCambio, borrarSiNoCambio, sinEntregaEnLote, guardarPuntosManuales, datosTrazaAnulacionDocente } from '../src/utils/submissionGuard.js'
+import { crearGuardador, crearEnvioUnico, esperadasDe } from '../src/utils/guardadoRespuestas.js'
 import { aplicarPuntosManuales } from '../src/utils/evaluacionGrading.js'
 import { entregaAbiertaParaAlumno } from '../src/utils/entregaAbierta.js'
 import { esNotaAutomaticaDeCierre } from '../src/utils/ponderacion.js'
@@ -4054,6 +4055,168 @@ ok('F-05 · admin CAN read publicProfiles')
   ok('INTEGRIDAD · el estudiante NO puede escribir ultimaCalificacionPor ni politicaAplicada en su entrega')
   await assertSucceeds(updateDoc(doc(asT1, 'submissions', 'AIG_STIG3'), { ultimaCalificacionPor: 'docente', politicaAplicada: 'mejor' }))
   ok('INTEGRIDAD · el docente dueño sí los escribe al calificar')
+}
+
+
+// ── GUARDADO DE RESPUESTAS (oct-2026) — contra el emulador con las reglas reales ─────────────
+// Un estudiante responde, guarda, falla la red, escribe en simultáneo y entrega: lo que llegó al
+// servidor es lo que marcó, y lo que no llegó se detecta ANTES de enviar.
+{
+  const ACT_G = 'A_GUARDADO'
+  const SUB_G = 'A_GUARDADO_ST_JUAN'
+  const preguntasG = Array.from({ length: 10 }, (_, i) => ({ id: `p${i + 1}`, tipo: 'opcion_multiple', opciones: [{ id: 'a' }, { id: 'b' }, { id: 'c' }] }))
+  const prepararGuardado = async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore()
+      await setDoc(doc(db, 'activities', ACT_G), { docenteId: T1, asignaturaId: 'S1', tipo: 'evaluacion', maxCalif: 10, evaluacion: { intentosPermitidos: 10, tiempoLimiteMin: 15 } })
+      await setDoc(doc(db, 'submissions', SUB_G), {
+        actividadId: ACT_G, alumnoId: 'ST_JUAN', alumnoUid: U_JUAN, estadoEvaluacion: 'en_progreso', intentoActual: 2,
+        intentos: [{ numero: 1, calificacion: 7 }], tiempoInicio: Timestamp.fromMillis(Date.now() - 3 * 60 * 1000),
+      })
+      const prev = await getDocs(collection(db, 'submissions', SUB_G, 'respuestas'))
+      for (const d of prev.docs) await deleteDoc(d.ref)
+    })
+  }
+  const crudas = async () => {
+    const m = {}
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const s = await getDocs(collection(ctx.firestore(), 'submissions', SUB_G, 'respuestas'))
+      s.docs.forEach((d) => { m[d.id] = d.data() })
+    })
+    return m
+  }
+  const nuevoGuardador = (extra = {}) => crearGuardador({ db: asJuan, submissionId: SUB_G, intento: 2, esperasReintento: [], ...extra })
+
+  // 1 · diez respuestas persisten, y siguen ahí al «volver a abrir» el intento.
+  await prepararGuardado()
+  const marcadas = Object.fromEntries(preguntasG.map((p, i) => [p.id, ['a', 'b', 'c'][i % 3]]))
+  const g1 = nuevoGuardador()
+  await Promise.all(preguntasG.map((p) => g1.guardar(p.id, { opcionSeleccionada: marcadas[p.id], textoRespuesta: null, otraTexto: null })))
+  await g1.esperarTodo()
+  const esperadas10 = esperadasDe(preguntasG, marcadas, {})
+  assert.equal(Object.keys(esperadas10).length, 10)
+  assert.equal((await g1.verificar(esperadas10)).ok, true)
+  const reabierto = await nuevoGuardador().verificar(esperadas10)
+  assert.equal(reabierto.ok, true, 'al volver a abrir (otra instancia, lectura del servidor) están las diez')
+  const guardadas = await crudas()
+  assert.equal(Object.keys(guardadas).length, 10)
+  preguntasG.forEach((p) => { assert.equal(guardadas[p.id].opcionSeleccionada, marcadas[p.id]); assert.equal(guardadas[p.id].intento, 2) })
+  ok('GUARDADO · diez respuestas persisten, llevan su intento y siguen ahí al volver a abrir')
+
+  // 2 · cinco contestadas y cinco sin contestar: exactamente cinco, las otras cinco quedan vacías.
+  await prepararGuardado()
+  const mitad = Object.fromEntries(preguntasG.slice(0, 5).map((p) => [p.id, 'b']))
+  const g2 = nuevoGuardador()
+  await Promise.all(Object.keys(mitad).map((id) => g2.guardar(id, { opcionSeleccionada: 'b' })))
+  await g2.esperarTodo()
+  const esperadas5 = esperadasDe(preguntasG, mitad, {})
+  assert.deepEqual(Object.keys(esperadas5).sort(), ['p1', 'p2', 'p3', 'p4', 'p5'])
+  const g2b = await crudas()
+  assert.deepEqual(Object.keys(g2b).sort(), ['p1', 'p2', 'p3', 'p4', 'p5'], 'solo las cinco contestadas existen en el servidor')
+  assert.equal((await nuevoGuardador().verificar(esperadas5)).ok, true)
+  for (const p of preguntasG.slice(5)) assert.equal(g2b[p.id], undefined, p.id + ' sigue sin responder')
+  ok('GUARDADO · cinco respondidas y cinco sin responder: se conservan exactamente cinco')
+
+  // 3 · un error de red al guardar no borra lo ya guardado, se detecta y se reintenta sin duplicar.
+  await prepararGuardado()
+  let cayoLaRed = false
+  const escribirConFalla = (ref, datos, opc) => (cayoLaRed && ref.id === 'p3' ? Promise.reject(new Error('sin red')) : setDoc(ref, datos, opc))
+  const g3 = nuevoGuardador({ escribir: escribirConFalla })
+  await g3.guardar('p1', { opcionSeleccionada: 'a' })
+  await g3.guardar('p2', { opcionSeleccionada: 'b' })
+  cayoLaRed = true
+  assert.equal(await g3.guardar('p3', { opcionSeleccionada: 'c' }), false)
+  assert.deepEqual(g3.conError(), ['p3'], 'solo la pregunta que falló queda en error')
+  const tras = await crudas()
+  assert.equal(tras.p1.opcionSeleccionada, 'a')
+  assert.equal(tras.p2.opcionSeleccionada, 'b')
+  assert.equal(tras.p3, undefined, 'lo que no se pudo guardar NO aparece como guardado')
+  const pend = await g3.verificar(esperadasDe(preguntasG, { p1: 'a', p2: 'b', p3: 'c' }, {}))
+  assert.deepEqual(pend.faltantes, ['p3'], 'la verificación previa al envío lo detecta')
+  cayoLaRed = false
+  assert.deepEqual(await g3.reintentarTodo(), [], 'el reintento a mano lo guarda')
+  const final3 = await crudas()
+  assert.equal(final3.p3.opcionSeleccionada, 'c')
+  assert.equal(Object.keys(final3).length, 3, 'sin duplicados')
+  assert.equal((await g3.verificar(esperadasDe(preguntasG, { p1: 'a', p2: 'b', p3: 'c' }, {}))).ok, true)
+  ok('GUARDADO · una caída de red no borra lo guardado; la pregunta fallida se detecta, se reintenta y no se duplica')
+
+  // 3b · la verificación previa al envío re-guarda lo que falte (restaurar) y vuelve a comprobar.
+  await prepararGuardado()
+  let falla = true
+  const g3b = nuevoGuardador({ escribir: (ref, d, o) => (falla && ref.id === 'p2' ? Promise.reject(new Error('timeout')) : setDoc(ref, d, o)) })
+  await g3b.guardar('p1', { opcionSeleccionada: 'a' })
+  await g3b.guardar('p2', { opcionSeleccionada: 'b' })
+  const esp = esperadasDe(preguntasG, { p1: 'a', p2: 'b' }, {})
+  let ver = await g3b.verificar(esp)
+  assert.deepEqual(ver.faltantes, ['p2'])
+  falla = false
+  await g3b.restaurar(preguntasG, esp, ver.faltantes)
+  await g3b.esperarTodo()
+  ver = await g3b.verificar(esp)
+  assert.equal(ver.ok, true)
+  ok('GUARDADO · antes de enviar: lo que falta se vuelve a guardar y se comprueba otra vez')
+
+  // 4 · doble clic en enviar: una sola ejecución, un solo cambio de estado.
+  await prepararGuardado()
+  let envios = 0
+  const enviar = crearEnvioUnico(async () => {
+    envios++
+    await updateDoc(doc(asJuan, 'submissions', SUB_G), { estadoEvaluacion: 'finalizado', estado: 'entregado', fechaEntrega: serverTimestamp(), respuestasDeclaradas: ['p1'] })
+    return 'enviado'
+  })
+  const dos = await Promise.all([enviar(), enviar()])
+  assert.deepEqual(dos, ['enviado', 'enviado'])
+  assert.equal(envios, 1, 'el segundo clic recibe la misma promesa, no abre otro envío')
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const s = (await getDoc(doc(ctx.firestore(), 'submissions', SUB_G))).data()
+    assert.equal(s.estadoEvaluacion, 'finalizado')
+    assert.deepEqual(s.respuestasDeclaradas, ['p1'], 'la declaración del cliente llega con el envío')
+  })
+  ok('GUARDADO · doble clic en enviar: una sola ejecución y la declaración de respuestas llega con el envío')
+
+  // 7 · operaciones simultáneas: no se pierde nada y gana la ÚLTIMA intención por pregunta.
+  await prepararGuardado()
+  const g7 = nuevoGuardador()
+  const lote = []
+  for (let i = 1; i <= 10; i++) lote.push(g7.guardar(`p${i}`, { opcionSeleccionada: 'a' }))
+  lote.push(g7.guardar('p1', { opcionSeleccionada: 'b' }), g7.guardar('p1', { opcionSeleccionada: 'c' }), g7.guardar('p2', { otraTexto: 'texto' }))
+  await Promise.all(lote)
+  await g7.esperarTodo()
+  const sim = await crudas()
+  assert.equal(Object.keys(sim).length, 10, 'las diez preguntas siguen ahí')
+  assert.equal(sim.p1.opcionSeleccionada, 'c', 'gana la última intención')
+  assert.equal(sim.p2.opcionSeleccionada, 'a', 'escribir otraTexto no borra la opción elegida (merge)')
+  assert.equal(sim.p2.otraTexto, 'texto')
+  ok('GUARDADO · diez escrituras simultáneas más cambios rápidos: no se pierde nada y gana la última por pregunta')
+
+  // Una escritura lenta no pisa a una nueva de la misma pregunta.
+  await prepararGuardado()
+  const lentas = []
+  const escribirLento = (ref, d, o) => new Promise((resolve, reject) => {
+    const demora = lentas.length === 0 ? 120 : 5
+    lentas.push(d.opcionSeleccionada)
+    setTimeout(() => setDoc(ref, d, o).then(resolve, reject), demora)
+  })
+  const g7b = nuevoGuardador({ escribir: escribirLento })
+  await Promise.all([g7b.guardar('p5', { opcionSeleccionada: 'a' }), g7b.guardar('p5', { opcionSeleccionada: 'b' })])
+  await g7b.esperarTodo()
+  assert.equal((await crudas()).p5.opcionSeleccionada, 'b')
+  ok('GUARDADO · una escritura lenta no pisa a la nueva de la misma pregunta (cola por pregunta)')
+
+  // Reglas: una escritura TARDÍA de un intento anterior no cae en el intento en curso.
+  await prepararGuardado()
+  const refR = (id) => doc(asJuan, 'submissions', SUB_G, 'respuestas', id)
+  await assertFails(setDoc(refR('p9'), { opcionSeleccionada: 'a', intento: 1, respondidaEn: serverTimestamp() }, { merge: true }))
+  await assertSucceeds(setDoc(refR('p9'), { opcionSeleccionada: 'a', intento: 2, respondidaEn: serverTimestamp() }, { merge: true }))
+  await assertSucceeds(setDoc(refR('p8'), { opcionSeleccionada: 'a', respondidaEn: serverTimestamp() }, { merge: true }))
+  ok('GUARDADO · reglas: la escritura de un intento anterior se rechaza; la del actual y la de un cliente sin el campo, no')
+  await assertSucceeds(setDoc(refR('p9'), { opcionSeleccionada: null, textoRespuesta: null, otraTexto: null, archivoURL: null, intento: 1 }, { merge: true }))
+  ok('GUARDADO · reglas: dejar una respuesta «sin responder» (la limpieza al abrir un intento) sigue permitido')
+
+  // El estudiante tampoco puede puntuarse ni falsear nada más allá de lo suyo.
+  await assertFails(setDoc(refR('p7'), { opcionSeleccionada: 'a', puntosObtenidos: 1, intento: 2 }, { merge: true }))
+  ok('GUARDADO · reglas: el estudiante sigue sin poder escribir puntosObtenidos')
 }
 
 await testEnv.cleanup()

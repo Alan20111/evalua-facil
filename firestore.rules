@@ -548,6 +548,20 @@ service cloud.firestore {
     //
     // El margen de un minuto es para no castigar a quien contesta en el último
     // segundo con la red lenta: a un tramposo no le sirve de nada.
+    // Una escritura TARDÍA de un intento anterior no puede caer en el intento en curso.
+    // Cada respuesta que guarda la pantalla lleva `intento`; si el documento resultante
+    // trae uno, tiene que ser el intento actual. Se exceptúa dejar el documento
+    // «sin responder» (la limpieza al abrir un intento nuevo, incluida la de una
+    // pestaña vieja que no manda el campo). Sin el campo (clientes anteriores) no se
+    // exige: la regla suma protección, no rompe a nadie.
+    function respuestaDelIntentoActual(submissionId) {
+      let d = request.resource.data;
+      return !d.keys().hasAny(['intento']) ||
+        d.intento == get(/databases/$(database)/documents/submissions/$(submissionId)).data.get('intentoActual', 1) ||
+        (d.get('opcionSeleccionada', null) == null && d.get('textoRespuesta', null) == null &&
+         d.get('archivoURL', null) == null && d.get('otraTexto', null) == null);
+    }
+
     function dentroDelPlazo(submissionId) {
       let sub = get(/databases/$(database)/documents/submissions/$(submissionId)).data;
       let limite = evalConfig(sub.actividadId).get('tiempoLimiteMin', null);
@@ -1415,7 +1429,8 @@ service cloud.firestore {
                 : !request.resource.data.diff(resource.data).affectedKeys().hasAny(['puntosObtenidos'])
             ) &&
             // El tiempo se acabó de verdad, no según el reloj del teléfono.
-            dentroDelPlazo(submissionId)
+            dentroDelPlazo(submissionId) &&
+            respuestaDelIntentoActual(submissionId)
           )
         );
       }

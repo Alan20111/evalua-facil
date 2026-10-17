@@ -446,7 +446,7 @@ export default function StudentActivityPage() {
         // sigue escribiendo directo, igual que siempre.)
         const { respuestas: respAnteriores } = await fetchMisEntregas({ actividadId: activityId, respuestas: true })
         try {
-          await limpiarRespuestas(db, respAnteriores.map((r) => doc(db, 'submissions', submission.id, 'respuestas', r.id)))
+          await limpiarRespuestas(db, respAnteriores.map((r) => doc(db, 'submissions', submission.id, 'respuestas', r.id)), { intento: (submission.intentos?.length || 0) + 1 })
         } catch {
           toast('No pudimos dejar tu examen en blanco para el intento nuevo. Revisa tu conexión y vuelve a pulsar el botón.', 'error')
           return
