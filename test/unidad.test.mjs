@@ -9415,6 +9415,15 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     assert.ok(/\[data-tooltip\]\[data-tooltip-pos='left'\]::after/.test(css))
   })
 
+  caso('etiqueta del peso en la pantalla del alumno: «Vale hasta N de 10» y solo si los pesos son visibles', () => {
+    const sp = leerFuente2b('src/pages/student/SubjectPage.jsx')
+    assert.ok(sp.includes('Vale hasta {a.pesoCalificacion} de 10'), 'texto nuevo')
+    assert.ok(!sp.includes('Vale {a.pesoCalificacion} de 10'), 'el texto anterior ya no existe')
+    // Sigue gobernada por los pesos visibles (pesosVisiblesAlumno), no por otra cosa.
+    assert.ok(sp.includes('const showPeso = pesosVisiblesAlumno(subject, a.parcial, todasActividades) && a.pesoCalificacion != null'))
+    assert.ok(sp.includes('{showPeso && ('))
+  })
+
   caso('las pantallas aplican la mezcla de promedios y NotaOculta donde iría el número', () => {
     const dash = leerFuente2b('src/pages/student/Dashboard.jsx')
     assert.ok(dash.includes('promedioFinalVisible(') && dash.includes('misEntregas.promedios[s.id]?.final') && dash.includes('s.avgOculto'))
