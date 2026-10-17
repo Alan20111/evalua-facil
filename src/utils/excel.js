@@ -11,7 +11,7 @@ import { saveBlob } from './exportGuard'
 import { saveBlob as saveBlobSinCandado } from './nativeSave'
 import { addExcelWatermarkIfNeeded } from './exportWatermark'
 import { membreteLinea } from './membrete'
-import { estadoEvaluacionLabel } from './evaluacionGrading'
+import { estadoEvaluacionLabel, esCalificacionProvisional, textoCalificacionEntrega, NOTA_PIE_PROVISIONAL } from './evaluacionGrading'
 import {
   esGraficable, filasDeReactivo, totalRespuestas, textoRespuestaAlumno, aciertosDeAlumno,
 } from './evaluacionRespuestas'
@@ -254,23 +254,30 @@ export async function exportParcialGrades({ subject, activities, students, submi
   }
 
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+  let hayProvisional = false
   const dataRows = sorted.map((s) => {
     const row = [s.orden, studentFullName(s)]
     const grades = acts.map((a) => {
       const sub = submissions.find((x) => x.alumnoId === s.id && x.actividadId === a.id)
       return normalizeGrade(sub?.calificacion, a.maxCalif, { decimals: 1 })
     })
-    grades.forEach((g) => row.push(g !== null ? g : ''))
     const subs = acts.map((a) => submissions.find((x) => x.alumnoId === s.id && x.actividadId === a.id))
+    // Provisional (reactivos por calificar a mano): el valor lleva «*» y hay nota al pie.
+    grades.forEach((g, gi) => {
+      if (g === null) { row.push(''); return }
+      if (esCalificacionProvisional(subs[gi])) { hayProvisional = true; row.push(`${g}*`); return }
+      row.push(g)
+    })
     const rawAvg = promedioParcial(acts, notasParaPromedio(acts, grades, subs, { subject, alumno: s }), pondOn)
     row.push(rawAvg !== null ? parseFloat(rawAvg.toFixed(1)) : '')
     return row
   })
 
   const cabecera = headerRows(titulo, membrete, watermark, totalCols, subject)
+  const notaProvisional = hayProvisional ? [[NOTA_PIE_PROVISIONAL]] : []
   const allRows = pondOn
-    ? [...cabecera, pesoRow, nameRow, ...dataRows, ...firmaRows(membrete)]
-    : [...cabecera, nameRow, ...dataRows, ...firmaRows(membrete)]
+    ? [...cabecera, pesoRow, nameRow, ...dataRows, ...notaProvisional, ...firmaRows(membrete)]
+    : [...cabecera, nameRow, ...dataRows, ...notaProvisional, ...firmaRows(membrete)]
 
   addSheetFromRows(workbook, `Parcial ${parcial}`, allRows, {
     merges: headerMerges(totalCols),
@@ -353,6 +360,7 @@ export async function exportSubjectGrades({
 
   // Data rows
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+  let hayProvisionalCurso = false
   const dataRows = sorted.map((s) => {
     const row = [s.orden, studentFullName(s)]
     const finalGrades = []
@@ -366,7 +374,7 @@ export async function exportSubjectGrades({
           (sub) => sub.alumnoId === s.id && sub.actividadId === a.id
         )
         const norm = normalizeGrade(sub?.calificacion, a.maxCalif, { decimals: 1 })
-        row.push(norm !== null ? norm : '')
+        if (norm !== null && esCalificacionProvisional(sub)) { hayProvisionalCurso = true; row.push(`${norm}*`) } else row.push(norm !== null ? norm : '')
         parGrades.push(norm)
         parSubs.push(sub)
       })
@@ -386,9 +394,10 @@ export async function exportSubjectGrades({
   })
 
   const cabecera = headerRows(titulo, membrete, watermark, totalCols, subject)
+  const notaProvisionalCurso = hayProvisionalCurso ? [[NOTA_PIE_PROVISIONAL]] : []
   const allRows = anyPond
-    ? [...cabecera, sectionRow, pesoRowFull, nameRow, ...dataRows, ...firmaRows(membrete)]
-    : [...cabecera, sectionRow, nameRow, ...dataRows, ...firmaRows(membrete)]
+    ? [...cabecera, sectionRow, pesoRowFull, nameRow, ...dataRows, ...notaProvisionalCurso, ...firmaRows(membrete)]
+    : [...cabecera, sectionRow, nameRow, ...dataRows, ...notaProvisionalCurso, ...firmaRows(membrete)]
 
   // Merges: los dos renglones de texto del encabezado + el nombre de cada
   // parcial sobre sus columnas (la fila de secciones va justo después).
@@ -511,7 +520,9 @@ export async function exportEvaluacionResultadosExcel({
       s.orden,
       studentFullName(s),
       estadoEvaluacionLabel(sub, hasManual, sinCalificacion(activity)),
-      done && sub.calificacion != null ? sub.calificacion : '',
+      // Una nota provisional (quedan reactivos por calificar a mano) sale como texto
+      // «8/10 · provisional, por calificar»: nunca como un número que parezca definitivo.
+      done && sub.calificacion != null ? (esCalificacionProvisional(sub) ? textoCalificacionEntrega(sub, maxCalif) : sub.calificacion) : '',
       aciertos && done ? aciertos.correctas : '',
       fechaHoraCell(sub?.fechaEntrega),
       minutosEntre(sub?.tiempoInicio, sub?.fechaEntrega),
@@ -522,7 +533,7 @@ export async function exportEvaluacionResultadosExcel({
     ...headerRows(titulo, membrete, watermark, califHead.length, subject), califHead, ...califRows,
   ], {
     merges: headerMerges(califHead.length),
-    colWidths: [4, 42, 15, 14, 16, 20, 15, 9],
+    colWidths: [4, 42, 15, 34, 16, 20, 15, 9],
     rowHeights: [[1, 22], [HEADER_ROWS + 1, 18]],
   })
 

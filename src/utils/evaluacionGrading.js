@@ -213,12 +213,32 @@ export function estadoEvaluacionLabel(sub, hasManual, sinNota = false) {
 }
 
 /**
+ * ¿La nota de esta entrega es PROVISIONAL? Hay nota (la parte objetiva ya está
+ * calculada) pero todavía quedan reactivos que el docente debe calificar a mano
+ * (`pendienteRevision`): lo que falta cuenta como 0 por ahora, así que el número
+ * puede subir y NO es la nota definitiva.
+ */
+export function esCalificacionProvisional(sub) {
+  return Number.isFinite(sub?.calificacion) && sub?.pendienteRevision === true
+}
+
+export const ETIQUETA_PROVISIONAL = 'provisional, por calificar'
+export const NOTA_PIE_PROVISIONAL = '* Calificación provisional: la evaluación tiene reactivos por calificar a mano; el valor puede cambiar.'
+
+/**
  * Texto de la calificación de una entrega ("8/10"), o «Por calificar» cuando
  * todavía no hay nota. Un 0 es una nota real y se muestra como "0/10"; jamás
  * se imprime "null" ni "undefined".
+ *
+ * Una nota provisional NUNCA se presenta como definitiva: lleva «provisional,
+ * por calificar» al lado ("8/10 · provisional, por calificar"). Con
+ * `{ corto: true }` (renglones angostos) solo «provisional».
  */
-export function textoCalificacionEntrega(sub, maxCalif = 10) {
-  return Number.isFinite(sub?.calificacion) ? `${sub.calificacion}/${maxCalif || 10}` : 'Por calificar'
+export function textoCalificacionEntrega(sub, maxCalif = 10, { corto = false } = {}) {
+  if (!Number.isFinite(sub?.calificacion)) return 'Por calificar'
+  const base = `${sub.calificacion}/${maxCalif || 10}`
+  if (!esCalificacionProvisional(sub)) return base
+  return `${base} · ${corto ? 'provisional' : ETIQUETA_PROVISIONAL}`
 }
 
 /**

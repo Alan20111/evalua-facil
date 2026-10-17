@@ -15,6 +15,7 @@ import { savePdfDoc } from './exportGuard'
 import { savePdfDoc as savePdfDocSinCandado } from './nativeSave'
 import { applyPdfWatermarkIfNeeded, addPdfFooter, getLogoDataUrl, drawPdfWatermarkOnPage } from './exportWatermark'
 import { filasDeReactivo, totalRespuestas } from './evaluacionRespuestas'
+import { esCalificacionProvisional, NOTA_PIE_PROVISIONAL } from './evaluacionGrading'
 import { contenidoAnalisisResultadosPDF } from './analisisResultadosPDF'
 import { planInformeAsignatura } from './analisisAsignaturaInforme'
 import { planInformeEntregable } from './analisisEntregableInforme'
@@ -308,14 +309,20 @@ export async function exportParcialGradesPDF({ subject, activities, students, su
   // actividad a 1 decimal ANTES de promediar (antes usaba el número crudo sin
   // redondear, calculado a mano en vez de con normalizeGrade).
   const sorted = [...students].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+  let hayProvisional = false
   const body = sorted.map((s) => {
     const row = [s.orden ?? '', fullName(s)]
     const grades = acts.map((a) => {
       const sub = submissions.find((x) => x.alumnoId === s.id && x.actividadId === a.id)
       return normalizeGrade(sub?.calificacion, a.maxCalif, { decimals: 1 })
     })
-    grades.forEach((g) => row.push(g != null ? g.toFixed(1) : '—'))
     const subs = acts.map((a) => submissions.find((x) => x.alumnoId === s.id && x.actividadId === a.id))
+    // Provisional (quedan reactivos por calificar a mano): «*» y nota al pie.
+    grades.forEach((g, gi) => {
+      if (g == null) { row.push('—'); return }
+      if (esCalificacionProvisional(subs[gi])) { hayProvisional = true; row.push(`${g.toFixed(1)}*`); return }
+      row.push(g.toFixed(1))
+    })
     const avg = promedioParcial(acts, notasParaPromedio(acts, grades, subs, { subject, alumno: s }), pondOn)
     row.push(avg != null ? avg.toFixed(1) : '—')
     return row
@@ -335,6 +342,10 @@ export async function exportParcialGradesPDF({ subject, activities, students, su
     },
   })
 
+  if (hayProvisional) {
+    doc.setFont(undefined, 'normal'); doc.setFontSize(8); doc.setTextColor(110)
+    doc.text(NOTA_PIE_PROVISIONAL, 14, doc.lastAutoTable.finalY + 6)
+  }
   drawFirma(doc, membrete)
   if (watermark) addPdfFooter(doc)
   await savePdfDoc(doc, `calificaciones_parcial${parcial}_${safeFile(subject)}.pdf`)
