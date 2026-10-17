@@ -28,6 +28,7 @@ import {
   calcularEstadisticasGrupo, TIPOS_REVISION_MANUAL, repartirPonderacionParejo,
   aplicarPuntosManuales, ORIGEN_DOCENTE,
 } from '../utils/evaluacionGrading'
+import { preguntasDelIntento, politicaDeLaNota } from '../utils/versionCalculo'
 import {
   ArrowLeft, Plus, Trash2, Library, Users, Pencil, Copy, Image as ImageIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Clock, CalendarDays, Star,
   Scale, CheckSquare, Square, X, FileSpreadsheet, FileText, Sparkles,
@@ -957,8 +958,26 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       }
       return
     }
+    // El recálculo usa la ESTRUCTURA con la que se calificó este intento (tipo y
+    // puntos de cada reactivo, fotografiados por el servidor al cerrarlo), no los
+    // reactivos vigentes: si el docente editó pesos después, el intento no cambia.
+    // Los intentos anteriores a ese registro no la traen y usan lo vigente.
+    const numIntento = sub.intentos?.[sub.intentos.length - 1]?.numero ?? sub.intentoActual
+    let instantanea = null
+    if (numIntento != null) {
+      try {
+        const s = await getDoc(doc(db, 'submissions', sub.id, 'intentosRespuestas', String(numIntento)))
+        instantanea = s.exists() ? s.data() : null
+      } catch { instantanea = null }
+    }
+    const { preguntas: preguntasCalculo, desdeSnapshot } = preguntasDelIntento(instantanea, preguntas)
+    const enIntento = preguntasCalculo.find((p) => p.id === pregunta.id)
+    if (desdeSnapshot && !enIntento) {
+      toast('Este reactivo no formaba parte de este intento; no se guardó nada.', 'error'); return
+    }
+    const maxCalifCalculo = (desdeSnapshot && instantanea?.maxCalif) || activity.maxCalif || 10
     const puntos = parseFloat(draft.puntos)
-    const max = parseFloat(pregunta.ponderacion) || 0
+    const max = parseFloat(enIntento?.ponderacion ?? pregunta.ponderacion) || 0
     if (!Number.isFinite(puntos) || puntos < 0 || puntos > max + 1e-9) {
       toast(`Los puntos deben estar entre 0 y ${max}`, 'error'); return
     }
@@ -974,11 +993,14 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       const { patch, respuestas: allResp } = await guardarPuntosManuales(db, subRef, sub, {
         respuestaRef: doc(db, 'submissions', sub.id, 'respuestas', pregunta.id),
         respuestaPatch: { puntosObtenidos: puntos, comentarioDocente: comentario },
-        respuestasRefs: preguntas.map((p) => doc(db, 'submissions', sub.id, 'respuestas', p.id)),
+        respuestasRefs: preguntasCalculo.map((p) => doc(db, 'submissions', sub.id, 'respuestas', p.id)),
         calcular: (actual, respuestas) => {
+          // La política con la que se calculó la nota que ya tiene la entrega, no
+          // la de hoy: cambiarla en la actividad no reescribe notas ya puestas.
+          // Las entregas anteriores a ese registro usan la de la actividad.
           const r = aplicarPuntosManuales({
-            preguntas, respuestas, intentos: actual.intentos || [],
-            maxCalif: activity.maxCalif || 10, conservar: activity.evaluacion?.conservar,
+            preguntas: preguntasCalculo, respuestas, intentos: actual.intentos || [],
+            maxCalif: maxCalifCalculo, conservar: politicaDeLaNota(actual, activity.evaluacion?.conservar),
           })
           return {
             calificacion: r.calificacion,

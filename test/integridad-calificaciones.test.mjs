@@ -51,7 +51,7 @@ await caso('«mejor»: cada nota nace con politicaAplicada y ultimaCalificacionP
   assert.strictEqual(s1.politicaAplicada, 'mejor')
   assert.strictEqual(s1.ultimaCalificacionPor, 'servidor')
   const s2 = await cerrarIntento(2, ['a', 'a'])
-  assert.deepStrictEqual(s2.intentos, [{ numero: 1, calificacion: 5 }, { numero: 2, calificacion: 0 }])
+  assert.deepStrictEqual(s2.intentos.map((i) => [i.numero, i.calificacion]), [[1, 5], [2, 0]])
   assert.strictEqual(s2.calificacion, 5, 'con «mejor» un segundo intento peor no baja la nota')
   const s3 = await cerrarIntento(3, ['b', 'b'])
   assert.strictEqual(s3.calificacion, 10)
@@ -300,6 +300,219 @@ await caso('si el estudiante ya volvió a presentar (la entrega existe de nuevo)
   assert.strictEqual(await limpiarSnapshots('SUB-AN4'), 0)
   assert.strictEqual((await db.collection('submissions/SUB-AN4/intentosRespuestas').get()).size, 2)
   assert.strictEqual((await db.collection('entregasAnuladas/T-AN4/intentosRespuestas').get()).size, 0)
+})
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('versión del cálculo — cada intento queda con la evaluación con la que se calificó')
+// ═════════════════════════════════════════════════════════════════════════════
+const snapshotDe = async (n) => (await db.doc(`submissions/${SUB}/intentosRespuestas/${n}`).get()).data()
+
+await caso('5 · el intento queda con su versión: huella, tipo y puntos de cada reactivo, política y total', async () => {
+  await limpiar()
+  await sembrarEvaluacion({}, { conservar: 'mejor' })
+  const s = await cerrarIntento(1, ['b', 'a'])
+  const e = s.intentos[0]
+  assert.strictEqual(e.calificacion, 5)
+  assert.match(e.firmaEvaluacion, /^[0-9a-f]{14}$/)
+  assert.strictEqual(e.politicaAplicada, 'mejor')
+  assert.strictEqual(e.versionAlterada, undefined, 'sin cambios durante el intento no hay aviso')
+  assert.strictEqual(e.respuestasSinGuardar, undefined)
+  const snap = await snapshotDe(1)
+  assert.deepStrictEqual(snap.estructura, { p1: { tipo: 'opcion_multiple', ponderacion: 1 }, p2: { tipo: 'opcion_multiple', ponderacion: 1 } })
+  assert.strictEqual(snap.totalPonderacion, 2)
+  assert.strictEqual(snap.maxCalif, 10)
+  assert.strictEqual(snap.firmaEvaluacion, e.firmaEvaluacion)
+  assert.strictEqual(snap.politicaAplicada, 'mejor')
+})
+
+await caso('6 · modificar la evaluación NO cambia los intentos anteriores; el siguiente nace con su propia versión', async () => {
+  await limpiar()
+  await sembrarEvaluacion({}, { conservar: 'ultimo' })
+  const s1 = await cerrarIntento(1, ['b', 'a'])
+  const firma1 = s1.intentos[0].firmaEvaluacion
+  const snap1Antes = await snapshotDe(1)
+  // El docente sube el peso de p1 a 3 y cambia la clave de p2.
+  await db.doc(`activities/${ACT}/preguntas/p1`).update({ ponderacion: 3 })
+  await db.doc(`activities/${ACT}/clave/p2`).set({ respuestaCorrecta: 'a' })
+  const s2 = await cerrarIntento(2, ['b', 'a'])
+  assert.strictEqual(s2.intentos[0].calificacion, 5, 'el intento 1 conserva su nota')
+  assert.strictEqual(s2.intentos[0].firmaEvaluacion, firma1, 'y su huella')
+  assert.deepStrictEqual(await snapshotDe(1), snap1Antes, 'la fotografía del intento 1 no se toca')
+  assert.notStrictEqual(s2.intentos[1].firmaEvaluacion, firma1, 'el intento 2 se calificó con otra versión')
+  assert.strictEqual(s2.intentos[1].calificacion, 10, 'p1 (3 pts) y p2 (clave nueva) correctas: 4/4')
+  assert.deepStrictEqual((await snapshotDe(2)).estructura.p1, { tipo: 'opcion_multiple', ponderacion: 3 })
+})
+
+await caso('la huella no cambia por el orden de los reactivos ni por escribir lo mismo', async () => {
+  await limpiar()
+  await sembrarEvaluacion({}, {})
+  const a = (await cerrarIntento(1, ['b', 'b'])).intentos[0].firmaEvaluacion
+  await limpiar()
+  await sembrarEvaluacion({}, {})
+  await db.doc(`activities/${ACT}/preguntas/p1`).set({ tipo: 'opcion_multiple', ponderacion: 1, enunciado: 'otro texto', opciones: [{ id: 'a', texto: 'A' }, { id: 'b', texto: 'B' }] })
+  const b = (await cerrarIntento(1, ['b', 'b'])).intentos[0].firmaEvaluacion
+  assert.strictEqual(a, b, 'cambiar solo el enunciado no cambia lo que afecta la nota')
+})
+
+await caso('la evaluación cambió DURANTE el intento: el intento y su fotografía quedan marcados', async () => {
+  await limpiar()
+  await sembrarEvaluacion({}, {})
+  const inicio = Date.now() - 10 * 60_000
+  await db.doc(`submissions/${SUB}`).set({ actividadId: ACT, alumnoId: 'AL1', estadoEvaluacion: 'en_progreso', intentoActual: 1, intentos: [], tiempoInicio: Timestamp.fromMillis(inicio) })
+  // Un cambio ANTES de empezar no cuenta; uno a mitad del intento sí.
+  await db.doc(`activities/${ACT}/reactivosHistorial/antes`).set({ preguntaId: 'p2', fuente: 'pregunta', tipoCambio: 'modificado', cambioEn: Timestamp.fromMillis(inicio - 60_000) })
+  await db.doc(`activities/${ACT}/reactivosHistorial/durante`).set({ preguntaId: 'p1', fuente: 'clave', tipoCambio: 'modificado', cambioEn: Timestamp.fromMillis(inicio + 120_000) })
+  const s = await cerrarIntento(1, ['b', 'b'])
+  assert.strictEqual(s.intentos[0].versionAlterada, true)
+  assert.strictEqual((await snapshotDe(1)).versionAlterada, true)
+})
+
+await caso('sin cambios durante el intento (solo uno anterior) no hay marca', async () => {
+  await limpiar()
+  await sembrarEvaluacion({}, {})
+  const inicio = Date.now() - 10 * 60_000
+  await db.doc(`submissions/${SUB}`).set({ actividadId: ACT, alumnoId: 'AL1', estadoEvaluacion: 'en_progreso', intentoActual: 1, intentos: [], tiempoInicio: Timestamp.fromMillis(inicio) })
+  await db.doc(`activities/${ACT}/reactivosHistorial/antes`).set({ preguntaId: 'p2', cambioEn: Timestamp.fromMillis(inicio - 60_000) })
+  const s = await cerrarIntento(1, ['b', 'b'])
+  assert.strictEqual(s.intentos[0].versionAlterada, undefined)
+})
+
+await caso('respuestas declaradas que no llegaron a guardarse: queda la señal con los ids', async () => {
+  await limpiar()
+  await sembrarEvaluacion({}, {})
+  await db.doc(`submissions/${SUB}`).set({ actividadId: ACT, alumnoId: 'AL1', estadoEvaluacion: 'finalizado', intentoActual: 1, intentos: [], respuestasDeclaradas: ['p1', 'p2'] })
+  await db.doc(`submissions/${SUB}/respuestas/p1`).set({ opcionSeleccionada: 'b' })
+  await db.doc(`submissions/${SUB}/respuestas/p2`).set({ opcionSeleccionada: null })
+  const snap = await dbFn.doc(`submissions/${SUB}`).get()
+  await funciones.onEvaluacionFinalizada.run({ data: { after: snap }, params: { submissionId: SUB } })
+  const s = (await db.doc(`submissions/${SUB}`).get()).data()
+  assert.deepStrictEqual(s.intentos[0].respuestasSinGuardar, ['p2'])
+  assert.deepStrictEqual((await snapshotDe(1)).respuestasSinGuardar, ['p2'])
+  assert.strictEqual(s.intentos[0].calificacion, 5, 'se califica lo que hay; la señal es aparte')
+})
+
+await caso('sin declaración (clientes anteriores) no se inventa ninguna señal', async () => {
+  await limpiar()
+  await sembrarEvaluacion({}, {})
+  const s = await cerrarIntento(1, ['b', 'a'])
+  assert.strictEqual(s.intentos[0].respuestasSinGuardar, undefined)
+})
+
+await caso('operaciones simultáneas: el mismo cierre dos veces a la vez deja UN intento y UNA fotografía', async () => {
+  await limpiar()
+  await sembrarEvaluacion({}, {})
+  await db.doc(`submissions/${SUB}`).set({ actividadId: ACT, alumnoId: 'AL1', estadoEvaluacion: 'finalizado', intentoActual: 1, intentos: [] })
+  await db.doc(`submissions/${SUB}/respuestas/p1`).set({ opcionSeleccionada: 'b' })
+  await db.doc(`submissions/${SUB}/respuestas/p2`).set({ opcionSeleccionada: 'b' })
+  const snap = await dbFn.doc(`submissions/${SUB}`).get()
+  await Promise.all([1, 2, 3, 4].map(() => funciones.onEvaluacionFinalizada.run({ data: { after: snap }, params: { submissionId: SUB } })))
+  const s = (await db.doc(`submissions/${SUB}`).get()).data()
+  assert.strictEqual(s.intentos.length, 1)
+  assert.strictEqual(s.calificacion, 10)
+  assert.strictEqual((await db.collection(`submissions/${SUB}/intentosRespuestas`).get()).size, 1)
+})
+
+await caso('cada intento conserva sus respuestas aunque lleguen cierres de varios intentos seguidos', async () => {
+  await limpiar()
+  await sembrarEvaluacion({}, { conservar: 'ultimo' })
+  await cerrarIntento(1, ['b', 'a'])
+  await cerrarIntento(2, ['a', 'a'])
+  await cerrarIntento(3, ['b', 'b'])
+  const snaps = (await db.collection(`submissions/${SUB}/intentosRespuestas`).get()).docs.map((d) => [d.id, d.data().calificacion]).sort()
+  assert.deepStrictEqual(snaps, [['1', 5], ['2', 0], ['3', 10]])
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('historial de reactivos, clave y rúbrica — versiones anteriores archivadas por el servidor')
+// ═════════════════════════════════════════════════════════════════════════════
+const correrReactivo = (fn, act, id, antes, despues, evento) => funciones[fn].run({
+  id: evento, time: '2026-10-16T12:00:00.000Z', params: { activityId: act, preguntaId: id }, data: { before: snapDe(antes), after: snapDe(despues) },
+})
+const histReactivos = async (act) => (await db.collection(`activities/${act}/reactivosHistorial`).get()).docs.map((d) => ({ id: d.id, ...d.data() }))
+
+await caso('editar un reactivo archiva lo anterior y lo nuevo, con la hora del evento', async () => {
+  await limpiar()
+  const antes = { tipo: 'opcion_multiple', ponderacion: 1, enunciado: 'viejo' }
+  const despues = { tipo: 'opcion_multiple', ponderacion: 3, enunciado: 'viejo' }
+  await correrReactivo('onReactivoCambiado', 'ACTH', 'p1', antes, despues, 'ev-r1')
+  const h = await histReactivos('ACTH')
+  assert.strictEqual(h.length, 1)
+  assert.strictEqual(h[0].id, 'ev-r1')
+  assert.strictEqual(h[0].tipoCambio, 'modificado')
+  assert.strictEqual(h[0].fuente, 'pregunta')
+  assert.strictEqual(h[0].preguntaId, 'p1')
+  assert.deepStrictEqual(h[0].antes, antes)
+  assert.deepStrictEqual(h[0].despues, despues)
+  assert.strictEqual(h[0].cambioEn.toMillis(), Date.parse('2026-10-16T12:00:00.000Z'))
+  assert.ok(h[0].registradoEn)
+})
+
+await caso('cambiar la clave archiva la anterior; borrar un reactivo queda como «eliminado»', async () => {
+  await limpiar()
+  await correrReactivo('onClaveCambiada', 'ACTH', 'p1', { respuestaCorrecta: 'a' }, { respuestaCorrecta: 'b' }, 'ev-c1')
+  await correrReactivo('onReactivoCambiado', 'ACTH', 'p2', { tipo: 'opcion_multiple', ponderacion: 2 }, null, 'ev-r2')
+  const h = (await histReactivos('ACTH')).sort((a, b) => a.id.localeCompare(b.id))
+  assert.deepStrictEqual(h.map((x) => [x.id, x.fuente, x.tipoCambio]), [['ev-c1', 'clave', 'modificado'], ['ev-r2', 'pregunta', 'eliminado']])
+  assert.deepStrictEqual(h[0].antes, { respuestaCorrecta: 'a' })
+})
+
+await caso('crear un reactivo queda como «creado»; la clave que nace con él no duplica el registro', async () => {
+  await limpiar()
+  await correrReactivo('onReactivoCambiado', 'ACTH', 'p9', null, { tipo: 'opcion_multiple', ponderacion: 1 }, 'ev-n1')
+  await correrReactivo('onClaveCambiada', 'ACTH', 'p9', null, { respuestaCorrecta: 'a' }, 'ev-n2')
+  const h = await histReactivos('ACTH')
+  assert.deepStrictEqual(h.map((x) => [x.id, x.tipoCambio]), [['ev-n1', 'creado']])
+})
+
+await caso('una escritura sin cambio real no archiva nada', async () => {
+  await limpiar()
+  const d = { tipo: 'opcion_multiple', ponderacion: 1, opciones: [{ id: 'a', texto: 'A' }] }
+  await correrReactivo('onReactivoCambiado', 'ACTH', 'p1', d, { ...d, opciones: [{ texto: 'A', id: 'a' }] }, 'ev-s1')
+  assert.strictEqual((await histReactivos('ACTH')).length, 0)
+})
+
+await caso('operaciones simultáneas: el MISMO evento reintentado 8 veces deja una fila; 8 eventos distintos, ocho', async () => {
+  await limpiar()
+  const antes = { ponderacion: 1 }
+  const despues = { ponderacion: 2 }
+  await Promise.all(Array.from({ length: 8 }, () => correrReactivo('onReactivoCambiado', 'ACTH', 'p1', antes, despues, 'ev-dup')))
+  assert.strictEqual((await histReactivos('ACTH')).length, 1)
+  await Promise.all(Array.from({ length: 8 }, (_, i) => correrReactivo('onReactivoCambiado', 'ACTH', 'p1', { ponderacion: i }, { ponderacion: i + 1 }, `ev-${i}`)))
+  assert.strictEqual((await histReactivos('ACTH')).length, 9)
+})
+
+const correrRubrica = (act, antes, despues, evento) => funciones.onRubricaCambiada.run({
+  id: evento, time: '2026-10-16T12:00:00.000Z', params: { activityId: act }, data: { before: snapDe(antes), after: snapDe(despues) },
+})
+const histRubrica = async (act) => (await db.collection(`activities/${act}/rubricaHistorial`).get()).docs.map((d) => ({ id: d.id, ...d.data() }))
+
+await caso('cambiar la rúbrica archiva la anterior y la nueva; reintento del evento no duplica; otros cambios no registran', async () => {
+  await limpiar()
+  const r1 = { criterios: [{ nombre: 'Claridad', peso: 50 }] }
+  const r2 = { criterios: [{ nombre: 'Claridad', peso: 70 }] }
+  await correrRubrica('ACTR', { titulo: 'x', rubrica: r1 }, { titulo: 'x', rubrica: r2 }, 'ev-ru1')
+  await correrRubrica('ACTR', { titulo: 'x', rubrica: r1 }, { titulo: 'x', rubrica: r2 }, 'ev-ru1')
+  await correrRubrica('ACTR', { titulo: 'x', rubrica: r2 }, { titulo: 'y', rubrica: r2 }, 'ev-ru2')
+  const h = await histRubrica('ACTR')
+  assert.strictEqual(h.length, 1)
+  assert.deepStrictEqual(h[0].rubricaAnterior, r1)
+  assert.deepStrictEqual(h[0].rubricaNueva, r2)
+  assert.strictEqual(h[0].cambioEn.toMillis(), Date.parse('2026-10-16T12:00:00.000Z'))
+})
+
+await caso('8 · cambiar la política NO recalcula notas ya puestas: solo deja constancia', async () => {
+  await limpiar()
+  await sembrarEvaluacion({}, { conservar: 'mejor' })
+  await cerrarIntento(1, ['b', 'b'])
+  const s2 = await cerrarIntento(2, ['a', 'a'])
+  assert.strictEqual(s2.calificacion, 10, 'con «mejor» queda el 10 del primer intento')
+  await correrPolitica(ACT, { tipo: 'evaluacion', evaluacion: { conservar: 'mejor' } }, { tipo: 'evaluacion', evaluacion: { conservar: 'ultimo' } }, 'pol-8')
+  const despues = (await db.doc(`submissions/${SUB}`).get()).data()
+  assert.strictEqual(despues.calificacion, 10, 'la nota guardada no se mueve')
+  assert.strictEqual(despues.politicaAplicada, 'mejor', 'sigue diciendo con qué política se calculó')
+  assert.deepStrictEqual(despues.intentos.map((i) => i.calificacion), [10, 0])
+  assert.strictEqual((await cambios(ACT)).length, 1, 'el cambio queda en el historial de la política')
 })
 
 await limpiar()

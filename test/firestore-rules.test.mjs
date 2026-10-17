@@ -4219,5 +4219,25 @@ ok('F-05 · admin CAN read publicProfiles')
   ok('GUARDADO · reglas: el estudiante sigue sin poder escribir puntosObtenidos')
 }
 
+
+// ── Historial de reactivos/clave y rúbrica: solo el servidor escribe; lee el docente dueño ──
+{
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, 'activities', 'AVH1'), { docenteId: T1, asignaturaId: 'S1', tipo: 'evaluacion' })
+    await setDoc(doc(db, 'activities', 'AVH1', 'reactivosHistorial', 'ev1'), { fuente: 'clave', preguntaId: 'p1', antes: { respuestaCorrecta: 'a' }, despues: { respuestaCorrecta: 'b' } })
+    await setDoc(doc(db, 'activities', 'AVH1', 'rubricaHistorial', 'ev1'), { rubricaAnterior: { criterios: [] }, rubricaNueva: { criterios: [{ nombre: 'x' }] } })
+  })
+  for (const col of ['reactivosHistorial', 'rubricaHistorial']) {
+    await assertSucceeds(getDoc(doc(asT1, 'activities', 'AVH1', col, 'ev1')))
+    await assertFails(getDoc(doc(asT2, 'activities', 'AVH1', col, 'ev1')))
+    await assertFails(getDoc(doc(asJuan, 'activities', 'AVH1', col, 'ev1')))
+    await assertFails(setDoc(doc(asT1, 'activities', 'AVH1', col, 'ev2'), { fuente: 'x' }))
+    await assertFails(updateDoc(doc(asT1, 'activities', 'AVH1', col, 'ev1'), { fuente: 'x' }))
+    await assertFails(deleteDoc(doc(asT1, 'activities', 'AVH1', col, 'ev1')))
+  }
+  ok('VERSIÓN · reactivosHistorial y rubricaHistorial: solo los lee el docente dueño; nadie los escribe ni borra desde un cliente (la clave viaja ahí)')
+}
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)
