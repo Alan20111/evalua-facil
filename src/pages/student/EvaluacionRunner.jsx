@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  getDoc, doc, setDoc, updateDoc, serverTimestamp,
+  getDoc, doc, updateDoc, serverTimestamp,
 } from 'firebase/firestore'
 import { db, auth } from '../../firebase'
 import { fetchApi } from '../../utils/apiBase'
@@ -13,6 +13,9 @@ import { ChevronLeft, ChevronRight, Timer, CheckCircle2, LogOut, Upload, FileTex
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { esDeIntentoAnterior, tieneRespuestaGuardada, limpiarRespuestas } from '../../utils/respuestasIntento'
 import { estaRespondida as estaRespondidaPura } from '../../utils/evaluacionRespondida'
+import {
+  crearGuardador, esperadasDe, ESTADO_GUARDADO, guardarRespaldo, leerRespaldo, borrarRespaldo, respuestasPorRecuperar,
+} from '../../utils/guardadoRespuestas'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { seccionesDe, ordenParaEstudiante, mostrarSeccionesAlEstudiante } from '../../utils/secciones'
@@ -75,6 +78,13 @@ export default function EvaluacionRunner() {
   const [secondsLeft, setSecondsLeft] = useState(null)
   const [showExitModal, setShowExitModal] = useState(false)
   const finishedRef = useRef(false)
+  // Guardado de las respuestas (utils/guardadoRespuestas.js): cada pregunta sabe si
+  // quedó guardada, se está guardando o falló. «No se pudo guardar» ≠ «sin responder».
+  const guardadorRef = useRef(null)
+  const [estadoGuardado, setEstadoGuardado] = useState({})
+  const [reintentando, setReintentando] = useState(false)
+  const idsConError = Object.keys(estadoGuardado).filter((id) => estadoGuardado[id] === ESTADO_GUARDADO.ERROR)
+  const hayPendientes = Object.values(estadoGuardado).some((e) => e !== ESTADO_GUARDADO.GUARDADA)
 
   // Botón físico de Android: si el modal de "¿Salir?" ya está abierto, atrás lo
   // cierra (cancela el intento de salir); si no está abierto, atrás lo abre en
@@ -82,6 +92,14 @@ export default function EvaluacionRunner() {
   // debe confirmar, igual que con el botón "Salir" en pantalla.
   useBackHandler(() => setShowExitModal(false), showExitModal)
   useBackHandler(() => setShowExitModal(true), !showExitModal)
+
+  // Cerrar o recargar la pestaña con respuestas sin guardar: el navegador avisa.
+  useEffect(() => {
+    if (!hayPendientes) return undefined
+    const avisar = (e) => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', avisar)
+    return () => window.removeEventListener('beforeunload', avisar)
+  }, [hayPendientes])
 
   async function load() {
     setLoading(true)
@@ -118,6 +136,9 @@ export default function EvaluacionRunner() {
         navigate(`/alumno/actividad/${activityId}`); return
       }
       setSubmission(subData)
+      guardadorRef.current = crearGuardador({
+        db, submissionId: subData.id, intento: subData.intentoActual || 1, onCambio: setEstadoGuardado,
+      })
 
       const idToken = await auth.currentUser.getIdToken()
       const pregResp = await fetchApi('/api/exam/questions', {
@@ -180,7 +201,7 @@ export default function EvaluacionRunner() {
       )
       if (rezagadas.length) {
         try {
-          await limpiarRespuestas(db, rezagadas.map((r) => doc(db, 'submissions', subData.id, 'respuestas', r.id)))
+          await limpiarRespuestas(db, rezagadas.map((r) => doc(db, 'submissions', subData.id, 'respuestas', r.id)), { intento: subData.intentoActual || 1 })
         } catch {
           toast('No pudimos borrar del todo tus respuestas anteriores. Recarga la página antes de seguir.', 'error')
         }
@@ -214,6 +235,27 @@ export default function EvaluacionRunner() {
         }
         if (data.otraTexto) otraMap[data.id] = data.otraTexto
       })
+      // Respaldo local: si en este dispositivo quedó algo que el servidor nunca recibió
+      // (pestaña cerrada o red caída a media evaluación), se recupera y se vuelve a guardar.
+      const persistidas = {}
+      respuestasGuardadas.forEach((d) => { if (!esDeIntentoAnterior(d, subData.tiempoInicio)) persistidas[d.id] = d })
+      const inicioMs = subData.tiempoInicio?.seconds ? subData.tiempoInicio.seconds * 1000 : 0
+      const porRecuperar = respuestasPorRecuperar(leerRespaldo(subData.id, subData.intentoActual || 1), persistidas, inicioMs)
+      const idsRecuperadas = Object.keys(porRecuperar).filter((id) => tipoPorPreguntaId[id])
+      idsRecuperadas.forEach((id) => {
+        const c = porRecuperar[id]
+        const tipo = tipoPorPreguntaId[id]
+        if (tipo === 'respuesta_corta') respMap[id] = typeof c.textoRespuesta === 'string' ? c.textoRespuesta : ''
+        else if (tipo === 'subir_archivo') respMap[id] = c.archivoURL ? { archivoURL: c.archivoURL, nombreArchivo: c.nombreArchivo || 'Documento' } : null
+        else respMap[id] = c.opcionSeleccionada ?? null
+        if (c.otraTexto) otraMap[id] = c.otraTexto
+        guardadorRef.current.guardar(id, c)
+      })
+      if (idsRecuperadas.length) {
+        toast(idsRecuperadas.length === 1
+          ? 'Recuperamos 1 respuesta que no se había guardado y la estamos guardando ahora.'
+          : `Recuperamos ${idsRecuperadas.length} respuestas que no se habían guardado y las estamos guardando ahora.`, 'info')
+      }
       setRespuestas(respMap)
       setOtraTextos(otraMap)
 
@@ -233,52 +275,48 @@ export default function EvaluacionRunner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps, react-doctor/exhaustive-deps -- mount-only intencional
   useEffect(() => { if (currentUser) load() }, [activityId, currentUser])
 
+  // Toda escritura de una respuesta pasa por el guardador: en orden por pregunta, con
+  // estado, con reintento y con respaldo local. Devuelve true si quedó guardada.
+  function guardarRespuesta(preguntaId, campos) {
+    const g = guardadorRef.current
+    if (!g) return Promise.resolve(false)
+    const p = g.guardar(preguntaId, campos)
+    guardarRespaldo(submission.id, submission.intentoActual || 1, g.deseadoActual())
+    return p
+  }
+
   async function handleSelectOpcion(preguntaId, opcionId, esOtra) {
     setRespuestas((prev) => ({ ...prev, [preguntaId]: opcionId }))
     // Cambiar a una opción normal borra el texto de "Otra" que hubiera quedado
     // de una elección anterior — si no, se quedaba guardado sin usarse.
     if (!esOtra) setOtraTextos((prev) => ({ ...prev, [preguntaId]: '' }))
-    try {
-      await setDoc(
-        doc(db, 'submissions', submission.id, 'respuestas', preguntaId),
-        {
-          opcionSeleccionada: opcionId, textoRespuesta: null,
-          otraTexto: esOtra ? (otraTextos[preguntaId] || '') : null,
-          respondidaEn: serverTimestamp(),
-        },
-        { merge: true }
-      )
-    } catch (err) {
-      toast('No se pudo guardar tu respuesta: ' + err.message, 'error')
-    }
+    await guardarRespuesta(preguntaId, {
+      opcionSeleccionada: opcionId, textoRespuesta: null,
+      otraTexto: esOtra ? (otraTextos[preguntaId] || '') : null,
+    })
   }
 
   // Texto libre de la opción "Otra" — mismo patrón que handleTextoChange
   // (respuesta corta): se guarda en cada cambio, sin debounce.
   async function handleOtraTextoChange(preguntaId, texto) {
     setOtraTextos((prev) => ({ ...prev, [preguntaId]: texto }))
-    try {
-      await setDoc(
-        doc(db, 'submissions', submission.id, 'respuestas', preguntaId),
-        { otraTexto: texto, respondidaEn: serverTimestamp() },
-        { merge: true }
-      )
-    } catch (err) {
-      toast('No se pudo guardar tu respuesta: ' + err.message, 'error')
-    }
+    await guardarRespuesta(preguntaId, { otraTexto: texto })
   }
 
   async function handleTextoChange(preguntaId, texto) {
     setRespuestas((prev) => ({ ...prev, [preguntaId]: texto }))
+    await guardarRespuesta(preguntaId, { textoRespuesta: texto, opcionSeleccionada: null })
+  }
+
+  async function handleReintentarGuardado() {
+    const g = guardadorRef.current
+    if (!g || reintentando) return
+    setReintentando(true)
     try {
-      await setDoc(
-        doc(db, 'submissions', submission.id, 'respuestas', preguntaId),
-        { textoRespuesta: texto, opcionSeleccionada: null, respondidaEn: serverTimestamp() },
-        { merge: true }
-      )
-    } catch (err) {
-      toast('No se pudo guardar tu respuesta: ' + err.message, 'error')
-    }
+      const siguen = await g.reintentarTodo()
+      if (siguen.length) toast('Todavía no se pudo guardar. Revisa tu conexión e inténtalo de nuevo.', 'error')
+      else toast('Tus respuestas quedaron guardadas.', 'success')
+    } finally { setReintentando(false) }
   }
 
   // Pregunta de tipo "subir documento": validar extensión/tamaño, subir a
@@ -296,15 +334,11 @@ export default function EvaluacionRunner() {
     setUploadingPregunta(preguntaId)
     try {
       const url = await uploadToCloudinary(file, 'evalua-facil/submissions')
-      await setDoc(
-        doc(db, 'submissions', submission.id, 'respuestas', preguntaId),
-        {
-          archivoURL: url, nombreArchivo: file.name, tamanoArchivo: file.size,
-          opcionSeleccionada: null, textoRespuesta: null, respondidaEn: serverTimestamp(),
-        },
-        { merge: true }
-      )
       setRespuestas((prev) => ({ ...prev, [preguntaId]: { archivoURL: url, nombreArchivo: file.name } }))
+      await guardarRespuesta(preguntaId, {
+        archivoURL: url, nombreArchivo: file.name, tamanoArchivo: file.size,
+        opcionSeleccionada: null, textoRespuesta: null,
+      })
     } catch (err) {
       toast('No se pudo subir tu archivo: ' + err.message, 'error')
     } finally {
@@ -342,11 +376,44 @@ export default function EvaluacionRunner() {
       // Firestore le prohíben al alumno escribir calificacion/intentos/
       // puntosObtenidos, así que un cliente modificado no puede inventarse
       // su nota.
+      //
+      // ANTES de enviar se comprueba, leyendo del servidor, que lo guardado coincide con
+      // lo que el estudiante marcó; lo que falte se vuelve a guardar. Si aun así no
+      // coincide no se envía nada (el estudiante puede reintentar): enviar con una
+      // respuesta sin guardar la dejaba en blanco al calificar. En el autoenvío por
+      // tiempo se intenta lo mismo pero se envía de todos modos: nadie queda encerrado.
+      const esperadas = esperadasDe(preguntas, respuestas, otraTextos)
+      const g = guardadorRef.current
+      if (g) {
+        try {
+          await g.esperarTodo()
+          let ver = await g.verificar(esperadas)
+          if (!ver.ok) {
+            await g.restaurar(preguntas, esperadas, [...ver.faltantes, ...ver.distintas])
+            await g.esperarTodo()
+            ver = await g.verificar(esperadas)
+          }
+          if (!ver.ok && !permitirBlancos) {
+            finishedRef.current = false
+            const n = ver.faltantes.length + ver.distintas.length
+            toast(n === 1
+              ? 'No pudimos confirmar el guardado de 1 respuesta. No se envió nada: revisa tu conexión y vuelve a intentarlo.'
+              : `No pudimos confirmar el guardado de ${n} respuestas. No se envió nada: revisa tu conexión y vuelve a intentarlo.`, 'error')
+            return
+          }
+        } catch (errVerif) {
+          if (!permitirBlancos) throw errVerif
+        }
+      }
       await updateDoc(doc(db, 'submissions', submission.id), {
         estadoEvaluacion: 'finalizado',
         estado: 'entregado',
         fechaEntrega: serverTimestamp(),
+        // Qué respuestas creyó enviar el cliente: el servidor lo contrasta con lo
+        // persistido y deja constancia si no coincide.
+        respuestasDeclaradas: Object.keys(esperadas),
       })
+      borrarRespaldo(submission.id, submission.intentoActual || 1)
       toast('Evaluación finalizada')
       // El flag en el state de navegación le dice a ActivityPage que dispare
       // la celebración de "ya entregaste" — solo la primera vez que llega ahí
@@ -420,12 +487,15 @@ export default function EvaluacionRunner() {
   // aviso. La validación real vive DENTRO de handleFinalizar (defensa en
   // profundidad): cualquier ruta que llame a esa función sin permitirBlancos
   // se detiene si hay pendientes y salta a la primera.
+  function sinGuardar(p) { return estadoGuardado[p?.id] === ESTADO_GUARDADO.ERROR }
   function goAnterior() {
     if (!estaRespondida(pregunta)) { toast('Responde esta pregunta para continuar.', 'warning'); return }
+    if (sinGuardar(pregunta)) { toast('Tu respuesta a esta pregunta no se ha guardado. Toca «Reintentar» antes de continuar.', 'warning'); return }
     setIdx((i) => i - 1)
   }
   function goSiguiente() {
     if (!estaRespondida(pregunta)) { toast('Responde esta pregunta para continuar.', 'warning'); return }
+    if (sinGuardar(pregunta)) { toast('Tu respuesta a esta pregunta no se ha guardado. Toca «Reintentar» antes de continuar.', 'warning'); return }
     setIdx((i) => i + 1)
   }
   function handleFinalizarClick() {
@@ -472,7 +542,9 @@ export default function EvaluacionRunner() {
         <Modal open={showExitModal} onClose={() => setShowExitModal(false)} variant="centered" size="sm" padding="p-5">
               <h3 className="text-base font-bold text-on-surface mb-2">¿Salir de la evaluación?</h3>
               <p className="text-sm text-muted mb-1">
-                Puedes salir y continuar después desde donde lo dejaste — tus respuestas ya están guardadas.
+                {hayPendientes
+                  ? 'Todavía hay respuestas que no se han terminado de guardar. Espera unos segundos o toca «Reintentar» antes de salir; si sales ahora podrías perderlas.'
+                  : 'Puedes salir y continuar después desde donde lo dejaste — tus respuestas ya están guardadas.'}
               </p>
               {activity.evaluacion?.tiempoLimiteMin && (
                 <p className="text-sm text-amber-600 font-medium mb-3">
@@ -518,11 +590,27 @@ export default function EvaluacionRunner() {
             <div className="h-full bg-accent transition" style={{ width: `${((idx + 1) / preguntas.length) * 100}%` }} />
           </div>
 
+          {idsConError.length > 0 && (
+            <div role="alert" className="mb-3 flex items-center justify-between gap-3 rounded-card border border-error/40 bg-error/5 p-3 text-sm text-error">
+              <span>
+                {idsConError.length === 1
+                  ? 'No se pudo guardar 1 respuesta.'
+                  : `No se pudieron guardar ${idsConError.length} respuestas.`}
+                {' '}Siguen en este dispositivo; no cierres la evaluación.
+              </span>
+              <Button variant="secondary" busy={reintentando} disabled={reintentando} onClick={handleReintentarGuardado}>
+                Reintentar
+              </Button>
+            </div>
+          )}
           <div className="bg-surface-card rounded-card p-4 shadow-card mb-4">
             {pregunta.imagenUrl && (
               <img src={pregunta.imagenUrl} alt="" className="w-full max-h-64 object-contain rounded mb-3 border border-outline-variant" />
             )}
             <p className="text-base font-medium text-on-surface mb-4 break-words">{pregunta.enunciado}</p>
+            {sinGuardar(pregunta) && (
+              <p className="text-xs font-semibold text-error mb-2">Sin guardar</p>
+            )}
 
             {pregunta.tipo === 'respuesta_corta' ? (
               <textarea

@@ -9620,6 +9620,79 @@ grupo('integridad de calificaciones — historial de notas y de la política')
   })
 }
 
+
+// ── Guardado de respuestas (oct-2026): lógica pura y cola por pregunta ──────────────────────
+grupo('guardado de respuestas — qué debería haber guardado y comparación con lo persistido')
+{
+  const GR = await import('../src/utils/guardadoRespuestas.js')
+  const om = { id: 'q1', tipo: 'opcion_multiple', opciones: [{ id: 'a' }, { id: 'b' }, { id: 'o', esOtra: true }] }
+  const rc = { id: 'q2', tipo: 'respuesta_corta' }
+  const sa = { id: 'q3', tipo: 'subir_archivo' }
+  caso('valorEsperado: solo lo contestado; «Otra» exige su texto; vacío y espacios no cuentan', () => {
+    assert.deepStrictEqual(GR.valorEsperado(om, 'a'), { opcionSeleccionada: 'a' })
+    assert.strictEqual(GR.valorEsperado(om, null), null)
+    assert.strictEqual(GR.valorEsperado(om, 'o', '  '), null)
+    assert.deepStrictEqual(GR.valorEsperado(om, 'o', 'mi texto'), { opcionSeleccionada: 'o', otraTexto: 'mi texto' })
+    assert.deepStrictEqual(GR.valorEsperado(rc, 'hola'), { textoRespuesta: 'hola' })
+    assert.strictEqual(GR.valorEsperado(rc, '   '), null)
+    assert.deepStrictEqual(GR.valorEsperado(sa, { archivoURL: 'u' }), { archivoURL: 'u' })
+    assert.strictEqual(GR.valorEsperado(sa, null), null)
+  })
+  caso('esperadasDe incluye solo las preguntas contestadas (las otras NO se exigen)', () => {
+    const e = GR.esperadasDe([om, rc, sa], { q1: 'a', q2: '' }, {})
+    assert.deepStrictEqual(Object.keys(e), ['q1'])
+  })
+  caso('compararRespuestas: faltantes, distintas y una respuesta en blanco que no se reclama', () => {
+    const esp = { q1: { opcionSeleccionada: 'a' }, q2: { textoRespuesta: 'hola' }, q3: { archivoURL: 'u' }, q4: { opcionSeleccionada: 'b' } }
+    const persistidas = { q1: { opcionSeleccionada: 'a' }, q2: { textoRespuesta: 'otra cosa' }, q3: { archivoURL: null }, extra: { opcionSeleccionada: 'z' } }
+    const r = GR.compararRespuestas(esp, persistidas)
+    assert.strictEqual(r.ok, false)
+    assert.deepStrictEqual(r.faltantes.sort(), ['q3', 'q4'])
+    assert.deepStrictEqual(r.distintas, ['q2'])
+    assert.strictEqual(GR.compararRespuestas({ q1: { opcionSeleccionada: 'a' } }, { q1: { opcionSeleccionada: 'a' }, q9: {} }).ok, true)
+    assert.strictEqual(GR.compararRespuestas({}, {}).ok, true, 'sin nada contestado no hay nada que reclamar')
+  })
+  caso('camposDeValorEsperado devuelve la pregunta a lo que el estudiante marcó, por tipo', () => {
+    assert.deepStrictEqual(GR.camposDeValorEsperado(rc, { textoRespuesta: 'x' }), { textoRespuesta: 'x', opcionSeleccionada: null })
+    assert.deepStrictEqual(GR.camposDeValorEsperado(om, { opcionSeleccionada: 'o', otraTexto: 't' }), { opcionSeleccionada: 'o', textoRespuesta: null, otraTexto: 't' })
+    assert.deepStrictEqual(GR.camposDeValorEsperado(sa, { archivoURL: 'u' }), { archivoURL: 'u', opcionSeleccionada: null, textoRespuesta: null })
+  })
+}
+
+grupo('guardado de respuestas — cola por pregunta, estados, reintentos y envío único')
+{
+  const GR = await import('../src/utils/guardadoRespuestas.js')
+  caso('el módulo exporta las piezas esperadas', () => {
+    ;['crearGuardador', 'crearEnvioUnico', 'compararRespuestas', 'esperadasDe', 'guardarRespaldo', 'leerRespaldo', 'borrarRespaldo', 'respuestasPorRecuperar'].forEach((n) => assert.strictEqual(typeof GR[n], 'function', n))
+  })
+  await casoA('crearEnvioUnico: dos llamadas simultáneas comparten UNA ejecución; después queda libre', async () => {
+    let n = 0
+    const f = GR.crearEnvioUnico(async () => { n++; await new Promise((r) => setTimeout(r, 10)); return n })
+    const [a, b] = await Promise.all([f(), f()])
+    assert.strictEqual(n, 1)
+    assert.strictEqual(a, b)
+    assert.strictEqual(await f(), 2, 'tras terminar se puede volver a intentar')
+  })
+  caso('respaldo local: guarda, lee y borra; sin localStorage no truena', () => {
+    const almacen = new Map()
+    globalThis.localStorage = { getItem: (k) => (almacen.has(k) ? almacen.get(k) : null), setItem: (k, v) => almacen.set(k, v), removeItem: (k) => almacen.delete(k) }
+    GR.guardarRespaldo('S', 2, { q1: { opcionSeleccionada: 'a' } })
+    assert.deepStrictEqual(GR.leerRespaldo('S', 2).respuestas, { q1: { opcionSeleccionada: 'a' } })
+    assert.strictEqual(GR.leerRespaldo('S', 3), null, 'otro intento, otro respaldo')
+    GR.borrarRespaldo('S', 2)
+    assert.strictEqual(GR.leerRespaldo('S', 2), null)
+    delete globalThis.localStorage
+    assert.doesNotThrow(() => { GR.guardarRespaldo('S', 2, {}); GR.leerRespaldo('S', 2); GR.borrarRespaldo('S', 2) })
+  })
+  caso('respuestasPorRecuperar: solo lo que el respaldo tiene y el servidor no; ignora respaldos de intentos anteriores', () => {
+    const resp = { ts: 1000, respuestas: { q1: { opcionSeleccionada: 'a' }, q2: { textoRespuesta: 'x' }, q3: { opcionSeleccionada: null } } }
+    const r = GR.respuestasPorRecuperar(resp, { q1: { opcionSeleccionada: 'a' } }, 0)
+    assert.deepStrictEqual(Object.keys(r), ['q2'])
+    assert.deepStrictEqual(GR.respuestasPorRecuperar(resp, {}, 5000), {}, 'un respaldo anterior al inicio del intento no se usa')
+    assert.deepStrictEqual(GR.respuestasPorRecuperar(null, {}), {})
+  })
+}
+
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)
   fallos.forEach((f) => console.log(`  ✗ ${f.nombre}\n    ${f.e.message}`))
