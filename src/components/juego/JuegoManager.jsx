@@ -20,11 +20,11 @@
 
 import { useState, useEffect } from 'react'
 import { ArrowLeft, Pencil, Trash2, XCircle, CalendarClock, CalendarDays, ChevronRight, Lock, LockOpen, FileCheck2, CheckCircle, Timer, Ban } from 'lucide-react'
-import { doc, getDoc } from 'firebase/firestore'
+import { collection, doc, getDoc } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { updateDoc } from '../../utils/firestoreGuard'
-import { EntregaCambio, borrarSiNoCambio } from '../../utils/submissionGuard'
-import { db, functions } from '../../firebase'
+import { EntregaCambio, borrarSiNoCambio, datosTrazaAnulacionDocente } from '../../utils/submissionGuard'
+import { db, auth, functions } from '../../firebase'
 import { useToast } from '../Toast'
 import VisibilitySelect from '../VisibilitySelect'
 import PublicacionScheduler from '../PublicacionScheduler'
@@ -514,7 +514,16 @@ function JuegoConfiguracion({
       // Solo si sigue siendo el intento que el docente está viendo: con el id
       // fijo, un deleteDoc a ciegas borraba un intento más nuevo
       // (submissionGuard.js). La semántica no cambia: sin documento = Pendiente.
-      await borrarSiNoCambio(db, doc(db, 'submissions', anularConfirm.sub.id), anularConfirm.sub)
+      // La traza (entregasAnuladas) se escribe en la misma transacción: nota,
+      // intentos y progreso del juego quedan registrados antes de borrarse.
+      await borrarSiNoCambio(db, doc(db, 'submissions', anularConfirm.sub.id), anularConfirm.sub, {
+        traza: {
+          ref: doc(collection(db, 'entregasAnuladas')),
+          construir: (actual) => datosTrazaAnulacionDocente(actual, {
+            actividadId: activityId, alumnoId: anularConfirm.student.id, uid: auth.currentUser?.uid,
+          }),
+        },
+      })
       onSubmissionRemoved?.(anularConfirm.student.id)
       setAnularConfirm(null)
       toast('Entrega anulada — el estudiante queda en Pendiente y puede volver a jugar')

@@ -14,9 +14,11 @@ import {
 import { updateDoc, deleteDoc, writeBatch } from '../../utils/firestoreGuard'
 import { deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { httpsCallable } from 'firebase/functions'
-import { db, functions } from '../../firebase'
+import { db, auth, functions } from '../../firebase'
 import { submissionDocId } from '../../utils/submissionId'
-import { EntregaCambio, crearSiNoExiste, actualizarSiNoCambio, borrarSiNoCambio } from '../../utils/submissionGuard'
+import { ORIGEN_DOCENTE, calificacionEsDeIA } from '../../utils/evaluacionGrading'
+import Checkbox from '../../components/ui/Checkbox'
+import { EntregaCambio, crearSiNoExiste, actualizarSiNoCambio, borrarSiNoCambio, datosTrazaAnulacionDocente } from '../../utils/submissionGuard'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import { Trash2 } from 'lucide-react'
@@ -164,6 +166,8 @@ export default function ActivityPage() {
   // 'aplicada' (ver aplicarPropuestaIA).
   const [sugerenciasLoteIA, setSugerenciasLoteIA] = useState({}) // { [submissionId]: sugerencia }
   const [loteIAConteo, setLoteIAConteo] = useState(null) // { entregas } → abre el modal de costo
+  // Casilla expresa de «Recalificar todas con IA»: sin ella la IA NO reemplaza las calificaciones del docente.
+  const [sobrescribirCalificadas, setSobrescribirCalificadas] = useState(false)
   const [loteIATrabajando, setLoteIATrabajando] = useState(false)
   // La ventana se ancla DEBAJO del renglón de la calificación oficial, para
   // que ésta quede siempre a la vista mientras se marca la rúbrica
@@ -240,7 +244,7 @@ export default function ActivityPage() {
     )
     const unsub = onSnapshot(q, (snap) => {
       const mapa = {}
-      snap.docs.forEach((d) => { mapa[d.data().sub] = { ...d.data().sugerencia, _docId: d.id, _estado: d.data().estado, _rubricaFirma: d.data().rubricaFirma || '' } })
+      snap.docs.forEach((d) => { mapa[d.data().sub] = { ...d.data().sugerencia, _docId: d.id, _estado: d.data().estado, _rubricaFirma: d.data().rubricaFirma || '', _aplicadaAuto: d.data().aplicadaAutomaticamente === true } })
       setSugerenciasLoteIA(mapa)
     }, () => { /* sin permiso u offline: sin sugerencias que recuperar */ })
     return unsub
@@ -291,7 +295,7 @@ export default function ActivityPage() {
       try {
         const anSnap = await getDocs(query(collection(db, 'entregasAnuladas'), where('actividadId', '==', activityId)))
         const porAlumno = {}
-        anSnap.docs.forEach((d) => { (porAlumno[d.data().alumnoId] ||= []).push({ id: d.id, ...d.data() }) })
+        anSnap.docs.forEach((d) => { if (d.data().anuladaPor === 'docente') return; (porAlumno[d.data().alumnoId] ||= []).push({ id: d.id, ...d.data() }) })
         setAnuladasPorAlumno(porAlumno)
       } catch { setAnuladasPorAlumno({}) }
     } catch (err) {
@@ -573,7 +577,17 @@ export default function ActivityPage() {
       toast('No hay entregas con evidencia en un formato legible (JPG, PNG, PDF o Word)', 'error')
       return
     }
-    setLoteIAConteo({ entregas: elegibles.length, recalificar: true })
+    // Cuántas de esas entregas tienen una calificación puesta por el docente
+    // (la IA no la reemplaza salvo que marque la casilla del diálogo). Misma
+    // decisión que toma el servidor (evaluacionGrading.calificacionEsDeIA).
+    const yaCalificadas = elegibles.filter((st) => {
+      const sub = submissions[st.id]
+      const s = sugerenciasLoteIA[sub.id]
+      const sug = s ? { aplicadaAutomaticamente: s._aplicadaAuto === true, sugerencia: { calificacionPropuesta: s.calificacionPropuesta } } : null
+      return sub.calificacion != null && !calificacionEsDeIA(sub, sug)
+    }).length
+    setSobrescribirCalificadas(false)
+    setLoteIAConteo({ entregas: elegibles.length, recalificar: true, yaCalificadas })
   }
 
   // Ejecuta el lote tras la confirmación del docente. El servidor relee todo
@@ -587,7 +601,7 @@ export default function ActivityPage() {
     try {
       const data = await creditosIA.ejecutar(
         claveOperacionLote,
-        { actividadId: activityId, recalificar },
+        { actividadId: activityId, recalificar, sobrescribirCalificadas: recalificar && sobrescribirCalificadas },
         loteIAConteo.entregas,
         { timeoutMs: 300000 },
       )
@@ -596,6 +610,7 @@ export default function ActivityPage() {
       const previas = data?.resultado?.yaProcesadas || 0
       const fallidas = data?.resultado?.fallidas || 0
       const aplicadas = data?.resultado?.aplicadasAuto || 0
+      const omitidas = data?.resultado?.omitidasCalificadas || 0
       // Recalificar reescribe `submissions.calificacion` directo en el
       // servidor — sin esto el docente seguiría viendo las calificaciones
       // viejas hasta recargar la página. Solo submissions (no loadAll
@@ -609,11 +624,13 @@ export default function ActivityPage() {
         setSelected((sel) => (sel?.sub && subsMap[sel.student.id]) ? { ...sel, sub: subsMap[sel.student.id] } : sel)
       }
       toast(recalificar
-        // Recalificar SÍ sobrescribe sola la calificación real (23-ago-2026,
-        // pedido de Kike) — salvo la entrega puntual que quedó sin evidencia
-        // suficiente para un total, esa sí se deja como propuesta a revisar.
+        // Recalificar escribe sola la calificación real (23-ago-2026, pedido
+        // de Kike) — salvo la que el docente puso a mano (si no marcó la
+        // casilla) y la entrega que quedó sin evidencia suficiente para un
+        // total: esas quedan como propuesta a revisar.
         ? `${aplicadas} calificación${aplicadas !== 1 ? 'es' : ''} actualizada${aplicadas !== 1 ? 's' : ''} con la IA` +
-          `${n - aplicadas > 0 ? ` (${n - aplicadas} quedaron como propuesta — revísalas a mano, falta evidencia clara en algún criterio)` : ''}` +
+          `${omitidas > 0 ? ` — ${omitidas} ya tenían tu calificación y no se tocaron: quedaron como propuesta para que las revises` : ''}` +
+          `${n - aplicadas - omitidas > 0 ? ` (${n - aplicadas - omitidas} quedaron como propuesta — revísalas a mano, falta evidencia clara en algún criterio)` : ''}` +
           `${fallidas ? ` — ${fallidas} no se pudo${fallidas !== 1 ? 'ieron' : ''} procesar` : ''}`
         : `${n} propuesta${n !== 1 ? 's' : ''} de IA lista${n !== 1 ? 's' : ''}` +
           `${previas ? ` (${previas} ya existían y no se cobraron)` : ''}` +
@@ -662,9 +679,14 @@ export default function ActivityPage() {
         setSubmissions(subsMap)
         setSelected((sel) => (sel?.sub && subsMap[sel.student.id]) ? { ...sel, sub: subsMap[sel.student.id] } : sel)
       }
+      // Las que el docente ya calificó mientras la propuesta esperaba no se
+      // tocan: siguen como propuesta pendiente para revisarlas a mano.
+      const yaCalificadas = (data?.motivos || []).filter((m) => m.codigo === 'ya_calificada_por_docente').length
+      const otras = noAplicadas - yaCalificadas
       toast(
         `${aplicadas} calificación${aplicadas !== 1 ? 'es' : ''} aplicada${aplicadas !== 1 ? 's' : ''}` +
-        `${noAplicadas ? ` — ${noAplicadas} no se pudo${noAplicadas !== 1 ? 'ieron' : ''} aplicar` : ''}`,
+        `${yaCalificadas ? ` — ${yaCalificadas} ya tenía${yaCalificadas !== 1 ? 'n' : ''} tu calificación y no se ${yaCalificadas !== 1 ? 'tocaron' : 'tocó'} (la propuesta sigue pendiente)` : ''}` +
+        `${otras > 0 ? ` — ${otras} no se pudo${otras !== 1 ? 'ieron' : ''} aplicar` : ''}`,
       )
     } catch (err) {
       toast('No se pudo completar: ' + err.message, 'error')
@@ -768,10 +790,13 @@ export default function ActivityPage() {
         calificacion: cal,
         comentario,
         estado: 'calificado',
+        // Quién puso la nota: la IA solo reemplaza notas que son suyas (la
+        // marca viaja con la calificación; ver decidirAplicacionIA).
+        ultimaCalificacionPor: ORIGEN_DOCENTE,
         ...comentarioVisiblePayload,
         ...rubricaEvalPayload,
       })
-      updated = { ...selected.sub, calificacion: cal, comentario, estado: 'calificado', ...comentarioVisiblePayload, ...rubricaEvalPayload }
+      updated = { ...selected.sub, calificacion: cal, comentario, estado: 'calificado', ultimaCalificacionPor: ORIGEN_DOCENTE, ...comentarioVisiblePayload, ...rubricaEvalPayload }
     } else {
       const data = {
         actividadId: activityId,
@@ -779,6 +804,7 @@ export default function ActivityPage() {
         calificacion: cal,
         comentario,
         estado: 'calificado',
+        ultimaCalificacionPor: ORIGEN_DOCENTE,
         sinEntrega: true,
         fechaEntrega: serverTimestamp(),
         ...comentarioVisiblePayload,
@@ -872,7 +898,17 @@ export default function ActivityPage() {
       // estudiante subió después (submissionGuard.js). La ausencia del
       // documento ES "no entregada" en toda la plataforma: no se crea ningún
       // sinEntrega ni se toca la actividad (su prórroga sigue intacta).
-      await borrarSiNoCambio(db, doc(db, 'submissions', selected.sub.id), selected.sub)
+      // La traza (entregasAnuladas, anuladaPor 'docente') se escribe en la misma
+      // transacción: quién anuló, cuándo, y la nota, el estado y la evidencia
+      // que tenía. El archivo en Cloudinary no se toca.
+      await borrarSiNoCambio(db, doc(db, 'submissions', selected.sub.id), selected.sub, {
+        traza: {
+          ref: doc(collection(db, 'entregasAnuladas')),
+          construir: (actual) => datosTrazaAnulacionDocente(actual, {
+            actividadId: activityId, alumnoId: selected.student.id, uid: auth.currentUser?.uid,
+          }),
+        },
+      })
       quedarPendiente()
       toast('Entrega anulada — el estudiante queda en Pendiente y puede volver a entregar')
     } catch (err) {
@@ -916,6 +952,7 @@ export default function ActivityPage() {
         comentario: '',
         motivoSinEntrega: sinEntregaMotivo.trim(),
         estado: 'calificado',
+        ultimaCalificacionPor: ORIGEN_DOCENTE,
         sinEntrega: true,
         fechaEntrega: serverTimestamp(),
       }
@@ -1372,7 +1409,11 @@ export default function ActivityPage() {
         <ConfirmacionCreditosModal
           titulo={loteIAConteo.recalificar ? 'Recalificar todas con IA' : 'Calificar todas con IA'}
           descripcion={loteIAConteo.recalificar
-            ? `Se generará una propuesta NUEVA de calificación (con la rúbrica/lista de cotejo actual) para ${loteIAConteo.entregas} entrega${loteIAConteo.entregas !== 1 ? 's' : ''} con evidencia. No se toca ninguna calificación, entrega ni archivo existente — la IA solo propone: tú revisas y confirmas cada una al calificar a ese estudiante.`
+            ? `Se generará una propuesta NUEVA de calificación (con la rúbrica/lista de cotejo actual) para ${loteIAConteo.entregas} entrega${loteIAConteo.entregas !== 1 ? 's' : ''} con evidencia. Las que no tienen calificación, o cuya calificación puso antes la IA, se ACTUALIZAN solas con la propuesta nueva.` +
+              (loteIAConteo.yaCalificadas > 0
+                ? ` ${loteIAConteo.yaCalificadas} de ellas ya tienen una calificación tuya: por omisión NO se tocan, quedan como propuesta para que las revises.`
+                : '') +
+              ' El valor anterior de cada calificación que cambie queda guardado en el historial de la entrega. No se toca ninguna entrega ni archivo.'
             : (loteIAConteo.totalPorCalificar > loteIAConteo.entregas
                 ? `Se generará una propuesta de calificación con IA para ${loteIAConteo.entregas} de las ${loteIAConteo.totalPorCalificar} entregas por calificar. La IA solo propone: tú revisas y confirmas cada una al calificar a ese estudiante.`
                 : `Se generará una propuesta de calificación para ${loteIAConteo.entregas} entrega${loteIAConteo.entregas !== 1 ? 's' : ''} pendiente${loteIAConteo.entregas !== 1 ? 's' : ''}. La IA solo propone: tú revisas y confirmas cada una al calificar a ese estudiante.`)}
@@ -1381,6 +1422,15 @@ export default function ActivityPage() {
           onCancelar={() => { if (!loteIATrabajando) setLoteIAConteo(null) }}
           onContinuar={ejecutarLoteIA}
         >
+          {loteIAConteo.recalificar && loteIAConteo.yaCalificadas > 0 && (
+            <Checkbox
+              checked={sobrescribirCalificadas}
+              onChange={(e) => setSobrescribirCalificadas(e.target.checked)}
+              disabled={loteIATrabajando}
+              label={`Reemplazar también mis ${loteIAConteo.yaCalificadas} calificación${loteIAConteo.yaCalificadas !== 1 ? 'es' : ''} con las de la IA`}
+              hint="Sin marcar, esas entregas no cambian. Marcada, cada calificación anterior queda en el historial."
+            />
+          )}
           {!loteIAConteo.recalificar && loteIAConteo.totalPorCalificar > loteIAConteo.entregas && (
             <p
               className="text-sm text-muted"
@@ -1401,7 +1451,7 @@ export default function ActivityPage() {
       {aplicarTodasConteo && (
         <ConfirmModal
           title="Aplicar calificaciones de IA a todas"
-          message={`Se aplicará la calificación propuesta por la IA a ${aplicarTodasConteo.entregas} entrega${aplicarTodasConteo.entregas !== 1 ? 's' : ''} que ya tienen una propuesta pendiente. No se hará ninguna evaluación nueva con IA y no se consumirán créditos.`}
+          message={`Se aplicará la calificación propuesta por la IA a ${aplicarTodasConteo.entregas} entrega${aplicarTodasConteo.entregas !== 1 ? 's' : ''} que ya tienen una propuesta pendiente. Si alguna ya tiene una calificación tuya, no se reemplaza. No se hará ninguna evaluación nueva con IA y no se consumirán créditos.`}
           confirmLabel="Aplicar a todas"
           confirmingLabel="Aplicando…"
           busy={aplicarTodasTrabajando}

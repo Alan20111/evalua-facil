@@ -42,8 +42,11 @@ await limpiar()
 await sembrarActividad()
 await db.doc('iaCreditos/' + DOCENTE_A).set({ saldo: 15, consumidoTotal: 0, consumoPorCategoria: {} })
 
-async function sembrarPendiente(subId, calificacionPropuesta, nivel = 2, calificacionInicial = null) {
-  await db.doc(`submissions/${subId}`).set({ actividadId: ACTIVIDAD, alumnoId: subId, calificacion: calificacionInicial, archivos: [] })
+async function sembrarPendiente(subId, calificacionPropuesta, nivel = 2, calificacionInicial = null, ultimaCalificacionPor = undefined) {
+  await db.doc(`submissions/${subId}`).set({
+    actividadId: ACTIVIDAD, alumnoId: subId, calificacion: calificacionInicial, archivos: [],
+    ...(ultimaCalificacionPor ? { ultimaCalificacionPor } : {}),
+  })
   await db.doc(`activities/${ACTIVIDAD}/iaSugerenciasEntregable/${subId}`).set({
     estado: 'pendiente', actividadId: ACTIVIDAD, sub: subId,
     sugerencia: {
@@ -55,7 +58,7 @@ async function sembrarPendiente(subId, calificacionPropuesta, nivel = 2, calific
   })
 }
 await sembrarPendiente('subM1', 10)
-await sembrarPendiente('subM2', 5, 1, 3) // ya tenía una calificación manual previa (3) — debe sobrescribirse
+await sembrarPendiente('subM2', 5, 1, 3, 'ia_recalificar') // ya tenía una calificación (3) que puso la PROPIA IA — se actualiza
 await sembrarPendiente('subM3', 10) // ya calificada por IA previamente (para la prueba de "ya aplicada" más abajo)
 
 await caso('6. aplica todas las pendientes de la actividad', async () => {
@@ -66,7 +69,9 @@ await caso('6. aplica todas las pendientes de la actividad', async () => {
   assert.strictEqual(sub1.data().calificacion, 10)
   assert.strictEqual(sub1.data().estado, 'calificado')
   const sub2 = await db.doc('submissions/subM2').get()
-  assert.strictEqual(sub2.data().calificacion, 5, 'debe sobrescribir la calificación manual previa (3) con la propuesta de IA (5)')
+  assert.strictEqual(sub2.data().calificacion, 5, 'una calificación que puso la propia IA (3) sí se actualiza con la propuesta nueva (5)')
+  assert.strictEqual(sub2.data().ultimaCalificacionPor, 'ia_aplicar', 'la nota queda marcada como puesta por la IA')
+  assert.strictEqual(sub1.data().ultimaCalificacionPor, 'ia_aplicar')
 })
 
 await caso('7. aplicar todas no cobra créditos', async () => {
@@ -119,6 +124,37 @@ await caso('defensa: una sugerencia cuyo `sub` no pertenece a la actividad se re
   assert.strictEqual(r.motivos[0].submissionId, 'subAjena')
   const subAjena = await db.doc('submissions/subAjena').get()
   assert.strictEqual(subAjena.data().calificacion, null, 'nunca debe escribirse una calificación en una entrega ajena')
+})
+
+
+// ── La IA NO reemplaza una calificación del docente (oct-2026) ──────────────
+grupo('Aplicar a todas — respeta las calificaciones que puso el docente')
+await caso('una entrega que el docente calificó mientras la propuesta esperaba NO se toca, y su propuesta sigue pendiente', async () => {
+  await sembrarPendiente('subD1', 10, 2, 7, 'docente') // el docente le puso 7 a mano
+  await sembrarPendiente('subD2', 10, 2, 6) // nota antigua, SIN marca y sin rastro de IA: también se trata como del docente
+  await sembrarPendiente('subD3', 10, 2, null) // sin nota: esta sí se aplica
+  const r = await aplicarEvaluacionesIAPendientesImpl({ auth: { uid: DOCENTE_A }, data: { actividadId: ACTIVIDAD } })
+  // (pueden quedar pendientes de pruebas anteriores, p. ej. la entrega ajena: se filtra por las de esta prueba)
+  const mias = r.motivos.filter((m) => ['subD1', 'subD2'].includes(m.submissionId))
+  assert.deepStrictEqual(mias.map((m) => m.codigo), ['ya_calificada_por_docente', 'ya_calificada_por_docente'])
+  assert.match(mias[0].motivo, /Ya tiene una calificación tuya/)
+  assert.ok(r.aplicadas >= 1, 'se aplicó al menos la que no tenía nota')
+  assert.strictEqual((await db.doc('submissions/subD1').get()).data().calificacion, 7)
+  assert.strictEqual((await db.doc('submissions/subD1').get()).data().ultimaCalificacionPor, 'docente')
+  assert.strictEqual((await db.doc('submissions/subD2').get()).data().calificacion, 6)
+  assert.strictEqual((await db.doc('submissions/subD3').get()).data().calificacion, 10)
+  for (const id of ['subD1', 'subD2']) {
+    const sug = await db.doc(`activities/${ACTIVIDAD}/iaSugerenciasEntregable/${id}`).get()
+    assert.strictEqual(sug.data().estado, 'pendiente', 'la propuesta queda pendiente para revisarla a mano')
+  }
+  assert.strictEqual((await db.doc(`activities/${ACTIVIDAD}/iaSugerenciasEntregable/subD3`).get()).data().estado, 'aplicada')
+})
+await caso('aplicar de nuevo no cambia nada: las omitidas se reportan otra vez y las aplicadas no se repiten', async () => {
+  const r = await aplicarEvaluacionesIAPendientesImpl({ auth: { uid: DOCENTE_A }, data: { actividadId: ACTIVIDAD } })
+  assert.strictEqual(r.aplicadas, 0)
+  assert.strictEqual(r.motivos.filter((m) => ['subD1', 'subD2'].includes(m.submissionId)).length, 2)
+  assert.strictEqual((await db.doc('submissions/subD1').get()).data().calificacion, 7)
+  assert.strictEqual((await db.doc('submissions/subD3').get()).data().calificacion, 10)
 })
 
 // ── Calificación histórica de IA no se altera al cambiar la calificación manualmente ──

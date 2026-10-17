@@ -91,6 +91,12 @@ const ARCHIVOS = [
   // consultan en el servidor con ESTA misma lectura que usa la tabla del
   // docente — una sola copia, para que «oculta» signifique lo mismo en todas partes.
   'visibilidadCalificaciones.js',
+  // Cálculo de notas de las evaluaciones (oct-2026): puntos por reactivo, nota
+  // del intento, pendiente de revisión, política de intentos y la decisión de
+  // si la IA puede escribir en una entrega. Antes functions/index.js llevaba una
+  // «réplica exacta» escrita a mano de estas funciones; ahora el servidor usa
+  // ESTA misma copia y no puede divergir del cliente.
+  'evaluacionGrading.js',
 ]
 
 function fallar(mensaje) {

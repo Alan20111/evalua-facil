@@ -9479,6 +9479,147 @@ caso('el backend del análisis de entregable no se tocó (operación y tarifa si
   })
 }
 
+// ── Integridad de calificaciones (oct-2026) ─────────────────────────────────
+grupo('integridad de calificaciones — una sola fuente de cálculo')
+{
+  const S = require('../functions/_shared/evaluacionGrading.js')
+  caso('el servidor usa EXACTAMENTE las funciones del cliente (sin réplicas a mano)', () => {
+    assert.strictEqual(F.calcularCalificacion, S.calcularCalificacion)
+    assert.strictEqual(F.calcularPuntosPregunta, S.calcularPuntosPregunta)
+    assert.strictEqual(F.resolverPendienteRevision, S.resolverPendienteRevision)
+    assert.strictEqual(F.resolverCalificacionFinal, S.resolverCalificacionFinal)
+    assert.deepStrictEqual(Object.keys(S).sort(), Object.keys(G).sort(), 'la copia del servidor exporta la misma API que el cliente')
+  })
+  caso('scripts/sync-functions-shared.mjs sincroniza evaluacionGrading.js', () => {
+    assert.match(readFileSync(new globalThis.URL('../scripts/sync-functions-shared.mjs', import.meta.url), 'utf8'), /'evaluacionGrading\.js'/)
+  })
+}
+
+grupo('integridad de calificaciones — las cuatro políticas')
+{
+  // cals: calificaciones en orden; la ÚLTIMA es la que se acaba de calificar.
+  const nota = (cals, pol) => G.resolverCalificacionFinal(cals.slice(0, -1).map((c) => ({ calificacion: c })), cals[cals.length - 1], pol)
+  const todas = (cals) => ['ultimo', 'mejor', 'primero', 'promedio'].map((p) => nota(cals, p))
+  caso('un intento: las cuatro políticas coinciden', () => {
+    ;['ultimo', 'mejor', 'primero', 'promedio', undefined, 'rara'].forEach((p) => assert.strictEqual(nota([7], p), 7))
+  })
+  caso('dos intentos con un primero en blanco (0, 10)', () => {
+    assert.deepStrictEqual(todas([0, 10]), [10, 10, 0, 5])
+  })
+  caso('tres intentos (0, 0, 10)', () => {
+    assert.deepStrictEqual(todas([0, 0, 10]), [10, 10, 0, 3.3])
+  })
+  caso('diez intentos (0, 9, 9, 9, 9, 8, 10, 9, 9, 9): ultimo 9, mejor 10, primero 0, promedio 8.1', () => {
+    assert.deepStrictEqual(todas([0, 9, 9, 9, 9, 8, 10, 9, 9, 9]), [9, 10, 0, 8.1])
+  })
+  caso('politicaEfectiva: un valor ausente o desconocido cae en «ultimo», igual que el cálculo', () => {
+    assert.strictEqual(G.politicaEfectiva(undefined), 'ultimo')
+    assert.strictEqual(G.politicaEfectiva('rara'), 'ultimo')
+    ;['ultimo', 'mejor', 'primero', 'promedio'].forEach((p) => assert.strictEqual(G.politicaEfectiva(p), p))
+    assert.strictEqual(nota([3, 9], 'rara'), nota([3, 9], G.politicaEfectiva('rara')))
+  })
+}
+
+grupo('integridad de calificaciones — fijar a mano los puntos de un reactivo (saveGrade)')
+{
+  const preguntas = [
+    { id: 'o1', tipo: 'opcion_multiple', ponderacion: 1 }, { id: 'o2', tipo: 'verdadero_falso', ponderacion: 1 },
+    { id: 'm1', tipo: 'respuesta_corta', ponderacion: 1 }, { id: 'm2', tipo: 'subir_archivo', ponderacion: 1 },
+  ]
+  caso('con un reactivo manual sin calificar la entrega sigue pendiente', () => {
+    const r = G.aplicarPuntosManuales({
+      preguntas, respuestas: { o1: { puntosObtenidos: 1 }, o2: { puntosObtenidos: 1 }, m1: { puntosObtenidos: 1 }, m2: {} },
+      intentos: [{ numero: 1, calificacion: 0 }, { numero: 2, calificacion: 5 }], conservar: 'mejor',
+    })
+    assert.strictEqual(r.pendienteRevision, true)
+    assert.strictEqual(r.estado, 'entregado')
+    assert.strictEqual(r.calificacionIntento, 7.5)
+    assert.strictEqual(r.calificacion, 7.5)
+  })
+  caso('al calificar el último reactivo queda «calificado» y la nota final sigue la política', () => {
+    const intentos = [{ numero: 1, calificacion: 9 }, { numero: 2, calificacion: 5 }]
+    const resp = { o1: { puntosObtenidos: 1 }, o2: { puntosObtenidos: 1 }, m1: { puntosObtenidos: 0.5 }, m2: { puntosObtenidos: 0 } }
+    const mejor = G.aplicarPuntosManuales({ preguntas, respuestas: resp, intentos, conservar: 'mejor' })
+    assert.strictEqual(mejor.estado, 'calificado')
+    assert.strictEqual(mejor.calificacionIntento, 6.3)
+    assert.strictEqual(mejor.calificacion, 9)
+    assert.strictEqual(mejor.politicaAplicada, 'mejor')
+    assert.strictEqual(G.aplicarPuntosManuales({ preguntas, respuestas: resp, intentos, conservar: 'ultimo' }).calificacion, 6.3)
+    assert.strictEqual(G.aplicarPuntosManuales({ preguntas, respuestas: resp, intentos, conservar: 'promedio' }).calificacion, 7.7)
+  })
+  caso('NUNCA pierde ni reordena intentos: solo cambia la nota del último, y no muta el original', () => {
+    const intentos = Object.freeze([Object.freeze({ numero: 1, calificacion: 4 }), Object.freeze({ numero: 2, calificacion: 6 }), Object.freeze({ numero: 3, calificacion: 0 })])
+    const r = G.aplicarPuntosManuales({ preguntas, respuestas: { o1: { puntosObtenidos: 1 }, o2: { puntosObtenidos: 1 }, m1: { puntosObtenidos: 1 }, m2: { puntosObtenidos: 1 } }, intentos, conservar: 'mejor' })
+    assert.deepStrictEqual(r.intentos.map((i) => i.numero), [1, 2, 3])
+    assert.deepStrictEqual(r.intentos.slice(0, 2), [{ numero: 1, calificacion: 4 }, { numero: 2, calificacion: 6 }])
+    assert.strictEqual(r.intentos[2].calificacion, 10)
+    assert.strictEqual(r.calificacion, 10)
+  })
+  caso('sin intentos registrados (entrega antigua) la nota final es la del intento', () => {
+    const r = G.aplicarPuntosManuales({ preguntas, respuestas: { o1: { puntosObtenidos: 1 }, o2: {}, m1: { puntosObtenidos: 0 }, m2: { puntosObtenidos: 0 } }, intentos: [], conservar: 'promedio' })
+    assert.deepStrictEqual(r.intentos, [])
+    assert.strictEqual(r.calificacion, 2.5)
+  })
+  caso('la huella de la entrega detecta un intento nuevo y NO un cambio de nota', () => {
+    const base = { fechaEntrega: { seconds: 10, nanoseconds: 0 }, estadoEvaluacion: 'finalizado', intentoActual: 1, intentos: [{ numero: 1, calificacion: 5 }] }
+    assert.strictEqual(firmaEntrega(base), firmaEntrega({ ...base, calificacion: 9, intentos: [{ numero: 1, calificacion: 9 }] }))
+    assert.notStrictEqual(firmaEntrega(base), firmaEntrega({ ...base, intentoActual: 2, intentos: [{ numero: 1, calificacion: 5 }, { numero: 2, calificacion: 0 }] }))
+  })
+}
+
+grupo('integridad de calificaciones — la IA no reemplaza notas del docente')
+{
+  const ia = { aplicadaAutomaticamente: true, sugerencia: { calificacionPropuesta: 7.6 } }
+  caso('entrega sin nota: la IA escribe', () => {
+    assert.deepStrictEqual(G.decidirAplicacionIA({ sub: { calificacion: null } }), { aplicar: true, motivo: 'sin_calificacion' })
+  })
+  caso('nota del docente (con marca): NO se reemplaza por omisión', () => {
+    const r = G.decidirAplicacionIA({ sub: { calificacion: 8, ultimaCalificacionPor: 'docente' } })
+    assert.deepStrictEqual(r, { aplicar: false, motivo: 'ya_calificada_por_docente' })
+  })
+  caso('nota SIN marca (anterior al registro) y sin rastro de IA: se trata como del docente', () => {
+    assert.strictEqual(G.decidirAplicacionIA({ sub: { calificacion: 8 } }).aplicar, false)
+    assert.strictEqual(G.decidirAplicacionIA({ sub: { calificacion: 8 }, sugerencia: { estado: 'pendiente', sugerencia: { calificacionPropuesta: 8 } } }).aplicar, false)
+  })
+  caso('solo con la casilla expresa se reemplaza la del docente', () => {
+    const r = G.decidirAplicacionIA({ sub: { calificacion: 8, ultimaCalificacionPor: 'docente' }, sobrescribirCalificadas: true })
+    assert.deepStrictEqual(r, { aplicar: true, motivo: 'confirmado_por_docente' })
+    assert.strictEqual(G.decidirAplicacionIA({ sub: { calificacion: 8, ultimaCalificacionPor: 'docente' }, sobrescribirCalificadas: 'true' }).aplicar, false, 'solo el booleano true cuenta')
+  })
+  caso('una nota que es de la propia IA se puede actualizar (con marca, o sin marca si coincide con lo que la IA aplicó)', () => {
+    assert.strictEqual(G.decidirAplicacionIA({ sub: { calificacion: 7.6, ultimaCalificacionPor: 'ia_recalificar' } }).motivo, 'reemplaza_ia')
+    assert.strictEqual(G.decidirAplicacionIA({ sub: { calificacion: 7.6 }, sugerencia: ia }).motivo, 'reemplaza_ia')
+    assert.strictEqual(G.decidirAplicacionIA({ sub: { calificacion: 9 }, sugerencia: ia }).aplicar, false, 'si el docente la cambió después, ya no es de la IA')
+    assert.strictEqual(G.decidirAplicacionIA({ sub: { calificacion: 7.6, ultimaCalificacionPor: 'docente' }, sugerencia: ia }).aplicar, false, 'la marca del docente manda sobre la coincidencia')
+  })
+  caso('sin entrega: no hay nada que escribir', () => {
+    assert.strictEqual(G.decidirAplicacionIA({ sub: null }).aplicar, false)
+  })
+}
+
+grupo('integridad de calificaciones — historial de notas y de la política')
+{
+  caso('cambia la nota: queda anterior, nueva, origen y política', () => {
+    const d = F.datosHistorialCalificacion({ calificacion: 5, estado: 'calificado' }, { calificacion: 10, estado: 'calificado', ultimaCalificacionPor: 'ia_aplicar', politicaAplicada: 'mejor', intentoActual: 2, intentos: [{}, {}] })
+    assert.deepStrictEqual(d, { calificacionAnterior: 5, calificacionNueva: 10, estadoAnterior: 'calificado', estadoNuevo: 'calificado', origen: 'ia_aplicar', politicaAplicada: 'mejor', intentoActual: 2, numIntentos: 2, creacion: false })
+  })
+  caso('la primera nota (entrega nueva o sin nota antes) también queda; sin marca = «sin_marca»', () => {
+    assert.strictEqual(F.datosHistorialCalificacion(null, { calificacion: 0 }).creacion, true)
+    assert.strictEqual(F.datosHistorialCalificacion({ calificacion: null }, { calificacion: 6 }).origen, 'sin_marca')
+  })
+  caso('si la nota no cambia NO se registra nada (autoguardados, comentarios, intentos)', () => {
+    assert.strictEqual(F.datosHistorialCalificacion({ calificacion: 6 }, { calificacion: 6, comentario: 'x' }), null)
+    assert.strictEqual(F.datosHistorialCalificacion({ calificacion: null }, { estadoEvaluacion: 'en_progreso' }), null)
+    assert.strictEqual(F.datosHistorialCalificacion(undefined, { calificacion: null }), null)
+  })
+  caso('cambio de política: solo los cambios EFECTIVOS quedan registrados', () => {
+    assert.deepStrictEqual(F.datosCambioPolitica({ evaluacion: { conservar: 'promedio' } }, { evaluacion: { conservar: 'mejor' } }),
+      { campo: 'evaluacion.conservar', anterior: 'promedio', nuevo: 'mejor', valorAnteriorGuardado: 'promedio', valorNuevoGuardado: 'mejor' })
+    assert.strictEqual(F.datosCambioPolitica({ evaluacion: {} }, { evaluacion: { conservar: 'ultimo' } }), null, 'ausente y «ultimo» son la misma política')
+    assert.strictEqual(F.datosCambioPolitica({ evaluacion: { conservar: 'mejor' } }, { evaluacion: { conservar: 'mejor', tiempoLimiteMin: 30 } }), null)
+  })
+}
+
 if (fallos.length) {
   console.log(`${pasadas} pasaron, ${fallos.length} FALLARON\n`)
   fallos.forEach((f) => console.log(`  ✗ ${f.nombre}\n    ${f.e.message}`))

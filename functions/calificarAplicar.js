@@ -32,6 +32,8 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const { logger } = require('firebase-functions')
 const { parcialCerrado, mensajeParcialCerrado } = require('./_shared/ponderacion.js')
+const { ORIGEN_IA_APLICAR } = require('./_shared/evaluacionGrading.js')
+const { aplicarNotaIA } = require('./aplicarNotaIA')
 
 // Espejo mínimo de esCotejo/totalRubrica (src/utils/rubrica.js, también
 // duplicado en ia.js) — no vale la pena acoplar este archivo a ia.js por dos
@@ -66,13 +68,17 @@ async function verificarActividadDocente(db, uid, actividadId) {
 
 // ── "Aplicar calificaciones de IA a todas" (Modo 1) ─────────────────────────
 // Solo trabaja con sugerencias YA GENERADAS y 'pendiente' — nunca llama a
-// Anthropic, nunca genera una evaluación nueva. Escribe en lotes atómicos
-// (WriteBatch): para cada entrega, la calificación en `submissions` y el
-// cambio de estado en `iaSugerenciasEntregable` viajan en el MISMO batch, así
-// que nunca queda una sugerencia 'aplicada' con la calificación sin guardar
-// (o viceversa) — si el batch falla, ninguna de las dos escrituras de esa
-// entrega se aplicó.
-const APLICAR_TODAS_TAMANO_LOTE = 200 // ×2 escrituras = 400, bajo el máximo de 500 de un WriteBatch
+// Anthropic, nunca genera una evaluación nueva. Cada entrega se aplica en SU
+// PROPIA transacción (aplicarNotaIA.js): la entrega se relee ahí y la
+// calificación en `submissions` y el cambio de estado de la sugerencia viajan
+// juntos, así que nunca queda una sugerencia 'aplicada' con la calificación sin
+// guardar (o viceversa).
+//
+// Estas sugerencias se generaron para entregas SIN calificar. Si el docente
+// calificó a mano una de ellas mientras la propuesta esperaba, esa entrega NO se
+// toca: se reporta en `motivos` y su sugerencia sigue 'pendiente' (se puede
+// revisar al calificar a ese estudiante). Antes se sobrescribía sin avisar.
+const APLICAR_TODAS_CONCURRENCIA = 10
 
 async function aplicarEvaluacionesIAPendientesImpl(request) {
   const uid = request.auth?.uid
@@ -91,7 +97,9 @@ async function aplicarEvaluacionesIAPendientesImpl(request) {
   // where('estado','==','pendiente') es la única fuente — una sugerencia ya
   // 'aplicada' nunca puede volver a aplicarse por aquí (regla H: no tratar
   // una ya aplicada como si fuera pendiente). Ejecutar esto dos veces seguidas
-  // la segunda vez no encuentra nada que aplicar (idempotente).
+  // la segunda vez no encuentra nada que aplicar (idempotente), salvo las que
+  // se omitieron por tener ya una calificación del docente: esas siguen
+  // pendientes y se reportan otra vez.
   const pendSnap = await db.collection(`activities/${actividadId}/iaSugerenciasEntregable`)
     .where('estado', '==', 'pendiente').get()
 
@@ -103,59 +111,55 @@ async function aplicarEvaluacionesIAPendientesImpl(request) {
   const motivos = []
   const docs = pendSnap.docs
 
-  for (let i = 0; i < docs.length; i += APLICAR_TODAS_TAMANO_LOTE) {
-    const chunk = docs.slice(i, i + APLICAR_TODAS_TAMANO_LOTE)
-    // Releer cada submission — defensa contra IDs manipulados: el campo `sub`
-    // del documento de sugerencia debe apuntar a una entrega que de verdad
-    // pertenece a ESTA actividad, nunca se confía en el id a ciegas.
-    const subRefs = chunk.map((d) => db.doc(`submissions/${d.data().sub || d.id}`))
-    const subSnaps = await db.getAll(...subRefs)
-
-    const batch = db.batch()
-    chunk.forEach((sugDoc, idx) => {
+  let cursor = 0
+  async function trabajador() {
+    while (cursor < docs.length) {
+      const sugDoc = docs[cursor++]
       const data = sugDoc.data()
       const submissionId = data.sub || sugDoc.id
-      const subSnap = subSnaps[idx]
-      if (!subSnap.exists || subSnap.data().actividadId !== actividadId) {
-        motivos.push({ submissionId, motivo: 'La entrega ya no existe o no pertenece a esta actividad' })
-        return
-      }
-      const niveles = (data.sugerencia?.criterios || []).map((c) => c.nivel)
-      const total = typeof data.sugerencia?.calificacionPropuesta === 'number'
-        ? data.sugerencia.calificacionPropuesta
-        : totalInstrumento(rubrica, niveles)
-      if (total == null) {
-        motivos.push({ submissionId, motivo: 'Sin evidencia suficiente para calcular una calificación' })
-        return
-      }
-      batch.update(subSnap.ref, {
-        calificacion: total,
-        comentario: data.sugerencia?.retroalimentacionGeneral || '',
-        rubricaEval: niveles.some((v) => v != null) ? niveles : null,
-        estado: 'calificado',
-      })
-      batch.update(sugDoc.ref, {
-        estado: 'aplicada',
-        aplicadaAutomaticamente: true,
-        actualizadoEn: FieldValue.serverTimestamp(),
-      })
-      aplicadas++
-    })
-    try {
-      await batch.commit()
-    } catch (e) {
-      logger.error(`aplicarEvaluacionesIAPendientes(${actividadId}): batch falló:`, e)
-      // Ninguna escritura de ESTE batch se aplicó (WriteBatch es todo-o-nada) —
-      // se reportan como no aplicadas en vez de contarlas ya hechas.
-      chunk.forEach((sugDoc) => {
-        const submissionId = sugDoc.data().sub || sugDoc.id
-        if (!motivos.some((m) => m.submissionId === submissionId)) {
-          motivos.push({ submissionId, motivo: 'No se pudo escribir en este intento, vuelve a intentar' })
-          aplicadas--
+      try {
+        // Releer la entrega — defensa contra IDs manipulados: el campo `sub`
+        // del documento de sugerencia debe apuntar a una entrega que de verdad
+        // pertenece a ESTA actividad, nunca se confía en el id a ciegas.
+        const subRef = db.doc(`submissions/${submissionId}`)
+        const subSnap = await subRef.get()
+        if (!subSnap.exists || subSnap.data().actividadId !== actividadId) {
+          motivos.push({ submissionId, motivo: 'La entrega ya no existe o no pertenece a esta actividad' })
+          continue
         }
-      })
+        const niveles = (data.sugerencia?.criterios || []).map((c) => c.nivel)
+        const total = typeof data.sugerencia?.calificacionPropuesta === 'number'
+          ? data.sugerencia.calificacionPropuesta
+          : totalInstrumento(rubrica, niveles)
+        if (total == null) {
+          motivos.push({ submissionId, motivo: 'Sin evidencia suficiente para calcular una calificación' })
+          continue
+        }
+        const r = await aplicarNotaIA(db, {
+          subRef,
+          sugRef: sugDoc.ref,
+          datos: {
+            calificacion: total,
+            comentario: data.sugerencia?.retroalimentacionGeneral || '',
+            rubricaEval: niveles.some((v) => v != null) ? niveles : null,
+          },
+          origen: ORIGEN_IA_APLICAR,
+          sugerenciaPrevia: data,
+          sugerenciaNueva: { estado: 'aplicada', aplicadaAutomaticamente: true, actualizadoEn: FieldValue.serverTimestamp() },
+        })
+        if (r.aplicada) aplicadas++
+        else if (r.motivo === 'ya_calificada_por_docente') {
+          motivos.push({ submissionId, codigo: 'ya_calificada_por_docente', motivo: 'Ya tiene una calificación tuya: no se reemplazó. La propuesta sigue pendiente para que la revises' })
+        } else {
+          motivos.push({ submissionId, motivo: 'La entrega ya no existe o no pertenece a esta actividad' })
+        }
+      } catch (e) {
+        logger.error(`aplicarEvaluacionesIAPendientes(${actividadId}): ${submissionId} falló:`, e)
+        motivos.push({ submissionId, motivo: 'No se pudo escribir en este intento, vuelve a intentar' })
+      }
     }
   }
+  await Promise.all(Array.from({ length: Math.min(APLICAR_TODAS_CONCURRENCIA, docs.length) }, trabajador))
 
   return { aplicadas, noAplicadas: motivos.length, motivos }
 }

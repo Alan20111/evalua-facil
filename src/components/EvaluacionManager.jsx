@@ -5,7 +5,7 @@ import {
 } from 'firebase/firestore'
 // Escrituras a través del candado de suscripción vencida (ver utils/firestoreGuard.js).
 import { addDoc, setDoc, updateDoc, deleteDoc, writeBatch } from '../utils/firestoreGuard'
-import { EntregaCambio, borrarSiNoCambio } from '../utils/submissionGuard'
+import { EntregaCambio, borrarSiNoCambio, guardarPuntosManuales, datosTrazaAnulacionDocente } from '../utils/submissionGuard'
 import { db, auth } from '../firebase'
 import { useToast } from './Toast'
 import { opcionesConfigVisibles, opcionesNavegacion } from '../utils/configEvaluacionVideo'
@@ -25,8 +25,8 @@ import SearchInput from './SearchInput'
 import Select from './ui/Select'
 import { TEACHER_CONTAINER } from '../config/layout'
 import {
-  calcularEstadisticasGrupo, calcularCalificacion, resolverPendienteRevision,
-  resolverCalificacionFinal, TIPOS_REVISION_MANUAL, repartirPonderacionParejo,
+  calcularEstadisticasGrupo, TIPOS_REVISION_MANUAL, repartirPonderacionParejo,
+  aplicarPuntosManuales, ORIGEN_DOCENTE,
 } from '../utils/evaluacionGrading'
 import {
   ArrowLeft, Plus, Trash2, Library, Users, Pencil, Copy, Image as ImageIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Clock, CalendarDays, Star,
@@ -919,6 +919,17 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     if (nav.length && !nav.some((s) => s.id === reviewing?.student.id)) openReview(nav[0], filtro)
   }
 
+  // La revisión abierta pasa a mostrar el intento que hay AHORA (con sus
+  // respuestas), sin tocar los borradores de calificación del docente.
+  async function mostrarIntentoActual(studentId, actual) {
+    const allRespuestas = {}
+    if (actual?.estadoEvaluacion === 'finalizado') {
+      const snap = await getDocs(collection(db, 'submissions', actual.id, 'respuestas')).catch(() => null)
+      snap?.docs.forEach((d) => { allRespuestas[d.id] = d.data() })
+    }
+    setReviewing((r) => (r && r.student?.id === studentId ? { ...r, submission: actual, allRespuestas } : r))
+  }
+
   // ── Calificación manual de un reactivo (respuesta corta / subir documento) ──
   // Guarda los puntos + comentario del reactivo y recalcula en cascada: la
   // calificación del intento, la calificación final según la política
@@ -954,32 +965,35 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     setSavingGradeId(pregunta.id)
     try {
       const comentario = (draft.comentario || '').trim() || null
-      await setDoc(
-        doc(db, 'submissions', sub.id, 'respuestas', pregunta.id),
-        { puntosObtenidos: puntos, comentarioDocente: comentario },
-        { merge: true }
-      )
-      const allResp = {
-        ...reviewing.allRespuestas,
-        [pregunta.id]: { ...(reviewing.allRespuestas[pregunta.id] || {}), puntosObtenidos: puntos, comentarioDocente: comentario },
-      }
-      // Recalcular: intento actual (las respuestas guardadas son del último
-      // intento), calificación final según `conservar`, y estado.
-      const calIntento = calcularCalificacion(preguntas, allResp, activity.maxCalif || 10)
-      const pendiente = resolverPendienteRevision(preguntas, allResp)
-      const intentos = [...(sub.intentos || [])]
-      if (intentos.length) intentos[intentos.length - 1] = { ...intentos[intentos.length - 1], calificacion: calIntento }
-      const previas = intentos.slice(0, -1)
-      const calFinal = resolverCalificacionFinal(previas, calIntento, activity.evaluacion?.conservar)
-      const patch = {
-        calificacion: calFinal,
-        pendienteRevision: pendiente,
-        estado: pendiente ? 'entregado' : 'calificado',
-        intentos,
-      }
-      await updateDoc(doc(db, 'submissions', sub.id), patch)
+      const subRef = doc(db, 'submissions', sub.id)
+      // Una sola transacción (submissionGuard.guardarPuntosManuales): relee la
+      // entrega y las respuestas, calcula desde los intentos de AHORA y escribe
+      // los puntos y la entrega juntos. Si el estudiante cerró un intento nuevo
+      // mientras tanto, se detiene sin escribir en vez de borrarlo con la copia
+      // que esta pantalla cargó al abrir.
+      const { patch, respuestas: allResp } = await guardarPuntosManuales(db, subRef, sub, {
+        respuestaRef: doc(db, 'submissions', sub.id, 'respuestas', pregunta.id),
+        respuestaPatch: { puntosObtenidos: puntos, comentarioDocente: comentario },
+        respuestasRefs: preguntas.map((p) => doc(db, 'submissions', sub.id, 'respuestas', p.id)),
+        calcular: (actual, respuestas) => {
+          const r = aplicarPuntosManuales({
+            preguntas, respuestas, intentos: actual.intentos || [],
+            maxCalif: activity.maxCalif || 10, conservar: activity.evaluacion?.conservar,
+          })
+          return {
+            calificacion: r.calificacion,
+            pendienteRevision: r.pendienteRevision,
+            estado: r.estado,
+            intentos: r.intentos,
+            politicaAplicada: r.politicaAplicada,
+            ultimaCalificacionPor: ORIGEN_DOCENTE,
+          }
+        },
+      })
+      const calFinal = patch.calificacion
+      const pendiente = patch.pendienteRevision
       const updatedSub = { ...sub, ...patch }
-      setReviewing((r) => r && ({ ...r, submission: updatedSub, allRespuestas: allResp }))
+      setReviewing((r) => r && ({ ...r, submission: updatedSub, allRespuestas: { ...r.allRespuestas, ...allResp } }))
       onSubmissionUpdated?.(reviewing.student.id, updatedSub)
       // C-02: el guardado del docente cierra la sugerencia persistida de este
       // reactivo (queda 'aplicada' y sale del snapshot de pendientes). Mejor
@@ -993,7 +1007,24 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
         ? 'Puntos guardados — aún hay reactivos por calificar'
         : `Puntos guardados — calificación final: ${calFinal}/${activity.maxCalif || 10}`)
     } catch (err) {
-      toast('Error al guardar puntos: ' + err.message, 'error')
+      if (err instanceof EntregaCambio && err.motivo === 'cambio') {
+        // El estudiante entregó un intento nuevo mientras revisabas: no se
+        // guardó nada. Se muestra el intento actual (sin tocar tus borradores).
+        const studentId = reviewing.student.id
+        const respuestasActuales = {}
+        if (err.actual?.estadoEvaluacion === 'finalizado') {
+          const snap = await getDocs(collection(db, 'submissions', err.actual.id, 'respuestas')).catch(() => null)
+          snap?.docs.forEach((d) => { respuestasActuales[d.id] = d.data() })
+        }
+        onSubmissionUpdated?.(studentId, err.actual)
+        setReviewing((r) => (r && r.student?.id === studentId ? { ...r, submission: err.actual, allRespuestas: respuestasActuales } : r))
+        toast('El intento de este estudiante cambió desde que lo abriste. Se muestra el actual; no se guardó nada.', 'error')
+      } else if (err instanceof EntregaCambio) {
+        onSubmissionRemoved?.(reviewing.student.id)
+        toast('Esta entrega ya no existe; no se guardó nada.', 'error')
+      } else {
+        toast('Error al guardar puntos: ' + err.message, 'error')
+      }
     } finally {
       setSavingGradeId(null)
     }
@@ -1262,16 +1293,6 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
     }
   }
 
-  // La revisión abierta pasa a mostrar el intento que hay AHORA (con sus
-  // respuestas), sin tocar los borradores de calificación del docente.
-  async function mostrarIntentoActual(studentId, actual) {
-    const allRespuestas = {}
-    if (actual?.estadoEvaluacion === 'finalizado') {
-      const snap = await getDocs(collection(db, 'submissions', actual.id, 'respuestas')).catch(() => null)
-      snap?.docs.forEach((d) => { allRespuestas[d.id] = d.data() })
-    }
-    setReviewing((r) => (r && r.student?.id === studentId ? { ...r, submission: actual, allRespuestas } : r))
-  }
 
   // Anular la entrega actual: delete the intento (+ answers) so the student is back
   // to "No realizado" and can present again. Only this student is affected.
@@ -1295,8 +1316,18 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
       // intento que el docente está viendo — antes eran dos pasos y a ciegas:
       // con el id fijo, podían llevarse un intento más nuevo
       // (submissionGuard.js). `intentosRespuestas` no se toca (servidor).
+      // En la MISMA transacción queda la traza (entregasAnuladas): nota, estado,
+      // intentos y una copia de las respuestas. Sin traza no se borra nada.
+      // Los snapshots de `intentosRespuestas` (solo del servidor) se archivan en
+      // esa traza al borrarse la entrega (onEntregaBorradaLimpiarIntentos).
       await borrarSiNoCambio(db, doc(db, 'submissions', sub.id), sub, {
         extras: respSnap.docs.map((d) => doc(db, 'submissions', sub.id, 'respuestas', d.id)),
+        traza: {
+          ref: doc(collection(db, 'entregasAnuladas')),
+          construir: (actual) => datosTrazaAnulacionDocente(actual, {
+            actividadId: activityId || activity.id, alumnoId: studentId, uid: auth.currentUser?.uid,
+          }),
+        },
       })
       quedarNoRealizado()
       toast('Entrega anulada — el estudiante puede volver a presentar')

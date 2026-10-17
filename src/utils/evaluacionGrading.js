@@ -8,7 +8,10 @@
 // stats) can be added later without migrating existing data or touching
 // this scoring logic.
 
-const TIPOS_OBJETIVOS = ['opcion_multiple', 'verdadero_falso']
+// Fuente ÚNICA de verdad del cálculo de notas. Cloud Functions la usa a través
+// de la copia que genera scripts/sync-functions-shared.mjs (functions/_shared/):
+// ya no hay réplicas escritas a mano que puedan divergir.
+export const TIPOS_OBJETIVOS = ['opcion_multiple', 'verdadero_falso']
 
 // Question types the teacher must grade by hand: free-text answers and
 // document uploads. Single source of truth for "pendiente de revisión".
@@ -67,6 +70,83 @@ export function resolverCalificacionFinal(intentosPrevios, calificacionNueva, co
     default:
       return calificacionNueva
   }
+}
+
+/** Las cuatro políticas de «Si hay varios intentos, conservar». */
+export const POLITICAS_CONSERVACION = ['ultimo', 'mejor', 'primero', 'promedio']
+
+/**
+ * La política que `resolverCalificacionFinal` aplica de verdad: un valor
+ * ausente o desconocido cae en 'ultimo'. Es lo que se registra como
+ * `politicaAplicada`, para que el registro diga lo mismo que hizo el cálculo.
+ */
+export function politicaEfectiva(conservar) {
+  return POLITICAS_CONSERVACION.includes(conservar) ? conservar : 'ultimo'
+}
+
+/**
+ * Nota del intento, estado y nota final tras fijar a mano los puntos de un
+ * reactivo. Función pura: recibe los intentos y las respuestas FRESCAS (las que
+ * el docente guardó en la misma transacción), no copias de la pantalla, y
+ * devuelve el parche completo. Antes esta cuenta vivía dentro de saveGrade y
+ * reescribía `intentos[]` con la copia que la pantalla cargó al abrir.
+ */
+export function aplicarPuntosManuales({ preguntas, respuestas, intentos = [], maxCalif = 10, conservar }) {
+  const calificacionIntento = calcularCalificacion(preguntas, respuestas, maxCalif)
+  const pendienteRevision = resolverPendienteRevision(preguntas, respuestas)
+  const lista = intentos.map((i) => ({ ...i }))
+  if (lista.length) lista[lista.length - 1] = { ...lista[lista.length - 1], calificacion: calificacionIntento }
+  const previas = lista.slice(0, -1)
+  const calificacion = resolverCalificacionFinal(previas, calificacionIntento, conservar)
+  return {
+    calificacionIntento,
+    pendienteRevision,
+    intentos: lista,
+    calificacion,
+    estado: pendienteRevision ? 'entregado' : 'calificado',
+    politicaAplicada: politicaEfectiva(conservar),
+  }
+}
+
+// ── Quién escribió la nota ───────────────────────────────────────────────────
+// `submissions.ultimaCalificacionPor` lo escribe quien pone la nota; el historial
+// (submissions/{id}/calificacionHistorial) lo copia. Las reglas impiden que el
+// estudiante lo escriba.
+export const ORIGEN_DOCENTE = 'docente'
+export const ORIGEN_SERVIDOR = 'servidor'
+export const ORIGEN_IA_RECALIFICAR = 'ia_recalificar'
+export const ORIGEN_IA_APLICAR = 'ia_aplicar'
+
+export function origenEsIA(origen) {
+  return typeof origen === 'string' && origen.startsWith('ia_')
+}
+
+/**
+ * ¿La nota actual de la entrega la puso la IA y nadie la tocó después?
+ * Con marca (`ultimaCalificacionPor`) decide la marca. Sin marca (notas
+ * anteriores a este registro) solo cuenta como de la IA si coincide con lo que
+ * la IA aplicó automáticamente (`sugerencia`): ante la duda es del docente.
+ */
+export function calificacionEsDeIA(sub, sugerencia = null) {
+  if (!sub || sub.calificacion == null) return false
+  if (typeof sub.ultimaCalificacionPor === 'string') return origenEsIA(sub.ultimaCalificacionPor)
+  return sugerencia?.aplicadaAutomaticamente === true &&
+    sugerencia?.sugerencia?.calificacionPropuesta === sub.calificacion
+}
+
+/**
+ * ¿Puede la IA escribir su nota en esta entrega? Por omisión NUNCA reemplaza
+ * una calificación del docente: solo escribe sobre una entrega sin nota o sobre
+ * una nota que es de la propia IA. Reemplazar la del docente exige
+ * `sobrescribirCalificadas: true`, que solo manda el diálogo cuando el docente
+ * marca la casilla expresa.
+ */
+export function decidirAplicacionIA({ sub, sugerencia = null, sobrescribirCalificadas = false }) {
+  if (!sub) return { aplicar: false, motivo: 'sin_entrega' }
+  if (sub.calificacion == null) return { aplicar: true, motivo: 'sin_calificacion' }
+  if (calificacionEsDeIA(sub, sugerencia)) return { aplicar: true, motivo: 'reemplaza_ia' }
+  if (sobrescribirCalificadas === true) return { aplicar: true, motivo: 'confirmado_por_docente' }
+  return { aplicar: false, motivo: 'ya_calificada_por_docente' }
 }
 
 /**
