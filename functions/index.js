@@ -33,7 +33,7 @@
 const { initializeApp } = require('firebase-admin/app')
 const { getFirestore, FieldValue, FieldPath } = require('firebase-admin/firestore')
 const { getMessaging } = require('firebase-admin/messaging')
-const { onDocumentWritten, onDocumentCreated, onDocumentDeleted } = require('firebase-functions/v2/firestore')
+const { onDocumentWritten, onDocumentCreated, onDocumentDeleted, onDocumentUpdated } = require('firebase-functions/v2/firestore')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
 const { onCall, HttpsError } = require('firebase-functions/v2/https')
 const { logger } = require('firebase-functions')
@@ -688,44 +688,27 @@ exports.onEstudianteActivado = onDocumentWritten('students/{studentId}', async (
 // de verdad del servidor (preguntas con respuestaCorrecta + respuestas del
 // alumno) — así un cliente modificado no puede inventarse su nota.
 //
-// Réplica exacta de src/utils/evaluacionGrading.js (calcularPuntosPregunta,
-// calcularCalificacion, resolverPendienteRevision, resolverCalificacionFinal)
-// — duplicada a propósito: Functions es CommonJS y no importa los módulos ES
-// del cliente (mismo criterio que nombreEstudianteDe / actividadVisible).
-const TIPOS_OBJETIVOS = ['opcion_multiple', 'verdadero_falso']
-const TIPOS_REVISION_MANUAL = ['respuesta_corta', 'subir_archivo']
+// El cálculo vive en src/utils/evaluacionGrading.js (fuente única, la misma que
+// usa el navegador); scripts/sync-functions-shared.mjs la copia a
+// functions/_shared/ en cada predeploy y antes de las pruebas. Antes aquí había
+// una «réplica exacta» escrita a mano que podía divergir sin que nadie lo notara.
+const evaluacionGrading = require('./_shared/evaluacionGrading.js')
+const {
+  calcularPuntosPregunta, calcularCalificacion, resolverPendienteRevision,
+  TIPOS_OBJETIVOS, TIPOS_REVISION_MANUAL, politicaEfectiva,
+  ORIGEN_SERVIDOR,
+} = evaluacionGrading
 
-function calcularPuntosPregunta(pregunta, respuesta) {
-  if (!TIPOS_OBJETIVOS.includes(pregunta.tipo)) return null
-  const correcta = respuesta?.opcionSeleccionada != null && respuesta.opcionSeleccionada === pregunta.respuestaCorrecta
-  return correcta ? (pregunta.ponderacion || 0) : 0
-}
-
-function calcularCalificacion(preguntas, respuestasPorPregunta, maxCalif = 10) {
-  const totalPonderacion = preguntas.reduce((sum, p) => sum + (p.ponderacion || 0), 0)
-  if (totalPonderacion === 0) return 0
-  const obtenida = preguntas.reduce((sum, p) => sum + (respuestasPorPregunta[p.id]?.puntosObtenidos ?? 0), 0)
-  return Math.round((obtenida / totalPonderacion) * maxCalif * 10) / 10
-}
-
-function resolverPendienteRevision(preguntas, respuestasPorPregunta) {
-  return preguntas.some((p) => TIPOS_REVISION_MANUAL.includes(p.tipo) && (respuestasPorPregunta[p.id]?.puntosObtenidos ?? null) == null)
-}
-
-// Copia deliberada de `publicacionVisible` (src/utils/evaluacionGrading.js).
-// `functions/` es otro paquete y no puede importar de `src/`, y esta regla
-// —cuándo se publican las respuestas— tiene que evaluarse en el servidor:
-// desde A08 es él quien decide si el alumno ve cuál era la correcta, no el
-// navegador. Si cambia una, cambia la otra; hay casos de prueba en las dos.
+// Cuándo se publican las respuestas tiene que evaluarse en el servidor: desde
+// A08 es él quien decide si el alumno ve cuál era la correcta, no el navegador.
+// Es la misma función del cliente; solo se le inyecta «ahora».
 function publicacionVisible(modo, fecha, flag) {
-  if (modo === 'nunca') return false
-  if (modo === 'inmediato') return true
-  if (modo === 'fecha') return !!fecha && new Date().toISOString() >= fecha
-  return !!flag
+  return evaluacionGrading.publicacionVisible(modo, fecha, flag, new Date().toISOString())
 }
 
-// Extraída a functions/calificacionIntentos.js — fuente única de verdad,
-// compartida también con OP-10 (functions/ia.js), sobre qué intento gana.
+// Qué intento gana (y la nota final) vive en functions/calificacionIntentos.js,
+// compartido también con OP-10 (functions/ia.js); `resolverCalificacionFinal`
+// es la misma función del cliente.
 const { resolverCalificacionFinal } = require('./calificacionIntentos')
 
 // Idempotente por INTENTO: el número de intento en curso (intentoActual) se
@@ -845,6 +828,10 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
     }
     if (!noLleveNota) {
       marcas.calificacion = resolverCalificacionFinal(previos, calificacionIntento, act.evaluacion?.conservar)
+      // Con qué política se calculó ESTA nota y quién la puso: sin esto, cambiar
+      // `conservar` después deja notas que nadie puede atribuir a una política.
+      marcas.politicaAplicada = politicaEfectiva(act.evaluacion?.conservar)
+      marcas.ultimaCalificacionPor = ORIGEN_SERVIDOR
     }
     tx.update(after.ref, marcas)
 
@@ -904,6 +891,17 @@ async function limpiarIntentosRespuestasHuerfanos(submissionId) {
   const snaps = await subRef.collection('intentosRespuestas').get()
   if (snaps.empty) return 0
   const batch = db.batch()
+  // Si el DOCENTE anuló esta entrega dejó una traza (entregasAnuladas, creada en
+  // la misma transacción que el borrado): los snapshots se archivan ahí antes de
+  // borrarse, para que anular no destruya la evidencia de cada intento. Sin
+  // traza (borrado en cascada, baja de un estudiante) se limpia como siempre.
+  const trazas = await db.collection('entregasAnuladas').where('submissionId', '==', submissionId).get()
+  const traza = trazas.docs
+    .filter((t) => t.data().anuladaPor === 'docente')
+    .sort((a, b) => (b.data().fechaAnulacion?.toMillis?.() || 0) - (a.data().fechaAnulacion?.toMillis?.() || 0))[0]
+  if (traza) {
+    snaps.docs.forEach((d) => batch.set(traza.ref.collection('intentosRespuestas').doc(d.id), d.data()))
+  }
   snaps.docs.forEach((d) => batch.delete(d.ref))
   await batch.commit()
   return snaps.size
@@ -912,6 +910,98 @@ async function limpiarIntentosRespuestasHuerfanos(submissionId) {
 exports.onEntregaBorradaLimpiarIntentos = onDocumentDeleted('submissions/{submissionId}', async (event) => {
   const n = await limpiarIntentosRespuestasHuerfanos(event.params.submissionId)
   if (n) logger.info(`onEntregaBorradaLimpiarIntentos(${event.params.submissionId}): ${n} snapshot(s) huérfano(s) eliminado(s)`)
+})
+
+// ─── 4.5-ter) Historial de notas y de la política de intentos ──────────────
+// Dos registros de SOLO ESCRITURA del servidor, para que una nota nunca más
+// quede sin explicación:
+//   · submissions/{id}/calificacionHistorial/{evento}: cada vez que cambia
+//     `calificacion` (por el servidor, el docente o la IA — sea cual sea el
+//     camino de escritura, por eso es un trigger y no un cambio en cada
+//     pantalla) queda el valor anterior, el nuevo, quién la puso
+//     (`ultimaCalificacionPor`) y con qué política.
+//   · activities/{id}/configHistorial/{evento}: cada cambio efectivo de
+//     `evaluacion.conservar`. NO recalcula nada: solo deja constancia de que
+//     las notas ya guardadas se calcularon con la política anterior.
+// El id del documento es el id del evento: un reintento de la plataforma no
+// duplica nada (create rechaza el segundo). Ninguno de los dos escribe en la
+// entrega ni envía avisos.
+function datosHistorialCalificacion(antes, despues) {
+  const calAntes = antes?.calificacion ?? null
+  const calDespues = despues?.calificacion ?? null
+  if (calAntes === calDespues) return null
+  return {
+    calificacionAnterior: calAntes,
+    calificacionNueva: calDespues,
+    estadoAnterior: antes?.estado ?? null,
+    estadoNuevo: despues?.estado ?? null,
+    origen: typeof despues?.ultimaCalificacionPor === 'string' ? despues.ultimaCalificacionPor : 'sin_marca',
+    politicaAplicada: despues?.politicaAplicada ?? null,
+    intentoActual: despues?.intentoActual ?? null,
+    numIntentos: Array.isArray(despues?.intentos) ? despues.intentos.length : 0,
+    creacion: !antes,
+  }
+}
+
+function datosCambioPolitica(antes, despues) {
+  const anterior = politicaEfectiva(antes?.evaluacion?.conservar)
+  const nuevo = politicaEfectiva(despues?.evaluacion?.conservar)
+  if (anterior === nuevo) return null
+  return {
+    campo: 'evaluacion.conservar',
+    anterior,
+    nuevo,
+    valorAnteriorGuardado: antes?.evaluacion?.conservar ?? null,
+    valorNuevoGuardado: despues?.evaluacion?.conservar ?? null,
+  }
+}
+
+async function crearUnaVez(ref, datos) {
+  try {
+    await ref.create(datos)
+    return true
+  } catch (err) {
+    // 6 = ALREADY_EXISTS: el evento ya se registró (reintento).
+    if (err?.code === 6 || /ALREADY_EXISTS/.test(String(err?.message))) return false
+    throw err
+  }
+}
+
+exports.onCalificacionCambiada = onDocumentWritten('submissions/{submissionId}', async (event) => {
+  const despues = event.data?.after?.exists ? event.data.after.data() : null
+  if (!despues) return // borrada: la traza de la anulación la escribe quien anula
+  const antes = event.data?.before?.exists ? event.data.before.data() : null
+  const datos = datosHistorialCalificacion(antes, despues)
+  if (!datos) return
+  await crearUnaVez(
+    db.collection('submissions').doc(event.params.submissionId).collection('calificacionHistorial').doc(event.id),
+    { ...datos, evento: event.id, registradoEn: FieldValue.serverTimestamp() },
+  )
+})
+
+exports.onPoliticaConservarCambiada = onDocumentUpdated('activities/{activityId}', async (event) => {
+  const antes = event.data?.before?.data()
+  const despues = event.data?.after?.data()
+  if (!antes || !despues) return
+  if (despues.tipo !== 'evaluacion' && despues.categoria !== 'juego') return
+  const datos = datosCambioPolitica(antes, despues)
+  if (!datos) return
+  // Informativo: cuántas entregas ya tenían una nota calculada con la política
+  // anterior. Si no se puede contar, el cambio se registra igual.
+  let entregasConIntentos = null
+  let entregasConVariosIntentos = null
+  try {
+    const snap = await db.collection('submissions').where('actividadId', '==', event.params.activityId).select('intentos').get()
+    const nIntentos = snap.docs.map((d) => (Array.isArray(d.data().intentos) ? d.data().intentos.length : 0))
+    entregasConIntentos = nIntentos.filter((n) => n >= 1).length
+    entregasConVariosIntentos = nIntentos.filter((n) => n >= 2).length
+  } catch (err) {
+    logger.warn(`onPoliticaConservarCambiada(${event.params.activityId}): no se pudieron contar las entregas (${err?.name || 'Error'})`)
+  }
+  await crearUnaVez(
+    db.collection('activities').doc(event.params.activityId).collection('configHistorial').doc(event.id),
+    { ...datos, entregasConIntentos, entregasConVariosIntentos, evento: event.id, registradoEn: FieldValue.serverTimestamp() },
+  )
 })
 
 // ─── 4.5-bis) Crucigrama / Sopa de letras — calificación automática ────────
@@ -1012,6 +1102,8 @@ exports.onJuegoFinalizado = onDocumentWritten('submissions/{submissionId}', asyn
       pendienteRevision: false,
       intentos: [...previos, { numero: num, calificacion: calificacionIntento, tiempoSegundos }],
       calificacion: resolverCalificacionFinal(previos, calificacionIntento, act.evaluacion?.conservar),
+      politicaAplicada: politicaEfectiva(act.evaluacion?.conservar),
+      ultimaCalificacionPor: ORIGEN_SERVIDOR,
       tiempoSegundos,
     })
   })
@@ -1641,6 +1733,8 @@ exports._pruebas = {
   recalcularResumenesDelDia,
   marcarSinRegistroPorAlta,
   limpiarIntentosRespuestasHuerfanos,
+  datosHistorialCalificacion,
+  datosCambioPolitica,
   TIPOS_OBJETIVOS,
   TIPOS_REVISION_MANUAL,
 }

@@ -38,6 +38,10 @@ const juegoFns = require('./juego')
 // requiere ia.js de vuelta — recibe pedirJSON/textoPlano por parámetro.
 const analisisAcademico = require('./analisisAcademico')
 const videoInteractivoIA = require('./videoInteractivoIA')
+// Escribir la nota de la IA en una entrega (decide, en transacción, si puede):
+// ver functions/aplicarNotaIA.js.
+const { aplicarNotaIA } = require('./aplicarNotaIA')
+const { ORIGEN_IA_RECALIFICAR } = require('./_shared/evaluacionGrading.js')
 // Lógica PURA de calendario/sesiones, compartida con el cliente — ver
 // src/utils/sesionesReales.js (fuente real) y scripts/sync-functions-shared.mjs
 // (genera esta copia en cada predeploy; también hay que correrlo a mano antes
@@ -1862,6 +1866,8 @@ async function precheckCalificarEntregableLote({ uid, params }) {
     items,
     sinEvidencia,
     recalificar,
+    // Solo con la casilla expresa del diálogo la IA reemplaza notas del docente.
+    sobrescribirCalificadas: recalificar && params?.sobrescribirCalificadas === true,
     tipoEvidenciaTarifa,
   }
 }
@@ -1889,11 +1895,15 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
   for (const item of ctx.items) {
     const ref = db.doc(`activities/${actividadId}/iaSugerenciasEntregable/${item.submissionId}`)
     if (ctx.recalificar) {
+      // La regeneración REEMPLAZA el documento de la sugerencia: antes de
+      // hacerlo se guarda lo que había, porque decide si la nota actual de la
+      // entrega es de la propia IA (y por tanto se puede reemplazar) o no.
+      const previa = await ref.get()
       await ref.set({
         estado: 'procesando', actividadId, sub: item.submissionId,
         consumoKey: params.__idempotencyKey || null, creadoEn: FieldValue.serverTimestamp(),
       })
-      adquiridos.push({ ...item, ref })
+      adquiridos.push({ ...item, ref, sugerenciaPrevia: previa.exists ? previa.data() : null })
       continue
     }
     try {
@@ -1929,6 +1939,7 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
   let fallidas = 0
   let generadas = 0
   let aplicadasAuto = 0
+  let omitidasCalificadas = 0
 
   let cursor = 0
   async function trabajador() {
@@ -1945,12 +1956,17 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
         // Recalificar todas con IA (23-ago-2026, pedido explícito de Kike:
         // "si se deben de cambiar las ya revisadas, por supuesto que sí") —
         // a diferencia del lote normal (solo propone), aquí la calificación
-        // real SÍ se sobrescribe sola con la propuesta, sin que el docente
-        // tenga que entrar entrega por entrega. Único freno: si algún
-        // criterio quedó sin evidencia suficiente, totalInstrumento regresa
-        // null y esa entrega se deja como propuesta pendiente en vez de
-        // escribir una calificación inventada — la regla de "nunca inventar"
-        // sigue ganando en ese caso puntual.
+        // real SÍ se escribe sola con la propuesta, sin que el docente tenga
+        // que entrar entrega por entrega. Frenos:
+        //   · si algún criterio quedó sin evidencia suficiente,
+        //     totalInstrumento regresa null y esa entrega se deja como
+        //     propuesta pendiente en vez de escribir una calificación
+        //     inventada;
+        //   · (oct-2026) una calificación que puso el DOCENTE no se reemplaza
+        //     a menos que el diálogo mande `sobrescribirCalificadas` (casilla
+        //     expresa): esa entrega queda como propuesta pendiente. Las notas
+        //     que son de la propia IA se reemplazan como siempre. Ver
+        //     aplicarNotaIA.js; el valor anterior queda en el historial.
         // calificacionPropuesta se calcula y persiste SIEMPRE (no solo al
         // recalificar) — 23-ago-2026, pedido de Kike: "Ver evaluación de IA"
         // debe seguir mostrando la calificación que la IA propuso originalmente
@@ -1970,22 +1986,31 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
         // ya no hay ninguna propuesta generada con una rúbrica distinta a la
         // actual.
         const firmaGeneracion = rubricaFirma(ctx.rubrica)
+        let aplicadaAhora = false
         if (ctx.recalificar && total != null) {
-          await db.doc(`submissions/${item.submissionId}`).update({
-            calificacion: total,
-            comentario: sugerencia.retroalimentacionGeneral || '',
-            rubricaEval: niveles.some((v) => v != null) ? niveles : null,
-            estado: 'calificado',
+          const r = await aplicarNotaIA(db, {
+            subRef: db.doc(`submissions/${item.submissionId}`),
+            sugRef: item.ref,
+            datos: {
+              calificacion: total,
+              comentario: sugerencia.retroalimentacionGeneral || '',
+              rubricaEval: niveles.some((v) => v != null) ? niveles : null,
+            },
+            origen: ORIGEN_IA_RECALIFICAR,
+            sobrescribirCalificadas: ctx.sobrescribirCalificadas === true,
+            sugerenciaPrevia: item.sugerenciaPrevia,
+            sugerenciaNueva: {
+              estado: 'aplicada',
+              aplicadaAutomaticamente: true,
+              sugerencia: sugerenciaCompleta,
+              rubricaFirma: firmaGeneracion,
+              actualizadoEn: FieldValue.serverTimestamp(),
+            },
           })
-          await item.ref.set({
-            estado: 'aplicada',
-            aplicadaAutomaticamente: true,
-            sugerencia: sugerenciaCompleta,
-            rubricaFirma: firmaGeneracion,
-            actualizadoEn: FieldValue.serverTimestamp(),
-          }, { merge: true })
-          aplicadasAuto++
-        } else {
+          if (r.aplicada) { aplicadasAuto++; aplicadaAhora = true }
+          else if (r.motivo === 'ya_calificada_por_docente') omitidasCalificadas++
+        }
+        if (!aplicadaAhora) {
           // Persistir ANTES de contar como cobrable — si esta escritura
           // falla, la entrega cae al catch (candado liberado, sin cobro).
           await item.ref.set({
@@ -2010,9 +2035,9 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
   }
 
   return {
-    resultado: { generadas, fallidas, yaProcesadas, sinEvidencia: ctx.sinEvidencia, aplicadasAuto },
+    resultado: { generadas, fallidas, yaProcesadas, sinEvidencia: ctx.sinEvidencia, aplicadasAuto, omitidasCalificadas },
     unidadesReales: generadas, // 1 crédito por entrega REALMENTE evaluada
-    interno: { modelo, tokensEntrada, tokensSalida, entregas: generadas, fallidas, yaProcesadas, aplicadasAuto },
+    interno: { modelo, tokensEntrada, tokensSalida, entregas: generadas, fallidas, yaProcesadas, aplicadasAuto, omitidasCalificadas },
   }
 }
 

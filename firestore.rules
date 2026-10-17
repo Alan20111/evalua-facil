@@ -229,7 +229,7 @@ service cloud.firestore {
     // Ningún flujo del alumno escribe aquí: su pantalla solo lo lee.
     function studentNoTocaCalificacion() {
       return !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['calificacion', 'intentos', 'pendienteRevision', 'rubricaEval']) &&
+          .hasAny(['calificacion', 'intentos', 'pendienteRevision', 'rubricaEval', 'politicaAplicada', 'ultimaCalificacionPor']) &&
         (
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['estado']) ||
           request.resource.data.estado != 'calificado'
@@ -971,6 +971,15 @@ service cloud.firestore {
       // Las crea únicamente el servidor; el docente dueño las lee y las
       // marca aplicadas/descartadas al revisar cada entrega. El alumno
       // nunca las ve.
+      // Cambios de la política de intentos (`evaluacion.conservar`): los escribe
+      // SOLO el servidor (trigger onPoliticaConservarCambiada). El docente dueño
+      // de la actividad lo lee.
+      match /configHistorial/{eventoId} {
+        allow read: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
+        allow write: if false;
+      }
+
       match /iaSugerenciasEntregable/{sugerenciaId} {
         allow read: if request.auth != null &&
           request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
@@ -1295,6 +1304,8 @@ service cloud.firestore {
           archivoPermitidoPorTipo(request.resource.data) &&
           request.resource.data.get('calificacion', null) == null &&
           request.resource.data.get('estado', '') != 'calificado' &&
+          // Quién puso la nota y con qué política lo escribe solo quien califica.
+          !request.resource.data.keys().hasAny(['politicaAplicada', 'ultimaCalificacionPor']) &&
           !actividadVencidaParaAlumno(request.resource.data.actividadId, request.resource.data.alumnoId) &&
           // Parcial cerrado definitivamente: ni entregas ni intentos nuevos.
           !actividadEnParcialCerrado(request.resource.data.actividadId)
@@ -1444,6 +1455,16 @@ service cloud.firestore {
           ownsActivity(get(/databases/$(database)/documents/submissions/$(submissionId)).data.actividadId);
         allow write: if false;
       }
+
+      // Historial de la nota (valor anterior, nuevo, quién y con qué política):
+      // lo escribe SOLO el servidor (trigger onCalificacionCambiada). El docente
+      // dueño lo lee; nadie lo edita ni lo borra desde el cliente.
+      match /calificacionHistorial/{eventoId} {
+        allow read: if request.auth != null &&
+          exists(/databases/$(database)/documents/submissions/$(submissionId)) &&
+          ownsActivity(get(/databases/$(database)/documents/submissions/$(submissionId)).data.actividadId);
+        allow write: if false;
+      }
     }
 
     // Entregas que el estudiante anuló (trazabilidad para el docente). Una fila
@@ -1456,15 +1477,51 @@ service cloud.firestore {
       allow read: if isAdmin() ||
         (isDocente() && ownsActivity(resource.data.actividadId)) ||
         (request.auth != null && ownsStudentDoc(resource.data.alumnoId));
-      allow create: if request.auth != null &&
-        request.resource.data.anuladaPor == 'estudiante' &&
-        ownsStudentDoc(request.resource.data.alumnoId) &&
-        request.resource.data.submissionId == request.resource.data.actividadId + '_' + request.resource.data.alumnoId &&
-        request.resource.data.fechaAnulacion == request.time &&
-        exists(/databases/$(database)/documents/submissions/$(request.resource.data.submissionId));
+      allow create: if request.auth != null && (
+        (
+          request.resource.data.anuladaPor == 'estudiante' &&
+          ownsStudentDoc(request.resource.data.alumnoId) &&
+          request.resource.data.submissionId == request.resource.data.actividadId + '_' + request.resource.data.alumnoId &&
+          request.resource.data.fechaAnulacion == request.time &&
+          exists(/databases/$(database)/documents/submissions/$(request.resource.data.submissionId))
+        ) ||
+        // El DOCENTE dueño de la actividad que anula una entrega: la traza se
+        // crea en la misma transacción que la borra (submissionGuard.js,
+        // borrarSiNoCambio con `traza`). Queda quién (anuladoPorUid = su uid),
+        // cuándo (fecha del servidor) y lo que la entrega tenía; sin traza no
+        // se borra nada.
+        (
+          request.resource.data.anuladaPor == 'docente' &&
+          isDocente() &&
+          ownsActivity(request.resource.data.actividadId) &&
+          request.resource.data.anuladoPorUid == request.auth.uid &&
+          request.resource.data.submissionId == request.resource.data.actividadId + '_' + request.resource.data.alumnoId &&
+          request.resource.data.fechaAnulacion == request.time &&
+          exists(/databases/$(database)/documents/submissions/$(request.resource.data.submissionId))
+        )
+      );
       allow update: if false;
       allow delete: if isAdmin() ||
         (isDocente() && ownsActivity(resource.data.actividadId));
+
+      // Copia de las respuestas de la entrega anulada por el docente
+      // (cuestionarios): se crean en la MISMA escritura que la traza, de ahí
+      // `getAfter`. Los snapshots de intentos (`intentosRespuestas`) los copia
+      // el servidor al borrarse la entrega; el cliente no escribe ahí.
+      match /respuestas/{preguntaId} {
+        allow read: if isAdmin() ||
+          (isDocente() && ownsActivity(get(/databases/$(database)/documents/entregasAnuladas/$(anuladaId)).data.actividadId));
+        allow create: if isDocente() &&
+          getAfter(/databases/$(database)/documents/entregasAnuladas/$(anuladaId)).data.anuladaPor == 'docente' &&
+          getAfter(/databases/$(database)/documents/entregasAnuladas/$(anuladaId)).data.anuladoPorUid == request.auth.uid &&
+          ownsActivity(getAfter(/databases/$(database)/documents/entregasAnuladas/$(anuladaId)).data.actividadId);
+        allow update, delete: if false;
+      }
+      match /intentosRespuestas/{numeroIntento} {
+        allow read: if isAdmin() ||
+          (isDocente() && ownsActivity(get(/databases/$(database)/documents/entregasAnuladas/$(anuladaId)).data.actividadId));
+        allow write: if false;
+      }
     }
 
     match /plans/{planId} {

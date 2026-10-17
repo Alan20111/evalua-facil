@@ -13,24 +13,15 @@
 // resolverCalificacionFinal (le pide el valor final) y solo añade la
 // identidad del intento — nunca reinterpreta qué significa cada política.
 
+// `resolverCalificacionFinal(intentosPrevios, calificacionNueva, conservar)`:
 // `intentosPrevios` = [{ calificacion }, ...] SIN el intento que se acaba de
 // calificar; `calificacionNueva` es la de ese intento nuevo. Se llama en el
 // momento de calificar — antes de que exista el intento nuevo en `intentos[]`.
-function resolverCalificacionFinal(intentosPrevios, calificacionNueva, conservar) {
-  if (intentosPrevios.length === 0) return calificacionNueva
-  const previas = intentosPrevios.map((i) => i.calificacion)
-  switch (conservar) {
-    case 'primero':
-      return previas[0]
-    case 'promedio':
-      return Math.round((([...previas, calificacionNueva].reduce((a, b) => a + b, 0)) / (previas.length + 1)) * 10) / 10
-    case 'mejor':
-      return Math.max(...previas, calificacionNueva)
-    case 'ultimo':
-    default:
-      return calificacionNueva
-  }
-}
+//
+// Ya no se define aquí: es la MISMA función que usa el navegador
+// (src/utils/evaluacionGrading.js), que scripts/sync-functions-shared.mjs copia
+// a functions/_shared/. Antes había dos implementaciones idénticas a mano.
+const { resolverCalificacionFinal } = require('./_shared/evaluacionGrading.js')
 
 // `intentos` = [{ numero, calificacion }, ...] el historial COMPLETO ya
 // registrado (incluye el último, ya calificado) — es decir, lo que vive en

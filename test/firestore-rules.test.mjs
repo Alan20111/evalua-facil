@@ -14,7 +14,8 @@ import {
   assertSucceeds,
 } from '@firebase/rules-unit-testing'
 import { doc, collection, addDoc, getDoc, getDocs, query, where, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, Timestamp, deleteField } from 'firebase/firestore'
-import { EntregaCambio, elegibleSinEntrega, tieneEvidencia, crearSiNoExiste, actualizarSiNoCambio, borrarSiNoCambio, sinEntregaEnLote } from '../src/utils/submissionGuard.js'
+import { EntregaCambio, elegibleSinEntrega, tieneEvidencia, crearSiNoExiste, actualizarSiNoCambio, borrarSiNoCambio, sinEntregaEnLote, guardarPuntosManuales, datosTrazaAnulacionDocente } from '../src/utils/submissionGuard.js'
+import { aplicarPuntosManuales } from '../src/utils/evaluacionGrading.js'
 import { entregaAbiertaParaAlumno } from '../src/utils/entregaAbierta.js'
 import { esNotaAutomaticaDeCierre } from '../src/utils/ponderacion.js'
 import { propuestaDesdeIA, planAprobacion, idPropuesta, aplicarEdicion } from '../src/utils/propuestasVideo.js'
@@ -3867,6 +3868,192 @@ ok('F-05 · admin CAN read publicProfiles')
   await assertSucceeds(getDocs(porActividad()))
   await assertSucceeds(getDocs(collection(alumno, 'submissions', 'AV_1_SV_ALU', 'respuestas')))
   ok('FASE 2 · al volver a publicar, el estudiante vuelve a leer su entrega y sus respuestas')
+}
+
+// ── INTEGRIDAD · calificaciones, historial y trazas de anulación (oct-2026) ──
+// Contra el emulador con las reglas reales: (1) saveGrade ya no pierde un
+// intento nuevo, (2) el docente puede anular dejando traza (y sin traza no se
+// borra nada), (3) el historial y la traza no los escribe ningún cliente, (4) el
+// estudiante no puede falsear quién puso la nota.
+{
+  const U_IG = 'authuid_integridad'
+  const ts = (ms) => Timestamp.fromMillis(ms)
+  const preguntasIG = [
+    { id: 'r1', tipo: 'opcion_multiple', ponderacion: 1 },
+    { id: 'm1', tipo: 'respuesta_corta', ponderacion: 1 },
+  ]
+  const entregaEval = (alumnoId, extra = {}) => ({
+    alumnoId, actividadId: 'AIG', estadoEvaluacion: 'finalizado', estado: 'entregado', pendienteRevision: true,
+    intentoActual: 2, intentos: [{ numero: 1, calificacion: 0 }, { numero: 2, calificacion: 5 }], calificacion: 5,
+    fechaEntrega: ts(1_700_000_000_000), tiempoInicio: ts(1_699_999_000_000), ...extra,
+  })
+  const leerDoc = async (...ruta) => {
+    let r
+    await testEnv.withSecurityRulesDisabled(async (ctx) => { const s = await getDoc(doc(ctx.firestore(), ...ruta)); r = s.exists() ? { id: s.id, ...s.data() } : undefined })
+    return r
+  }
+  const contarSub = async (...ruta) => {
+    let n
+    await testEnv.withSecurityRulesDisabled(async (ctx) => { n = (await getDocs(collection(ctx.firestore(), ...ruta))).size })
+    return n
+  }
+
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, 'activities', 'AIG'), { docenteId: T1, asignaturaId: 'S1', tipo: 'evaluacion', categoria: 'cuestionario', maxCalif: 10, evaluacion: { conservar: 'mejor' } })
+    await setDoc(doc(db, 'students', 'STIG'), { asignaturaId: 'S1', escuelaId: 'E1', username: 'IG', uid: U_IG, activado: true })
+    await setDoc(doc(db, 'students', 'STIG2'), { asignaturaId: 'S1', escuelaId: 'E1', username: 'IG2', uid: 'authuid_integridad2', activado: true })
+    await setDoc(doc(db, 'students', 'STIG3'), { asignaturaId: 'S1', escuelaId: 'E1', username: 'IG3', uid: 'authuid_integridad3', activado: true })
+    for (const [sid, al] of [['AIG_STIG', 'STIG'], ['AIG_STIG2', 'STIG2'], ['AIG_STIG3', 'STIG3']]) {
+      await setDoc(doc(db, 'submissions', sid), entregaEval(al))
+      await setDoc(doc(db, 'submissions', sid, 'respuestas', 'r1'), { opcionSeleccionada: 'a', puntosObtenidos: 1, correcta: true })
+      await setDoc(doc(db, 'submissions', sid, 'respuestas', 'm1'), { textoRespuesta: 'mi respuesta', puntosObtenidos: null })
+    }
+    await setDoc(doc(db, 'submissions', 'AIG_STIG', 'calificacionHistorial', 'ev1'), { calificacionAnterior: null, calificacionNueva: 5, origen: 'servidor' })
+    await setDoc(doc(db, 'submissions', 'AIG_STIG', 'intentosRespuestas', '2'), { numero: 2, calificacion: 5, respuestas: { r1: { puntosObtenidos: 1 } } })
+    await setDoc(doc(db, 'activities', 'AIG', 'configHistorial', 'ev1'), { campo: 'evaluacion.conservar', anterior: 'promedio', nuevo: 'mejor' })
+  })
+  const asIG = testEnv.authenticatedContext(U_IG, { email: 'ig.e1@evalua.local' }).firestore()
+  const subRef = (id) => doc(asT1, 'submissions', id)
+  const respRef = (id, p) => doc(asT1, 'submissions', id, 'respuestas', p)
+  const vista = async (id) => ({ id, ...(await getDoc(subRef(id))).data() })
+  const calcular = (actual, respuestas) => {
+    const r = aplicarPuntosManuales({ preguntas: preguntasIG, respuestas, intentos: actual.intentos || [], maxCalif: 10, conservar: 'mejor' })
+    return { calificacion: r.calificacion, pendienteRevision: r.pendienteRevision, estado: r.estado, intentos: r.intentos, politicaAplicada: r.politicaAplicada, ultimaCalificacionPor: 'docente' }
+  }
+  const guardar = (id, visto, pts = 1) => guardarPuntosManuales(asT1, subRef(id), visto, {
+    respuestaRef: respRef(id, 'm1'), respuestaPatch: { puntosObtenidos: pts, comentarioDocente: 'bien' },
+    respuestasRefs: preguntasIG.map((p) => respRef(id, p.id)), calcular,
+  })
+
+  // 1 · caso normal: puntos + entrega en una sola transacción.
+  const visto1 = await vista('AIG_STIG')
+  const { patch } = await guardar('AIG_STIG', visto1, 1)
+  const tras1 = await leerDoc('submissions', 'AIG_STIG')
+  assert.equal(tras1.calificacion, 10)
+  assert.equal(tras1.pendienteRevision, false)
+  assert.equal(tras1.estado, 'calificado')
+  assert.equal(tras1.politicaAplicada, 'mejor')
+  assert.equal(tras1.ultimaCalificacionPor, 'docente')
+  assert.deepEqual(tras1.intentos, [{ numero: 1, calificacion: 0 }, { numero: 2, calificacion: 10 }])
+  assert.equal((await leerDoc('submissions', 'AIG_STIG', 'respuestas', 'm1')).puntosObtenidos, 1)
+  assert.equal(patch.calificacion, 10)
+  ok('INTEGRIDAD · saveGrade: puntos del reactivo y nota de la entrega se guardan juntos, con política y origen')
+
+  // 2 · el estudiante abre un intento nuevo mientras el docente revisa: no se guarda NADA.
+  const vistoViejo = await vista('AIG_STIG2')
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await updateDoc(doc(ctx.firestore(), 'submissions', 'AIG_STIG2'), { estadoEvaluacion: 'en_progreso', intentoActual: 3, tiempoInicio: ts(1_700_000_500_000) })
+  })
+  try { await guardar('AIG_STIG2', vistoViejo, 1); assert.fail('debía detenerse') } catch (e) {
+    assert.ok(e instanceof EntregaCambio, `se esperaba EntregaCambio y llegó ${e?.message}`)
+    assert.equal(e.motivo, 'cambio')
+  }
+  const tras2 = await leerDoc('submissions', 'AIG_STIG2')
+  assert.equal(tras2.intentoActual, 3)
+  assert.equal(tras2.estadoEvaluacion, 'en_progreso')
+  assert.deepEqual(tras2.intentos, [{ numero: 1, calificacion: 0 }, { numero: 2, calificacion: 5 }])
+  assert.equal((await leerDoc('submissions', 'AIG_STIG2', 'respuestas', 'm1')).puntosObtenidos, null, 'los puntos del reactivo tampoco se escribieron')
+  ok('INTEGRIDAD · saveGrade con un intento nuevo en curso: se detiene, ni la entrega ni los puntos cambian')
+
+  // 3 · un intento nuevo YA calificado por el servidor entre tanto: el arreglo del docente no lo borra.
+  const vistoViejo3 = await vista('AIG_STIG3')
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await updateDoc(doc(ctx.firestore(), 'submissions', 'AIG_STIG3'), {
+      intentoActual: 3, intentos: [{ numero: 1, calificacion: 0 }, { numero: 2, calificacion: 5 }, { numero: 3, calificacion: 9 }], calificacion: 9,
+    })
+  })
+  try { await guardar('AIG_STIG3', vistoViejo3, 1); assert.fail('debía detenerse') } catch (e) {
+    assert.ok(e instanceof EntregaCambio)
+    assert.equal(e.actual.intentos.length, 3, 'el error entrega la entrega ACTUAL, con sus 3 intentos')
+  }
+  const tras3 = await leerDoc('submissions', 'AIG_STIG3')
+  assert.equal(tras3.intentos.length, 3)
+  assert.equal(tras3.calificacion, 9)
+  ok('INTEGRIDAD · saveGrade con la pantalla vieja: el intento 3 que cerró el estudiante NO se pierde')
+
+  // 4 · anular con traza: la entrega desaparece y queda quién, cuándo y qué tenía.
+  const vistoA = await vista('AIG_STIG')
+  const trazaRef = doc(collection(asT1, 'entregasAnuladas'))
+  await borrarSiNoCambio(asT1, subRef('AIG_STIG'), vistoA, {
+    extras: [respRef('AIG_STIG', 'r1'), respRef('AIG_STIG', 'm1')],
+    traza: { ref: trazaRef, construir: (actual) => datosTrazaAnulacionDocente(actual, { actividadId: 'AIG', alumnoId: 'STIG', uid: T1 }) },
+  })
+  assert.equal(await leerDoc('submissions', 'AIG_STIG'), undefined)
+  const traza = await leerDoc('entregasAnuladas', trazaRef.id)
+  assert.equal(traza.anuladaPor, 'docente')
+  assert.equal(traza.anuladoPorUid, T1)
+  assert.equal(traza.submissionId, 'AIG_STIG')
+  assert.equal(traza.calificacionAnterior, 10)
+  assert.equal(traza.estadoAnterior, 'calificado')
+  assert.equal(traza.politicaAplicada, 'mejor')
+  assert.equal(traza.intentos.length, 2)
+  assert.ok(traza.fechaAnulacion, 'la fecha la pone el servidor')
+  assert.equal((await leerDoc('entregasAnuladas', trazaRef.id, 'respuestas', 'm1')).textoRespuesta, 'mi respuesta')
+  assert.equal((await leerDoc('entregasAnuladas', trazaRef.id, 'respuestas', 'r1')).opcionSeleccionada, 'a')
+  ok('INTEGRIDAD · anular como docente: la entrega se borra y queda la traza (quién, cuándo, nota, intentos y respuestas)')
+
+  // 5 · si la traza no se puede escribir, NO se borra nada (todo o nada).
+  const vistoB = await vista('AIG_STIG2')
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await updateDoc(doc(ctx.firestore(), 'submissions', 'AIG_STIG2'), { estadoEvaluacion: 'finalizado', intentoActual: 2 })
+  })
+  const vistoB2 = await vista('AIG_STIG2')
+  await assert.rejects(borrarSiNoCambio(asT1, subRef('AIG_STIG2'), vistoB2, {
+    extras: [respRef('AIG_STIG2', 'r1'), respRef('AIG_STIG2', 'm1')],
+    traza: { ref: doc(collection(asT1, 'entregasAnuladas')), construir: (actual) => datosTrazaAnulacionDocente(actual, { actividadId: 'AIG', alumnoId: 'STIG2', uid: 'otra-persona' }) },
+  }), /permission|PERMISSION/i)
+  assert.ok(await leerDoc('submissions', 'AIG_STIG2'), 'la entrega sigue ahí')
+  assert.equal(await contarSub('submissions', 'AIG_STIG2', 'respuestas'), 2, 'sus respuestas siguen ahí')
+  void vistoB
+  ok('INTEGRIDAD · anular con una traza que las reglas rechazan: no se borra la entrega ni sus respuestas')
+
+  // 6 · la traza del docente no la puede crear quien no es dueño, ni a nombre de otro, ni el estudiante.
+  const trazaMala = (uid, extra = {}) => ({ actividadId: 'AIG', alumnoId: 'STIG3', submissionId: 'AIG_STIG3', anuladaPor: 'docente', anuladoPorUid: uid, fechaAnulacion: serverTimestamp(), ...extra })
+  await assertFails(setDoc(doc(asT2, 'entregasAnuladas', 'mala1'), trazaMala(T2)))
+  ok('INTEGRIDAD · un docente ajeno NO puede crear una traza sobre la actividad de otro')
+  await assertFails(setDoc(doc(asT1, 'entregasAnuladas', 'mala2'), trazaMala('otra-persona')))
+  ok('INTEGRIDAD · el docente NO puede firmar una traza con el uid de otra persona')
+  await assertFails(setDoc(doc(asT1, 'entregasAnuladas', 'mala3'), trazaMala(T1, { fechaAnulacion: Timestamp.fromMillis(1) })))
+  ok('INTEGRIDAD · la fecha de la traza tiene que ser la del servidor')
+  await assertFails(setDoc(doc(asIG, 'entregasAnuladas', 'mala4'), trazaMala('authuid_integridad', { alumnoId: 'STIG' })))
+  ok('INTEGRIDAD · el estudiante NO puede crear una traza «del docente»')
+  await assertSucceeds(setDoc(doc(asT1, 'entregasAnuladas', 'buena1'), trazaMala(T1)))
+  ok('INTEGRIDAD · control: el docente dueño sí crea su traza')
+
+  // 7 · lectura y escritura de trazas e historiales.
+  await assertSucceeds(getDoc(doc(asT1, 'entregasAnuladas', trazaRef.id)))
+  await assertFails(getDoc(doc(asT2, 'entregasAnuladas', trazaRef.id)))
+  await assertSucceeds(getDoc(doc(asT1, 'entregasAnuladas', trazaRef.id, 'respuestas', 'm1')))
+  await assertFails(getDoc(doc(asT2, 'entregasAnuladas', trazaRef.id, 'respuestas', 'm1')))
+  ok('INTEGRIDAD · la traza y sus respuestas las lee el docente dueño, no otro docente')
+  await assertFails(updateDoc(doc(asT1, 'entregasAnuladas', trazaRef.id), { calificacionAnterior: 0 }))
+  await assertFails(setDoc(doc(asT1, 'entregasAnuladas', trazaRef.id, 'respuestas', 'm1'), { textoRespuesta: 'cambiada' }))
+  await assertFails(setDoc(doc(asT1, 'entregasAnuladas', trazaRef.id, 'intentosRespuestas', '2'), { numero: 2 }))
+  ok('INTEGRIDAD · nadie edita la traza ni escribe sus snapshots desde un cliente')
+  await assertSucceeds(getDoc(doc(asT1, 'submissions', 'AIG_STIG3', 'calificacionHistorial', 'ev1')).catch(() => ({ exists: () => false })))
+  await assertSucceeds(getDoc(doc(asT1, 'activities', 'AIG', 'configHistorial', 'ev1')))
+  await assertFails(getDoc(doc(asT2, 'activities', 'AIG', 'configHistorial', 'ev1')))
+  await assertFails(setDoc(doc(asT1, 'activities', 'AIG', 'configHistorial', 'ev2'), { campo: 'x' }))
+  await assertFails(updateDoc(doc(asT1, 'activities', 'AIG', 'configHistorial', 'ev1'), { nuevo: 'ultimo' }))
+  ok('INTEGRIDAD · configHistorial: lo lee el docente dueño; nadie lo escribe desde un cliente')
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'submissions', 'AIG_STIG3', 'calificacionHistorial', 'ev1'), { calificacionAnterior: 5, calificacionNueva: 9 })
+  })
+  await assertSucceeds(getDoc(doc(asT1, 'submissions', 'AIG_STIG3', 'calificacionHistorial', 'ev1')))
+  await assertFails(getDoc(doc(asT2, 'submissions', 'AIG_STIG3', 'calificacionHistorial', 'ev1')))
+  await assertFails(getDoc(doc(asIG, 'submissions', 'AIG_STIG3', 'calificacionHistorial', 'ev1')))
+  await assertFails(setDoc(doc(asT1, 'submissions', 'AIG_STIG3', 'calificacionHistorial', 'ev2'), { calificacionNueva: 10 }))
+  await assertFails(updateDoc(doc(asT1, 'submissions', 'AIG_STIG3', 'calificacionHistorial', 'ev1'), { calificacionNueva: 10 }))
+  await assertFails(deleteDoc(doc(asT1, 'submissions', 'AIG_STIG3', 'calificacionHistorial', 'ev1')))
+  ok('INTEGRIDAD · calificacionHistorial: solo lo lee el docente dueño; ni él ni el estudiante lo escriben ni lo borran')
+
+  // 8 · el estudiante no falsea quién puso la nota ni con qué política.
+  await assertFails(updateDoc(doc(asIG, 'submissions', 'AIG_STIG3'), { ultimaCalificacionPor: 'docente' }))
+  await assertFails(updateDoc(doc(asIG, 'submissions', 'AIG_STIG3'), { politicaAplicada: 'mejor' }))
+  ok('INTEGRIDAD · el estudiante NO puede escribir ultimaCalificacionPor ni politicaAplicada en su entrega')
+  await assertSucceeds(updateDoc(doc(asT1, 'submissions', 'AIG_STIG3'), { ultimaCalificacionPor: 'docente', politicaAplicada: 'mejor' }))
+  ok('INTEGRIDAD · el docente dueño sí los escribe al calificar')
 }
 
 await testEnv.cleanup()
