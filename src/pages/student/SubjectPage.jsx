@@ -811,7 +811,7 @@ export default function StudentSubjectPage() {
                                     </span>
                                   )}
                                   {showPeso && (
-                                    <span className="text-xs text-amber-700 font-semibold">Vale {a.pesoCalificacion} de 10</span>
+                                    <span className="text-xs text-amber-700 font-semibold">Vale hasta {a.pesoCalificacion} de 10</span>
                                   )}
                                 </div>
                               )}
