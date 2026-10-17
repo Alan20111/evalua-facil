@@ -11,8 +11,11 @@ export const TEXTO_NOTA_OCULTA = 'Tu docente aún no publica esta calificación'
 // ayuda al pasar el cursor. Sin `compacta`: ícono y texto, para una tarjeta.
 export default function NotaOculta({ compacta = false, className = '' }) {
   if (compacta) {
+    // data-tooltip-pos="left": el ojo va pegado al borde derecho de tarjetas con
+    // overflow-hidden (parcial, inicio); el globo centrado arriba se cortaba por
+    // arriba y por la derecha. Ver [data-tooltip-pos='left'] en index.css.
     return (
-      <span data-tooltip={TEXTO_NOTA_OCULTA} className={`inline-flex items-center text-hint ${className}`}>
+      <span data-tooltip={TEXTO_NOTA_OCULTA} data-tooltip-pos="left" className={`inline-flex items-center text-hint ${className}`}>
         <EyeOff size={ICONO.md} aria-hidden="true" />
         <span className="sr-only">{TEXTO_NOTA_OCULTA}</span>
       </span>

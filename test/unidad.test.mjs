@@ -9407,6 +9407,14 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     }
   })
 
+  caso('NotaOculta compacta: el globo sale a la IZQUIERDA del ojo (pegado al borde de tarjetas overflow-hidden no se corta)', () => {
+    const nota = leerFuente2b('src/components/NotaOculta.jsx')
+    assert.ok(/data-tooltip=\{TEXTO_NOTA_OCULTA\} data-tooltip-pos="left"/.test(nota))
+    // La variante left ya existe en index.css y no se toca: centrada en vertical, a la izquierda.
+    const css = leerFuente2b('src/index.css')
+    assert.ok(/\[data-tooltip\]\[data-tooltip-pos='left'\]::after/.test(css))
+  })
+
   caso('las pantallas aplican la mezcla de promedios y NotaOculta donde iría el número', () => {
     const dash = leerFuente2b('src/pages/student/Dashboard.jsx')
     assert.ok(dash.includes('promedioFinalVisible(') && dash.includes('misEntregas.promedios[s.id]?.final') && dash.includes('s.avgOculto'))
