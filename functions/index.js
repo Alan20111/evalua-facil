@@ -31,7 +31,7 @@
 // simple usando el mismo título/cuerpo.
 
 const { initializeApp } = require('firebase-admin/app')
-const { getFirestore, FieldValue, FieldPath } = require('firebase-admin/firestore')
+const { getFirestore, FieldValue, FieldPath, Timestamp } = require('firebase-admin/firestore')
 const { getMessaging } = require('firebase-admin/messaging')
 const { onDocumentWritten, onDocumentCreated, onDocumentDeleted, onDocumentUpdated } = require('firebase-functions/v2/firestore')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
@@ -698,6 +698,12 @@ const {
   TIPOS_OBJETIVOS, TIPOS_REVISION_MANUAL, politicaEfectiva,
   ORIGEN_SERVIDOR,
 } = evaluacionGrading
+// Con qué versión de la evaluación se calificó cada intento (huella, estructura
+// de reactivos y puntos, avisos de cambio y de respuestas sin guardar).
+const {
+  firmaEvaluacion, estructuraDePreguntas, respuestasDeclaradasSinGuardar,
+  reactivosCambiadosDuranteIntento, sonIguales,
+} = require('./_shared/versionCalculo.js')
 
 // Cuándo se publican las respuestas tiene que evaluarse en el servidor: desde
 // A08 es él quien decide si el alumno ve cuál era la correcta, no el navegador.
@@ -758,6 +764,17 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
   const respuestasGuardadas = {}
   respSnap.docs.forEach((d) => { respuestasGuardadas[d.id] = d.data() })
 
+  // Historial de cambios de reactivos y clave (lo escribe onReactivoCambiado /
+  // onClaveCambiada): sirve para saber si la evaluación cambió mientras este
+  // intento estaba en curso. Si no se puede leer, el intento se califica igual.
+  let cambiosDeReactivos = []
+  try {
+    const hist = await actSnap.ref.collection('reactivosHistorial').get()
+    cambiosDeReactivos = hist.docs.map((d) => ({ preguntaId: d.data().preguntaId, registradoEnMs: d.data().cambioEn?.toMillis?.() ?? null }))
+  } catch (err) {
+    logger.warn(`onEvaluacionFinalizada(${event.params.submissionId}): no se pudo leer reactivosHistorial (${err?.name || 'Error'})`)
+  }
+
   // Puntos por pregunta desde la fuente de verdad del servidor. Los tipos de
   // revisión manual quedan null (pendientes) — igual que hacía el cliente:
   // cada intento nuevo resetea la revisión manual del anterior.
@@ -810,6 +827,28 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
   // esperando una calificación que nunca va a existir.
   const pendienteRevision = noLleveNota ? false : resolverPendienteRevision(preguntas, respuestasPorPregunta)
 
+  // Versión del cálculo: con QUÉ evaluación se calificó este intento. La huella
+  // y la estructura (tipo y puntos de cada reactivo) quedan en el intento y en su
+  // fotografía, para que un recálculo posterior use lo de ESTE día y no lo vigente.
+  const firmaVersion = firmaEvaluacion(preguntas, act.maxCalif || 10)
+  const estructuraIntento = estructuraDePreguntas(preguntas)
+  const totalPonderacion = preguntas.reduce((s, p) => s + (p.ponderacion || 0), 0)
+  const inicioIntentoMs = sub.tiempoInicio?.toMillis?.() ?? null
+  const reactivosCambiados = reactivosCambiadosDuranteIntento(cambiosDeReactivos, inicioIntentoMs, Date.now())
+  // Lo que el estudiante declaró haber contestado contra lo que quedó guardado:
+  // una diferencia es una respuesta perdida en el camino.
+  const respuestasSinGuardar = respuestasDeclaradasSinGuardar(sub.respuestasDeclaradas, respuestasGuardadas)
+  if (reactivosCambiados.length) {
+    logger.warn(`onEvaluacionFinalizada(${event.params.submissionId}): la evaluación cambió durante el intento ${intentoNum} (reactivos: ${reactivosCambiados.join(', ')})`)
+  }
+  if (respuestasSinGuardar.length) {
+    logger.warn(`onEvaluacionFinalizada(${event.params.submissionId}): el estudiante declaró ${respuestasSinGuardar.length} respuesta(s) del intento ${intentoNum} que no llegaron a guardarse (${respuestasSinGuardar.join(', ')})`)
+  }
+  const avisosVersion = {
+    ...(reactivosCambiados.length ? { versionAlterada: true } : {}),
+    ...(respuestasSinGuardar.length ? { respuestasSinGuardar } : {}),
+  }
+
   await db.runTransaction(async (tx) => {
     const freshSnap = await tx.get(after.ref)
     if (!freshSnap.exists) return
@@ -824,7 +863,13 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
     const marcas = {
       pendienteRevision,
       estado: noLleveNota || pendienteRevision ? 'entregado' : 'calificado',
-      intentos: [...previos, { numero: num, calificacion: calificacionIntento }],
+      intentos: [...previos, {
+        numero: num,
+        calificacion: calificacionIntento,
+        firmaEvaluacion: firmaVersion,
+        politicaAplicada: politicaEfectiva(act.evaluacion?.conservar),
+        ...avisosVersion,
+      }],
     }
     if (!noLleveNota) {
       marcas.calificacion = resolverCalificacionFinal(previos, calificacionIntento, act.evaluacion?.conservar)
@@ -870,6 +915,14 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
       numero: num,
       calificacion: calificacionIntento,
       respuestas: snapshotRespuestas,
+      // Versión del cálculo: tipo y puntos de cada reactivo TAL COMO se
+      // calificó. Un recálculo manual usa esto, no los reactivos vigentes.
+      estructura: estructuraIntento,
+      totalPonderacion,
+      maxCalif: act.maxCalif || 10,
+      firmaEvaluacion: firmaVersion,
+      politicaAplicada: politicaEfectiva(act.evaluacion?.conservar),
+      ...avisosVersion,
       creadoEn: FieldValue.serverTimestamp(),
     })
   })
@@ -1001,6 +1054,64 @@ exports.onPoliticaConservarCambiada = onDocumentUpdated('activities/{activityId}
   await crearUnaVez(
     db.collection('activities').doc(event.params.activityId).collection('configHistorial').doc(event.id),
     { ...datos, entregasConIntentos, entregasConVariosIntentos, evento: event.id, registradoEn: FieldValue.serverTimestamp() },
+  )
+})
+
+// Versiones anteriores de los reactivos, de la clave y de la rúbrica: cuando el
+// docente edita o borra uno, lo que había queda archivado (solo escribe el
+// servidor; lo lee el docente dueño). Con ello cada nota se puede explicar con
+// la versión que la produjo. Idempotente por id de evento: un reintento de la
+// plataforma no duplica nada. Ninguno escribe en la entrega ni envía avisos.
+function datosCambioReactivo(fuente, antes, despues) {
+  if (antes && despues && sonIguales(antes, despues)) return null
+  if (!antes && !despues) return null
+  // La clave nace junto con su reactivo: archivar su creación solo duplicaría.
+  if (!antes && fuente === 'clave') return null
+  return {
+    fuente,
+    tipoCambio: !antes ? 'creado' : !despues ? 'eliminado' : 'modificado',
+    antes: antes || null,
+    despues: despues || null,
+  }
+}
+
+async function archivarCambioReactivo(event, fuente) {
+  const antes = event.data?.before?.exists ? event.data.before.data() : null
+  const despues = event.data?.after?.exists ? event.data.after.data() : null
+  const datos = datosCambioReactivo(fuente, antes, despues)
+  if (!datos) return
+  await crearUnaVez(
+    db.collection('activities').doc(event.params.activityId).collection('reactivosHistorial').doc(event.id),
+    {
+      ...datos,
+      preguntaId: event.params.preguntaId,
+      // Cuándo ocurrió el cambio (la hora del evento), no cuándo se procesó.
+      cambioEn: event.time ? Timestamp.fromDate(new Date(event.time)) : FieldValue.serverTimestamp(),
+      evento: event.id,
+      registradoEn: FieldValue.serverTimestamp(),
+    },
+  )
+}
+
+exports.onReactivoCambiado = onDocumentWritten('activities/{activityId}/preguntas/{preguntaId}', (event) => archivarCambioReactivo(event, 'pregunta'))
+exports.onClaveCambiada = onDocumentWritten('activities/{activityId}/clave/{preguntaId}', (event) => archivarCambioReactivo(event, 'clave'))
+
+function datosCambioRubrica(antes, despues) {
+  const a = antes?.rubrica ?? null
+  const d = despues?.rubrica ?? null
+  if (sonIguales(a, d)) return null
+  return { rubricaAnterior: a, rubricaNueva: d }
+}
+
+exports.onRubricaCambiada = onDocumentUpdated('activities/{activityId}', async (event) => {
+  const antes = event.data?.before?.data()
+  const despues = event.data?.after?.data()
+  if (!antes || !despues) return
+  const datos = datosCambioRubrica(antes, despues)
+  if (!datos) return
+  await crearUnaVez(
+    db.collection('activities').doc(event.params.activityId).collection('rubricaHistorial').doc(event.id),
+    { ...datos, cambioEn: event.time ? Timestamp.fromDate(new Date(event.time)) : FieldValue.serverTimestamp(), evento: event.id, registradoEn: FieldValue.serverTimestamp() },
   )
 })
 
@@ -1733,6 +1844,9 @@ exports._pruebas = {
   recalcularResumenesDelDia,
   marcarSinRegistroPorAlta,
   limpiarIntentosRespuestasHuerfanos,
+  datosCambioReactivo,
+  datosCambioRubrica,
+  archivarCambioReactivo,
   datosHistorialCalificacion,
   datosCambioPolitica,
   TIPOS_OBJETIVOS,

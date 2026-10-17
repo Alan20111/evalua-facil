@@ -97,6 +97,9 @@ const ARCHIVOS = [
   // «réplica exacta» escrita a mano de estas funciones; ahora el servidor usa
   // ESTA misma copia y no puede divergir del cliente.
   'evaluacionGrading.js',
+  // Versión del cálculo (oct-2026): huella de la evaluación y estructura de cada
+  // intento, para recalcular con lo que se calificó y no con lo vigente.
+  'versionCalculo.js',
 ]
 
 function fallar(mensaje) {

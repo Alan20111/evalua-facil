@@ -994,6 +994,21 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // Versiones anteriores de reactivos/clave y de la rúbrica: las archivan SOLO
+      // los triggers del servidor (onReactivoCambiado, onClaveCambiada,
+      // onRubricaCambiada). El docente dueño las lee; nadie las escribe ni las
+      // borra desde un cliente (la clave de respuestas viaja ahí).
+      match /reactivosHistorial/{eventoId} {
+        allow read: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
+        allow write: if false;
+      }
+      match /rubricaHistorial/{eventoId} {
+        allow read: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;
+        allow write: if false;
+      }
+
       match /iaSugerenciasEntregable/{sugerenciaId} {
         allow read: if request.auth != null &&
           request.auth.uid == get(/databases/$(database)/documents/activities/$(activityId)).data.docenteId;

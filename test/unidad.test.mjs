@@ -106,6 +106,85 @@ const caso = (nombre, fn) => {
 }
 const grupo = (t) => console.log(`\n── ${t}`)
 
+// ── Versión del cálculo (oct-2026): huella, estructura del intento y recálculo manual ───────
+grupo('versión del cálculo — huella, estructura y recálculo con lo que se calificó')
+{
+  const VC = await import('../src/utils/versionCalculo.js')
+  const { aplicarPuntosManuales } = await import('../src/utils/evaluacionGrading.js')
+  const pregs = [
+    { id: 'a', tipo: 'opcion_multiple', ponderacion: 2, respuestaCorrecta: 'x' },
+    { id: 'b', tipo: 'respuesta_corta', ponderacion: 2 },
+  ]
+  caso('firmaEvaluacion: estable, sin importar el orden; cambia con puntos, clave, tipo o escala', () => {
+    const f = VC.firmaEvaluacion(pregs, 10)
+    assert.match(f, /^[0-9a-f]{14}$/)
+    assert.strictEqual(VC.firmaEvaluacion([...pregs].reverse(), 10), f)
+    assert.notStrictEqual(VC.firmaEvaluacion([{ ...pregs[0], ponderacion: 3 }, pregs[1]], 10), f)
+    assert.notStrictEqual(VC.firmaEvaluacion([{ ...pregs[0], respuestaCorrecta: 'y' }, pregs[1]], 10), f)
+    assert.notStrictEqual(VC.firmaEvaluacion([{ ...pregs[0], tipo: 'verdadero_falso' }, pregs[1]], 10), f)
+    assert.notStrictEqual(VC.firmaEvaluacion(pregs, 100), f)
+    assert.strictEqual(VC.firmaEvaluacion([{ ...pregs[0], enunciado: 'otro texto' }, pregs[1]], 10), f, 'el enunciado no afecta la cuenta')
+  })
+  caso('estructuraDePreguntas deja solo tipo y puntos', () => {
+    assert.deepStrictEqual(VC.estructuraDePreguntas(pregs), { a: { tipo: 'opcion_multiple', ponderacion: 2 }, b: { tipo: 'respuesta_corta', ponderacion: 2 } })
+  })
+  caso('preguntasDelIntento: con estructura manda la del intento (aunque lo vigente cambió o ya no exista)', () => {
+    const snap = { estructura: { a: { tipo: 'opcion_multiple', ponderacion: 2 }, b: { tipo: 'respuesta_corta', ponderacion: 2 }, c: { tipo: 'opcion_multiple', ponderacion: 1 } } }
+    const vigentes = [{ id: 'a', tipo: 'opcion_multiple', ponderacion: 9 }, { id: 'b', tipo: 'respuesta_corta', ponderacion: 9 }, { id: 'n', tipo: 'opcion_multiple', ponderacion: 5 }]
+    const r = VC.preguntasDelIntento(snap, vigentes)
+    assert.strictEqual(r.desdeSnapshot, true)
+    assert.deepStrictEqual(r.preguntas.map((p) => [p.id, p.ponderacion]), [['a', 2], ['b', 2], ['c', 1]])
+    assert.ok(!r.preguntas.some((p) => p.id === 'n'), 'un reactivo agregado después no formaba parte del intento')
+  })
+  caso('preguntasDelIntento: intentos anteriores a este registro (sin estructura) usan lo vigente', () => {
+    const vigentes = [{ id: 'a', tipo: 'opcion_multiple', ponderacion: 2 }]
+    assert.deepStrictEqual(VC.preguntasDelIntento({ numero: 1, respuestas: {} }, vigentes), { preguntas: vigentes, desdeSnapshot: false })
+    assert.deepStrictEqual(VC.preguntasDelIntento(null, vigentes), { preguntas: vigentes, desdeSnapshot: false })
+  })
+  caso('5/6 · el recálculo manual usa la estructura del intento: el docente sube el peso de un reactivo y la nota del intento no cambia', () => {
+    const snap = { estructura: VC.estructuraDePreguntas(pregs) }
+    const vigentes = [{ id: 'a', tipo: 'opcion_multiple', ponderacion: 8 }, { id: 'b', tipo: 'respuesta_corta', ponderacion: 2 }]
+    const respuestas = { a: { puntosObtenidos: 2 }, b: { puntosObtenidos: 2 } }
+    const { preguntas } = VC.preguntasDelIntento(snap, vigentes)
+    const conSnapshot = aplicarPuntosManuales({ preguntas, respuestas, intentos: [{ numero: 1, calificacion: 5 }], maxCalif: 10, conservar: 'ultimo' })
+    assert.strictEqual(conSnapshot.calificacionIntento, 10, '4/4 con los puntos de aquel día')
+    const conVigentes = aplicarPuntosManuales({ preguntas: vigentes, respuestas, intentos: [{ numero: 1, calificacion: 5 }], maxCalif: 10, conservar: 'ultimo' })
+    assert.strictEqual(conVigentes.calificacionIntento, 4, 'con lo vigente (10 pts en total) daba otra nota: justo el error que se evita')
+  })
+  caso('el recálculo conserva los campos de versión del intento (firma, política, avisos)', () => {
+    const r = aplicarPuntosManuales({
+      preguntas: pregs, respuestas: { a: { puntosObtenidos: 2 }, b: { puntosObtenidos: 1 } },
+      intentos: [{ numero: 1, calificacion: 5, firmaEvaluacion: 'abc', politicaAplicada: 'mejor', versionAlterada: true }], maxCalif: 10, conservar: 'mejor',
+    })
+    assert.deepStrictEqual(r.intentos[0], { numero: 1, calificacion: 7.5, firmaEvaluacion: 'abc', politicaAplicada: 'mejor', versionAlterada: true })
+  })
+  caso('8 · politicaDeLaNota: manda la que produjo la nota; sin registro, la vigente', () => {
+    assert.strictEqual(VC.politicaDeLaNota({ politicaAplicada: 'mejor' }, 'ultimo'), 'mejor')
+    assert.strictEqual(VC.politicaDeLaNota({}, 'primero'), 'primero')
+    assert.strictEqual(VC.politicaDeLaNota(null, 'promedio'), 'promedio')
+    const intentos = [{ numero: 1, calificacion: 10 }, { numero: 2, calificacion: 4 }]
+    const hoy = aplicarPuntosManuales({ preguntas: pregs, respuestas: { a: { puntosObtenidos: 2 }, b: { puntosObtenidos: 0 } }, intentos, maxCalif: 10, conservar: VC.politicaDeLaNota({ politicaAplicada: 'mejor' }, 'ultimo') })
+    assert.strictEqual(hoy.calificacion, 10, 'cambiar la política de la actividad a «ultimo» no baja una nota calculada con «mejor»')
+  })
+  caso('respuestasDeclaradasSinGuardar: solo lo declarado sin nada guardado; sin declaración no hay señal', () => {
+    const guardadas = { a: { opcionSeleccionada: 'x' }, b: { textoRespuesta: '  ' }, c: { opcionSeleccionada: null }, d: { archivoURL: 'u' } }
+    assert.deepStrictEqual(VC.respuestasDeclaradasSinGuardar(['d', 'a', 'b', 'c', 'z'], guardadas), ['b', 'c', 'z'].sort())
+    assert.deepStrictEqual(VC.respuestasDeclaradasSinGuardar(undefined, guardadas), [])
+    assert.deepStrictEqual(VC.respuestasDeclaradasSinGuardar([], guardadas), [])
+  })
+  caso('reactivosCambiadosDuranteIntento: solo lo ocurrido entre el inicio y el cierre', () => {
+    const cambios = [{ preguntaId: 'a', registradoEnMs: 50 }, { preguntaId: 'b', registradoEnMs: 150 }, { preguntaId: 'b', registradoEnMs: 160 }, { preguntaId: 'c', registradoEnMs: 400 }, { preguntaId: 'd', registradoEnMs: null }]
+    assert.deepStrictEqual(VC.reactivosCambiadosDuranteIntento(cambios, 100, 300), ['b'])
+    assert.deepStrictEqual(VC.reactivosCambiadosDuranteIntento(cambios, null, 300), [], 'sin hora de inicio no se afirma nada')
+    assert.deepStrictEqual(VC.reactivosCambiadosDuranteIntento([], 1, 2), [])
+  })
+  caso('sonIguales ignora el orden de las llaves', () => {
+    assert.strictEqual(VC.sonIguales({ a: 1, b: { c: [1, { x: 1, y: 2 }] } }, { b: { c: [1, { y: 2, x: 1 }] }, a: 1 }), true)
+    assert.strictEqual(VC.sonIguales({ a: 1 }, { a: 2 }), false)
+    assert.strictEqual(VC.sonIguales(null, null), true)
+  })
+}
+
 const ids = (objeto) => [...extraerAssets(objeto).values()].map((a) => `${a.tipo}/${a.publicId}`).sort()
 const URL = (tipo, id, ext = '.png') => `https://res.cloudinary.com/demo/${tipo}/upload/v1712345678/${id}${ext}`
 
