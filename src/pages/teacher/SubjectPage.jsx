@@ -37,8 +37,8 @@ import { buildVacacionMap, fechasVacacionParaClases } from '../../utils/vacacion
 import { lockLandscape, lockPortrait } from '../../utils/orientation'
 import { hideStatusBar, showStatusBar } from '../../utils/statusBar'
 import { withDefaultTime, isDraftActivity, cuentaParaCalificacion } from '../../utils/activityVisibility'
-import { pesoDe, promedioParcial, notasParaPromedio, ponderacionActivaEnParcial, normalizeGrade, puedeIniciarAtencion, parcialCerrado, mensajeParcialCerrado, esNotaAutomaticaDeCierre } from '../../utils/ponderacion'
-import { rutaVisibilidad, estaOculto, conVisibilidad } from '../../utils/visibilidadCalificaciones'
+import { pesoDe, promedioParcial, notasParaPromedio, ponderacionActivaEnParcial, normalizeGrade, parcialCerrado, mensajeParcialCerrado, esNotaAutomaticaDeCierre, llavesVisibilidad, entradasAlActivarPonderacion, entradasAlCerrar, pesosMostradosAlumno } from '../../utils/ponderacion'
+import { rutaVisibilidad, estaOculto, conVisibilidad, calificacionOcultaAlAlumno } from '../../utils/visibilidadCalificaciones'
 import { motivoNoSePuedeMover, parcialesDestino, planMoverActividad } from '../../utils/moverActividadParcial'
 import { playAlertSound } from '../../utils/notify'
 import { subjectDisplayName } from '../../utils/subjectName'
@@ -189,9 +189,6 @@ export default function SubjectPage() {
   const [attSortParcial, setAttSortParcial] = useState(null) // null = general
   const [revertParcialConfirm, setRevertParcialConfirm] = useState(null) // parcial number | null
   const [revertingParcial, setRevertingParcial] = useState(false)
-  // Iniciar atención de inquietudes: null | parcial number
-  const [atencionParcialConfirm, setAtencionParcialConfirm] = useState(null)
-  const [iniciandoAtencion, setIniciandoAtencion] = useState(false)
   // Kebab menu per parcial header: null | { p, x, y } (fixed coords from the ⋮ button)
   const [parcialMenu, setParcialMenu] = useState(null)
   // Asistencia — Excel split-button ⋮ dropdown (por parcial): boolean
@@ -567,7 +564,6 @@ export default function SubjectPage() {
   useBackHandler(() => setConfirmRevertParcial(null), !!confirmRevertParcial)
   useBackHandler(() => !closingParcial && setCloseParcialConfirm(null), !!closeParcialConfirm)
   useBackHandler(() => !revertingParcial && setRevertParcialConfirm(null), !!revertParcialConfirm)
-  useBackHandler(() => !iniciandoAtencion && setAtencionParcialConfirm(null), atencionParcialConfirm != null)
   useBackHandler(() => !savingStudent && setLinkCandidate(null), !!linkCandidate)
   useBackHandler(() => setResetPwdResult(null), !!resetPwdResult)
   useBackHandler(() => setStudentToDelete(null), !!studentToDelete)
@@ -604,7 +600,6 @@ export default function SubjectPage() {
   useScrollLock(confirmRevertParcial != null)
   useScrollLock(closeParcialConfirm)
   useScrollLock(revertParcialConfirm != null)
-  useScrollLock(atencionParcialConfirm != null)
   useScrollLock(linkCandidate)
   useScrollLock(resetPwdResult)
   useScrollLock(studentToDelete)
@@ -3657,38 +3652,12 @@ export default function SubjectPage() {
         })
         return next
       })
-      toast(`Parcial ${p} reabierto para atención de inquietudes — ${removedKeys.length} no entrega${removedKeys.length !== 1 ? 's volvieron' : ' volvió'} a quedar sin calificar`)
+      toast(`Parcial ${p} reabierto — ${removedKeys.length} no entrega${removedKeys.length !== 1 ? 's volvieron' : ' volvió'} a quedar sin calificar`)
       setRevertParcialConfirm(null)
     } catch (err) {
       toast('Error al reabrir el parcial: ' + err.message, 'error')
     } finally {
       setRevertingParcial(false)
-    }
-  }
-
-  // ABIERTO → ATENCIÓN DE INQUIETUDES. Publica al estudiante el resultado del
-  // parcial (y, si es ponderado, sus pesos); no toca ninguna calificación.
-  // Solo con la ponderación guardada y sumando exactamente 10 — la misma regla
-  // con la que el estudiante ve el resultado (utils/ponderacion.js).
-  async function confirmIniciarAtencion() {
-    const p = atencionParcialConfirm
-    if (p == null) return
-    if (Object.keys(pesoEdits).length > 0 || !puedeIniciarAtencion(subject, p, activities)) {
-      toast(`La ponderación del Parcial ${p} debe estar guardada y sumar exactamente 10 para iniciar la atención de inquietudes`, 'warning')
-      setAtencionParcialConfirm(null)
-      return
-    }
-    setIniciandoAtencion(true)
-    try {
-      const inicio = new Date().toISOString()
-      await updateDoc(doc(db, 'subjects', subjectId), { [`parcialesAtencion.${p}`]: inicio })
-      setSubject((s) => ({ ...s, parcialesAtencion: { ...(s.parcialesAtencion || {}), [p]: inicio } }))
-      toast(`Parcial ${p} en atención de inquietudes`)
-      setAtencionParcialConfirm(null)
-    } catch (err) {
-      toast('Error al iniciar la atención de inquietudes: ' + err.message, 'error')
-    } finally {
-      setIniciandoAtencion(false)
     }
   }
 
@@ -3764,13 +3733,19 @@ export default function SubjectPage() {
       }
       const sesionesConfirmadas = parseInt(closeParcialSesiones, 10)
       const closeTs = new Date().toISOString()
+      // Cerrar no publica nada: si el parcial es ponderado y sigue abierto, sus
+      // controles de visibilidad se fijan en «oculto» en esta misma escritura
+      // (ver entradasAlCerrar en utils/ponderacion.js).
+      const vis = llavesVisibilidad(subject, entradasAlCerrar(subject, p))
       await updateDoc(doc(db, 'subjects', subjectId), {
         [`parcialesCerrados.${p}`]: closeTs,
+        ...vis.rutas,
         ...(sesionesConfirmadas > 0 ? { [`totalOficialPorParcial.${p}`]: sesionesConfirmadas } : {}),
       })
       setSubject((s) => ({
         ...s,
         parcialesCerrados: { ...(s.parcialesCerrados || {}), [p]: closeTs },
+        ...(Object.keys(vis.rutas).length ? vis.siguiente : {}),
         ...(sesionesConfirmadas > 0 ? {
           totalOficialPorParcial: { ...(s.totalOficialPorParcial || {}), [String(p)]: sesionesConfirmadas },
         } : {}),
@@ -4164,7 +4139,11 @@ export default function SubjectPage() {
       // Qué ven los estudiantes ya no se decide aquí: depende del estado de
       // cada parcial (resultadoPublicadoAlumno en utils/ponderacion.js).
       const updates = { ponderacionActivada: Object.values(map).some(Boolean), ponderacionParciales: map }
-      await updateDoc(doc(db, 'subjects', subjectId), updates)
+      // Los parciales que pasan de simple a ponderado nacen con calificación y
+      // pesos ocultos, aunque hereden un estado o una suma 10 anteriores.
+      const vis = llavesVisibilidad(subject, entradasAlActivarPonderacion(subject, ALL_PARCIALES, (pp) => map[pp]))
+      await updateDoc(doc(db, 'subjects', subjectId), { ...updates, ...vis.rutas })
+      if (Object.keys(vis.rutas).length) Object.assign(updates, vis.siguiente)
       // On activation weights start at 0 — the teacher types them. Only clear
       // existing weights when going back to simple average.
       if (!next && conPeso.length > 0) {
@@ -4203,7 +4182,9 @@ export default function SubjectPage() {
       ALL_PARCIALES.forEach((pp) => { map[pp] = pp === p ? next : pondParcial(pp) })
       const any = Object.values(map).some(Boolean)
       const updates = { ponderacionParciales: map, ponderacionActivada: any }
-      await updateDoc(doc(db, 'subjects', subjectId), updates)
+      const vis = llavesVisibilidad(subject, entradasAlActivarPonderacion(subject, [p], () => next))
+      await updateDoc(doc(db, 'subjects', subjectId), { ...updates, ...vis.rutas })
+      if (Object.keys(vis.rutas).length) Object.assign(updates, vis.siguiente)
       // On activation weights start at 0 — the teacher types them. Only clear
       // this parcial's weights when going back to simple average.
       if (!next) {
@@ -4258,11 +4239,53 @@ export default function SubjectPage() {
   async function cambiarVisibilidadAlumno(tipo, id) {
     const llave = `${tipo}:${id ?? ''}`
     if (guardandoVisibilidad[llave]) return
-    const ocultar = !estaOculto(subject, tipo, id)
+    // En un parcial CON ponderación el ojo de la calificación decide dos cosas
+    // —su llave `calificacionVisible` y el ojo de siempre—, sin tocar los pesos.
+    const ponderado = tipo === 'promedio' && ponderacionActivaEnParcial(subject, id)
+    const ocultarAhora = ponderado
+      ? !calificacionOcultaAlAlumno(subject, id)
+      : !estaOculto(subject, tipo, id)
     setGuardandoVisibilidad((g) => ({ ...g, [llave]: true }))
     try {
-      await updateDoc(doc(db, 'subjects', subjectId), { [rutaVisibilidad(tipo, id)]: ocultar ? true : deleteField() })
-      setSubject((s) => ({ ...s, calificacionesOcultas: conVisibilidad(s, tipo, id, ocultar) }))
+      if (ponderado) {
+        // Mostrar = permitirla y quitar el ojo; ocultar = solo el ojo (lo que el
+        // docente decidió sobre los pesos no se toca).
+        const cambios = ocultarAhora
+          ? { [rutaVisibilidad('promedio', id)]: true }
+          : { [rutaVisibilidad('promedio', id)]: deleteField(), [`calificacionVisible.${id}`]: true }
+        await updateDoc(doc(db, 'subjects', subjectId), cambios)
+        setSubject((s) => ({
+          ...s,
+          calificacionesOcultas: conVisibilidad(s, 'promedio', id, ocultarAhora),
+          ...(ocultarAhora ? {} : { calificacionVisible: { ...(s.calificacionVisible || {}), [id]: true } }),
+        }))
+      } else {
+        await updateDoc(doc(db, 'subjects', subjectId), { [rutaVisibilidad(tipo, id)]: ocultarAhora ? true : deleteField() })
+        setSubject((s) => ({ ...s, calificacionesOcultas: conVisibilidad(s, tipo, id, ocultarAhora) }))
+      }
+    } catch (err) {
+      toast('Error: ' + err.message, 'error')
+    } finally {
+      setGuardandoVisibilidad((g) => { const resto = { ...g }; delete resto[llave]; return resto })
+    }
+  }
+
+  // Ojo de las ponderaciones de un parcial: escribe SOLO `pesosVisibles[p]`.
+  // Mostrar exige que los pesos estén guardados y sumen 10; ocultar siempre se
+  // puede. Se permite con el parcial cerrado: no altera ninguna calificación.
+  async function cambiarPesosVisibles(p) {
+    const llave = `pesos:${p}`
+    if (guardandoVisibilidad[llave]) return
+    const mostrar = !pesosMostradosAlumno(subject, p)
+    if (mostrar && (Object.keys(pesoEdits).length > 0 ||
+      Math.abs(pesoTotalVivo(activities.filter((a) => a.parcial === p && cuentaParaCalificacion(a))) - 10) > 0.001)) {
+      toast(`Las ponderaciones del Parcial ${p} deben estar guardadas y sumar exactamente 10 para mostrarlas`, 'warning')
+      return
+    }
+    setGuardandoVisibilidad((g) => ({ ...g, [llave]: true }))
+    try {
+      await updateDoc(doc(db, 'subjects', subjectId), { [`pesosVisibles.${p}`]: mostrar })
+      setSubject((s) => ({ ...s, pesosVisibles: { ...(s.pesosVisibles || {}), [p]: mostrar } }))
     } catch (err) {
       toast('Error: ' + err.message, 'error')
     } finally {
@@ -4728,7 +4751,7 @@ export default function SubjectPage() {
   ) : subjectHeaderRightIconsWeb
 
   return (
-    <ContextoAsignatura.Provider value={{ PARCIALES, actTip, activeTab, activities, activityContextMenu, activityExistingFiles, activityLabelById, activityMenu, activityMenuIdx, activityMenuSiblings, activityNewFiles, addDayLabel, addInstructionFiles, addMaterialFiles, addStudent, analisisAsignaturaAbierto, anexarActividadVideo, anyPonderacionOn, applyMoveActivities, applyMoverParcial, applyNewDateResult, applyParcialPonderacion, applyPonderacion, archiveConZip, archiving, atencionParcialConfirm, atencionPestanas, attExportMenu, attSortOn, attSortParcial, attendanceLegend, attendanceLegendObservaciones, attendanceNoClaseDias, attendanceParciales, attendanceParcialesAll, attendanceRecords, attendanceStudentsRosterJsx, attendanceTableJsx, bulkGradeModal, bulkGradeValue, cambiarVisibilidadAlumno, canCreate, clearGradeQuickEdit, closeParcialConfirm, closeParcialGrade, closeParcialSesiones, closingParcial, colIndexByKey, confirmBulkGradeNoEntregadas, confirmCloseParcial, confirmDeleteStudent, confirmExcelImport, confirmImport, confirmIniciarAtencion, confirmResetStudentPassword, confirmRevertParcial, confirmRevertPonderacion, copyFechas, copyForm, copyingSubject, crearActividadIA, crearEvalIA, crearJuegoIA, crearVideoIA, currentUser, deleteConfirm, deleteMaterialConfirm, deleteResourceConfirm, deleteSubjectConfirmText, deleting, deletingMaterial, deletingResource, deletingSubject, doExportParcialAttendance, doExportParcialExcel, doExportParcialPDF, doExportRanking, dragDraftId, dragMatId, dropZoneActive, duplicateConfirm, duplicating, editStudentChanged, editStudentForm, editSubjectChanged, editSubjectForm, editingActivityData, editingMaterial, editingSubject, editorIsPublished, elegirCreacion, entregableEditor, estadoFiltroOpen, evalEditor, excelPreview, expandedMaterialId, exporting, exportingAttendance, exportingGradesPdf, filteredAlumnos, filteredAttendanceStudents, filteredGradeStudents, filtroActivacion, form, generatingCredentials, goToActivityFromGrades, gradeBodyCellBg, gradeBottomIds, gradeHeaderColBg, gradeQuickEdit, gradeSortMenuOpen, gradeSortOn, gradeSortParcial, gradeSubMap, gradeTopIds, groupStudents, groupStudentsLoaded, guardandoVisibilidad, handleAddDayClick, handleAllowRejoin, handleArchiveConfirm, handleCopySubject, handleDeleteActivity, handleDeleteMaterial, handleDeleteResource, handleDeleteStudentPhoto, handleDeleteSubject, handleDraftDrop, handleDuplicateActivity, handleEditSubject, handleExcelFileSelected, handleExport, handleExportAttendance, handleExportGradesPDF, handleGenerateCredentials, handleGradeTableHover, handleGradeTableLeave, handleMaterialDrop, handleSaveActivity, handleSaveMaterial, handleSaveResource, handleUnarchiveConfirm, hideActivity, hideMaterial, importFor, importLoading, importSel, importSrc, importSrcActs, importSubjects, importing, importingExcel, iniciandoAtencion, linkCandidate, loadingAttendance, loadingGrades, loadingResources, materialChanged, materialExistingFiles, materialForm, materialModalMode, materialNewFiles, materialParcial, materials, membrete, menuPaso, modalMode, modalParcial, moveConfirm, moverParcial, moving, nativeAttBar, navigate, newDateOpen, newStudent, openActivityContextMenu, openAdd, openAddMaterial, openAddResource, openEdit, openEditMaterial, openEditResource, openEditStudent, openGradeQuickEdit, openImport, openNewDateForEditor, openParcial, parcialMenu, parcialesConActividades, parcialesVistos, parsingExcel, pesoEdits, pesoRestante, pesoTotalVivo, pickImportSubject, pondParcial, previewActividad, previewResourceId, publishDraftConfirm, publishDraftNow, rankingExportMenu, removeInstructionFile, requestCloseParcial, requestDeleteFromEdit, requestMoveActivity, requestMoverParcial, requestResetFromEdit, resetPwdResult, resolveLinkCandidate, resourceChanged, resourceForm, resourceModalMode, resources, resourcesLoaded, revertCloseParcial, revertParcialConfirm, revertingParcial, saveEditStudent, saveGradeQuickEdit, savePeso, saving, savingBulkGrade, savingMaterial, savingQuickGrade, savingResource, savingStudent, searchAlumnos, searchAttendance, searchGrade, setActTip, setActivities, setActivityContextMenu, setActivityMenu, setAnalisisAsignaturaAbierto, setArchiveConZip, setAtencionParcialConfirm, setAttExportMenu, setAttSortOn, setAttSortParcial, setBulkGradeModal, setBulkGradeValue, setCloseParcialConfirm, setCloseParcialGrade, setCloseParcialSesiones, setConfirmRevertParcial, setConfirmRevertPonderacion, setCopyFechas, setCopyForm, setCrearActividadIA, setCrearEvalIA, setCrearJuegoIA, setCrearVideoIA, setDeleteConfirm, setDeleteMaterialConfirm, setDeleteResourceConfirm, setDeleteSubjectConfirmText, setDragDraftId, setDragMatId, setDropZoneActive, setDuplicateConfirm, setEditStudentForm, setEditSubjectForm, setEntregableEditor, setEstadoFiltroOpen, setEvalEditor, setExcelPreview, setExpandedMaterialId, setFiltroActivacion, setForm, setGradeQuickEdit, setGradeSortMenuOpen, setGradeSortOn, setGradeSortParcial, setImportFor, setImportSel, setImportSrc, setImportSrcActs, setLinkCandidate, setMaterialExistingFiles, setMaterialForm, setMaterialNewFiles, setMenuPaso, setMoveConfirm, setMoverParcial, setNewDateOpen, setNewStudent, setOpenParcial, setParcialMenu, setPesoEdits, setPreviewResourceId, setPublishDraftConfirm, setRankingExportMenu, setResetPwdResult, setResourceFile, setResourceForm, setRevertParcialConfirm, setSearchAlumnos, setSearchAttendance, setSearchGrade, setShowAddStudent, setShowAllParciales, setShowArchiveModal, setShowCopyModal, setShowCredentialsModal, setShowDeleteSubjectConfirm, setShowEditSubjectModal, setShowMaterialModal, setShowModal, setShowResourceModal, setShowUnarchiveModal, setSoloCalificables, setStudentToDelete, setStudentToEdit, setStudentToReset, setSubmissionCounts, setTipoActividad, setUnarchiveActivities, setUnarchiveEdits, setUnarchiveStudents, showActivityNow, showAddStudent, showAllParciales, showArchiveModal, showCopyModal, showCredentialsModal, showDeleteSubjectConfirm, showEditSubjectModal, showFinalCol, showMaterialModal, showMaterialNow, showModal, showResourceModal, showUnarchiveModal, soloCalificables, sortStudentsAlphabetically, sortedGradeRows, studentLastAccess, studentToDelete, studentToEdit, studentToReset, subject, subjectId, submissionCounts, tableParcials, telefonoWeb, tipoActividad, toggleImportLinkDecision, toggleImportSel, toggleMostrarAsistenciasEstudiantes, toggleNotificarActivacion, toggleParcialPonderacion, toggleParcialVisibility, togglePonderacion, tomarListaMovil, tomarListaMovilBar, tomarListaScrollRef, totalStudents, unarchiveActivities, unarchiveEdits, unarchiveStudents, unarchivedSaving, visibleParcials, zipDownloading, zipProgress }}>
+    <ContextoAsignatura.Provider value={{ PARCIALES, actTip, activeTab, activities, activityContextMenu, activityExistingFiles, activityLabelById, activityMenu, activityMenuIdx, activityMenuSiblings, activityNewFiles, addDayLabel, addInstructionFiles, addMaterialFiles, addStudent, analisisAsignaturaAbierto, anexarActividadVideo, anyPonderacionOn, applyMoveActivities, applyMoverParcial, applyNewDateResult, applyParcialPonderacion, applyPonderacion, archiveConZip, archiving, atencionPestanas, attExportMenu, attSortOn, attSortParcial, attendanceLegend, attendanceLegendObservaciones, attendanceNoClaseDias, attendanceParciales, attendanceParcialesAll, attendanceRecords, attendanceStudentsRosterJsx, attendanceTableJsx, bulkGradeModal, bulkGradeValue, cambiarPesosVisibles, cambiarVisibilidadAlumno, canCreate, clearGradeQuickEdit, closeParcialConfirm, closeParcialGrade, closeParcialSesiones, closingParcial, colIndexByKey, confirmBulkGradeNoEntregadas, confirmCloseParcial, confirmDeleteStudent, confirmExcelImport, confirmImport, confirmResetStudentPassword, confirmRevertParcial, confirmRevertPonderacion, copyFechas, copyForm, copyingSubject, crearActividadIA, crearEvalIA, crearJuegoIA, crearVideoIA, currentUser, deleteConfirm, deleteMaterialConfirm, deleteResourceConfirm, deleteSubjectConfirmText, deleting, deletingMaterial, deletingResource, deletingSubject, doExportParcialAttendance, doExportParcialExcel, doExportParcialPDF, doExportRanking, dragDraftId, dragMatId, dropZoneActive, duplicateConfirm, duplicating, editStudentChanged, editStudentForm, editSubjectChanged, editSubjectForm, editingActivityData, editingMaterial, editingSubject, editorIsPublished, elegirCreacion, entregableEditor, estadoFiltroOpen, evalEditor, excelPreview, expandedMaterialId, exporting, exportingAttendance, exportingGradesPdf, filteredAlumnos, filteredAttendanceStudents, filteredGradeStudents, filtroActivacion, form, generatingCredentials, goToActivityFromGrades, gradeBodyCellBg, gradeBottomIds, gradeHeaderColBg, gradeQuickEdit, gradeSortMenuOpen, gradeSortOn, gradeSortParcial, gradeSubMap, gradeTopIds, groupStudents, groupStudentsLoaded, guardandoVisibilidad, handleAddDayClick, handleAllowRejoin, handleArchiveConfirm, handleCopySubject, handleDeleteActivity, handleDeleteMaterial, handleDeleteResource, handleDeleteStudentPhoto, handleDeleteSubject, handleDraftDrop, handleDuplicateActivity, handleEditSubject, handleExcelFileSelected, handleExport, handleExportAttendance, handleExportGradesPDF, handleGenerateCredentials, handleGradeTableHover, handleGradeTableLeave, handleMaterialDrop, handleSaveActivity, handleSaveMaterial, handleSaveResource, handleUnarchiveConfirm, hideActivity, hideMaterial, importFor, importLoading, importSel, importSrc, importSrcActs, importSubjects, importing, importingExcel, linkCandidate, loadingAttendance, loadingGrades, loadingResources, materialChanged, materialExistingFiles, materialForm, materialModalMode, materialNewFiles, materialParcial, materials, membrete, menuPaso, modalMode, modalParcial, moveConfirm, moverParcial, moving, nativeAttBar, navigate, newDateOpen, newStudent, openActivityContextMenu, openAdd, openAddMaterial, openAddResource, openEdit, openEditMaterial, openEditResource, openEditStudent, openGradeQuickEdit, openImport, openNewDateForEditor, openParcial, parcialMenu, parcialesConActividades, parcialesVistos, parsingExcel, pesoEdits, pesoRestante, pesoTotalVivo, pickImportSubject, pondParcial, previewActividad, previewResourceId, publishDraftConfirm, publishDraftNow, rankingExportMenu, removeInstructionFile, requestCloseParcial, requestDeleteFromEdit, requestMoveActivity, requestMoverParcial, requestResetFromEdit, resetPwdResult, resolveLinkCandidate, resourceChanged, resourceForm, resourceModalMode, resources, resourcesLoaded, revertCloseParcial, revertParcialConfirm, revertingParcial, saveEditStudent, saveGradeQuickEdit, savePeso, saving, savingBulkGrade, savingMaterial, savingQuickGrade, savingResource, savingStudent, searchAlumnos, searchAttendance, searchGrade, setActTip, setActivities, setActivityContextMenu, setActivityMenu, setAnalisisAsignaturaAbierto, setArchiveConZip, setAttExportMenu, setAttSortOn, setAttSortParcial, setBulkGradeModal, setBulkGradeValue, setCloseParcialConfirm, setCloseParcialGrade, setCloseParcialSesiones, setConfirmRevertParcial, setConfirmRevertPonderacion, setCopyFechas, setCopyForm, setCrearActividadIA, setCrearEvalIA, setCrearJuegoIA, setCrearVideoIA, setDeleteConfirm, setDeleteMaterialConfirm, setDeleteResourceConfirm, setDeleteSubjectConfirmText, setDragDraftId, setDragMatId, setDropZoneActive, setDuplicateConfirm, setEditStudentForm, setEditSubjectForm, setEntregableEditor, setEstadoFiltroOpen, setEvalEditor, setExcelPreview, setExpandedMaterialId, setFiltroActivacion, setForm, setGradeQuickEdit, setGradeSortMenuOpen, setGradeSortOn, setGradeSortParcial, setImportFor, setImportSel, setImportSrc, setImportSrcActs, setLinkCandidate, setMaterialExistingFiles, setMaterialForm, setMaterialNewFiles, setMenuPaso, setMoveConfirm, setMoverParcial, setNewDateOpen, setNewStudent, setOpenParcial, setParcialMenu, setPesoEdits, setPreviewResourceId, setPublishDraftConfirm, setRankingExportMenu, setResetPwdResult, setResourceFile, setResourceForm, setRevertParcialConfirm, setSearchAlumnos, setSearchAttendance, setSearchGrade, setShowAddStudent, setShowAllParciales, setShowArchiveModal, setShowCopyModal, setShowCredentialsModal, setShowDeleteSubjectConfirm, setShowEditSubjectModal, setShowMaterialModal, setShowModal, setShowResourceModal, setShowUnarchiveModal, setSoloCalificables, setStudentToDelete, setStudentToEdit, setStudentToReset, setSubmissionCounts, setTipoActividad, setUnarchiveActivities, setUnarchiveEdits, setUnarchiveStudents, showActivityNow, showAddStudent, showAllParciales, showArchiveModal, showCopyModal, showCredentialsModal, showDeleteSubjectConfirm, showEditSubjectModal, showFinalCol, showMaterialModal, showMaterialNow, showModal, showResourceModal, showUnarchiveModal, soloCalificables, sortStudentsAlphabetically, sortedGradeRows, studentLastAccess, studentToDelete, studentToEdit, studentToReset, subject, subjectId, submissionCounts, tableParcials, telefonoWeb, tipoActividad, toggleImportLinkDecision, toggleImportSel, toggleMostrarAsistenciasEstudiantes, toggleNotificarActivacion, toggleParcialPonderacion, toggleParcialVisibility, togglePonderacion, tomarListaMovil, tomarListaMovilBar, tomarListaScrollRef, totalStudents, unarchiveActivities, unarchiveEdits, unarchiveStudents, unarchivedSaving, visibleParcials, zipDownloading, zipProgress }}>
     <>
       <div {...subjectPaletteProps(subject?.colorPalette)}>
 

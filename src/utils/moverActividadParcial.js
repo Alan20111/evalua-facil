@@ -15,7 +15,7 @@
 //
 // `pesoCalificacion`, `fechaLimite`, la rúbrica y el resto se conservan tal cual.
 import { cuentaParaCalificacion, isDraftActivity } from './activityVisibility.js'
-import { estadoParcial, ponderacionActivaEnParcial, pesoDe } from './ponderacion.js'
+import { estadoParcial, ponderacionActivaEnParcial, pesoDe, calificacionMostradaAlumno } from './ponderacion.js'
 
 const porOrden = (x, y) => (x.orden ?? 0) - (y.orden ?? 0)
 
@@ -40,7 +40,7 @@ export function parcialesDestino(subject, actividad) {
 export function motivoNoSePuedeMover(subject, actividad) {
   if (!actividad) return 'Actividad no disponible'
   if (estadoParcial(subject, actividad.parcial) === 'cerrado') {
-    return `El Parcial ${actividad.parcial} está cerrado definitivamente — reábrelo para atención de inquietudes para mover esta actividad`
+    return `El Parcial ${actividad.parcial} está cerrado definitivamente — reábrelo para mover esta actividad`
   }
   if (parcialesDestino(subject, actividad).length > 0) return null
   return (Number(subject?.parciales) || 3) <= 1
@@ -60,7 +60,7 @@ function etiquetas(lista, parcial) {
 //   ordenesOrigen  → { id: orden } de las hermanas del parcial de origen que se renumeran a 1..n
 //                    (al crear, `orden` sale de «cuántas hay + 1»: un hueco duplicaría un orden).
 //   renumeradas    → las que cambian de número visible en el origen (solo si la movida lo tenía).
-//   avisos         → { atencionOrigen, peso } para la confirmación.
+//   avisos         → { resultadosVisiblesOrigen, peso } para la confirmación.
 export function planMoverActividad({ subject, activities, actividad, destino }) {
   const origen = actividad.parcial
   const hermanasOrigen = activities.filter((x) => x.parcial === origen).sort(porOrden)
@@ -90,8 +90,9 @@ export function planMoverActividad({ subject, activities, actividad, destino }) 
     renumeradas,
     yaEraBorrador: isDraftActivity(actividad),
     avisos: {
-      // Los estudiantes ya ven los resultados de un parcial en atención de inquietudes.
-      atencionOrigen: cuentaHoy && estadoParcial(subject, origen) === 'atencion',
+      // Los estudiantes ya ven la calificación ponderada del parcial de origen:
+      // cambiará al quitar la actividad.
+      resultadosVisiblesOrigen: cuentaHoy && ponderaOrigen && calificacionMostradaAlumno(subject, origen),
       peso: conPeso ? pesoDe(actividad) : null,
       // Dónde el peso tiene efecto: solo en los parciales con ponderación activa.
       pesoEnOrigen: conPeso && ponderaOrigen,

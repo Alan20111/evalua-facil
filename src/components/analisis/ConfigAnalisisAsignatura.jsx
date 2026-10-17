@@ -16,7 +16,7 @@ const DESCRIPCION_FUENTE = {
   sinEntrega: 'Actividades vencidas que los estudiantes no realizaron.',
 }
 
-const ESTADO_PARCIAL = { atencion: 'atención de inquietudes', cerrado: 'cerrado' }
+const ESTADO_PARCIAL = { cerrado: 'cerrado' }
 
 // Configuración del análisis integral: parciales y fuentes. No ejecuta nada ni
 // cobra: solo arma la selección y muestra su costo. `preparacion` viene del

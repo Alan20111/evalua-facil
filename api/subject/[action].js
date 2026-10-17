@@ -383,7 +383,7 @@ async function handleContent(req, res) {
   if (!isAlumno || tipo !== 'activities') return res.status(200).json({ ok: true, docs })
 
   // Alumno: los pesos de un parcial ponderado solo viajan cuando el docente ya
-  // publicó su resultado (atención de inquietudes o cierre). Protegerlo aquí,
+  // mostró sus pesos (pesosVisibles, o el estado del parcial si no hay decisión). Protegerlo aquí,
   // y no solo en React, es lo que impide reconstruir la calificación ponderada
   // desde la respuesta de red.
   const subjSnaps = await db.getAll(...subjectIds.map((sid) => db.collection('subjects').doc(sid)))

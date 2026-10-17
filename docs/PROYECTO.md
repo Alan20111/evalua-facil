@@ -96,7 +96,7 @@ students              UNA POR INSCRIPCIÓN          username, escuelaId, asignat
                                                    uid, activado, createdAt, activadoAt
 subjects              asignaturas del docente      docenteId, accessCode, parciales,
                                                    parcialesFechas, parcialesOcultos,
-                                                   parcialesCerrados, parcialesAtencion,
+                                                   parcialesCerrados, parcialesAtencion, pesosVisibles, calificacionVisible,
                                                    ponderacionParciales,
                                                    archived, colorPalette, icon
 activities            actividades                  tipo, categoria, parcial, orden,
@@ -190,23 +190,56 @@ ponderada. **Cerrar un parcial** (`parcialesCerrados`) congela sus
 calificaciones y pone 0 a quien no entregó; se puede revertir.
 
 **Estados del parcial** (`estadoParcial` en `src/utils/ponderacion.js`, la
-única fuente de verdad): **abierto** → **atención de inquietudes**
-(`parcialesAtencion[p]`, la pone el docente con "Iniciar atención de
-inquietudes" y nunca se borra) → **cerrado** (`parcialesCerrados[p]`). La
-atención es opcional (abierto → cerrado directo) y reabrir un cerrado lo
-regresa a atención, nunca a abierto.
+única fuente de verdad): **abierto** → **cerrado** (`parcialesCerrados[p]`).
+Reabrir un cerrado lo deja en `parcialesAtencion[p]` (las reglas de
+`firestore.rules` exigen esa llave al quitar el cierre y nunca se borra);
+funciona igual que un parcial abierto y en pantalla se llama "Abierto". Ya no
+hay botón "Iniciar atención de inquietudes": ese estado no es una acción del
+docente.
 
-Un parcial **ponderado** (activado, aunque los pesos no sumen 10) no publica
-al estudiante ni sus pesos ni su calificación mientras está abierto: ve "—"
-con la ayuda "Ponderación pendiente", también en el promedio de su Dashboard.
-Publica en atención o cerrado, y solo con los pesos sumando exactamente 10
-(`resultadoPublicadoAlumno`); iniciar la atención exige lo mismo. El docente
-ve el cálculo tentativo siempre. `/api/subject/content` no le manda al
-alumno `pesoCalificacion` de un parcial sin publicar. Un parcial simple
-publica siempre. `ponderacionVisibleAlumnos` (el ojo global) ya no se usa.
+**Qué ve el estudiante de un parcial ponderado** (activado, aunque los pesos no
+sumen 10) lo deciden DOS ojos del docente, independientes entre sí y del
+estado del parcial:
+
+- **Calificación del parcial** → `subjects.calificacionVisible[p]` (boolean) y el
+  ojo de siempre `calificacionesOcultas.promedios[p]`. En la fila "Visible al
+  alumno", columna "Prom." del parcial. Un parcial simple no usa la llave:
+  publica siempre y solo lo oculta el ojo de siempre.
+- **Ponderaciones** → `subjects.pesosVisibles[p]` (boolean). En la fila
+  PONDERACIÓN, junto al total del parcial. Solo existe en parciales ponderados.
+
+Mostrar cualquiera de los dos exige que los pesos sumen exactamente 10;
+ocultar siempre se puede, también con el parcial cerrado (no altera ninguna
+nota; `firestore.rules` no cambió). Mostrar la calificación con los pesos
+ocultos es válido: `/api/student/mis-entregas` la calcula con los pesos
+reales y marca `soloServidor`, y la pantalla del alumno usa ese número (no
+tiene los pesos y calcularía una media simple). Pesos visibles con la
+calificación oculta permiten deducirla: el ojo avisa.
+
+**Llave ausente = la regla de siempre** (datos anteriores a estos ojos): visible
+si el parcial ya no está abierto (`pesosMostradosAlumno` y
+`calificacionMostradaAlumno`). No se lee ninguna fecha y no hubo migración. Para
+que ninguna transición publique algo por sí sola, el código **escribe la llave
+explícita en la misma operación**: al activar la ponderación en un parcial que
+era simple (nace oculto aunque venga de un parcial publicado o sume 10) y al
+cerrar un parcial ponderado que sigue abierto (`entradasAlActivarPonderacion`,
+`entradasAlCerrar`). Reabrir, desarchivar y borrar no cambian lo que ve el
+estudiante.
+
+**Riesgo aceptado:** una pestaña ANTIGUA (cargada antes de este cambio) que cierre
+un parcial ponderado abierto no escribe las llaves, y el parcial quedaría
+visible por la regla heredada. Lo corrige el docente con un clic en el ojo;
+`UpdateChecker` (cada 10 min y al volver a la pestaña) avisa "Hay una versión
+nueva… Recarga" pero no obliga a recargar. Queda fijado en una prueba de
+`test/unidad.test.mjs` («pestaña antigua…»).
+
+El docente ve el cálculo tentativo siempre. `/api/subject/content` no le manda
+al alumno `pesoCalificacion` de un parcial con los pesos ocultos
+(`ocultarPesosNoPublicados`). `ponderacionVisibleAlumnos` (el ojo global) ya no
+se usa.
 
 **Cerrado definitivamente = resultado congelado** (`parcialCerrado`). Solo ese
-estado congela; abierto y atención trabajan y corrigen normal. Con el parcial
+estado congela; abierto y reabierto trabajan y corrigen normal. Con el parcial
 cerrado no cambian calificaciones, puntos de reactivos, pesos, ponderación, ni
 qué actividades cuentan (crear, borrar, publicar o regresar a borrador, "sin
 calificación", escala, rúbrica); el estudiante no entrega ni abre intentos. Sí

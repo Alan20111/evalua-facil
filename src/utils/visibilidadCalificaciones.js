@@ -25,6 +25,8 @@
 // Módulo PURO (sin Firebase ni React): lo importan la tabla del docente y,
 // más adelante, el servidor.
 
+import { ponderacionActivaEnParcial, calificacionMostradaAlumno } from './ponderacion.js'
+
 export const CAMPO_OCULTAS = 'calificacionesOcultas'
 
 const esMapa = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
@@ -47,6 +49,14 @@ export const actividadOculta = (subject, actividadId) =>
 
 export const promedioOculto = (subject, parcial) =>
   leerOcultas(subject).promedios[String(parcial)] === true
+
+// Lo que el docente ve en el ojo de la calificación de un parcial: oculta si el
+// ojo de siempre la oculta o, en un parcial CON ponderación, si su control
+// `calificacionVisible` todavía no la muestra (ponderacion.js). Los pesos no
+// intervienen.
+export const calificacionOcultaAlAlumno = (subject, parcial) =>
+  promedioOculto(subject, parcial) ||
+  (ponderacionActivaEnParcial(subject, parcial) && !calificacionMostradaAlumno(subject, parcial))
 
 export const finalOculto = (subject) => leerOcultas(subject).final
 
