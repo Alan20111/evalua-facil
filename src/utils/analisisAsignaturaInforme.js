@@ -51,7 +51,7 @@ export function textoFuentes(fuentes) {
   return (fuentes || []).map(etiquetaFuente).join(', ')
 }
 
-const ESTADO_PARCIAL = { abierto: 'Abierto', atencion: 'Atención de inquietudes', cerrado: 'Cerrado' }
+const ESTADO_PARCIAL = { abierto: 'Abierto', atencion: 'Abierto', cerrado: 'Cerrado' }
 const num = (v) => (v == null ? '—' : String(v))
 const lista = (items, vacio) => (items?.length ? { tipo: 'lista', items } : { tipo: 'nota', texto: vacio })
 

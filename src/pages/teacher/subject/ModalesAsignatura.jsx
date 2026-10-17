@@ -2,7 +2,7 @@
 // dividir sin cambio visual). Recibe lo que usa del componente principal por
 // el contexto Asignatura.
 import { useId } from 'react'
-import { AlertTriangle, Archive, ArrowDown, ArrowLeft, ArrowRightLeft, ArrowUp, ArrowUpDown, Check as CheckIcon, ChevronRight, ClipboardCheck, Copy, Download, Eye, FileText, Gamepad2, GraduationCap, KeyRound, ListChecks, Lock, LogIn, MessageCircleQuestion, Paperclip, Pencil, Plus, RotateCcw, Sparkles, Trash2, Upload, UserPlus, X } from 'lucide-react'
+import { AlertTriangle, Archive, ArrowDown, ArrowLeft, ArrowRightLeft, ArrowUp, ArrowUpDown, Check as CheckIcon, ChevronRight, ClipboardCheck, Copy, Download, Eye, FileText, Gamepad2, GraduationCap, KeyRound, ListChecks, Lock, LogIn, Paperclip, Pencil, Plus, RotateCcw, Sparkles, Trash2, Upload, UserPlus, X } from 'lucide-react'
 import { Button, Checkbox, IconButton, IconTile, Input, Modal, MotivoApagado, PanelFlotante, Radio, SkeletonList } from '../../../components/ui'
 import EFDateTimePicker from '../../../components/EFDateTimePicker'
 import FileDropzone from '../../../components/FileDropzone'
@@ -18,7 +18,7 @@ import Select from '../../../components/ui/Select'
 import Spinner from '../../../components/Spinner'
 import SubjectIcon from '../../../components/SubjectIcon'
 import VisibilitySelect from '../../../components/VisibilitySelect'
-import { cuentaParaCalificacion, isDraftActivity } from '../../../utils/activityVisibility'
+import { isDraftActivity } from '../../../utils/activityVisibility'
 import { esCopiable } from '../../../utils/copiaActividad'
 import { motivoNoSePuedeMover, parcialesDestino, planMoverActividad } from '../../../utils/moverActividadParcial'
 import { estadoParcial, ponderacionActivaEnParcial } from '../../../utils/ponderacion'
@@ -78,7 +78,7 @@ function ModalMoverParcial() {
         {destinos.map((d) => (
           <Radio key={d.parcial} name="parcialDestino" value={d.parcial} checked={destino === d.parcial}
             onChange={() => setMoverParcial({ ...moverParcial, destino: d.parcial })} disabled={moving}
-            label={`Parcial ${d.parcial}`} hint={d.estado === 'atencion' ? 'En atención de inquietudes' : undefined} />
+            label={`Parcial ${d.parcial}`} />
         ))}
       </div>
       {plan && (
@@ -104,10 +104,10 @@ function ModalMoverParcial() {
               </ul>
             </>
           )}
-          {plan.avisos.atencionOrigen && (
+          {plan.avisos.resultadosVisiblesOrigen && (
             <p className="text-sm text-amber-700 bg-amber-50 rounded px-2 py-1.5 flex gap-1.5">
               <AlertTriangle size={ICONO.xs} className="flex-shrink-0 mt-0.5" />
-              <span>El Parcial {a.parcial} está en atención de inquietudes: tus estudiantes ya ven sus resultados y cambiarán al quitar esta actividad.</span>
+              <span>Tus estudiantes ya ven la calificación del Parcial {a.parcial} y cambiará al quitar esta actividad.</span>
             </p>
           )}
           {plan.avisos.peso != null && (
@@ -154,7 +154,6 @@ export default function ModalesAsignatura() {
     applyPonderacion,
     archiveConZip,
     archiving,
-    atencionParcialConfirm,
     bulkGradeModal,
     bulkGradeValue,
     clearGradeQuickEdit,
@@ -167,7 +166,6 @@ export default function ModalesAsignatura() {
     confirmDeleteStudent,
     confirmExcelImport,
     confirmImport,
-    confirmIniciarAtencion,
     confirmResetStudentPassword,
     confirmRevertParcial,
     confirmRevertPonderacion,
@@ -218,7 +216,6 @@ export default function ModalesAsignatura() {
     importSubjects,
     importing,
     importingExcel,
-    iniciandoAtencion,
     linkCandidate,
     materialChanged,
     materialExistingFiles,
@@ -265,7 +262,6 @@ export default function ModalesAsignatura() {
     setActivityContextMenu,
     setActivityMenu,
     setArchiveConZip,
-    setAtencionParcialConfirm,
     setBulkGradeModal,
     setBulkGradeValue,
     setCloseParcialConfirm,
@@ -1268,37 +1264,22 @@ export default function ModalesAsignatura() {
           <PanelFlotante punto={{ x: parcialMenu.x, y: parcialMenu.y }} align="end" onCerrar={() => setParcialMenu(null)} label={`Opciones del Parcial ${parcialMenu.p}`} className="w-52">
             <div className="px-3 py-2 text-xs font-semibold text-muted border-b border-outline-variant">Parcial {parcialMenu.p}</div>
             {/* Acciones según el estado del parcial (estadoParcial en utils/ponderacion.js):
-                abierto  → Iniciar atención de inquietudes · Cerrar definitivamente
-                atención → Cerrar definitivamente
-                cerrado  → Reabrir para atención de inquietudes */}
+                abierto / reabierto → Cerrar definitivamente
+                cerrado             → Reabrir parcial
+                Qué ve el estudiante no depende de aquí: lo deciden los ojos de la tabla. */}
             {estadoParcial(subject, parcialMenu.p) === 'cerrado' ? (
               <button type="button"
                 onClick={() => { const p = parcialMenu.p; setParcialMenu(null); setRevertParcialConfirm(p) }}
                 className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left rounded-card">
-                <RotateCcw size={ICONO.sm} className="text-amber-600 flex-shrink-0" /> Reabrir para atención de inquietudes
+                <RotateCcw size={ICONO.sm} className="text-amber-600 flex-shrink-0" /> Reabrir parcial
               </button>
             ) : (() => {
               const p = parcialMenu.p
               const pondOn = ponderacionActivaEnParcial(subject, p)
               const total = pondOn ? pesoTotalVivo(activities.filter((a) => a.parcial === p && !isDraftActivity(a))) : 10
               const sumOk = !pondOn || Math.abs(total - 10) <= 0.001
-              // Mismo conjunto que usa la publicación al estudiante: solo lo que
-              // cuenta para calificación (actividadesQueCuentan).
-              const totalAtencion = pondOn ? pesoTotalVivo(activities.filter((a) => a.parcial === p && cuentaParaCalificacion(a))) : 10
-              const atencionOk = !pondOn || Math.abs(totalAtencion - 10) <= 0.001
               return (
                 <>
-                  {estadoParcial(subject, p) === 'abierto' && (
-                    <button type="button"
-                      aria-disabled={!atencionOk}
-                      onClick={() => { if (!atencionOk) return; setParcialMenu(null); setAtencionParcialConfirm(p) }}
-                      data-tooltip={!atencionOk ? `La ponderación del Parcial ${p} suma ${totalAtencion} de 10 — debe sumar exactamente 10 para iniciar la atención de inquietudes` : undefined}
-                      className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm transition-colors text-left rounded-card ${atencionOk ? 'text-on-surface hover:bg-[var(--accent-tint)]' : 'text-hint cursor-not-allowed'}`}>
-                      <MessageCircleQuestion size={ICONO.sm} className={`flex-shrink-0 ${atencionOk ? 'text-accent' : 'text-hint'}`} />
-                      <span className="flex-1">Iniciar atención de inquietudes</span>
-                      {!atencionOk && <span className="text-[10px] font-semibold text-amber-600">{totalAtencion}/10</span>}
-                    </button>
-                  )}
                   <button type="button"
                     onClick={() => { setParcialMenu(null); requestCloseParcial(p) }}
                     data-tooltip={!sumOk ? `La ponderación del Parcial ${p} suma ${total} de 10 — ajústala hasta llegar a 10 para poder cerrar` : undefined}
@@ -1444,12 +1425,12 @@ export default function ModalesAsignatura() {
           </Modal>
       )}
 
-      {/* ── Reabrir el parcial: vuelve a atención de inquietudes y borra las calificaciones del cierre ── */}
+      {/* ── Reabrir el parcial: queda abierto de nuevo y borra las calificaciones del cierre ── */}
       {revertParcialConfirm != null && (
         <Modal open onClose={() => setRevertParcialConfirm(null)} variant="sheet" z={40} padding="p-4" busy={revertingParcial}>
-            <h3 className="text-lg font-bold text-center text-on-surface">¿Reabrir el Parcial {revertParcialConfirm} para atención de inquietudes?</h3>
+            <h3 className="text-lg font-bold text-center text-on-surface">¿Reabrir el Parcial {revertParcialConfirm}?</h3>
             <p className="text-sm text-muted text-center mt-2">
-              Tus estudiantes siguen viendo su resultado y podrás corregir calificaciones. Las calificaciones que se pusieron al cerrar se eliminarán: esas no entregas volverán a quedar <strong>solo sin entrega</strong>, como antes de cerrar. Las calificaciones que pusiste a mano no se tocan.
+              Lo que tus estudiantes ven no cambia y podrás corregir calificaciones. Las calificaciones que se pusieron al cerrar se eliminarán: esas no entregas volverán a quedar <strong>solo sin entrega</strong>, como antes de cerrar. Las calificaciones que pusiste a mano no se tocan.
             </p>
             <div className="flex gap-2 mt-4">
               <Button variant="secondary" onClick={() => setRevertParcialConfirm(null)} disabled={revertingParcial} className="flex-1">
@@ -1457,27 +1438,6 @@ export default function ModalesAsignatura() {
               </Button>
               <Button className="flex-1" onClick={revertCloseParcial} disabled={revertingParcial}>
                 {revertingParcial ? 'Reabriendo…' : 'Reabrir'}
-              </Button>
-            </div>
-          </Modal>
-      )}
-
-      {/* ── Iniciar atención de inquietudes: publica el resultado del parcial ── */}
-      {atencionParcialConfirm != null && (
-        <Modal open onClose={() => setAtencionParcialConfirm(null)} variant="sheet" z={40} padding="p-4" busy={iniciandoAtencion}>
-            <h3 className="text-lg font-bold text-center text-on-surface">¿Iniciar la atención de inquietudes del Parcial {atencionParcialConfirm}?</h3>
-            <p className="text-sm text-muted text-center mt-2">
-              {ponderacionActivaEnParcial(subject, atencionParcialConfirm)
-                ? <>Tus estudiantes podrán ver <strong>los pesos de las actividades y su calificación ponderada</strong> del parcial para revisarla. Una vez publicada ya no vuelve a ocultarse.</>
-                : <>El parcial pasa a atención de inquietudes.</>}
-              {' '}Podrás seguir corrigiendo calificaciones y después cerrarlo definitivamente.
-            </p>
-            <div className="flex gap-2 mt-4">
-              <Button variant="secondary" onClick={() => setAtencionParcialConfirm(null)} disabled={iniciandoAtencion} className="flex-1">
-                Cancelar
-              </Button>
-              <Button className="flex-1" onClick={confirmIniciarAtencion} disabled={iniciandoAtencion}>
-                {iniciandoAtencion ? 'Iniciando…' : 'Iniciar atención'}
               </Button>
             </div>
           </Modal>

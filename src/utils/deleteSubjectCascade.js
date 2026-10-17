@@ -81,7 +81,7 @@ async function deleteSubjectResourcesAndFiles(subjectId) {
 // Un parcial CERRADO DEFINITIVAMENTE no deja borrar sus calificaciones ni sus
 // actividades (firestore.rules). Las dos operaciones administrativas que sí
 // deben poder hacerlo —eliminar la asignatura y "empezar de cero" al
-// desarchivar— primero pasan cada parcial cerrado a atención de inquietudes:
+// desarchivar— primero pasan cada parcial cerrado a «reabierto» (parcialesAtencion):
 // la misma transición que "Reabrir" (cerrado → atención, una sola escritura).
 async function liberarParcialesCerrados(subjectId) {
   const snap = await getDoc(doc(db, 'subjects', subjectId))

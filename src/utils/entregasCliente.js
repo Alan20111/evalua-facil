@@ -21,19 +21,21 @@ export const notaEstaOculta = (sub) => sub?.notaOculta === true
  * Promedio de UN parcial tal como se le muestra al estudiante.
  *
  * @param {string|null} valorLocal  lo que calculó la pantalla con sus propias notas (ya con 1 decimal)
- * @param {{valor: number|null, oculto: boolean, conOcultas: boolean}|undefined} servidor
+ * @param {{valor: number|null, oculto: boolean, conOcultas: boolean, soloServidor?: boolean}|undefined} servidor
  *   bloque `promedios[asignatura].parciales[p]` del servidor
  * @returns {{valor: string|null, oculto: boolean}}
  *   · sin bloque del servidor → el local, como hoy;
  *   · el docente ocultó este promedio → `oculto` y sin número;
  *   · hay notas ocultas dentro del parcial → el del servidor (el local saldría
  *     mal: al estudiante le falta esa nota);
+ *   · ponderado con la calificación visible y los pesos ocultos → el del servidor
+ *     (la pantalla no tiene los pesos y calcularía una media simple);
  *   · si no, el local.
  */
 export function promedioParcialVisible(valorLocal, servidor) {
   if (!servidor) return { valor: valorLocal, oculto: false }
   if (servidor.oculto) return { valor: null, oculto: true }
-  if (servidor.conOcultas) return { valor: servidor.valor == null ? null : servidor.valor.toFixed(1), oculto: false }
+  if (servidor.conOcultas || servidor.soloServidor) return { valor: servidor.valor == null ? null : servidor.valor.toFixed(1), oculto: false }
   return { valor: valorLocal, oculto: false }
 }
 
@@ -43,13 +45,13 @@ export function promedioParcialVisible(valorLocal, servidor) {
  * sin publicar) que ya calculaba la pantalla.
  *
  * @param {{valor: string|null, pendiente: boolean}} local
- * @param {{valor: number|null, pendiente: boolean, oculto: boolean, conOcultas: boolean}|undefined} servidor
+ * @param {{valor: number|null, pendiente: boolean, oculto: boolean, conOcultas: boolean, soloServidor?: boolean}|undefined} servidor
  * @returns {{valor: string|null, pendiente: boolean, oculto: boolean}}
  */
 export function promedioFinalVisible(local, servidor) {
   if (!servidor) return { valor: local.valor, pendiente: local.pendiente, oculto: false }
   if (servidor.oculto) return { valor: null, pendiente: false, oculto: true }
-  if (servidor.conOcultas) {
+  if (servidor.conOcultas || servidor.soloServidor) {
     return { valor: servidor.valor == null ? null : servidor.valor.toFixed(1), pendiente: !!servidor.pendiente, oculto: false }
   }
   return { valor: local.valor, pendiente: local.pendiente, oculto: false }

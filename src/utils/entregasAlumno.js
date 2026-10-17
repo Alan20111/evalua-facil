@@ -18,7 +18,7 @@
 import { actividadOculta, promedioOculto, finalOculto } from './visibilidadCalificaciones.js'
 import {
   cuentaEnPromedioDelAlumno, notasParaPromedio, promedioParcial, ponderacionActivaEnParcial,
-  normalizeGrade, resultadoPublicadoAlumno,
+  normalizeGrade, resultadoPublicadoAlumno, pesosVisiblesAlumno,
 } from './ponderacion.js'
 
 // ── Entregas (submissions/{id}) ───────────────────────────────────────────
@@ -114,8 +114,8 @@ export function proyectarRespuesta(resp, { claves = false } = {}) {
  * @param {{id: string, createdAt?: any}} inscripcion  su documento de `students`
  * @param {number} [ahora]      reloj inyectado (pruebas)
  * @returns {{
- *   parciales: Object<string, {valor: number|null, publicado: boolean, oculto: boolean, conOcultas: boolean}>,
- *   final: {valor: number|null, pendiente: boolean, oculto: boolean, conOcultas: boolean}
+ *   parciales: Object<string, {valor: number|null, publicado: boolean, oculto: boolean, conOcultas: boolean, soloServidor: boolean}>,
+ *   final: {valor: number|null, pendiente: boolean, oculto: boolean, conOcultas: boolean, soloServidor: boolean}
  * }}
  */
 export function promediosAlumno(subject, activities, subPorActividad, inscripcion, ahora = Date.now()) {
@@ -125,6 +125,7 @@ export function promediosAlumno(subject, activities, subPorActividad, inscripcio
   const valores = []
   let avgPendiente = false
   let finalConOcultas = false
+  let finalSoloServidor = false
 
   for (let p = 1; p <= numParciales; p++) {
     const pacts = todas.filter((a) => a.parcial === p && cuentaEnPromedioDelAlumno(a, subPorActividad[a.id], subject))
@@ -147,7 +148,12 @@ export function promediosAlumno(subject, activities, subPorActividad, inscripcio
       valor = raw !== null ? parseFloat(raw.toFixed(1)) : null
       if (valor !== null) valores.push(valor)
     }
-    parciales[p] = { valor: oculto ? null : valor, publicado, oculto, conOcultas }
+    // Parcial ponderado cuya calificación se muestra pero cuyos pesos NO: el
+    // cliente no recibe los pesos (ocultarPesosNoPublicados), así que solo el
+    // número del servidor es el real; calcularlo en la pantalla daría una media simple.
+    const soloServidor = publicado && ponderacionActivaEnParcial(subject, p) && !pesosVisiblesAlumno(subject, p, todas)
+    if (soloServidor) finalSoloServidor = true
+    parciales[p] = { valor: oculto ? null : valor, publicado, oculto, conOcultas, soloServidor }
   }
 
   const finalValor = !avgPendiente && valores.length
@@ -156,7 +162,7 @@ export function promediosAlumno(subject, activities, subPorActividad, inscripcio
   const finalEstaOculto = finalOculto(subject)
   return {
     parciales,
-    final: { valor: finalEstaOculto ? null : finalValor, pendiente: avgPendiente, oculto: finalEstaOculto, conOcultas: finalConOcultas },
+    final: { valor: finalEstaOculto ? null : finalValor, pendiente: avgPendiente, oculto: finalEstaOculto, conOcultas: finalConOcultas, soloServidor: finalSoloServidor },
   }
 }
 

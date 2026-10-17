@@ -205,7 +205,7 @@ export default function StudentSubjectPage() {
   }, [studentId, asistenciasOcultas])
 
   // Listener en tiempo real para campos de denominador, cierre de parciales y
-  // publicación del resultado ponderado (atención de inquietudes).
+  // visibilidad de la calificación y los pesos de un parcial ponderado.
   useEffect(() => {
     if (!subjectId) return
     let firmaPublicacion = null
@@ -222,13 +222,15 @@ export default function StudentSubjectPage() {
           parcialesCerrados: d.parcialesCerrados ?? null,
           parcialesAtencion: d.parcialesAtencion ?? null,
           ponderacionParciales: d.ponderacionParciales ?? null,
+          pesosVisibles: d.pesosVisibles ?? null,
+          calificacionVisible: d.calificacionVisible ?? null,
           ponderacionActivada: d.ponderacionActivada ?? null,
           mostrarAsistenciasEstudiantes: d.mostrarAsistenciasEstudiantes ?? null,
         } : prev)
         // Cambió el estado o la ponderación de algún parcial: los pesos que
         // entrega el servidor pueden ser otros, así que se vuelven a pedir las
         // actividades. La primera lectura ya la hizo loadAll.
-        const firma = JSON.stringify([d.parcialesAtencion ?? null, d.parcialesCerrados ?? null, d.ponderacionParciales ?? null, d.ponderacionActivada ?? null])
+        const firma = JSON.stringify([d.parcialesAtencion ?? null, d.parcialesCerrados ?? null, d.ponderacionParciales ?? null, d.ponderacionActivada ?? null, d.pesosVisibles ?? null, d.calificacionVisible ?? null])
         const anterior = firmaPublicacion
         firmaPublicacion = firma
         if (anterior === null || anterior === firma) return
@@ -236,6 +238,11 @@ export default function StudentSubjectPage() {
           const porId = new Map(docs.map((a) => [a.id, a]))
           setTodasActividades(docs)
           setActivities((prev) => prev.map((a) => porId.get(a.id) ?? a))
+        }).catch(() => {})
+        // Los promedios del servidor también dependen de estos controles (calificación
+        // visible con pesos ocultos): se vuelven a pedir junto con las actividades.
+        fetchMisEntregas({ asignaturaId: subjectId }).then(({ promedios }) => {
+          setPromediosServidor(promedios[subjectId] || null)
         }).catch(() => {})
       },
       () => {},
@@ -684,12 +691,15 @@ export default function StudentSubjectPage() {
             const unified = buildUnifiedParcial(acts, mats)
             // Ponderado y todavía sin publicar: ni se calcula (el servidor no
             // mandó sus pesos; calcular daría una media simple engañosa).
-            const publicado = resultadoPublicadoAlumno(subject, p, todasActividades)
+            // Con la calificación visible y los pesos ocultos la pantalla no tiene los
+            // pesos (el servidor no los manda): manda lo que el servidor ya calculó.
+            const pServ = promediosServidor?.parciales?.[p]
+            const publicado = pServ ? pServ.publicado : resultadoPublicadoAlumno(subject, p, todasActividades)
             // Con notas ocultas dentro del parcial —al estudiante le falta esa nota— o con
             // el promedio oculto por el docente, manda el bloque del servidor; si no, el
             // cálculo local de siempre.
             const promParcial = publicado
-              ? promedioParcialVisible(calcParcialAvg(p), promediosServidor?.parciales?.[p])
+              ? promedioParcialVisible(calcParcialAvg(p), pServ)
               : { valor: null, oculto: false }
             const avg = promParcial.valor
             const isOpen = openParcial === p

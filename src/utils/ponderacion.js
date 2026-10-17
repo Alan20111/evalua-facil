@@ -235,21 +235,34 @@ export function notasParaPromedio(acts, grades, subs, ctx) {
   })
 }
 
-// ── Estado del parcial y publicación del resultado ponderado ──────────────
+// ── Estado del parcial y visibilidad del resultado ponderado ──────────────
 //
 // Fuente única de verdad. Calcular (promedioParcial, arriba) es una cosa;
-// PUBLICAR el resultado al estudiante es otra, y vive solo aquí.
+// MOSTRAR al estudiante la calificación o los pesos es otra, y vive solo aquí.
 //
 // Estados por parcial, derivados de dos mapas de `subjects` ({ '1': ISO }):
 //   · cerrado  → parcialesCerrados[p]  (cierre definitivo, flujo de siempre)
-//   · atencion → parcialesAtencion[p]  (atención de inquietudes: el docente
-//                publicó el resultado; la llave nunca se borra)
+//   · atencion → parcialesAtencion[p]  (un parcial reabierto, o uno que el
+//                docente publicó con el botón que ya no existe; la llave nunca
+//                se borra). Trabaja igual que un parcial abierto.
 //   · abierto  → ninguno de los dos
 //
+// Qué ve el estudiante de un parcial CON ponderación lo deciden DOS controles
+// del docente, independientes entre sí y del estado del parcial:
+//   · calificacionVisible[p]  (boolean)  → la calificación del parcial
+//   · pesosVisibles[p]        (boolean)  → los pesos de cada actividad
+// Si la llave de un parcial NO existe (datos anteriores a estos controles) se
+// aplica la regla de siempre: visible si el parcial ya no está abierto. Esa
+// regla es la evidencia de que ya estaba publicado; no se lee ninguna fecha.
+// Cada transición que haría cambiar ese «valor por omisión» (activar la
+// ponderación, cerrar un parcial abierto) escribe antes la llave explícita,
+// así que cerrar o reabrir nunca publica nada por sí solo.
+//
 // Un parcial SIN ponderación publica siempre (comportamiento de siempre). Uno
-// CON ponderación —activada, aunque los pesos todavía no sumen 10— publica
-// solo fuera de "abierto" y con los pesos sumando exactamente 10: no hay
-// ningún camino que muestre un resultado con la ponderación incompleta.
+// CON ponderación —activada, aunque los pesos todavía no sumen 10— muestra
+// calificación o pesos solo si su control lo permite y los pesos suman
+// exactamente 10: no hay ningún camino que muestre algo con la ponderación
+// incompleta.
 //
 // `activities` es la lista COMPLETA de actividades de la asignatura (la misma
 // que entrega /api/subject/content); aquí se filtra lo que cuenta.
@@ -271,7 +284,7 @@ export function parcialCerrado(subject, parcial) {
 }
 
 export function mensajeParcialCerrado(parcial) {
-  return `El Parcial ${parcial} está cerrado definitivamente — reábrelo para atención de inquietudes para cambiarlo`
+  return `El Parcial ${parcial} está cerrado definitivamente — reábrelo para cambiarlo`
 }
 
 // Una nota automática de cierre (la que confirmCloseParcial pone a quien no
@@ -294,20 +307,73 @@ export function pesosSumanDiez(acts) {
   return Math.abs(pesoTotal(acts) - 10) <= 0.001
 }
 
+export const CAMPOS_VISIBILIDAD = ['pesosVisibles', 'calificacionVisible']
+
+// true / false si el docente (o una transición) ya decidió; undefined si la
+// llave no existe. Solo cuenta un booleano: cualquier otra cosa es «sin decidir».
+export function visibilidadExplicita(subject, campo, parcial) {
+  const v = subject?.[campo]?.[String(parcial)]
+  return typeof v === 'boolean' ? v : undefined
+}
+
+// ¿El docente permite ver los pesos / la calificación de este parcial? (sin
+// mirar la suma ni la modalidad). Sin llave: la regla de siempre.
+export function pesosMostradosAlumno(subject, parcial) {
+  return visibilidadExplicita(subject, 'pesosVisibles', parcial) ?? estadoParcial(subject, parcial) !== 'abierto'
+}
+
+export function calificacionMostradaAlumno(subject, parcial) {
+  return visibilidadExplicita(subject, 'calificacionVisible', parcial) ?? estadoParcial(subject, parcial) !== 'abierto'
+}
+
+// Lo que el estudiante puede ver del parcial. Independientes entre sí. El ojo
+// «promedio» por parcial se aplica aparte, nunca aquí.
 export function resultadoPublicadoAlumno(subject, parcial, activities) {
   if (!ponderacionActivaEnParcial(subject, parcial)) return true
-  return estadoParcial(subject, parcial) !== 'abierto' &&
+  return calificacionMostradaAlumno(subject, parcial) &&
     pesosSumanDiez(actividadesQueCuentan(activities, parcial))
 }
 
 export function pesosVisiblesAlumno(subject, parcial, activities) {
-  return ponderacionActivaEnParcial(subject, parcial) && resultadoPublicadoAlumno(subject, parcial, activities)
+  return ponderacionActivaEnParcial(subject, parcial) &&
+    pesosMostradosAlumno(subject, parcial) &&
+    pesosSumanDiez(actividadesQueCuentan(activities, parcial))
 }
 
-export function puedeIniciarAtencion(subject, parcial, activities) {
-  if (estadoParcial(subject, parcial) !== 'abierto') return false
-  return !ponderacionActivaEnParcial(subject, parcial) ||
-    pesosSumanDiez(actividadesQueCuentan(activities, parcial))
+// Llaves de visibilidad a escribir en la MISMA operación que cambia el parcial,
+// para que esa operación no altere lo que ve el estudiante. Devuelve las rutas
+// con punto para updateDoc y el estado local equivalente.
+//   · alActivarPonderacion: los parciales que pasan de simple a ponderado nacen
+//     con calificación y pesos ocultos, aunque hereden un estado o una suma 10.
+//   · alCerrar: un parcial ponderado ABIERTO sin decisión explícita pasaría a
+//     «publicado» solo por cerrarse; se fija en oculto antes. Desde atención
+//     (ya publicado) no hace falta: el valor por omisión no cambia.
+export function llavesVisibilidad(subject, entradas) {
+  const rutas = {}
+  const siguiente = {}
+  CAMPOS_VISIBILIDAD.forEach((c) => { siguiente[c] = { ...(subject?.[c] || {}) } })
+  entradas.forEach(({ campo, parcial, valor }) => {
+    rutas[`${campo}.${parcial}`] = valor
+    siguiente[campo][String(parcial)] = valor
+  })
+  return { rutas, siguiente }
+}
+
+export function entradasAlActivarPonderacion(subject, parciales, siguientePorParcial) {
+  const entradas = []
+  parciales.forEach((p) => {
+    if (ponderacionActivaEnParcial(subject, p) || !siguientePorParcial(p)) return
+    CAMPOS_VISIBILIDAD.forEach((campo) => entradas.push({ campo, parcial: p, valor: false }))
+  })
+  return entradas
+}
+
+export function entradasAlCerrar(subject, parcial) {
+  if (!ponderacionActivaEnParcial(subject, parcial)) return []
+  if (estadoParcial(subject, parcial) !== 'abierto') return []
+  return CAMPOS_VISIBILIDAD
+    .filter((campo) => visibilidadExplicita(subject, campo, parcial) === undefined)
+    .map((campo) => ({ campo, parcial, valor: false }))
 }
 
 // Lo que el servidor entrega al estudiante: `pesoCalificacion` se quita de

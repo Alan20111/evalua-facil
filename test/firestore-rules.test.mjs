@@ -2728,6 +2728,13 @@ ok('F-05 · admin CAN read publicProfiles')
   ok('CIERRE · el parcial cerrado no puede desaparecer')
   await assertSucceeds(updateDoc(doc(docente, 'subjects', 'S_CIERRE'), { nombre: 'Materia renombrada' }))
   ok('CIERRE · SÍ se edita la información de la asignatura')
+  // Los ojos de calificación y ponderaciones (pesosVisibles / calificacionVisible) no alteran
+  // ninguna nota: se cambian con el parcial cerrado, sin tocar el cierre. Las reglas NO cambiaron.
+  await assertSucceeds(updateDoc(doc(docente, 'subjects', 'S_CIERRE'), { 'pesosVisibles.1': true, 'calificacionVisible.1': false }))
+  await assertSucceeds(updateDoc(doc(docente, 'subjects', 'S_CIERRE'), { 'pesosVisibles.1': false }))
+  ok('CIERRE · SÍ se muestran y ocultan pesos y calificación con el parcial cerrado (ojos independientes)')
+  await assertFails(updateDoc(doc(docente, 'subjects', 'S_CIERRE'), { 'parcialesCerrados.1': deleteField(), 'pesosVisibles.1': true }))
+  ok('CIERRE · un ojo de visibilidad no sustituye el paso a atención al reabrir')
 
   // Eliminar estudiante (operación administrativa)
   await assertSucceeds(deleteDoc(doc(docente, 'students', 'SC_BAJA')))

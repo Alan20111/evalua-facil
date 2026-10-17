@@ -19,7 +19,8 @@ import { estadoEntrega } from '../src/utils/estadoEntrega.js'
 import { extraerAssets } from '../api/_lib/cloudinary.js'
 import {
   promedioParcial, notasParaPromedio, cuentaEnPromedioDelAlumno, ceroPorFaltaDeEntrega, estadoSumaPesos, actividadesQueCuentan, pesosSumanDiez, ponderacionActivaEnParcial, normalizeGrade,
-  estadoParcial, resultadoPublicadoAlumno, pesosVisiblesAlumno, puedeIniciarAtencion, ocultarPesosNoPublicados,
+  estadoParcial, resultadoPublicadoAlumno, pesosVisiblesAlumno, ocultarPesosNoPublicados,
+  pesosMostradosAlumno, calificacionMostradaAlumno, llavesVisibilidad, entradasAlActivarPonderacion, entradasAlCerrar, visibilidadExplicita,
   parcialCerrado, esNotaAutomaticaDeCierre, esSinEntregaSinNota,
 } from '../src/utils/ponderacion.js'
 import {
@@ -4054,7 +4055,7 @@ caso('AA-13 (escenario 9): el denominador cuenta exactamente las columnas que se
 })
 
 // ═══ Publicación del resultado ponderado por parcial ═════════════════════════
-grupo('Parciales ponderados — abierto / atención de inquietudes / cerrado')
+grupo('Parciales ponderados — abierto / reabierto / cerrado (regla heredada sin llaves)')
 
 const actPub = (id, parcial, peso, extra = {}) => ({ id, parcial, maxCalif: 10, pesoCalificacion: peso, ...extra })
 const pondTodos = { parciales: 3, ponderacionActivada: true, ponderacionParciales: { 1: true, 2: true, 3: true } }
@@ -4105,16 +4106,6 @@ caso('la suma de pesos solo considera lo que cuenta para calificación (sin borr
   assert.strictEqual(resultadoPublicadoAlumno(s, 1, acts), true)
 })
 
-caso('puedeIniciarAtencion: solo desde abierto y, si es ponderado, con pesos = 10', () => {
-  const diez = [actPub('a', 1, 6), actPub('b', 1, 4)]
-  const siete = [actPub('a', 1, 3), actPub('b', 1, 4)]
-  assert.strictEqual(puedeIniciarAtencion(pondTodos, 1, diez), true)
-  assert.strictEqual(puedeIniciarAtencion(pondTodos, 1, siete), false)
-  assert.strictEqual(puedeIniciarAtencion({ ...pondTodos, parcialesAtencion: { 1: 'x' } }, 1, diez), false)
-  assert.strictEqual(puedeIniciarAtencion({ ...pondTodos, parcialesCerrados: { 1: 'x' } }, 1, diez), false)
-  assert.strictEqual(puedeIniciarAtencion({ parciales: 1 }, 1, [actPub('s', 1, null)]), true, 'parcial simple')
-})
-
 caso('reabrir (cerrado → atención) mantiene publicado el resultado', () => {
   const acts = [actPub('a', 1, 6), actPub('b', 1, 4)]
   const reabierto = { ...pondTodos, parcialesAtencion: { 1: '2026-10-01T00:00:00Z' } } // sin parcialesCerrados[1]
@@ -4147,6 +4138,131 @@ caso('API: con lo que recibe el alumno de un parcial abierto NO se reconstruye e
   assert.notStrictEqual(promedioParcial(recibido, notas, true), ponderadoReal)
   // Y el estudiante tampoco lo "publica" por su lado: sin pesos no suman 10.
   assert.strictEqual(resultadoPublicadoAlumno({ ...pondTodos, parcialesAtencion: { 1: 'x' } }, 1, recibido), false)
+})
+
+// ═══ Dos ojos independientes: calificación y ponderaciones ═══════════════════
+grupo('Visibilidad independiente de calificación y ponderaciones')
+
+const dies = [actPub('a', 1, 6), actPub('b', 1, 4)]
+const vis = (extra) => ({ ...pondTodos, ...extra })
+
+caso('los cuatro escenarios de los dos ojos son independientes, en cualquier estado del parcial', () => {
+  const estados = { abierto: {}, reabierto: { parcialesAtencion: { 1: 'x' } }, cerrado: { parcialesCerrados: { 1: 'x' } } }
+  for (const [nombre, est] of Object.entries(estados)) {
+    for (const calif of [true, false]) {
+      for (const pesos of [true, false]) {
+        const s = vis({ ...est, calificacionVisible: { 1: calif }, pesosVisibles: { 1: pesos } })
+        assert.strictEqual(resultadoPublicadoAlumno(s, 1, dies), calif, `${nombre}: calificación=${calif} pesos=${pesos}`)
+        assert.strictEqual(pesosVisiblesAlumno(s, 1, dies), pesos, `${nombre}: pesos=${pesos} calificación=${calif}`)
+      }
+    }
+  }
+})
+
+caso('con las llaves explícitas el estado del parcial ya no decide nada (cerrar y reabrir no publican)', () => {
+  const oculto = { calificacionVisible: { 1: false }, pesosVisibles: { 1: false } }
+  for (const est of [{}, { parcialesAtencion: { 1: 'x' } }, { parcialesCerrados: { 1: 'x' } }, { parcialesAtencion: { 1: 'x' }, parcialesCerrados: { 1: 'y' } }]) {
+    assert.strictEqual(resultadoPublicadoAlumno(vis({ ...est, ...oculto }), 1, dies), false)
+    assert.strictEqual(pesosVisiblesAlumno(vis({ ...est, ...oculto }), 1, dies), false)
+  }
+})
+
+caso('suma distinta de 10: ni el ojo abierto muestra pesos ni calificación', () => {
+  const siete = [actPub('a', 1, 3), actPub('b', 1, 4)]
+  const s = vis({ calificacionVisible: { 1: true }, pesosVisibles: { 1: true } })
+  assert.strictEqual(resultadoPublicadoAlumno(s, 1, siete), false)
+  assert.strictEqual(pesosVisiblesAlumno(s, 1, siete), false)
+})
+
+caso('sin llave: regla heredada (visible si ya no está abierto); una llave que no es booleano no cuenta', () => {
+  assert.strictEqual(visibilidadExplicita(vis({ pesosVisibles: { 1: 'x' } }), 'pesosVisibles', 1), undefined)
+  assert.strictEqual(visibilidadExplicita(vis({ pesosVisibles: { 1: 1 } }), 'pesosVisibles', 1), undefined)
+  assert.strictEqual(pesosMostradosAlumno(vis({ pesosVisibles: { 1: 'x' } }), 1), false, 'abierto + valor raro = oculto')
+  assert.strictEqual(pesosMostradosAlumno(vis({ pesosVisibles: { 1: 'x' }, parcialesAtencion: { 1: 'x' } }), 1), true, 'reabierto/publicado de antes = visible')
+  assert.strictEqual(calificacionMostradaAlumno(vis({ parcialesCerrados: { 1: 'x' } }), 1), true, 'cerrado de antes = visible')
+  assert.strictEqual(calificacionMostradaAlumno(vis({}), 1), false, 'abierto de antes = oculto')
+})
+
+caso('parcial simple: las llaves no influyen, publica siempre y nunca muestra pesos', () => {
+  const simple = { parciales: 1, ponderacionParciales: { 1: false }, calificacionVisible: { 1: false }, pesosVisibles: { 1: true } }
+  assert.strictEqual(resultadoPublicadoAlumno(simple, 1, dies), true)
+  assert.strictEqual(pesosVisiblesAlumno(simple, 1, dies), false)
+})
+
+caso('un ponderado nuevo nace oculto aunque sume 10 y venga de un parcial publicado (activar escribe false)', () => {
+  // Parcial 1 estuvo reabierto/publicado siendo simple; se activa la ponderación.
+  const antes = { parciales: 2, ponderacionParciales: { 1: false, 2: false }, parcialesAtencion: { 1: 'x' } }
+  const entradas = entradasAlActivarPonderacion(antes, [1, 2], (p) => p === 1)
+  assert.deepStrictEqual(entradas.map((e) => `${e.campo}.${e.parcial}=${e.valor}`).sort(), ['calificacionVisible.1=false', 'pesosVisibles.1=false'])
+  const { rutas, siguiente } = llavesVisibilidad(antes, entradas)
+  assert.deepStrictEqual(rutas, { 'pesosVisibles.1': false, 'calificacionVisible.1': false })
+  const despues = { ...antes, ponderacionParciales: { 1: true, 2: false }, ...siguiente }
+  assert.strictEqual(resultadoPublicadoAlumno(despues, 1, dies), false)
+  assert.strictEqual(pesosVisiblesAlumno(despues, 1, dies), false)
+})
+
+caso('activar la ponderación solo toca los parciales que pasan de simple a ponderado', () => {
+  const s = { parciales: 3, ponderacionParciales: { 1: true, 2: false, 3: true }, calificacionVisible: { 1: true }, pesosVisibles: { 1: true } }
+  const entradas = entradasAlActivarPonderacion(s, [1, 2, 3], () => true)
+  assert.deepStrictEqual([...new Set(entradas.map((e) => e.parcial))], [2], 'el 1 y el 3 ya eran ponderados: sus ojos no se pisan')
+  assert.strictEqual(entradasAlActivarPonderacion(s, [1, 2, 3], () => false).length, 0, 'volver a simple no escribe nada')
+})
+
+caso('cerrar un ponderado ABIERTO sin decisión fija las llaves en oculto: cerrar no publica', () => {
+  const antes = vis({})
+  const entradas = entradasAlCerrar(antes, 1)
+  assert.deepStrictEqual(entradas.map((e) => e.campo).sort(), ['calificacionVisible', 'pesosVisibles'])
+  const { siguiente } = llavesVisibilidad(antes, entradas)
+  const cerrado = { ...antes, parcialesCerrados: { 1: 'x' }, ...siguiente }
+  assert.strictEqual(resultadoPublicadoAlumno(cerrado, 1, dies), false)
+  assert.strictEqual(pesosVisiblesAlumno(cerrado, 1, dies), false)
+})
+
+caso('cerrar respeta lo ya decidido y lo ya publicado', () => {
+  // decisión explícita del docente: no se pisa
+  assert.deepStrictEqual(entradasAlCerrar(vis({ calificacionVisible: { 1: true }, pesosVisibles: { 1: false } }), 1), [])
+  // ya publicado por la regla de antes (reabierto): cerrar no cambia el valor por omisión, no se escribe nada
+  assert.deepStrictEqual(entradasAlCerrar(vis({ parcialesAtencion: { 1: 'x' } }), 1), [])
+  // parcial simple: nada que fijar
+  assert.deepStrictEqual(entradasAlCerrar({ parciales: 1, ponderacionParciales: { 1: false } }, 1), [])
+  // decisión solo en un ojo: se completa el otro con oculto
+  assert.deepStrictEqual(entradasAlCerrar(vis({ pesosVisibles: { 1: true } }), 1).map((e) => e.campo), ['calificacionVisible'])
+})
+
+caso('reabrir (cerrado → reabierto) no cambia lo que ve el estudiante, con y sin llaves', () => {
+  const heredado = vis({ parcialesCerrados: { 1: 'c' } }) // cerrado de antes: visible por la regla heredada
+  const reabiertoHeredado = { ...heredado, parcialesCerrados: {}, parcialesAtencion: { 1: 'c' } }
+  assert.strictEqual(resultadoPublicadoAlumno(reabiertoHeredado, 1, dies), resultadoPublicadoAlumno(heredado, 1, dies))
+  assert.strictEqual(pesosVisiblesAlumno(reabiertoHeredado, 1, dies), pesosVisiblesAlumno(heredado, 1, dies))
+  const nuevo = vis({ parcialesCerrados: { 1: 'c' }, calificacionVisible: { 1: false }, pesosVisibles: { 1: true } })
+  const reabiertoNuevo = { ...nuevo, parcialesCerrados: {}, parcialesAtencion: { 1: 'c' } }
+  assert.strictEqual(resultadoPublicadoAlumno(reabiertoNuevo, 1, dies), false)
+  assert.strictEqual(pesosVisiblesAlumno(reabiertoNuevo, 1, dies), true)
+})
+
+caso('API: ocultarPesosNoPublicados sigue al ojo de ponderaciones, no al de la calificación', () => {
+  const actsDos = [actPub('a', 1, 6), actPub('b', 1, 4)]
+  const soloCalif = ocultarPesosNoPublicados(vis({ calificacionVisible: { 1: true }, pesosVisibles: { 1: false } }), actsDos)
+  assert.ok(soloCalif.every((a) => !('pesoCalificacion' in a)), 'calificación visible NO libera los pesos')
+  const soloPesos = ocultarPesosNoPublicados(vis({ calificacionVisible: { 1: false }, pesosVisibles: { 1: true } }), actsDos)
+  assert.ok(soloPesos.every((a) => 'pesoCalificacion' in a), 'pesos visibles aunque la calificación esté oculta')
+})
+
+// RIESGO ACEPTADO (alternativa A): una pestaña ANTIGUA (sin este código) cierra un
+// parcial ponderado abierto SIN escribir las llaves nuevas. El docente la ve en
+// el banner de UpdateChecker; aquí se fija exactamente qué pasa si no recarga, para
+// que el efecto quede documentado y no cambie sin que alguien lo decida.
+caso('pestaña antigua: cerrar un ponderado abierto sin llaves lo deja visible por la regla heredada (riesgo documentado)', () => {
+  const cierreDePestanaVieja = vis({ parcialesCerrados: { 1: '2026-10-18T00:00:00.000Z' } }) // sin pesosVisibles ni calificacionVisible
+  assert.strictEqual(visibilidadExplicita(cierreDePestanaVieja, 'pesosVisibles', 1), undefined)
+  assert.strictEqual(resultadoPublicadoAlumno(cierreDePestanaVieja, 1, dies), true)
+  assert.strictEqual(pesosVisiblesAlumno(cierreDePestanaVieja, 1, dies), true)
+  // ...y el docente lo corrige con un clic: el ojo escribe la llave explícita y manda sobre el estado.
+  const corregido = { ...cierreDePestanaVieja, ...llavesVisibilidad(cierreDePestanaVieja, [
+    { campo: 'calificacionVisible', parcial: 1, valor: false }, { campo: 'pesosVisibles', parcial: 1, valor: false },
+  ]).siguiente }
+  assert.strictEqual(resultadoPublicadoAlumno(corregido, 1, dies), false)
+  assert.strictEqual(pesosVisiblesAlumno(corregido, 1, dies), false)
 })
 
 // ═══ Parcial cerrado definitivamente = resultado congelado ═══════════════════
@@ -8062,11 +8178,14 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     assert.strictEqual(planMoverActividad({ subject: subj({ ponderacionParciales: { 1: false, 2: true } }), activities: [conPeso], actividad: conPeso, destino: 2 }).avisos.peso, 3, 'ponderado solo en el destino')
     assert.strictEqual(planMoverActividad({ subject: plano, activities: [conPeso], actividad: conPeso, destino: 2 }).avisos.peso, null)
     assert.strictEqual(planMoverActividad({ subject: ponderado, activities: [sinPeso], actividad: sinPeso, destino: 2 }).avisos.peso, null)
-    const atencion = subj({ parcialesAtencion: { 1: 'x' } })
-    assert.strictEqual(planMoverActividad({ subject: atencion, activities: [conPeso], actividad: conPeso, destino: 2 }).avisos.atencionOrigen, true)
+    // El aviso depende de lo que el estudiante VE (calificación ponderada visible), no del estado.
+    const visible = subj({ ponderacionParciales: { 1: true, 2: false }, parcialesAtencion: { 1: 'x' } })
+    assert.strictEqual(planMoverActividad({ subject: visible, activities: [conPeso], actividad: conPeso, destino: 2 }).avisos.resultadosVisiblesOrigen, true)
+    const oculta = subj({ ponderacionParciales: { 1: true, 2: false }, parcialesAtencion: { 1: 'x' }, calificacionVisible: { 1: false } })
+    assert.strictEqual(planMoverActividad({ subject: oculta, activities: [conPeso], actividad: conPeso, destino: 2 }).avisos.resultadosVisiblesOrigen, false)
     const borrador = act('a', 1, 1, { oculta: true, publishedAt: null })
-    assert.strictEqual(planMoverActividad({ subject: atencion, activities: [borrador], actividad: borrador, destino: 2 }).avisos.atencionOrigen, false)
-    assert.strictEqual(planMoverActividad({ subject: subj(), activities: [conPeso], actividad: conPeso, destino: 2 }).avisos.atencionOrigen, false)
+    assert.strictEqual(planMoverActividad({ subject: visible, activities: [borrador], actividad: borrador, destino: 2 }).avisos.resultadosVisiblesOrigen, false)
+    assert.strictEqual(planMoverActividad({ subject: subj(), activities: [conPeso], actividad: conPeso, destino: 2 }).avisos.resultadosVisiblesOrigen, false)
   })
 }
 
@@ -8579,13 +8698,12 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     assert.ok(cerca(parcialDe(incompletos, pesos10(10)), 5))
     // Pesos que suman 20: 200/10 = 20 → tope 10.
     assert.strictEqual(parcialDe(exceso, pesos10(10)), 10)
-    // Las restricciones existentes siguen: sin 10 exacto no se publica ni se inicia atención.
+    // Las restricciones existentes siguen: sin 10 exacto no se publica.
     const s = subj()
     const cerrado = { ...s, parcialesCerrados: { 1: '2026-10-01T00:00:00Z' } }
     for (const [acts, ok] of [[incompletos, false], [exceso, false], [pesos10(1), true]]) {
       const list = acts.map((w, i) => ev('k' + i, w))
       assert.strictEqual(resultadoPublicadoAlumno(cerrado, 1, list), ok)
-      assert.strictEqual(puedeIniciarAtencion(s, 1, list), ok)
       assert.strictEqual(pesosSumanDiez(list), ok)
     }
     const tab = readFileSync(new globalThis.URL('../src/pages/teacher/subject/TabCalificaciones.jsx', import.meta.url), 'utf8')
@@ -9092,6 +9210,37 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     assert.strictEqual(mio.parciales[1].publicado, true)
   })
 
+  caso('calificación visible con pesos OCULTOS: el servidor calcula el número real y marca soloServidor (la pantalla no tiene los pesos)', () => {
+    const acts = [ev2('a1', 1, { pesoCalificacion: 6 }), ev2('a2', 1, { pesoCalificacion: 4 })]
+    const subs = { a1: conNota2(10), a2: conNota2(5) }
+    const base = { id: 's1', parciales: 3, ponderacionParciales: { 1: true } }
+    // calificación sí, pesos no
+    const soloCalif = promediosAlumno({ ...base, calificacionVisible: { 1: true }, pesosVisibles: { 1: false } }, acts, subs, inscripcion, AHORA2)
+    assert.strictEqual(soloCalif.parciales[1].valor, 8, '10·0.6 + 5·0.4 = 8: el ponderado real, no la media simple (7.5)')
+    assert.strictEqual(soloCalif.parciales[1].publicado, true)
+    assert.strictEqual(soloCalif.parciales[1].soloServidor, true)
+    assert.strictEqual(soloCalif.final.soloServidor, true)
+    // los dos visibles: la pantalla tiene los pesos y puede calcular sola
+    const ambos = promediosAlumno({ ...base, calificacionVisible: { 1: true }, pesosVisibles: { 1: true } }, acts, subs, inscripcion, AHORA2)
+    assert.strictEqual(ambos.parciales[1].soloServidor, false)
+    assert.strictEqual(ambos.parciales[1].valor, 8)
+    // calificación oculta: ni valor ni publicación
+    const soloPesos = promediosAlumno({ ...base, calificacionVisible: { 1: false }, pesosVisibles: { 1: true } }, acts, subs, inscripcion, AHORA2)
+    assert.strictEqual(soloPesos.parciales[1].valor, null)
+    assert.strictEqual(soloPesos.parciales[1].publicado, false)
+    assert.strictEqual(soloPesos.parciales[1].soloServidor, false)
+  })
+
+  caso('cliente: con soloServidor se usa el número del servidor (promedio de parcial y final), no el cálculo local', () => {
+    const srvParcial = { valor: 8, oculto: false, conOcultas: false, soloServidor: true }
+    assert.deepStrictEqual(promedioParcialVisible('7.5', srvParcial), { valor: '8.0', oculto: false })
+    assert.deepStrictEqual(promedioParcialVisible('7.5', { ...srvParcial, soloServidor: false }), { valor: '7.5', oculto: false })
+    assert.deepStrictEqual(promedioParcialVisible('7.5', { ...srvParcial, oculto: true }), { valor: null, oculto: true }, 'el ojo del promedio sigue mandando')
+    const srvFinal = { valor: 8.1, pendiente: false, oculto: false, conOcultas: false, soloServidor: true }
+    assert.deepStrictEqual(promedioFinalVisible({ valor: '7.8', pendiente: true }, srvFinal), { valor: '8.1', pendiente: false, oculto: false })
+    assert.deepStrictEqual(promedioFinalVisible({ valor: '7.8', pendiente: true }, { ...srvFinal, soloServidor: false }), { valor: '7.8', pendiente: true, oculto: false })
+  })
+
   caso('promedios = Dashboard: ponderado SIN publicar no entra en nada y deja el final pendiente', () => {
     const subject = { id: 's1', parciales: 3, ponderacionParciales: { 1: true } } // parcial abierto
     const acts = [ev2('a1', 1, { pesoCalificacion: 5 }), ev2('a2', 1, { pesoCalificacion: 5 }), ev2('b1', 2)]
@@ -9263,7 +9412,7 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     assert.ok(dash.includes('promedioFinalVisible(') && dash.includes('misEntregas.promedios[s.id]?.final') && dash.includes('s.avgOculto'))
     assert.ok(dash.includes('<NotaOculta compacta'))
     const sp = leerFuente2b('src/pages/student/SubjectPage.jsx')
-    assert.ok(sp.includes('promedioParcialVisible(calcParcialAvg(p), promediosServidor?.parciales?.[p])'))
+    assert.ok(sp.includes('promedioParcialVisible(calcParcialAvg(p), pServ)'))
     assert.ok(sp.includes('estaCalificada(sub)') && sp.includes('sub?.notaOculta ?') && sp.includes('promParcial.oculto'))
     // El cálculo local sigue siendo el de siempre: la pantalla no reimplementa nada.
     assert.ok(sp.includes('notasParaPromedio(acts, grades, acts.map(subDe)') && sp.includes('promedioParcial(acts, paraPromedio'))
