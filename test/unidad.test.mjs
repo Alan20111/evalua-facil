@@ -6200,6 +6200,62 @@ caso('notas numéricas se muestran igual que antes, incluido el 0 (que es una no
   assert.strictEqual(G.textoCalificacionEntrega({ calificacion: 6 }, 0), '6/10', 'maxCalif vacío cae a 10, como el resto de la pantalla')
 })
 
+// ── Calificación provisional y texto «calificaciones» (oct-2026, Cambio 3) ───────────────────
+caso('10 · una nota con reactivos por calificar es PROVISIONAL: nunca se presenta como definitiva', () => {
+  const prov = { estadoEvaluacion: 'finalizado', calificacion: 6.5, pendienteRevision: true }
+  assert.strictEqual(G.esCalificacionProvisional(prov), true)
+  assert.strictEqual(G.textoCalificacionEntrega(prov, 10), '6.5/10 · provisional, por calificar')
+  assert.strictEqual(G.textoCalificacionEntrega(prov, 10, { corto: true }), '6.5/10 · provisional')
+  assert.strictEqual(G.textoCalificacionEntrega({ ...prov, calificacion: 0 }, 10), '0/10 · provisional, por calificar', 'un 0 provisional tampoco es definitivo')
+  assert.strictEqual(G.textoCalificacionEntrega({ ...prov, calificacion: 40 }, 50), '40/50 · provisional, por calificar')
+})
+
+caso('la nota definitiva y la ausencia de nota se muestran como siempre', () => {
+  const def = { estadoEvaluacion: 'finalizado', calificacion: 8, pendienteRevision: false }
+  assert.strictEqual(G.esCalificacionProvisional(def), false)
+  assert.strictEqual(G.textoCalificacionEntrega(def, 10), '8/10')
+  assert.strictEqual(G.textoCalificacionEntrega({ calificacion: 8 }, 10), '8/10', 'sin la marca (entregas antiguas) es definitiva')
+  assert.strictEqual(G.textoCalificacionEntrega({ estadoEvaluacion: 'finalizado', calificacion: null, pendienteRevision: true }, 10), 'Por calificar')
+  assert.strictEqual(G.esCalificacionProvisional(null), false)
+  assert.strictEqual(G.esCalificacionProvisional({ calificacion: null, pendienteRevision: true }), false)
+})
+
+const fuenteC3 = (ruta) => readFileSync(new globalThis.URL(`../${ruta}`, import.meta.url), 'utf8')
+
+caso('10 · la lista, la revisión, el Excel y el PDF usan la lectura de «provisional» (ninguno imprime la nota cruda)', () => {
+  const mgr = fuenteC3('src/components/EvaluacionManager.jsx')
+  assert.strictEqual((mgr.match(/textoCalificacionEntrega\(/g) || []).length, 4, 'lista (2), encabezado y tarjeta de la revisión')
+  assert.ok(!/\$\{sub\.calificacion\}\s*\/\s*\$\{/.test(mgr), 'la pantalla no arma «nota/max» a mano')
+  assert.ok(/textoCalificacionEntrega\(sub, activity\.maxCalif, \{ corto: true \}\)/.test(mgr), 'el renglón angosto de la app usa la forma corta')
+  const xl = fuenteC3('src/utils/excel.js')
+  assert.ok(/esCalificacionProvisional\(sub\) \? textoCalificacionEntrega\(sub, maxCalif\)/.test(xl), 'hoja de resultados de la evaluación')
+  assert.strictEqual((xl.match(/NOTA_PIE_PROVISIONAL/g) || []).length >= 3, true, 'Excel por parcial y del curso llevan nota al pie')
+  assert.ok(/esCalificacionProvisional\(subs\[gi\]\)/.test(xl))
+  const pdf = fuenteC3('src/utils/pdf.js')
+  assert.ok(/esCalificacionProvisional\(subs\[gi\]\)/.test(pdf) && /NOTA_PIE_PROVISIONAL/.test(pdf), 'PDF por parcial: «*» y nota al pie')
+})
+
+caso('texto «calificaciones»: ni la etiqueta ni los avisos del lote de IA dicen «calificaciónes»', () => {
+  const ap = fuenteC3('src/pages/teacher/ActivityPage.jsx')
+  assert.ok(!/calificaciónes/.test(ap), 'sin la palabra mal escrita literal')
+  // El plural armado con una plantilla («calificación» + «es») produce justo esa palabra.
+  assert.ok(!/calificación\$\{[^}]*'es'/.test(ap), 'ningún plural arma «calificación» + «es»')
+  assert.ok(/calificaci\$\{loteIAConteo\.yaCalificadas !== 1 \? 'ones' : 'ón'\} con las de la IA/.test(ap), 'etiqueta de la casilla')
+  assert.ok(/calificaci\$\{aplicadas !== 1 \? 'ones' : 'ón'\} actualizada/.test(ap), 'aviso al terminar el lote')
+  // El plural se resuelve bien: 1 → «calificación», 3 → «calificaciones».
+  const plural = (n) => `calificaci${n !== 1 ? 'ones' : 'ón'}`
+  assert.strictEqual(plural(1), 'calificación')
+  assert.strictEqual(plural(3), 'calificaciones')
+  assert.strictEqual(plural(0), 'calificaciones')
+})
+
+caso('la casilla «Reemplazar también mis calificaciones» sigue cableada al envío y solo vale con «recalificar»', () => {
+  const ap = fuenteC3('src/pages/teacher/ActivityPage.jsx')
+  assert.ok(/checked=\{sobrescribirCalificadas\}/.test(ap), 'el estado manda sobre la casilla')
+  assert.ok(/onChange=\{\(e\) => setSobrescribirCalificadas\(e\.target\.checked\)\}/.test(ap), 'marcarla actualiza el estado')
+  assert.ok(/sobrescribirCalificadas: recalificar && sobrescribirCalificadas/.test(ap), 'solo se envía como true si además se recalifica')
+})
+
 caso('estado: finalizada sin nota NO es «Calificado/Realizado»; con nota (0 incluido) sí; el diagnóstico sin nota sigue «Realizado»', () => {
   const sinNota = { estadoEvaluacion: 'finalizado', calificacion: null }
   assert.strictEqual(G.estadoEvaluacionLabel(sinNota, false), 'Por calificar')

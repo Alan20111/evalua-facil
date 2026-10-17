@@ -2259,7 +2259,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                         {sub?.estadoEvaluacion === 'finalizado' && (
                           IS_NATIVE_APP ? (
                             <span className="text-xs font-bold text-emerald-600 flex items-center gap-0.5 flex-shrink-0">
-                              <Star size={ICONO.xs} /> {textoCalificacionEntrega(sub, activity.maxCalif)}
+                              <Star size={ICONO.xs} /> {textoCalificacionEntrega(sub, activity.maxCalif, { corto: true })}
                             </span>
                           ) : (
                             <span className="text-xs font-semibold text-on-surface flex-shrink-0">{textoCalificacionEntrega(sub, activity.maxCalif)}</span>

@@ -628,7 +628,7 @@ export default function ActivityPage() {
         // de Kike) — salvo la que el docente puso a mano (si no marcó la
         // casilla) y la entrega que quedó sin evidencia suficiente para un
         // total: esas quedan como propuesta a revisar.
-        ? `${aplicadas} calificación${aplicadas !== 1 ? 'es' : ''} actualizada${aplicadas !== 1 ? 's' : ''} con la IA` +
+        ? `${aplicadas} calificaci${aplicadas !== 1 ? 'ones' : 'ón'} actualizada${aplicadas !== 1 ? 's' : ''} con la IA` +
           `${omitidas > 0 ? ` — ${omitidas} ya tenían tu calificación y no se tocaron: quedaron como propuesta para que las revises` : ''}` +
           `${n - aplicadas - omitidas > 0 ? ` (${n - aplicadas - omitidas} quedaron como propuesta — revísalas a mano, falta evidencia clara en algún criterio)` : ''}` +
           `${fallidas ? ` — ${fallidas} no se pudo${fallidas !== 1 ? 'ieron' : ''} procesar` : ''}`
@@ -684,7 +684,7 @@ export default function ActivityPage() {
       const yaCalificadas = (data?.motivos || []).filter((m) => m.codigo === 'ya_calificada_por_docente').length
       const otras = noAplicadas - yaCalificadas
       toast(
-        `${aplicadas} calificación${aplicadas !== 1 ? 'es' : ''} aplicada${aplicadas !== 1 ? 's' : ''}` +
+        `${aplicadas} calificaci${aplicadas !== 1 ? 'ones' : 'ón'} aplicada${aplicadas !== 1 ? 's' : ''}` +
         `${yaCalificadas ? ` — ${yaCalificadas} ya tenía${yaCalificadas !== 1 ? 'n' : ''} tu calificación y no se ${yaCalificadas !== 1 ? 'tocaron' : 'tocó'} (la propuesta sigue pendiente)` : ''}` +
         `${otras > 0 ? ` — ${otras} no se pudo${otras !== 1 ? 'ieron' : ''} aplicar` : ''}`,
       )
@@ -1427,7 +1427,7 @@ export default function ActivityPage() {
               checked={sobrescribirCalificadas}
               onChange={(e) => setSobrescribirCalificadas(e.target.checked)}
               disabled={loteIATrabajando}
-              label={`Reemplazar también mis ${loteIAConteo.yaCalificadas} calificación${loteIAConteo.yaCalificadas !== 1 ? 'es' : ''} con las de la IA`}
+              label={`Reemplazar también mis ${loteIAConteo.yaCalificadas} calificaci${loteIAConteo.yaCalificadas !== 1 ? 'ones' : 'ón'} con las de la IA`}
               hint="Sin marcar, esas entregas no cambian. Marcada, cada calificación anterior queda en el historial."
             />
           )}
