@@ -3,6 +3,7 @@
 // `params.recalificar === true`, y que la seguridad por dueño se mantiene.
 // No llama a Anthropic (precheck no lo toca) — cero costo, cero red.
 import { db, iaFn, limpiar, caso, grupo, resumen, assert } from './helpers/entorno.mjs'
+import { readFileSync } from 'node:fs'
 
 const DOCENTE_A = 'docenteA-recal'
 const DOCENTE_B = 'docenteB-recal'
@@ -74,12 +75,28 @@ await caso('docente que no es dueño: permission-denied, tanto en modo normal co
   )
 })
 
-grupo('Regla anti-reentrega en el prompt del sistema')
+grupo('Redacción evaluativa en los prompts de calificación con IA')
 
-await caso('CALIFICAR_ENTREGABLE_SISTEMA prohíbe explícitamente sugerir reentrega/corrección', async () => {
+await caso('CALIFICAR_ENTREGABLE_SISTEMA exige valoración basada en evidencia y prohíbe instrucciones de corrección', async () => {
   const sistema = iaFn._pruebas.CALIFICAR_ENTREGABLE_SISTEMA || ''
   assert.ok(sistema.length > 0, 'CALIFICAR_ENTREGABLE_SISTEMA debe estar exportado en _pruebas para esta prueba')
-  assert.ok(/reentreg|vuelva? a entregar|segunda oportunidad/i.test(sistema))
+  assert.match(sistema, /valoración profesional, objetiva y clara sustentada en las evidencias y criterios/i)
+  assert.match(sistema, /No .*órdenes.*recomendaciones/i)
+  assert.match(sistema, /corrige.*mejora.*debes.*completa.*revisa/i)
+  assert.match(sistema, /vuelve a entregar|reentrega|segunda oportunidad/i)
+})
+
+await caso('C-02 para respuestas abiertas exige valoración evidenciada y prohíbe órdenes al estudiante', async () => {
+  const fuente = readFileSync(new URL('../functions/ia.js', import.meta.url), 'utf8')
+  const inicio = fuente.indexOf('const C02_SISTEMA =')
+  const fin = fuente.indexOf('// Máximo de caracteres', inicio)
+  const sistema = fuente.slice(inicio, fin)
+  assert.ok(inicio >= 0 && fin > inicio, 'debe existir el prompt C02 de respuestas abiertas')
+  assert.match(sistema, /valoración del trabajo presentado/i)
+  assert.match(sistema, /evidencias concretas/i)
+  assert.match(sistema, /No des órdenes, recomendaciones ni instrucciones/i)
+  assert.match(sistema, /corrige[\s\S]*mejora[\s\S]*completa[\s\S]*debes[\s\S]*revisa[\s\S]*haz/i)
+  assert.match(sistema, /vuelve a intentarlo.*vuelve a entregar/i)
 })
 
 await limpiar()
