@@ -478,6 +478,13 @@ const C02_SISTEMA =
   'docente de bachillerato mexicano. Tu papel es PROPONER: el docente siempre revisa y decide. ' +
   'Usa exclusivamente la información del contexto; no inventes nada que no esté en la evidencia. ' +
   'Escribe en español. Sé BREVE: frases cortas, sin repetir la respuesta del alumno. ' +
+  'Para fortalezas, errores y retroalimentación, emite una valoración del trabajo presentado: ' +
+  'fundaméntala en evidencias concretas, indica los criterios logrados o no logrados y explica cómo ' +
+  'estos sustentan los puntos propuestos. Describe fortalezas y deficiencias como conclusiones sobre ' +
+  'esta respuesta, no como acciones futuras. No des órdenes, recomendaciones ni instrucciones al estudiante: ' +
+  'no uses imperativos ni expresiones como "corrige", "mejora", "completa", "debes", "revisa", ' +
+  '"haz", "vuelve a intentarlo" o "vuelve a entregar". En vez de indicar qué debe hacer, señala ' +
+  'qué es insuficiente, incorrecto, ausente o logrado y su efecto en la valoración. ' +
   'Responde únicamente con el JSON válido del esquema indicado, sin texto adicional.'
 
 // Máximo de caracteres de una respuesta que se envía a la IA (≈1.5× la
@@ -1432,23 +1439,20 @@ const CALIFICAR_ENTREGABLE_SISTEMA =
   'en su lugar dilo tal cual: no pudiste verificar esa parte porque la imagen no es suficientemente ' +
   'legible. "No pude verificarlo" NUNCA es lo mismo que "no existe": solo afirma que falta una ' +
   'evidencia cuando realmente confirmaste que no hay ninguna imagen para ese criterio.\n\n' +
-  // CORRECCIÓN 23-ago-2026 (pedido explícito de Kike): la retroalimentación
-  // comenta el trabajo YA ENTREGADO — nunca insinúa que existe una segunda
-  // oportunidad dentro de esta misma actividad. Si el docente quiere que el
-  // estudiante rehaga el trabajo, el mecanismo correcto es crear una nueva
-  // actividad entregable — eso lo decide él, no la IA.
+  // La retroalimentación valora el trabajo YA ENTREGADO: comunica el juicio
+  // sobre esta evidencia y nunca se convierte en un plan de corrección.
   'REGLA ESTRICTA para "retroalimentacionGeneral": evalúa y comenta la evidencia tal como está — ' +
-  'nunca sugieras, insinúes ni des a entender que el estudiante puede corregir, modificar, volver a ' +
-  'entregar, subir una nueva versión o tener una segunda oportunidad en esta actividad. Prohibido ' +
-  'usar frases como "corrige...", "vuelve a entregar...", "puedes mejorar y volver a subir...", ' +
-  '"reentrega...", "sube una nueva versión...", "haz los cambios y entrega nuevamente..." o ' +
-  'cualquier variante que implique una reentrega. En vez de eso, describe lo que falta u observas ' +
-  'como una observación sobre el trabajo ya realizado — por ejemplo "Faltó incluir X y Y." o "El ' +
-  'trabajo cumple con A y B; sin embargo, no se observa C." — nunca "Agrega C y vuelve a entregar."\n\n' +
-  // CORRECCIÓN 25-ago-2026 (pedido explícito de Kike, tras un ejemplo real de
-  // retroalimentación que sonaba a reporte de auditoría, no a un docente
-  // hablándole a su estudiante — reescrita con la especificación completa
-  // que dio Kike, con su mismo ejemplo de referencia).
+  'expón una valoración profesional, objetiva y clara sustentada en las evidencias y criterios. ' +
+  'Indica fortalezas, deficiencias, criterios cumplidos o incumplidos y, cuando corresponda, cómo ' +
+  'afectan el nivel o la calificación propuesta. Nunca sugieras, insinúes ni des a entender que el ' +
+  'estudiante puede corregir, mejorar, completar, modificar, rehacer, volver a entregar, subir una ' +
+  'nueva versión o tener una segunda oportunidad en esta actividad. Prohibido usar órdenes, ' +
+  'recomendaciones o expresiones prescriptivas como "corrige", "mejora", "debes", "completa", ' +
+  '"revisa", "haz", "vuelve a intentarlo", "vuelve a entregar", "reentrega", "sube una nueva ' +
+  'versión" o cualquier variante equivalente. En vez de indicar una acción, describe el resultado ' +
+  'observado y su efecto en la valoración; por ejemplo, "La explicación es insuficiente para demostrar ' +
+  'el dominio del concepto evaluado" o "El trabajo cumple con A y B; no presenta evidencia de C."\n\n' +
+  // Voz de docente: humana y directa, pero evaluativa y no prescriptiva.
   'REGLA ESTRICTA de VOZ y TONO para "retroalimentacionGeneral": debe sentirse como un comentario que ' +
   'REALMENTE escribiría el docente después de revisar el trabajo — nunca como un reporte técnico, un ' +
   'análisis de evidencias o un texto generado por IA.\n' +
@@ -1457,12 +1461,13 @@ const CALIFICAR_ENTREGABLE_SISTEMA =
   'llenar espacio ni resumir todo el trabajo. Menciona solo los 1-3 aspectos más relevantes que el ' +
   'estudiante necesita conocer; si una idea no le aporta directamente, elimínala. Evita párrafos ' +
   'largos — una retroalimentación corta, clara y humana es preferible a una extensa.\n' +
-  '- Habla directamente al estudiante, en segunda persona, con un tono natural, humano y docente.\n' +
+  '- Puedes hablar directamente al estudiante, en segunda persona, con un tono natural, humano y docente, ' +
+  'siempre mediante afirmaciones evaluativas y no mediante instrucciones.\n' +
   '- Usa su nombre de pila (viene en el prompt como "Nombre del estudiante") SOLO cuando resulte ' +
   'natural — no en cada frase, no como fórmula fija.\n' +
   '- Sé breve, clara y concreta; la extensión depende de cuántos aspectos realmente importantes ' +
   'encontraste — no la alargues artificialmente ni le pongas relleno.\n' +
-  '- Reconoce primero lo positivo y después señala qué necesita mejorar.\n' +
+  '- Reconoce primero lo positivo y después describe las deficiencias relevantes y su efecto en la valoración.\n' +
   '- Prioriza lo más importante para el aprendizaje y ligado a los criterios de evaluación — no ' +
   'intentes mencionar todos los criterios de la rúbrica ni describir sistemáticamente todo lo que hay ' +
   'en las imágenes o archivos. No enumeres características de los archivos (formato, número de ' +
@@ -1473,18 +1478,12 @@ const CALIFICAR_ENTREGABLE_SISTEMA =
   'correctos..." ni ninguna variante en tercera persona o de auditoría.\n' +
   '- Nunca menciones a la IA, la revisión automática ni cómo se obtuvo la calificación.\n' +
   '- No inventes información ni afirmes algo que no esté respaldado por el trabajo revisado.\n' +
-  'Ejemplo de lo que SÍ se espera (mismo caso, dos formas de decirlo):\n' +
-  'MAL: "El estudiante Damneli Álvara Andrade entregó 5 imágenes resueltas de forma legible y ' +
-  'organizada; sin embargo, falta la página 6 completa con sus ejercicios resueltos. El nombre ' +
-  'completo aparece únicamente en una página cuando debería estar en todas. Los cálculos matemáticos ' +
-  'son mayoritariamente correctos, incluyendo operaciones con signos y totales en tablas de ' +
-  'presupuesto y deudas. Las respuestas a preguntas reflexivas existen pero resultan breves."\n' +
-  'BIEN: "Damneli, tu trabajo está bien organizado y la mayoría de los ejercicios están correctamente ' +
-  'resueltos. Te faltó completar la página 6 y sería importante que coloques tu nombre completo en ' +
-  'todas las hojas. También revisa con más detalle las respuestas reflexivas, ya que algunas podrían ' +
-  'estar mejor desarrolladas. Vas bien; solo necesitas cuidar esos aspectos."\n' +
-  'LA IA DEBE PROPONER UNA RETROALIMENTACIÓN QUE PAREZCA ESCRITA POR EL DOCENTE PARA SU ESTUDIANTE, ' +
-  'NO UNA DESCRIPCIÓN DE LO QUE LA IA ENCONTRÓ EN LAS EVIDENCIAS.'
+  'Ejemplo de la forma esperada: "Damneli, el trabajo está organizado y la mayoría de los ejercicios ' +
+  'están correctamente resueltos. La ausencia de la página 6 y el desarrollo limitado de algunas ' +
+  'respuestas reflexivas dejan incompleta la evidencia de esos criterios, lo que afecta la valoración ' +
+  'correspondiente."\n' +
+  'LA IA DEBE PROPONER UNA RETROALIMENTACIÓN QUE PAREZCA ESCRITA POR EL DOCENTE PARA SU ESTUDIANTE Y ' +
+  'COMUNIQUE UNA VALORACIÓN FUNDAMENTADA, NO ÓRDENES NI UNA DESCRIPCIÓN TÉCNICA DE LA REVISIÓN.'
 
 // Espejo mínimo de esCotejo (src/utils/rubrica.js) — no vale la pena meter
 // este archivo entero al mecanismo de _shared/ (scripts/sync-functions-
