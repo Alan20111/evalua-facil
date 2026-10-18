@@ -12,6 +12,11 @@
 //   icon / iconRight   componente de lucide (u otro) a la izquierda / derecha
 //   iconEffect   microanimación del ícono al pasar (ver Animado: gira90,
 //                empujaArriba, balanceo, destello…)
+//   iconActivo   la animación de «trabajando» del ícono (hoy la varita de la IA:
+//                giro continuo) en lugar del spinner; el botón sigue deshabilitado
+//                por quien lo usa. Con iconEffect="varita" el ícono además pulsa
+//                en reposo mientras el botón esté disponible (no deshabilitado,
+//                no ocupado, no en la app nativa).
 //   busy     muestra el spinner en lugar del ícono y deshabilita
 //   fullWidth, as ('button' | Link | 'a'…), className
 import { forwardRef } from 'react'
@@ -19,6 +24,7 @@ import { cn } from './cn'
 import Spinner from '../Spinner'
 import { ICONO } from '../../config/iconos'
 import Animado from './Animado'
+import { IS_NATIVE_APP } from '../../utils/platform'
 
 const BASE =
   'group inline-flex items-center justify-center gap-2 rounded-full text-sm font-semibold whitespace-nowrap select-none transition active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2'
@@ -48,10 +54,14 @@ const SIZES = {
 const ICONO_POR_TAMANO = { sm: ICONO.xs, md: ICONO.sm, lg: ICONO.sm }
 
 const Button = forwardRef(function Button(
-  { variant = 'primary', size = 'md', fullWidth = false, busy = false, icon: Icono, iconRight: IconoDer, iconEffect, as = 'button', className = '', disabled, children, ...rest },
+  { variant = 'primary', size = 'md', fullWidth = false, busy = false, icon: Icono, iconRight: IconoDer, iconEffect, iconActivo = false, as = 'button', className = '', disabled, children, ...rest },
   ref
 ) {
   const Tag = as
+  const esVarita = iconEffect === 'varita'
+  // La varita solo se anima si la función está disponible (ni deshabilitada
+  // ni ocupada); en la app nativa no hay pulso periódico.
+  const noDisponible = esVarita && Tag === 'button' && (disabled || busy) && !iconActivo
   const tamIcono = variant === 'icon' || variant === 'fab' ? ICONO.md : ICONO_POR_TAMANO[size]
   const classes = cn(
     variant === 'link' ? 'inline-flex items-center gap-1 text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-full' : BASE,
@@ -70,7 +80,8 @@ const Button = forwardRef(function Button(
       {...rest}
     >
       {busy ? <Spinner size="sm" current /> : Icono && (iconEffect
-        ? <Animado efecto={iconEffect}><Icono size={tamIcono} /></Animado>
+        ? <Animado efecto={iconEffect} cuando={iconActivo ? 'activo' : 'hover'} activo={iconActivo} quieto={noDisponible}
+            reposo={esVarita && !IS_NATIVE_APP && !iconActivo}><Icono size={tamIcono} /></Animado>
         : <Icono size={tamIcono} aria-hidden="true" className="flex-shrink-0" />)}
       {children}
       {IconoDer && !busy && <IconoDer size={tamIcono} aria-hidden="true" className="flex-shrink-0" />}

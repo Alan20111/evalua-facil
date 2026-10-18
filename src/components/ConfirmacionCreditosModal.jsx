@@ -12,12 +12,12 @@
 // solo difiere en lotes (rango sin falsa precisión).
 
 import { useState } from 'react'
-import { Sparkles } from 'lucide-react'
+import { WandSparkles } from 'lucide-react'
 import useCreditosIA from '../hooks/useCreditosIA'
 import ComprarCreditosModal from './ComprarCreditosModal'
 import { PUEDE_COMPRAR } from '../utils/platform'
 import ActivarCreditosModal from './ActivarCreditosModal'
-import { Button, Modal } from './ui'
+import { Animado, Button, Modal } from './ui'
 import { ICONO } from '../config/iconos'
 import Spinner from './Spinner'
 
@@ -64,7 +64,7 @@ export default function ConfirmacionCreditosModal({
         padding="p-5"
       >
         <div className="flex items-center gap-2 mb-3">
-          <Sparkles size={ICONO.md} className="text-accent flex-shrink-0" />
+          <Animado efecto="varita" cuando="activo" activo={ejecutando} className="text-accent"><WandSparkles size={ICONO.md} /></Animado>
           <h3 className="text-base font-semibold flex-1">{titulo}</h3>
         </div>
 

@@ -2,8 +2,8 @@
 // dividir sin cambio visual). Recibe lo que usa del componente principal por
 // el contexto Asignatura.
 import { useId } from 'react'
-import { AlertTriangle, Archive, ArrowDown, ArrowLeft, ArrowRightLeft, ArrowUp, ArrowUpDown, Check as CheckIcon, ChevronRight, ClipboardCheck, Copy, Download, Eye, FileText, Gamepad2, GraduationCap, KeyRound, ListChecks, Lock, LogIn, Paperclip, Pencil, Plus, RotateCcw, Sparkles, Trash2, Upload, UserPlus, X } from 'lucide-react'
-import { Button, Checkbox, IconButton, IconTile, Input, Modal, MotivoApagado, PanelFlotante, Radio, SkeletonList } from '../../../components/ui'
+import { AlertTriangle, Archive, ArrowDown, ArrowLeft, ArrowRightLeft, ArrowUp, ArrowUpDown, Check as CheckIcon, ChevronRight, ClipboardCheck, Copy, Download, Eye, FileText, Gamepad2, GraduationCap, KeyRound, ListChecks, Lock, LogIn, Paperclip, Pencil, Plus, RotateCcw, Trash2, WandSparkles, Upload, UserPlus, X } from 'lucide-react'
+import { Animado, Button, Checkbox, IconButton, IconTile, Input, Modal, MotivoApagado, PanelFlotante, Radio, SkeletonList } from '../../../components/ui'
 import EFDateTimePicker from '../../../components/EFDateTimePicker'
 import FileDropzone from '../../../components/FileDropzone'
 import FileTypeSelect from '../../../components/FileTypeSelect'
@@ -34,12 +34,14 @@ import { useAsignatura } from './contexto'
 // a mano con fondos de ícono de 2.5rem fuera de la escala y la descripción a
 // veces en text-xs y a veces en text-sm). El nombre accesible es el título;
 // la descripción se anuncia aparte.
-function OpcionCreacion({ icon, tone = 'accent', label, desc, onClick }) {
+function OpcionCreacion({ icon, ia = false, tone = 'accent', label, desc, onClick }) {
   const idDesc = useId()
   return (
     <button type="button" aria-label={label} aria-describedby={idDesc} onClick={onClick}
-      className="w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
-      <IconTile icon={icon} tone={tone} />
+      className="group w-full flex items-start gap-3 p-4 rounded-card border border-outline-variant hover:border-accent hover:bg-[var(--accent-tint)] transition-colors text-left">
+      {ia
+        ? <IconTile tone={tone}><Animado efecto="varita" reposo={!IS_NATIVE_APP}><WandSparkles size={ICONO.md} /></Animado></IconTile>
+        : <IconTile icon={icon} tone={tone} />}
       <div>
         <p className="font-semibold text-on-surface">{label}</p>
         <p id={idDesc} className="text-sm text-muted mt-0.5">{desc}</p>
@@ -403,7 +405,7 @@ export default function ModalesAsignatura() {
                     </p>
                     <OpcionCreacion icon={Pencil} tone="neutral" label="Crear manualmente" desc="Tú defines instrucciones y configuración."
                       onClick={() => elegirCreacion(menuPaso, 'manual')} />
-                    <OpcionCreacion icon={Sparkles} label="Generar con IA" desc="Describe qué quieres y el asistente genera la actividad completa."
+                    <OpcionCreacion ia label="Generar con IA" desc="Describe qué quieres y el asistente genera la actividad completa."
                       onClick={() => elegirCreacion(menuPaso, 'ia')} />
                   </>
                 )}
@@ -427,7 +429,7 @@ export default function ModalesAsignatura() {
                     <p className="text-sm text-muted mb-3">{menuPaso === 'cuestionario' ? 'Cuestionario' : 'Examen'}: reactivos con calificación automática.</p>
                     <OpcionCreacion icon={Pencil} tone="neutral" label="Crear manualmente" desc="Tú agregas los reactivos uno por uno."
                       onClick={() => elegirCreacion(menuPaso, 'manual')} />
-                    <OpcionCreacion icon={Sparkles} label="Generar con IA" desc="Describe qué quieres evaluar y el asistente genera los reactivos."
+                    <OpcionCreacion ia label="Generar con IA" desc="Describe qué quieres evaluar y el asistente genera los reactivos."
                       onClick={() => elegirCreacion(menuPaso, 'ia')} />
                   </>
                 )}
@@ -440,10 +442,10 @@ export default function ModalesAsignatura() {
                       { key: 'crucigrama', label: 'Crucigrama', desc: 'Describe el tema y el asistente propone las palabras para armar un crucigrama.', tone: 'accent' },
                       { key: 'sopa_letras', label: 'Sopa de letras', desc: 'Describe el tema y el asistente propone las palabras para armar una sopa de letras.', tone: 'success' },
                     ].map(({ key, ...opt }) => (
-                      <OpcionCreacion key={key} icon={Sparkles} {...opt}
+                      <OpcionCreacion key={key} ia {...opt}
                         onClick={() => { setShowModal(false); setCrearJuegoIA({ tipoJuego: key }) }} />
                     ))}
-                    <OpcionCreacion icon={Sparkles} label="Video interactivo"
+                    <OpcionCreacion ia label="Video interactivo"
                       desc="Pega un video de YouTube y el asistente propone preguntas que se hacen en el momento justo del video."
                       onClick={() => { setShowModal(false); setCrearVideoIA(true) }} />
                     <p className="text-xs text-muted text-center pt-2">Próximamente más actividades interactivas</p>

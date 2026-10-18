@@ -228,7 +228,7 @@ export default function PanelCalificarMovil() {
                   )
                 })()}
                 {puedeCalificarConIA && !IS_NATIVE_APP && (
-                  <Button variant="outline-accent" fullWidth icon={WandSparkles} iconEffect="destello"
+                  <Button variant="outline-accent" fullWidth icon={WandSparkles} iconEffect="varita"
                     onClick={() => abrirCalificarIA()}>
                     
                     {labelCalificarConIA}

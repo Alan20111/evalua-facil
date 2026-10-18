@@ -627,10 +627,10 @@ export default function EntregableEditor({
                       igual que crear rúbricas a mano. */}
                   {!IS_NATIVE_APP && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <Button fullWidth icon={WandSparkles} iconEffect="destello" onClick={() => pedirIA('rubrica')}>
+                      <Button fullWidth icon={WandSparkles} iconEffect="varita" onClick={() => pedirIA('rubrica')}>
                          Generar rúbrica con IA
                       </Button>
-                      <Button variant="outline-accent" fullWidth icon={WandSparkles} iconEffect="destello" onClick={() => pedirIA('cotejo')}>
+                      <Button variant="outline-accent" fullWidth icon={WandSparkles} iconEffect="varita" onClick={() => pedirIA('cotejo')}>
                          Generar lista de cotejo con IA
                       </Button>
                     </div>

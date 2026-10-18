@@ -11,7 +11,7 @@
 // 'examen'.
 
 import { useState } from 'react'
-import { Sparkles, X } from 'lucide-react'
+import { WandSparkles, X } from 'lucide-react'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useToast } from './Toast'
@@ -19,7 +19,7 @@ import useCreditosIA from '../hooks/useCreditosIA'
 import { resolverFuentes, avisarFuentesOmitidas } from '../utils/fuentesIA'
 import FuentesIAInput from './ia/FuentesIAInput'
 import useFuentesAsignatura from '../hooks/useFuentesAsignatura'
-import { Button, Modal } from './ui'
+import { Animado, Button, Modal } from './ui'
 import { ICONO } from '../config/iconos'
 
 const MIN_PETICION = 20
@@ -93,7 +93,7 @@ export default function CrearActividadIAModal({
   return (
     <Modal open onClose={() => { if (!trabajando) onClose?.() }} variant="sheet" size="md" padding="p-5">
         <div className="flex items-center gap-2 mb-3">
-          <Sparkles size={ICONO.md} className="text-accent flex-shrink-0" />
+          <Animado efecto="varita" cuando="activo" activo={trabajando} className="text-accent"><WandSparkles size={ICONO.md} /></Animado>
           <h3 className="text-base font-semibold flex-1">{tipoLabel} con IA</h3>
           <button type="button" onClick={() => { if (!trabajando) onClose?.() }} aria-label="Cerrar"
             className="p-1 text-hint rounded-full"><X size={ICONO.md} /></button>

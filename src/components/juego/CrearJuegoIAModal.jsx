@@ -10,7 +10,7 @@
 // `tipoJuego` llega fijo desde quien abre el modal ('crucigrama' | 'sopa_letras').
 
 import { useState } from 'react'
-import { Sparkles } from 'lucide-react'
+import { WandSparkles } from 'lucide-react'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { useToast } from '../Toast'
@@ -20,7 +20,7 @@ import FuentesIAInput from '../ia/FuentesIAInput'
 import useFuentesAsignatura from '../../hooks/useFuentesAsignatura'
 import { EVALUACION_DEFAULTS } from '../../utils/evaluacionDefaults'
 import Modal from '../ui/Modal'
-import { Button } from '../ui'
+import { Animado, Button } from '../ui'
 import { ICONO } from '../../config/iconos'
 
 const MIN_CANTIDAD = 5
@@ -107,7 +107,7 @@ export default function CrearJuegoIAModal({
 
   return (
     <Modal open={open} onClose={onClose} busy={trabajando} size="md"
-      title={<span className="flex items-center gap-2"><Sparkles size={ICONO.md} className="text-accent flex-shrink-0" />{tipoLabel} con IA</span>}>
+      title={<span className="flex items-center gap-2"><Animado efecto="varita" cuando="activo" activo={trabajando} className="text-accent"><WandSparkles size={ICONO.md} /></Animado>{tipoLabel} con IA</span>}>
       <div>
         <p className="text-sm text-muted mb-3">
           El asistente propone las palabras {modalidad === 'descripcion' ? 'y sus pistas ' : ''}

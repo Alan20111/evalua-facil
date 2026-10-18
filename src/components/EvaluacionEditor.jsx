@@ -1873,7 +1873,7 @@ export default function EvaluacionEditor({
                     </div>
                     {/* OP-09: solo en la web, igual que la generación de rúbrica/cotejo. */}
                     {!IS_NATIVE_APP && (
-                      <Button variant="outline-accent" fullWidth icon={WandSparkles} iconEffect="destello" onClick={pedirReactivosIA}>
+                      <Button variant="outline-accent" fullWidth icon={WandSparkles} iconEffect="varita" onClick={pedirReactivosIA}>
                          Generar reactivos con IA
                       </Button>
                     )}

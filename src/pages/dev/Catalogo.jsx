@@ -4,7 +4,7 @@
 // mismo y se mueva igual (docs/PLAN_NORMALIZACION_UI.md §3, componente 25).
 // Al agregar o cambiar un componente de ui/, agrégalo aquí.
 import { useState } from 'react'
-import { Bell, BookOpen, Check, Cloud, Copy, Download, Eye, Inbox, Mail, Pencil, Plus, RefreshCw, Search, Send, Settings, Sparkles, Trash2, Upload, User } from 'lucide-react'
+import { Bell, BookOpen, Check, Cloud, Copy, Download, Eye, Inbox, Mail, Pencil, Plus, RefreshCw, Search, Send, Settings, Sparkles, Trash2, Upload, User, WandSparkles } from 'lucide-react'
 import {
   Animado, Avatar, Badge, Button, Card, Checkbox, Chip, Disclosure, EmptyState, IconButton, IconTile, InfoDisclosure,
   Input, ListGroup, ListRow, Menu, Modal, MotivoApagado, Popover, Progress, RadioGroup, Select, SubTabs, Switch, Tabs, Textarea,
@@ -145,6 +145,11 @@ export default function Catalogo() {
             <Button variant="danger-outline" icon={Trash2} iconEffect="balanceo">Eliminar</Button>
             <IconButton icon={RefreshCw} label="Actualizar" effect="gira" />
             <IconButton icon={Sparkles} label="IA" effect="destello" />
+          </Fila>
+          <Fila>
+            <Button variant="outline-accent" icon={WandSparkles} iconEffect="varita">IA disponible (pulsa en reposo)</Button>
+            <Button variant="outline-accent" icon={WandSparkles} iconEffect="varita" disabled>IA no disponible (quieta)</Button>
+            <Button variant="outline-accent" icon={WandSparkles} iconEffect="varita" iconActivo disabled>IA trabajando</Button>
           </Fila>
           <Fila>
             <Button variant="secondary" onClick={() => setAviso((n) => n + 1)}>Llega un aviso</Button>
