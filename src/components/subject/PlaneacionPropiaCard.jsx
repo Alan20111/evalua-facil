@@ -16,7 +16,7 @@
 // (BotonDescargarArchivo, que resuelve web y app en un solo lugar) — no se
 // construye ningún visor ni descargador nuevo.
 import { useRef, useState } from 'react'
-import { Upload, Eye, FileText, Sparkles, RefreshCw } from 'lucide-react'
+import { Upload, Eye, FileText, WandSparkles, RefreshCw } from 'lucide-react'
 import { FilePreviewModal } from '../AttachmentList'
 import BotonDescargarArchivo from '../BotonDescargarArchivo'
 import { formatFileSize } from '../../utils/formatBytes'
@@ -118,7 +118,7 @@ export default function PlaneacionPropiaCard({
           onElegido={onElegirReemplazo}
           onInvalido={onArchivoInvalido}
         />
-        <Button variant="secondary" icon={Sparkles} iconEffect="destello"
+        <Button variant="secondary" icon={WandSparkles} iconEffect="destello"
           onClick={onGenerarIA}
           disabled={subiendo}>
           

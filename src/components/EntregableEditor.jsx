@@ -10,7 +10,7 @@ import FileTypeSelect from './FileTypeSelect'
 import { uploadToCloudinary } from '../utils/cloudinary'
 import { sanitizeHtml, htmlToPlainText, toRichHtml, richTextContentClass } from '../utils/sanitizeHtml'
 import { DEFAULT_FILE_TYPE, CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts, fileTypesInstructions } from '../config/fileTypes'
-import { ArrowLeft, Plus, Pencil, CalendarDays, ClipboardList, ListChecks, Eye, EyeOff, X, Lock, LockOpen, ChevronRight, Trash2, Sparkles, Paperclip } from 'lucide-react'
+import { ArrowLeft, Plus, Pencil, CalendarDays, ClipboardList, ListChecks, Eye, EyeOff, X, Lock, LockOpen, ChevronRight, Trash2, WandSparkles, Paperclip } from 'lucide-react'
 import InfoDisclosure from './ui/InfoDisclosure'
 import ConfirmModal from './ConfirmModal'
 import RubricaPicker from './rubrica/RubricaPicker'
@@ -627,10 +627,10 @@ export default function EntregableEditor({
                       igual que crear rúbricas a mano. */}
                   {!IS_NATIVE_APP && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <Button fullWidth icon={Sparkles} iconEffect="destello" onClick={() => pedirIA('rubrica')}>
+                      <Button fullWidth icon={WandSparkles} iconEffect="destello" onClick={() => pedirIA('rubrica')}>
                          Generar rúbrica con IA
                       </Button>
-                      <Button variant="outline-accent" fullWidth icon={Sparkles} iconEffect="destello" onClick={() => pedirIA('cotejo')}>
+                      <Button variant="outline-accent" fullWidth icon={WandSparkles} iconEffect="destello" onClick={() => pedirIA('cotejo')}>
                          Generar lista de cotejo con IA
                       </Button>
                     </div>

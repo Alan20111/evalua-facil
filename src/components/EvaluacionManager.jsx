@@ -31,7 +31,7 @@ import {
 import { preguntasDelIntento, politicaDeLaNota } from '../utils/versionCalculo'
 import {
   ArrowLeft, Plus, Trash2, Library, Users, Pencil, Copy, Image as ImageIcon, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Clock, CalendarDays, Star,
-  Scale, CheckSquare, Square, X, FileSpreadsheet, FileText, Sparkles,
+  Scale, CheckSquare, Square, X, FileSpreadsheet, FileText, Sparkles, WandSparkles,
 } from 'lucide-react'
 import useCreditosIA from '../hooks/useCreditosIA'
 import ConfirmacionCreditosModal from './ConfirmacionCreditosModal'
@@ -2013,7 +2013,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
             {/* OP-10: solo aparece cuando hay entregas suficientes para un
                 análisis significativo — mismo umbral que valida el servidor. */}
             {Object.values(submissions).filter((s) => s.estadoEvaluacion === 'finalizado').length >= MIN_ENTREGAS_ANALISIS && (
-              <Button variant="outline-accent" fullWidth icon={Sparkles} iconEffect="destello" className="mb-3" onClick={() => setAnalisisConfirmando(true)}>
+              <Button variant="outline-accent" fullWidth icon={WandSparkles} iconEffect="destello" className="mb-3" onClick={() => setAnalisisConfirmando(true)}>
                  Analizar resultados con IA
               </Button>
             )}
@@ -2156,7 +2156,7 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                       pendientes con respuesta_corta o subir_archivo.
                       Estimación previa obligatoria; la IA solo sugiere. */}
                   {preguntas.some((p) => TIPOS_REVISION_MANUAL.includes(p.tipo)) && (
-                    <Button icon={Sparkles} iconEffect="destello" className="flex-shrink-0"
+                    <Button icon={WandSparkles} iconEffect="destello" className="flex-shrink-0"
                       onClick={contarRespuestasIA}
                       disabled={iaContando || iaTrabajando}>
                       
