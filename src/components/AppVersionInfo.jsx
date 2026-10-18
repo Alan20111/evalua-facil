@@ -29,6 +29,7 @@ export default function AppVersionInfo() {
       )}
       <p className="text-xs text-muted">Frontend web · {formatFechaHora(builtAt)}</p>
       {commit && <p className="text-xs text-muted">Build · {commit}</p>}
+      <p className="text-xs text-muted">Creado por: Enrique Méndez, Profesor</p>
     </div>
   )
 }
