@@ -6,7 +6,7 @@
 //   cuando="activo"  mientras `activo` sea true (IA generando, sincronizando)
 //   cuando="una"     una vez cada que cambia `disparador` (llegó un aviso,
 //                    se envió, se copió)
-//   reposo           (solo `varita`) pulso periódico y discreto en reposo,
+//   reposo           (solo `varita`) destello periódico en reposo (varita + 3 estrellas),
 //                    mientras la función esté disponible; `quieto` lo apaga
 //                    junto con todo el efecto (botón deshabilitado)
 //
@@ -30,7 +30,12 @@ const ESTRELLA_BASE = 'pointer-events-none absolute opacity-0 scale-50 transitio
 
 // Fase del pulso en reposo, distinta por instancia (derivada del id, sin azar
 // en el render) para que botones cercanos no destellen sincronizados.
-const faseDe = (id) => -(([...id].reduce((a, ch) => a + ch.charCodeAt(0) * 7, 0) % 90) / 10)
+const faseDe = (id) => -(([...id].reduce((a, ch) => a + ch.charCodeAt(0) * 7, 0) % 70) / 10)
+
+// Con `reposo`, las estrellas salen en el pulso (mismo ciclo y fase que la
+// varita, que les llega por la variable CSS). Al pasar o enfocar se apaga esa
+// animación y mandan las reglas de hover/foco de ESTRELLA_BASE.
+const ESTRELLA_REPOSO = 'animate-estrellas-reposo group-hover:animate-none group-focus-visible:animate-none'
 
 export default function Animado({ efecto, cuando = 'hover', activo = false, reposo = false, quieto = false, disparador, className = '', children }) {
   const id = useId()
@@ -52,7 +57,7 @@ export default function Animado({ efecto, cuando = 'hover', activo = false, repo
     >
       {children}
       {conEstrellas && ESTRELLAS.map((e) => (
-        <svg key={e} viewBox="0 0 24 24" fill="currentColor" className={cn(ESTRELLA_BASE, e)}>
+        <svg key={e} viewBox="0 0 24 24" fill="currentColor" className={cn(ESTRELLA_BASE, reposo && ESTRELLA_REPOSO, e)}>
           <path d="M12 0l2.6 9.4L24 12l-9.4 2.6L12 24l-2.6-9.4L0 12l9.4-2.6z" />
         </svg>
       ))}

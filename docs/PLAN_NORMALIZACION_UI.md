@@ -337,7 +337,7 @@ plugin `formaApp`.
 | Copiar → ✓ | Cambio con pop | Copiar código o usuario |
 | 🔔 Campana | Sacudida de 2 oscilaciones al llegar algo nuevo, una vez | Notificaciones |
 | ↻ Actualizar | Un giro al tocar; gira mientras sincroniza | Recargar, reintentar |
-| ✨ IA (varita, `iconEffect="varita"`) | Pulso discreto cada ~9 s en reposo **solo mientras la función esté disponible** (fase distinta por botón); al pasar o enfocar, la varita se inclina y salen 3 estrellitas; mientras trabaja gira/pulsa continuo (`iconActivo`, `Animado cuando="activo"`) y se detiene al terminar. Deshabilitada, ocupada o en la app nativa: quieta. Con «reducir movimiento»: nada se mueve | Botones y entradas de IA (`Button`, `OpcionCreacion`, encabezados de los modales de IA). `destello` (sin pulso) queda para créditos y el tablero |
+| ✨ IA (varita, `iconEffect="varita"`) | Destello cada 7 s en reposo (~1.2 s: la varita crece 30 % y se inclina 12° mientras salen 3 estrellitas sincronizadas) **solo mientras la función esté disponible** (fase distinta por botón); al pasar o enfocar, la varita se inclina y salen 3 estrellitas; mientras trabaja gira/pulsa continuo (`iconActivo`, `Animado cuando="activo"`) y se detiene al terminar. Deshabilitada, ocupada o en la app nativa: quieta. Con «reducir movimiento»: nada se mueve | Botones y entradas de IA (`Button`, `OpcionCreacion`, encabezados de los modales de IA). `destello` (sin pulso) queda para créditos y el tablero |
 | ⬆︎ / ⬇︎ Subir y descargar | Empujón de 2 px en su dirección | Adjuntos, exportar |
 | 🗑 Eliminar | Leve balanceo al pasar (advierte sin asustar) | Botones destructivos |
 | 👁 Ver contraseña | Parpadeo al alternar | `PasswordInput` |
