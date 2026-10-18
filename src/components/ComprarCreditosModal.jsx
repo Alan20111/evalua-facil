@@ -158,8 +158,8 @@ export default function ComprarCreditosModal({ open, onClose }) {
             {activo && (
               <div className="space-y-3">
                 <div>
-                  <label htmlFor="comp-referencia" className="block text-sm font-medium text-on-surface mb-1">
-                    Número de referencia / folio <span className="text-error">*</span>
+                  <label htmlFor="comp-referencia" className="block text-sm font-medium text-error mb-1">
+                    Ingresa el número de referencia / folio de tu depósito <span className="text-error">*</span>
                   </label>
                   <Input
                     id="comp-referencia"
