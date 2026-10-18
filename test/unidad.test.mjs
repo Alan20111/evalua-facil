@@ -4851,14 +4851,14 @@ caso('no entran borradores, actividades sin calificación ni juegos sin confirma
 
 caso('con todas las fuentes de actividades, el promedio es el de la tabla de Calificaciones', () => {
   const { datos } = agregarAA()
-  // Parcial 1 — a: (9+10+10)/3=9.7 · b: (4+5+5)/3=4.7 · c: (8+0+9)/3=5.7 · d: (0+7)/2=3.5 → grupo 5.9.
-  // d no entregó E1 (vencida el 20-ago): vale CERO en el promedio (antes quedaba fuera → d=7, grupo 7.5).
-  // c entregó E2 y está pendiente de calificar: también vale CERO en el promedio simple (antes quedaba fuera → c=8.5, grupo 6.6).
-  assert.strictEqual(datos.parciales[0].promedioGrupo, 5.9)
+  // Parcial 1 — a: (9+10+10)/3=9.7 · b: (4+5+5)/3=4.7 · c: (8+0+9)/3=5.7 · d: (0+0+7)/3=2.3 → grupo 5.6.
+  // Regla única (17-oct-2026): toda actividad del parcial sin nota numérica vale CERO y entra al denominador.
+  // d no entregó E1 (vencida) NI E2 (sin fecha límite): ambas valen 0. c tiene E2 pendiente de calificar: 0.
+  assert.strictEqual(datos.parciales[0].promedioGrupo, 5.6)
   assert.strictEqual(datos.parciales[0].aprobados, 1)
   assert.strictEqual(datos.parciales[0].reprobados, 3)
   assert.strictEqual(datos.rotuloPromedio, null, 'con los cuatro tipos no hay aviso de promedio parcial')
-  assert.strictEqual(datos.parciales[2].promedioGrupo, null, 'el Parcial 3 no tiene calificaciones')
+  assert.strictEqual(datos.parciales[2].promedioGrupo, 0, 'el Parcial 3 tiene una actividad (E3) y ninguna nota: todas valen 0')
 })
 
 caso('una fuente desmarcada queda COMPLETAMENTE fuera: ni dato, ni promedio, ni prompt', () => {
@@ -5052,12 +5052,11 @@ caso('asistencia: solo los parciales elegidos', () => {
 
 caso('evolución: con varios parciales con datos compara; con uno solo NO existe', () => {
   const varios = agregarAA().datos.evolucion
-  assert.deepStrictEqual(varios.porParcial.map((p) => p.parcial), [1, 2])
+  // Con la regla única el Parcial 3 (E3 sin ninguna nota) promedia 0 y entra a la evolución: todos «bajan» a 0.
+  assert.deepStrictEqual(varios.porParcial.map((p) => p.parcial), [1, 2, 3])
   assert.strictEqual(varios.comparables, 4)
-  // a: 9.7 → 6.5 (baja) · b: 4.7 → 8.5 (sube) · c: 5.7 → 8 (sube: en P1 su E2 pendiente de calificar vale cero)
-  // d: 3.5 → 0 (baja): no hizo el cuestionario ni el crucigrama vencidos → cero en P2, ahora comparable.
-  assert.strictEqual(varios.bajaron, 2)
-  assert.strictEqual(varios.mejoraron, 2)
+  assert.strictEqual(varios.bajaron, 4)
+  assert.strictEqual(varios.mejoraron, 0)
   assert.strictEqual(varios.estables, 0)
   const uno = agregarAA({ parciales: [1] })
   assert.strictEqual(uno.datos.evolucion, null)
@@ -5383,7 +5382,7 @@ caso('el cambio no altera ningún número calculado ni quién queda señalado', 
   const sinNuevos = (x) => JSON.parse(JSON.stringify(x, (k, v) => (k === 'etiqueta' || k === 'numeroLista' ? undefined : v)))
   assert.deepStrictEqual(sinNuevos(a.datos), sinNuevos(b.datos))
   assert.deepStrictEqual(a.candidatos.map((c) => [c.anonId, c.senales]), b.candidatos.map((c) => [c.anonId, c.senales]))
-  assert.strictEqual(a.datos.parciales[0].promedioGrupo, 5.9)
+  assert.strictEqual(a.datos.parciales[0].promedioGrupo, 5.6)
 })
 
 grupo('Filtro «solo actividades que se califican» (presentación, docente y estudiante)')
@@ -8211,13 +8210,13 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     const notas = [10, 8, null]
     const subs = [conNota(10), conNota(8), undefined]
     assert.strictEqual(prom(acts, notas, subs), 6)
-    assert.strictEqual(promedioParcial(acts, notas, false), 9, 'sin la regla seguía siendo 9')
+    assert.strictEqual(promedioParcial(acts, notas, false), 6, 'el cero ya no depende de notasParaPromedio: la nota ausente vale 0 en la propia media')
   })
 
-  caso('cero: actividad vigente sin entrega NO recibe cero', () => {
+  caso('cero: actividad vigente sin entrega: ceroPorFaltaDeEntrega no la marca, pero en el promedio simple vale 0', () => {
     assert.strictEqual(cero(ev('a', 1, { fechaLimiteTS: ts(FUTURO) }), undefined), false)
     const acts = [ev('a'), ev('b', 1, { fechaLimiteTS: ts(FUTURO) })]
-    assert.strictEqual(prom(acts, [10, null], [conNota(10), undefined]), 10)
+    assert.strictEqual(prom(acts, [10, null], [conNota(10), undefined]), 5, 'entra al denominador con 0 aunque aún pueda entregarla')
   })
 
   caso('cero: entregas tardías abiertas → sin cero mientras siga disponible', () => {
@@ -8257,7 +8256,7 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     assert.strictEqual(cero(sinFecha, undefined, cerrado, tarde), false, 'entró después del cierre del parcial')
     assert.strictEqual(cero(sinFecha, undefined, cerrado, antes), true)
     assert.strictEqual(cero(ev('a'), undefined, subj(), { id: 'al4' }), true, 'sin createdAt no se inventa una exención')
-    assert.strictEqual(prom([ev('a'), ev('b')], [10, null], [conNota(10), undefined], subj(), false, tarde), 10)
+    assert.strictEqual(prom([ev('a'), ev('b')], [10, null], [conNota(10), undefined], subj(), false, tarde), 5, 'la alta tardía no la exime del denominador: sin nota vale 0')
   })
 
   caso('cero: programada, oculta o no accesible no penaliza', () => {
@@ -8273,14 +8272,14 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     assert.strictEqual(cero(ev('a', 1, { evaluacion: { sinCalificacion: true } }), undefined), false)
   })
 
-  caso('simple: la entrega pendiente de calificar cuenta como 0 (numerador y denominador); el intento en curso no', () => {
+  caso('simple: la entrega pendiente de calificar y el intento en curso cuentan como 0 (numerador y denominador)', () => {
     const acts = [ev('a'), ev('b')]
     const pendiente = { estado: 'entregado', calificacion: null }
     assert.strictEqual(cero(acts[1], pendiente), false, 'no es «falta de entrega»: la regla es otra')
     assert.strictEqual(prom(acts, [10, null], [conNota(10), pendiente]), 5)
     const intento = { estadoEvaluacion: 'en_progreso', intentoActual: 1, calificacion: null }
-    assert.strictEqual(prom(acts, [10, null], [conNota(10), intento]), 10, 'cuestionario/examen/juego a medias')
-    assert.strictEqual(prom(acts, [10, null], [conNota(10), { ...intento, estado: 'entregado' }]), 10, 'reintento en curso')
+    assert.strictEqual(prom(acts, [10, null], [conNota(10), intento]), 5, 'cuestionario/examen/juego a medias')
+    assert.strictEqual(prom(acts, [10, null], [conNota(10), { ...intento, estado: 'entregado' }]), 5, 'reintento en curso')
   })
 
   caso('simple: calificadas + no entregadas vencidas + pendientes — (10+8+0+0)/4', () => {
@@ -8289,10 +8288,13 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     assert.strictEqual(prom(acts, [10, 8, null, null], subs), 4.5)
   })
 
-  caso('simple: lo que todavía no debe evaluarse sigue fuera (vigente, borrador, sin calificación)', () => {
-    const acts = [ev('a'), ev('b', 1, { fechaLimiteTS: ts(FUTURO) }), ev('c', 1, { sinCalificacion: true }), ev('d', 1, { oculta: true })]
-    const subs = [conNota(10), undefined, { estado: 'entregado', calificacion: null }, { estado: 'entregado', calificacion: null }]
-    assert.strictEqual(prom(acts, [10, null, null, null], subs), 10)
+  caso('simple: una vigente cuenta 0; borrador y «sin calificación» no son del parcial y siguen fuera (los llamadores filtran con cuentaParaCalificacion)', () => {
+    const todas = [ev('a'), ev('b', 1, { fechaLimiteTS: ts(FUTURO) }), ev('c', 1, { sinCalificacion: true }), ev('d', 1, { oculta: true })]
+    const subsTodas = [conNota(10), undefined, { estado: 'entregado', calificacion: null }, { estado: 'entregado', calificacion: null }]
+    const del = todas.map((a, i) => i).filter((i) => cuentaParaCalificacion(todas[i]))
+    assert.deepStrictEqual(del, [0, 1], 'solo a y b son del parcial')
+    const acts = del.map((i) => todas[i])
+    assert.strictEqual(prom(acts, [10, null], del.map((i) => subsTodas[i])), 5)
   })
 
   // ── «No entregó» sin nota: estado `calificado` + `sinEntrega: true` + sin calificación ──
@@ -8305,7 +8307,7 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     const subs = [conNota(10), conNota(9), conNota(0), conNota(0), sinNota, undefined, conNota(8), conNota(8), conNota(10), conNota(10)]
     const notas = subs.map((s) => s?.calificacion ?? null)
     assert.strictEqual(prom(acts, notas, subs), 5.5)
-    assert.strictEqual(promedioParcial(acts, notas, false), 55 / 8, 'sin ninguna regla de cero')
+    assert.strictEqual(promedioParcial(acts, notas, false), 5.5, 'la propia media ya divide entre las 10 actividades')
   })
 
   caso('sinEntrega sin nota: calificacion null también cuenta como 0', () => {
@@ -8324,19 +8326,21 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     assert.strictEqual(esSinEntregaSinNota({ ...conNotaSE, calificacion: 0 }), false)
   })
 
-  caso('sinEntrega sin nota: NO toca lo demás — pendiente entregado, sin documento vigente o vencido, intento en curso', () => {
+  caso('sinEntrega sin nota: todo lo demás sin nota también vale 0 — pendiente entregado, sin documento vigente o vencido, intento en curso', () => {
     const acts = [ev('a'), ev('b', 1, { fechaLimiteTS: ts(FUTURO) })]
-    assert.strictEqual(prom(acts, [10, null], [conNota(10), undefined]), 10, 'sin documento y vigente: fuera')
+    assert.strictEqual(prom(acts, [10, null], [conNota(10), undefined]), 5, 'sin documento y vigente: vale 0')
     assert.strictEqual(prom([ev('a'), ev('b')], [10, null], [conNota(10), { estado: 'entregado', calificacion: null }]), 5, 'pendiente entregado: sigue valiendo 0 (regla de #1637)')
-    assert.strictEqual(prom([ev('a'), ev('b')], [10, null], [conNota(10), { estado: 'pendiente', sinEntrega: true, estadoEvaluacion: 'en_progreso' }]), 10, 'no es calificado: no entra')
+    assert.strictEqual(prom([ev('a'), ev('b')], [10, null], [conNota(10), { estado: 'pendiente', sinEntrega: true, estadoEvaluacion: 'en_progreso' }]), 5, 'intento en curso sin nota: vale 0')
     assert.strictEqual(prom([ev('a'), ev('b')], [10, null], [conNota(10), undefined]), 5, 'sin documento y vencida: sigue valiendo 0')
   })
 
   caso('sinEntrega sin nota: actividad sin calificación o borrador sigue fuera; parcial oculto no entra al promedio del estudiante', () => {
-    const subs = [conNota(10), sinNota]
-    assert.strictEqual(prom([ev('a'), ev('b', 1, { sinCalificacion: true })], [10, null], subs), 10)
-    assert.strictEqual(prom([ev('a'), ev('b', 1, { evaluacion: { sinCalificacion: true } })], [10, null], subs), 10)
-    assert.strictEqual(prom([ev('a'), ev('b', 1, { oculta: true })], [10, null], subs), 10, 'borrador')
+    // Los llamadores pasan solo las actividades que cuentan (cuentaParaCalificacion): aquí se comprueba esa puerta.
+    const delParcial = (acts) => acts.filter(cuentaParaCalificacion)
+    assert.deepStrictEqual(delParcial([ev('a'), ev('b', 1, { sinCalificacion: true })]).map((a) => a.id), ['a'])
+    assert.deepStrictEqual(delParcial([ev('a'), ev('b', 1, { evaluacion: { sinCalificacion: true } })]).map((a) => a.id), ['a'])
+    assert.deepStrictEqual(delParcial([ev('a'), ev('b', 1, { oculta: true })]).map((a) => a.id), ['a'], 'borrador')
+    assert.strictEqual(prom([ev('a')], [10], [conNota(10)]), 10)
     const oculto = subj({ parcialesOcultos: [1] })
     assert.strictEqual(cuentaEnPromedioDelAlumno(ev('b'), sinNota, oculto), false, 'parcial oculto: la actividad no entra a su promedio')
     assert.strictEqual(cuentaEnPromedioDelAlumno(ev('b'), sinNota, subj()), true)
@@ -8431,7 +8435,80 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     assert.strictEqual(prom(acts, [10, 5], [conNota(10), { ...cierre, calificacion: 5 }], cerrado), 7.5)
     // Reapertura: se borra la nota automática → vuelve a depender del plazo, sin documentos duplicados.
     assert.strictEqual(prom(acts, [10, null], [conNota(10), undefined], subj({ parcialesCerrados: {} })), 5, 'vencida: sigue en cero')
-    assert.strictEqual(prom([ev('a'), ev('b', 1, { fechaLimiteTS: ts(FUTURO) })], [10, null], [conNota(10), undefined], subj({ parcialesCerrados: {} })), 10, 'vigente: vuelve a quedar fuera')
+    assert.strictEqual(prom([ev('a'), ev('b', 1, { fechaLimiteTS: ts(FUTURO) })], [10, null], [conNota(10), undefined], subj({ parcialesCerrados: {} })), 5, 'vigente: también vale 0')
+  })
+
+  // ── Regla única del promedio simple (Kike, 17-oct-2026) ───────────────────────
+  // Con nota numérica se usa esa nota; SIN nota numérica vale 0, sea cual sea el
+  // estado (—, +, PR, sin fecha, plazo futuro…). TODAS las actividades del parcial
+  // entran al denominador. Ningún estado de entrega, fecha o prórroga excluye.
+  const ESTADOS_SIN_NOTA = [
+    ['— sin documento, plazo vencido', ev('x'), undefined],
+    ['— sin documento, SIN fecha límite', ev('x', 1, { fechaLimite: null, fechaLimiteTS: null }), undefined],
+    ['— sin documento, plazo futuro (aún puede entregar)', ev('x', 1, { fechaLimiteTS: ts(FUTURO) }), undefined],
+    ['— sin documento, vencida pero recibe tarde', ev('x', 1, { recibirTarde: true }), undefined],
+    ['— «no entregó» del docente sin nota', ev('x'), { estado: 'calificado', sinEntrega: true }],
+    ['— examen con intento en curso', ev('x', 1, { tipo: 'evaluacion' }), { estado: 'pendiente', estadoEvaluacion: 'en_progreso', calificacion: null }],
+    ['— juego iniciado sin terminar', ev('x', 1, { categoria: 'juego', juego: { estado: 'juego_confirmado' } }), { estado: 'pendiente', estadoEvaluacion: 'en_progreso', calificacion: null }],
+    ['+ entregada, pendiente de calificar', ev('x'), { estado: 'entregado', calificacion: null }],
+    ['+ examen finalizado sin nota', ev('x', 1, { tipo: 'evaluacion' }), { estado: 'entregado', estadoEvaluacion: 'finalizado', calificacion: null }],
+    ['PR prórroga vigente', ev('x', 1, { extensionesTS: { al1: ts(FUTURO) } }), undefined],
+    ['— prórroga ya vencida', ev('x', 1, { extensionesTS: { al1: ts('2026-10-12T00:00:00Z') } }), undefined],
+    ['— prórroga vencida y recibe tarde', ev('x', 1, { recibirTarde: true, extensionesTS: { al1: ts('2026-10-12T00:00:00Z') } }), undefined],
+  ]
+  const ESTADOS_SIN_NOTA_SRV = createRequire(import.meta.url)('../functions/_shared/ponderacion.js')
+
+  caso('regla única: cada estado sin nota numérica cuenta 0 y entra al denominador (10 y 6 + una sin nota = 16/3)', () => {
+    for (const [nombre, x, sub] of ESTADOS_SIN_NOTA) {
+      const acts = [ev('a'), ev('b'), x]
+      const subs = [conNota(10), conNota(6), sub]
+      const notas = [10, 6, null]
+      assert.ok(Math.abs(prom(acts, notas, subs) - 16 / 3) < 1e-9, `${nombre}: debe dar 16/3 (5.33), dio ${prom(acts, notas, subs)}`)
+      // También con la media sola: la regla ya no depende de quién prepare las notas.
+      assert.ok(Math.abs(promedioParcial(acts, notas, false) - 16 / 3) < 1e-9, `${nombre}: promedioParcial a secas`)
+      assert.ok(Math.abs(ESTADOS_SIN_NOTA_SRV.promedioParcial(acts, notas, false) - 16 / 3) < 1e-9, `${nombre}: copia del servidor`)
+    }
+  })
+
+  await casoA('regla única: los símbolos —, + y PR de la tabla coinciden con lo que vale cada celda (ninguno excluye)', async () => {
+    const { estadoEntrega, ESTADO_ENTREGA } = await import('../src/utils/estadoEntrega.js')
+    const vistos = new Set()
+    for (const [nombre, x, sub] of ESTADOS_SIN_NOTA) {
+      vistos.add(estadoEntrega(x, sub, 'al1', AHORA))
+      const acts = [ev('a'), x]
+      assert.strictEqual(prom(acts, [10, null], [conNota(10), sub]), 5, nombre)
+    }
+    assert.deepStrictEqual([...vistos].sort(), [ESTADO_ENTREGA.NO_ENTREGADO, ESTADO_ENTREGA.POR_CALIFICAR, ESTADO_ENTREGA.PRORROGA].sort(), 'los tres símbolos están cubiertos')
+  })
+
+  caso('regla única: la nota numérica existente se conserva, también el 0', () => {
+    const acts = [ev('a'), ev('b'), ev('c')]
+    assert.strictEqual(prom(acts, [10, 0, 5], [conNota(10), conNota(0), conNota(5)]), 5, 'un 0 numérico no se trata como ausencia')
+    assert.strictEqual(promedioParcial(acts, [7.5, 8.5, 9], false), 25 / 3)
+    // Una nota con sinEntrega:true pero con calificación numérica manda sobre el cero.
+    assert.strictEqual(prom([ev('a'), ev('b')], [10, 7], [conNota(10), { estado: 'calificado', sinEntrega: true, calificacion: 7 }]), 8.5)
+  })
+
+  caso('regla única: todas sin nota → 0 (no «—»); sin actividades del parcial → null', () => {
+    const acts = [ev('a'), ev('b'), ev('c')]
+    assert.strictEqual(promedioParcial(acts, [null, null, null], false), 0)
+    assert.strictEqual(promedioParcial(acts, [undefined, undefined, undefined], false), 0)
+    assert.strictEqual(promedioParcial([], [], false), null)
+  })
+
+  caso('regla única: el caso de la captura — 6, 10, 10, sin nota, 10 → 7.2 (no 9)', () => {
+    const acts = ['1.1', '1.2', '1.3', '1.4', '1.5'].map((id) => ev(id, 1, { fechaLimite: null, fechaLimiteTS: null }))
+    const notas = [6, 10, 10, null, 10]
+    const subs = [conNota(6), conNota(10), conNota(10), undefined, conNota(10)]
+    assert.ok(Math.abs(prom(acts, notas, subs) - 7.2) < 1e-9)
+    assert.strictEqual(parseFloat(prom(acts, notas, subs).toFixed(1)), 7.2)
+  })
+
+  caso('regla única: el ponderado no cambia (Σ nota·peso / 10, la nota ausente ya aportaba 0)', () => {
+    const sp = subj({ ponderacionActivada: true })
+    const acts = [ev('a', 1, { pesoCalificacion: 5 }), ev('b', 1, { pesoCalificacion: 5 })]
+    assert.strictEqual(prom(acts, [10, null], [conNota(10), undefined], sp, true), 5)
+    assert.strictEqual(promedioParcial(acts, [10, 10], true), 10)
   })
 
   caso('cero: juegos, exámenes y cuestionarios sin documento', () => {
@@ -8754,11 +8831,13 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     assert.strictEqual(srv.promedioParcial(acts, g, true), promedioParcial(acts, g, true))
   })
 
-  caso('ponderado: modo simple intacto — media de lo que tiene resultado, los pesos no cuentan', () => {
+  caso('ponderado: modo simple — media de TODAS las actividades (sin nota = 0), los pesos no cuentan', () => {
     const acts = [ev('a', 7), ev('b', 3), ev('c', 0)]
-    assert.strictEqual(promedioParcial(acts, [10, 6, null], false), 8)
-    assert.strictEqual(promedioParcial(acts, [null, null, null], false), null)
-    assert.strictEqual(promedioParcial(acts, [10, null, null], false), 10)
+    assert.ok(Math.abs(promedioParcial(acts, [10, 6, null], false) - 16 / 3) < 1e-9)
+    assert.strictEqual(promedioParcial(acts, [null, null, null], false), 0)
+    assert.ok(Math.abs(promedioParcial(acts, [10, null, null], false) - 10 / 3) < 1e-9)
+    assert.strictEqual(promedioParcial(acts, [10, 0, 5], false), 5, 'un 0 numérico se conserva')
+    assert.strictEqual(promedioParcial([], [], false), null, 'sin actividades no hay promedio')
     // Ponderación «encendida» pero sin ningún peso → cae al simple, como siempre.
     assert.strictEqual(promedioParcial([ev('a', null), ev('b', 0)], [10, 6], true), 8)
     const simple = subj({ ponderacionParciales: { 1: false } })
@@ -8852,11 +8931,11 @@ caso('revisión · aprobar una pregunta NO mueve el video; descartar, restaurar 
     assert.strictEqual(ceroPorFaltaDeEntrega(act('a', 5), undefined, { subject: subj(), alumno, ahora: AHORA }), true)
     assert.strictEqual(ceroPorFaltaDeEntrega(act('a', 5, publicadaYOculta), undefined, { subject: subj(), alumno, ahora: AHORA }), false, 'oculta sin entrega: no hay cero virtual')
     assert.strictEqual(ceroPorFaltaDeEntrega(act('a', 5, programada), undefined, { subject: subj(), alumno, ahora: AHORA }), false)
-    // Modo simple: media de lo que tiene nota, sin pesos; una oculta con nota real también cuenta.
+    // Modo simple: media de TODAS las actividades del parcial (la vigente sin nota vale 0), sin pesos; una oculta con nota real también cuenta.
     const simple = subj({ ponderacionParciales: { 1: false } })
     const acts = [act('a', 7, publicadaYOculta), act('b', 3), act('c', 0, vigente)]
-    assert.strictEqual(docente(acts, { a: nota(10), b: nota(6) }, simple, false), 8)
-    assert.strictEqual(estudiante(acts, { a: nota(10), b: nota(6) }, simple, false), 8)
+    assert.ok(cerca(docente(acts, { a: nota(10), b: nota(6) }, simple, false), 16 / 3))
+    assert.ok(cerca(estudiante(acts, { a: nota(10), b: nota(6) }, simple, false), 16 / 3))
     // La función no escribe nada ni toca las entregas.
     const subs = Object.freeze({ a: Object.freeze(nota(10)) })
     assert.ok(cerca(estudiante([act('a', 5, publicadaYOculta)], subs), 5), 'peso 5 con un 10: 50/10')

@@ -409,8 +409,8 @@ const SECTIONS = [
       {
         subtitle: 'Sin ponderación',
         items: [
-          'Si no activas nada, el promedio del parcial es el promedio simple de las actividades que corresponden a ese parcial. Las que no se entregaron y las entregadas que aún no calificas cuentan como cero.',
-          'Las entregas pendientes de calificación cuentan como cero, aunque en la tabla se vea «—». Lo mismo pasa con una actividad que ya no se puede entregar (venció su plazo, o cerraste el parcial) y que el estudiante no entregó. Una actividad que sigue abierta no se cuenta como cero.',
+          'Si no activas nada, el promedio del parcial es el promedio simple de TODAS las actividades que corresponden a ese parcial: sumas las calificaciones y divides entre el número de actividades.',
+          'Una actividad que no tiene calificación numérica cuenta como cero, sin importar cómo se vea en la tabla: «—» (no entregada), «+» (entregada, pendiente de calificar) o «PR» (con prórroga). Cuando la calificas, deja de ser cero y el promedio se ajusta solo. Un 0 que tú pongas es una calificación como cualquier otra.',
         ],
       },
       {

@@ -1,8 +1,8 @@
 // Optional per-activity weighting (PONDERACIÓN) for parcial averages.
 //
 // Default behaviour (no weighting): every activity in the parcial is worth
-// the same — the parcial average is the simple mean of the activities with a
-// grade (activities that don't count yet stay out of it).
+// the same — the parcial average is the simple mean of ALL its activities; one
+// without a numeric grade counts as 0 (never excluded by delivery status).
 //
 // When the subject has `ponderacionActivada` AND at least one activity of the
 // parcial has a positive `pesoCalificacion` (assigned by the teacher so the
@@ -80,8 +80,9 @@ export function estadoSumaPesos(acts) {
 //    aporta 0 y los pesos cero no aportan. null solo si NINGUNA actividad con peso
 //    tiene resultado; si todos los resultados son cero, el promedio es 0. Nunca
 //    pasa de 10 (si los pesos suman más de 10 el docente ve la advertencia).
-//  · Simple: media de las notas que no son null (las entregas pendientes de
-//    calificar ya llegan como 0 desde `notasParaPromedio`).
+//  · Simple: media de TODAS las actividades del parcial (`acts`); la que no tiene
+//    nota (null) vale 0, sin excepciones por estado de entrega, fecha o prórroga.
+//    null solo si el parcial no tiene ninguna actividad que cuente.
 export function promedioParcial(acts, grades, ponderacionOn) {
   const usePesos = ponderacionOn && acts.some((a) => pesoDe(a) > 0)
   if (usePesos) {
@@ -97,8 +98,11 @@ export function promedioParcial(acts, grades, ponderacionOn) {
     })
     return hayResultado ? Math.min(10, sg / PESO_TOTAL_PARCIAL) : null
   }
-  const valid = grades.filter((g) => g !== null && g !== undefined)
-  return valid.length ? valid.reduce((x, y) => x + y, 0) / valid.length : null
+  // Simple: TODA actividad del parcial entra al denominador; la que no tiene nota
+  // numérica vale 0, sea cual sea su estado (—, +, PR, sin fecha, plazo futuro…).
+  // Un 0 numérico y cualquier otra nota se conservan tal cual.
+  if (!acts.length) return null
+  return acts.reduce((s, _a, i) => s + (grades[i] ?? 0), 0) / acts.length
 }
 
 // ── Cero por falta de entrega ─────────────────────────────────────────────
