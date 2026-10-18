@@ -20,7 +20,7 @@ import { repartirPonderacionParejo } from '../utils/evaluacionGrading'
 import { parcialCerrado as esParcialCerrado, mensajeParcialCerrado } from '../utils/ponderacion'
 import {
   ArrowLeft, Plus, Trash2, Library, Pencil, Copy, Scale, CheckSquare, Square,
-  Image as ImageIcon, CalendarDays, Eye, EyeOff, ListChecks, Timer, RotateCcw, X, Lock, LockOpen, ChevronRight, ChevronUp, ChevronDown, FolderOpen, Sparkles,
+  Image as ImageIcon, CalendarDays, Eye, EyeOff, ListChecks, Timer, RotateCcw, X, Lock, LockOpen, ChevronRight, ChevronUp, ChevronDown, FolderOpen, WandSparkles,
 } from 'lucide-react'
 import EFDateTimePicker from './EFDateTimePicker'
 import PublicacionScheduler from './PublicacionScheduler'
@@ -1873,7 +1873,7 @@ export default function EvaluacionEditor({
                     </div>
                     {/* OP-09: solo en la web, igual que la generación de rúbrica/cotejo. */}
                     {!IS_NATIVE_APP && (
-                      <Button variant="outline-accent" fullWidth icon={Sparkles} iconEffect="destello" onClick={pedirReactivosIA}>
+                      <Button variant="outline-accent" fullWidth icon={WandSparkles} iconEffect="destello" onClick={pedirReactivosIA}>
                          Generar reactivos con IA
                       </Button>
                     )}

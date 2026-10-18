@@ -1,7 +1,7 @@
 // Parte del render de ActivityPage.jsx (fase 5 de PLAN_NORMALIZACION_UI:
 // dividir sin cambio visual). Recibe lo que usa del componente principal por
 // el contexto Actividad.
-import { ArrowLeft, CalendarDays, CheckCheck, Clock, FolderDown, Pencil, Sparkles, Star } from 'lucide-react'
+import { ArrowLeft, CalendarDays, CheckCheck, Clock, FolderDown, Pencil, WandSparkles, Star } from 'lucide-react'
 import AttachmentList from '../../../components/AttachmentList'
 import { Button, IconButton } from '../../../components/ui'
 import { CUSTOM_FILE_TYPE, normalizeFileTypeKeys, parseCustomExts } from '../../../config/fileTypes'
@@ -254,14 +254,14 @@ export default function ListaEntregas() {
             <div className="mx-4 mt-3 rounded-card border border-outline-variant">
               <p className="px-3 pt-2 text-[11px] text-muted">La IA propone; tú decides.</p>
               <div className="p-2 pt-1.5 space-y-1.5">
-                <Button variant="outline-accent" fullWidth icon={Sparkles} iconEffect="destello"
+                <Button variant="outline-accent" fullWidth icon={WandSparkles} iconEffect="destello"
                   onClick={contarEntregasIA}
                   data-tooltip="Genera propuestas de calificación con IA para las entregas pendientes.">
                   
                   Calificar
                 </Button>
                 {hayVersionDistinta && (
-                  <Button variant="secondary" fullWidth icon={Sparkles} iconEffect="destello"
+                  <Button variant="secondary" fullWidth icon={WandSparkles} iconEffect="destello"
                     onClick={contarRecalificarIA}
                     data-tooltip="La rúbrica o lista de cotejo cambió desde la última evaluación con IA. Genera una nueva propuesta con la versión actual y consume créditos.">
                     

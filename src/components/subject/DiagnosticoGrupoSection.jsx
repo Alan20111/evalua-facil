@@ -25,7 +25,7 @@ import ConfirmModal from '../ConfirmModal'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import useDiagnosticoEstado from '../../hooks/useDiagnosticoEstado'
 import AvisoPerfilIA from './AvisoPerfilIA'
-import { Sparkles, ClipboardList, ExternalLink, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
+import { WandSparkles, ClipboardList, ExternalLink, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 import { SkeletonText, Button, Checkbox } from '../ui'
 import { ICONO } from '../../config/iconos'
 
@@ -222,7 +222,7 @@ function DiagnosticoActividadBloque({
               docente quiere uno distinto, lo elimina desde Actividades y
               este botón reaparece solo. */}
           {actividades.length === 0 ? (
-            <Button variant="secondary" icon={Sparkles} iconEffect="destello" busy={generando}
+            <Button variant="secondary" icon={WandSparkles} iconEffect="destello" busy={generando}
               onClick={() => setConfirmando(true)}
               disabled={generando || !perfilIACompleto}
               title={!perfilIACompleto ? 'Completa tu Perfil para IA del docente para generar los diagnósticos' : undefined}>

@@ -2,7 +2,7 @@
 // dividir sin cambio visual). Recibe lo que usa del componente principal por
 // el contexto Actividad.
 import { AbrirConNativoButton } from './piezas'
-import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Download, Sparkles, Star, Trash2 } from 'lucide-react'
+import { ArrowLeft, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Download, WandSparkles, Star, Trash2 } from 'lucide-react'
 import { Button } from '../../../components/ui'
 import EnlaceEntregado from '../../../components/EnlaceEntregado'
 import { FilePreview, canPreviewFile } from '../../../components/AttachmentList'
@@ -228,7 +228,7 @@ export default function PanelCalificarMovil() {
                   )
                 })()}
                 {puedeCalificarConIA && !IS_NATIVE_APP && (
-                  <Button variant="outline-accent" fullWidth icon={Sparkles} iconEffect="destello"
+                  <Button variant="outline-accent" fullWidth icon={WandSparkles} iconEffect="destello"
                     onClick={() => abrirCalificarIA()}>
                     
                     {labelCalificarConIA}

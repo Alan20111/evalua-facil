@@ -39,7 +39,7 @@ import ReportarIA from '../ReportarIA'
 import { uploadToCloudinary } from '../../utils/cloudinary'
 import { fetchApi } from '../../utils/apiBase'
 import { saveBlob } from '../../utils/exportGuard'
-import { CheckCircle2, Circle, Sparkles, RotateCcw, Download, ThumbsUp, Eye, Lock, X, Monitor, Save, AlertTriangle } from 'lucide-react'
+import { CheckCircle2, Circle, WandSparkles, RotateCcw, Download, ThumbsUp, Eye, Lock, X, Monitor, Save, AlertTriangle } from 'lucide-react'
 import { Skeleton, SkeletonList, SkeletonText, Button, IconButton, Radio } from '../ui'
 import { ICONO } from '../../config/iconos'
 
@@ -466,7 +466,7 @@ function SelectorDeCamino({ generando, subiendoArchivo, onElegirIA, onElegirArch
           className="flex flex-col items-start gap-1 p-3 rounded-card border border-dashed border-outline-variant text-left hover:bg-[var(--accent-tint)] disabled:opacity-60"
         >
           <span className="flex items-center gap-1.5 font-medium text-accent">
-            {generando ? <Spinner size="sm" /> : <Sparkles size={ICONO.sm} />}
+            {generando ? <Spinner size="sm" /> : <WandSparkles size={ICONO.sm} />}
             Que Evalúa Fácil la genere
           </span>
           <span className="text-sm text-muted">
@@ -1246,7 +1246,7 @@ function Planeacion({
                 onClick={() => (nuncaAprobado ? onPago() : setConfirmando(true))}
                 disabled={bloqueada || !perfilIACompleto}
                 title={!perfilIACompleto ? 'Completa tu Perfil para IA del docente para generar con Evalúa Fácil' : bloqueada ? 'Tu planeación se está generando — aparecerá aquí al terminar' : undefined}>
-                {bloqueada ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={ICONO.xs} /> : pendiente ? <RotateCcw size={ICONO.xs} /> : <Sparkles size={ICONO.xs} />}
+                {bloqueada ? <Spinner size="sm" /> : nuncaAprobado ? <Lock size={ICONO.xs} /> : pendiente ? <RotateCcw size={ICONO.xs} /> : <WandSparkles size={ICONO.xs} />}
                 {pendiente ? 'Generar de nuevo (con IA)' : 'Generar mi planeación'}
               </Button>
             )}

@@ -4,7 +4,7 @@
 import AnalisisAsignaturaIA from '../../../components/analisis/AnalisisAsignaturaIA'
 import { Button, IconButton, SkeletonTable } from '../../../components/ui'
 import { ExportSplitButton } from './piezas'
-import { AlertTriangle, Eye, EyeOff, FileSpreadsheet, FileText, Lock, MoreVertical, Sparkles, X } from 'lucide-react'
+import { AlertTriangle, Eye, EyeOff, FileSpreadsheet, FileText, Lock, MoreVertical, WandSparkles, X } from 'lucide-react'
 import { ICONO } from '../../../config/iconos'
 import { IS_NATIVE_APP, PUEDE_AUTOFOCUS } from '../../../utils/platform'
 import SearchInput from '../../../components/SearchInput'
@@ -143,7 +143,7 @@ export default function TabCalificaciones() {
                 {/* Análisis integral con IA: junto a Excel/PDF porque parte de
                     lo mismo que ellos — los resultados de toda la asignatura.
                     No ejecuta nada al pulsarlo: abre la configuración. */}
-                <Button variant="outline-accent" icon={Sparkles} iconEffect="destello" className="flex-1 min-w-0" onClick={() => setAnalisisAsignaturaAbierto(true)}
+                <Button variant="outline-accent" icon={WandSparkles} iconEffect="destello" className="flex-1 min-w-0" onClick={() => setAnalisisAsignaturaAbierto(true)}
                   data-tooltip="Elige parciales y fuentes; la IA prepara un informe del grupo. No modifica calificaciones.">
                    <span className="truncate">Analizar asignatura con IA</span>
                 </Button>

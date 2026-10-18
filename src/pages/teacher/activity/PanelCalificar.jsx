@@ -2,7 +2,7 @@
 // dividir sin cambio visual). Recibe lo que usa del componente principal por
 // el contexto Actividad.
 import { AbrirConNativoButton } from './piezas'
-import { ArrowLeft, ChevronLeft, ChevronRight, ClipboardList, Clock, Download, Sparkles, Star } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, ClipboardList, Clock, Download, WandSparkles, Star } from 'lucide-react'
 import { Button, Checkbox, Input } from '../../../components/ui'
 import CalificarConIAModal from '../../../components/rubrica/CalificarConIAModal'
 import EFDateTimePicker from '../../../components/EFDateTimePicker'
@@ -451,7 +451,7 @@ export default function PanelCalificar() {
                       )
                     })()}
                     {puedeCalificarConIA && (
-                      <Button variant="outline-accent" fullWidth icon={Sparkles} iconEffect="destello"
+                      <Button variant="outline-accent" fullWidth icon={WandSparkles} iconEffect="destello"
                         onClick={() => abrirCalificarIA()}>
                         
                         {labelCalificarConIA}
