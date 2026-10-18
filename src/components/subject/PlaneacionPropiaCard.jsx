@@ -118,7 +118,8 @@ export default function PlaneacionPropiaCard({
           onElegido={onElegirReemplazo}
           onInvalido={onArchivoInvalido}
         />
-        <Button variant="secondary" icon={WandSparkles} iconEffect="destello"
+        <Button variant="secondary" icon={WandSparkles} iconEffect="varita"
+          data-tooltip="Crea con IA una planeación para esta asignatura."
           onClick={onGenerarIA}
           disabled={subiendo}>
           

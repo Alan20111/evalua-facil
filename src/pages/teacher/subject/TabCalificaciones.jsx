@@ -143,7 +143,7 @@ export default function TabCalificaciones() {
                 {/* Análisis integral con IA: junto a Excel/PDF porque parte de
                     lo mismo que ellos — los resultados de toda la asignatura.
                     No ejecuta nada al pulsarlo: abre la configuración. */}
-                <Button variant="outline-accent" icon={WandSparkles} iconEffect="destello" className="flex-1 min-w-0" onClick={() => setAnalisisAsignaturaAbierto(true)}
+                <Button variant="outline-accent" icon={WandSparkles} iconEffect="varita" className="flex-1 min-w-0" onClick={() => setAnalisisAsignaturaAbierto(true)}
                   data-tooltip="Elige parciales y fuentes; la IA prepara un informe del grupo. No modifica calificaciones.">
                    <span className="truncate">Analizar asignatura con IA</span>
                 </Button>

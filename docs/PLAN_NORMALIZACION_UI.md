@@ -326,7 +326,7 @@ se validan en el PR de cada pantalla.
 ### 6.2 Microanimaciones de ícono (donde hay interacción)
 
 Solo al interactuar o al ocurrir algo, nunca en bucle (salvo lo que avisa que algo
-está en curso). Todo en CSS, con el envoltorio `<Animado tipo="…">` o clases del
+está en curso y el pulso discreto de la varita de IA, ver su fila). Todo en CSS, con el envoltorio `<Animado tipo="…">` o clases del
 plugin `formaApp`.
 
 | Ícono / acción | Microanimación | Dónde |
@@ -337,7 +337,7 @@ plugin `formaApp`.
 | Copiar → ✓ | Cambio con pop | Copiar código o usuario |
 | 🔔 Campana | Sacudida de 2 oscilaciones al llegar algo nuevo, una vez | Notificaciones |
 | ↻ Actualizar | Un giro al tocar; gira mientras sincroniza | Recargar, reintentar |
-| ✨ IA | Destellos mientras genera; brillo suave al pasar | Botones de IA y créditos |
+| ✨ IA (varita, `iconEffect="varita"`) | Pulso discreto cada ~9 s en reposo **solo mientras la función esté disponible** (fase distinta por botón); al pasar o enfocar, la varita se inclina y salen 3 estrellitas; mientras trabaja gira/pulsa continuo (`iconActivo`, `Animado cuando="activo"`) y se detiene al terminar. Deshabilitada, ocupada o en la app nativa: quieta. Con «reducir movimiento»: nada se mueve | Botones y entradas de IA (`Button`, `OpcionCreacion`, encabezados de los modales de IA). `destello` (sin pulso) queda para créditos y el tablero |
 | ⬆︎ / ⬇︎ Subir y descargar | Empujón de 2 px en su dirección | Adjuntos, exportar |
 | 🗑 Eliminar | Leve balanceo al pasar (advierte sin asustar) | Botones destructivos |
 | 👁 Ver contraseña | Parpadeo al alternar | `PasswordInput` |

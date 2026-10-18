@@ -235,6 +235,12 @@ export default {
           '0%, 100%': { transform: 'scale(1) rotate(0)', opacity: '1' },
           '50%': { transform: 'scale(1.18) rotate(8deg)', opacity: '0.75' },
         },
+        // Varita de la IA en reposo: el mismo pulso de `destello`, ~1 s cada 9 s
+        // (quieta el resto). Solo transform y opacity.
+        'varita-reposo': {
+          '0%, 10%, 100%': { transform: 'scale(1) rotate(0)', opacity: '1' },
+          '5%': { transform: 'scale(1.18) rotate(8deg)', opacity: '0.75' },
+        },
         parpadeo: { '0%, 100%': { transform: 'scaleY(1)' }, '50%': { transform: 'scaleY(0.1)' } },
         despega: { // enviar: sale volando y regresa a su sitio
           '0%': { transform: 'translate(0, 0)', opacity: '1' },
@@ -269,6 +275,9 @@ export default {
         balanceo: 'balanceo 350ms cubic-bezier(0.37, 0, 0.63, 1)',
         destello: 'destello 600ms cubic-bezier(0.37, 0, 0.63, 1)',
         'destello-continuo': 'destello 1.2s cubic-bezier(0.37, 0, 0.63, 1) infinite',
+        // La fase (--varita-fase, negativa) la pone Animado por instancia para que
+        // los botones vecinos no pulsen a la vez.
+        'varita-reposo': 'varita-reposo 9s cubic-bezier(0.37, 0, 0.63, 1) var(--varita-fase, 0s) infinite',
         parpadeo: 'parpadeo 220ms cubic-bezier(0.2, 0, 0, 1)',
         despega: 'despega 450ms cubic-bezier(0.2, 0, 0, 1)',
         late: 'late 600ms cubic-bezier(0.2, 0, 0, 1)',

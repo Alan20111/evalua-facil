@@ -451,7 +451,7 @@ export default function PanelCalificar() {
                       )
                     })()}
                     {puedeCalificarConIA && (
-                      <Button variant="outline-accent" fullWidth icon={WandSparkles} iconEffect="destello"
+                      <Button variant="outline-accent" fullWidth icon={WandSparkles} iconEffect="varita"
                         onClick={() => abrirCalificarIA()}>
                         
                         {labelCalificarConIA}
