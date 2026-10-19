@@ -136,6 +136,7 @@ export function construirItems({ propuestas = [], activas = [], borradores = {},
     items.push(base({
       id: p.id, origen: 'ia', propuestaId: p.id, estado, fuente,
       editada: !!p.editada, sugeridoSeg: Number.isInteger(sugeridoSeg) ? sugeridoSeg : null, respaldo: p.respaldo || null, fuera,
+      minutoSugerido: Number.isInteger(p.minutoSugerido) ? p.minutoSugerido : null,
     }))
   }
   // Preguntas de la evaluación sin propuesta (creadas a mano, o de antes): también se publican.
@@ -148,9 +149,9 @@ export function construirItems({ propuestas = [], activas = [], borradores = {},
     .sort((a, b) => (a.timestampSeg ?? Infinity) - (b.timestampSeg ?? Infinity) || String(a.id).localeCompare(String(b.id)))
 }
 
-function base({ id, origen, propuestaId, estado, fuente, editada, sugeridoSeg, respaldo, fuera = false }) {
+function base({ id, origen, propuestaId, estado, fuente, editada, sugeridoSeg, respaldo, fuera = false, minutoSugerido = null }) {
   return {
-    id, origen, propuestaId, estado, editada, sugeridoSeg, respaldo, fueraDeLaEvaluacion: fuera,
+    id, origen, propuestaId, estado, editada, sugeridoSeg, respaldo, fueraDeLaEvaluacion: fuera, minutoSugerido,
     tipo: fuente.tipo,
     enunciado: fuente.enunciado || '',
     opciones: Array.isArray(fuente.opciones) ? fuente.opciones.map((o) => ({ ...o })) : null,

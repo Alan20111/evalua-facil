@@ -64,6 +64,10 @@ const MAX_TEXTO_SEGMENTO = 700
 const TOKENS_VIDEO_POR_SEG = 90 // observado: 88–91 tokens de video por segundo
 const CARACTERES_POR_PREGUNTA = 40 // contenido mínimo que respalda una pregunta
 const MIN_CARACTERES_SEGMENTO_UTIL = 20
+const MAX_SEGMENTO_SEG = 45 // un segmento más largo esconde huecos: su fin no sirve para fijar el momento de una pregunta
+const MAX_FRASE_SEG = 30 // una frase más larga esconde silencios o frases omitidas: su fin no es un momento fiable
+const MAX_TEXTO_FRASE = 400
+const TOLERANCIA_DURACION_PCT = 3 // la duración declarada solo es fiable si difiere ≤ 3 % de la estimada por tokens
 
 class ErrorExtraccion extends Error {
   // `transitorio`: la causa es del servicio, no del video — vale reintentar más tarde.
@@ -133,14 +137,22 @@ const PROMPT_EXTRACCION =
   'IDIOMA: <código del idioma hablado, por ejemplo es o en; «ninguno» si no hay habla>\n' +
   'HABLA: <si | no>\n' +
   'DURACION: <duración total del video en m:ss o h:mm:ss>\n' +
-  '[m:ss] <contenido de ese tramo>\n' +
-  '[m:ss] <contenido del siguiente tramo>\n' +
+  '[m:ss] <resumen de ese tramo>\n' +
+  '> [m:ss] <frase>\n' +
+  '> [m:ss] <frase>\n' +
+  '[m:ss] <resumen del siguiente tramo>\n' +
+  '> [m:ss] <frase>\n' +
   '…\n\n' +
   'Reglas:\n' +
-  '- Una línea por tramo de 20 a 45 segundos, que cubra TODO el video en orden. Usa [h:mm:ss] si pasa de una hora.\n' +
-  '- En cada línea escribe, en 1 a 3 oraciones, lo concreto de ese tramo: ideas, definiciones, datos, cifras, nombres, ' +
-  'ejemplos y explicaciones que se dicen o se muestran. Sé específico, no genérico.\n' +
-  '- Si hay habla, recoge lo que se explica, no solo lo visual. Si no hay habla, describe lo que ocurre y dilo con HABLA: no.\n' +
+  '- Un tramo de aproximadamente 20 a 30 segundos por línea de resumen, que cubra TODO el video en orden. NINGÚN tramo puede durar más de 30 segundos: ' +
+  'si un tema se extiende más, divídelo en varios tramos consecutivos, cada uno con su propia marca de tiempo. Usa [h:mm:ss] si pasa de una hora.\n' +
+  '- Cada tramo lleva una línea de resumen (1 a 3 oraciones con lo concreto: ideas, definiciones, datos, cifras, nombres, ejemplos) ' +
+  'y debajo sus FRASES, una por línea, con el prefijo ">" y la marca [m:ss] EXACTA del instante en que esa frase EMPIEZA a decirse.\n' +
+  '- Las frases son transcripción literal o casi literal de lo que se dice (en español), una por idea u oración, de unos 3 a 12 segundos. ' +
+  'No resumas dentro de las frases ni juntes varias oraciones en una. Cubre todo el habla del tramo.\n' +
+  '- El resumen de un tramo describe SOLO lo que se dice entre su marca y la del siguiente tramo: NO anticipes ni agrupes información que se dice ' +
+  'después, aunque sea del mismo tema.\n' +
+  '- Si no hay habla, describe lo que ocurre en frases breves y dilo con HABLA: no.\n' +
   '- Omite los tramos sin contenido relevante (música, créditos). No inventes nada que no aparezca en el video.\n' +
   '- NO escribas preguntas, evaluaciones ni opiniones.'
 
@@ -148,18 +160,29 @@ const PROMPT_EXTRACCION =
 // Línea de segmento: «[00:12] texto», «[1:02:05] texto», «[00:12-00:40] texto»
 // (también con viñeta o negritas). Lo que no tiene marca se une al segmento anterior.
 const RE_SEGMENTO = /^\s*(?:[-*•]\s*)?\[\s*((?:\d{1,2}:)?\d{1,3}:\d{2})\s*(?:[-–—]\s*(?:\d{1,2}:)?\d{1,3}:\d{2}\s*)?\]\s*[-–—:.]?\s*(.*)$/
+// Línea de frase: «> [00:12] texto» (la marca es el instante en que EMPIEZA a decirse).
+const RE_FRASE = /^\s*>\s*\[\s*((?:\d{1,2}:)?\d{1,3}:\d{2})\s*\]\s*[-–—:.]?\s*(.*)$/
 const RE_ENCABEZADO = /^\s*(IDIOMA|HABLA|DURACI[OÓ]N)\s*:\s*(.+?)\s*$/i
 
 function parsearRespuesta(texto) {
   const salida = { segmentos: [], idioma: null, habla: null, duracionDeclaradaSeg: null }
+  let ultimaFrase = null // la última línea leída fue una frase (la continuación sin marca se une a ella)
   for (const cruda of String(texto || '').split(/\r?\n/)) {
     const linea = cruda.replace(/\*\*/g, '').replace(/^#+\s*/, '')
     if (!linea.trim()) continue
+    const fr = RE_FRASE.exec(linea)
+    if (fr) {
+      const padre = salida.segmentos[salida.segmentos.length - 1]
+      const inicioF = leerTiempo(fr[1])
+      const textoF = fr[2].replace(/\s+/g, ' ').trim()
+      if (padre && inicioF !== null && textoF) { (padre.frases ||= []).push({ inicioSeg: inicioF, texto: textoF.slice(0, MAX_TEXTO_FRASE) }); ultimaFrase = padre.frases[padre.frases.length - 1] }
+      continue
+    }
     const seg = RE_SEGMENTO.exec(linea)
     if (seg) {
       const inicio = leerTiempo(seg[1])
       const contenido = seg[2].replace(/\s+/g, ' ').trim()
-      if (inicio !== null && contenido) salida.segmentos.push({ inicioSeg: inicio, texto: contenido.slice(0, MAX_TEXTO_SEGMENTO) })
+      if (inicio !== null && contenido) { salida.segmentos.push({ inicioSeg: inicio, texto: contenido.slice(0, MAX_TEXTO_SEGMENTO) }); ultimaFrase = null }
       continue
     }
     const enc = RE_ENCABEZADO.exec(linea)
@@ -172,7 +195,9 @@ function parsearRespuesta(texto) {
     }
     // Continuación de la línea anterior (Gemini a veces parte el renglón).
     const ult = salida.segmentos[salida.segmentos.length - 1]
-    if (ult && !/^[\W_]*$/.test(linea)) {
+    if (ultimaFrase && !/^[\W_]*$/.test(linea)) {
+      ultimaFrase.texto = `${ultimaFrase.texto} ${linea.replace(/\s+/g, ' ').trim()}`.slice(0, MAX_TEXTO_FRASE)
+    } else if (ult && !/^[\W_]*$/.test(linea)) {
       ult.texto = `${ult.texto} ${linea.replace(/\s+/g, ' ').trim()}`.slice(0, MAX_TEXTO_SEGMENTO)
     }
   }
@@ -181,7 +206,7 @@ function parsearRespuesta(texto) {
   const unicos = []
   for (const s of salida.segmentos) {
     const prev = unicos[unicos.length - 1]
-    if (prev && prev.inicioSeg === s.inicioSeg) prev.texto = `${prev.texto} ${s.texto}`.slice(0, MAX_TEXTO_SEGMENTO)
+    if (prev && prev.inicioSeg === s.inicioSeg) { prev.texto = `${prev.texto} ${s.texto}`.slice(0, MAX_TEXTO_SEGMENTO); if (s.frases) prev.frases = (prev.frases || []).concat(s.frases) }
     else unicos.push({ ...s })
   }
   salida.segmentos = unicos.slice(0, MAX_SEGMENTOS)
@@ -190,12 +215,13 @@ function parsearRespuesta(texto) {
 
 // Gemini no devuelve la duración como dato: se pide en el texto y se contrasta con
 // los tokens de video que cobró la API (~90 por segundo). `confiable` solo si las
-// dos fuentes concuerdan (±10 %). La última marca solo sirve de duración cuando no
+// dos fuentes concuerdan (±3 %; con 10 % una declarada 7 % corta pasó por buena y un último
+// segmento habría terminado 23 s antes del final real). Si no concuerdan manda la estimada por tokens. La última marca solo sirve de duración cuando no
 // hay otra fuente: una marca más allá del final NO alarga el video, se descarta.
 function resolverDuracion({ declaradaSeg, tokensVideo, ultimaMarcaSeg }) {
   const porTokens = tokensVideo > 0 ? Math.round(tokensVideo / TOKENS_VIDEO_POR_SEG) : null
   let r
-  if (declaradaSeg > 0 && porTokens && Math.abs(declaradaSeg - porTokens) <= porTokens * 0.1) {
+  if (declaradaSeg > 0 && porTokens && Math.abs(declaradaSeg - porTokens) * 100 <= porTokens * TOLERANCIA_DURACION_PCT) {
     r = { duracionSeg: declaradaSeg, duracionFuente: 'declarada_por_gemini', duracionConfiable: true }
   } else if (porTokens) {
     r = { duracionSeg: porTokens, duracionFuente: 'estimada_por_tokens', duracionConfiable: false }
@@ -209,6 +235,36 @@ function resolverDuracion({ declaradaSeg, tokensVideo, ultimaMarcaSeg }) {
 
 function textoConTiempos(segmentos) {
   return segmentos.map((s) => `[${formatearMinuto(s.inicioSeg)}] ${s.texto}`).join('\n')
+}
+
+// Frases con tiempo (transcripción casi literal): lista plana, en orden, con su fin = inicio de la siguiente (la última termina con el video).
+// Solo se declaran FIABLES si hay densidad suficiente, cubren la mayoría de los tramos, sus marcas caen dentro de su tramo (±3 s) y pocas son
+// demasiado largas. Si no, `frases` queda vacía y la verificación no asigna minutos automáticos.
+function construirFrases(segmentos, duracionSeg) {
+  const todas = []
+  let fuera = 0
+  segmentos.forEach((sg, i) => {
+    for (const f of sg.frases || []) {
+      if (f.inicioSeg > duracionSeg) continue
+      if (f.inicioSeg < sg.inicioSeg - 3 || f.inicioSeg > sg.finSeg + 3) fuera += 1
+      todas.push({ inicioSeg: f.inicioSeg, texto: f.texto, segmento: i + 1 })
+    }
+  })
+  todas.sort((a, b) => a.inicioSeg - b.inicioSeg)
+  const unicas = []
+  for (const f of todas) {
+    const prev = unicas[unicas.length - 1]
+    if (prev && prev.inicioSeg === f.inicioSeg) prev.texto = `${prev.texto} ${f.texto}`.slice(0, MAX_TEXTO_FRASE)
+    else unicas.push({ ...f })
+  }
+  unicas.forEach((f, i) => { f.finSeg = i + 1 < unicas.length ? unicas[i + 1].inicioSeg : duracionSeg })
+  const largas = unicas.filter((f) => f.finSeg - f.inicioSeg > MAX_FRASE_SEG).length
+  const conFrases = segmentos.filter((sg) => (sg.frases || []).length > 0).length
+  const fiables = unicas.length >= Math.max(3, Math.floor(duracionSeg / 25))
+    && conFrases >= Math.ceil(segmentos.length * 0.6)
+    && fuera <= Math.ceil(unicas.length * 0.2)
+    && largas <= Math.ceil(unicas.length * 0.2)
+  return { frases: unicas, fiables, info: { n: unicas.length, largas, fueraDeTramo: fuera, tramosConFrases: conFrases } }
 }
 
 // Del texto de Gemini al contrato de salida. Lanza RESPUESTA_INVALIDA (transitoria:
@@ -227,6 +283,14 @@ function construirContenido({ texto, uso, videoId, modelo, intentos, ms }) {
   const primera = dentro[0].inicioSeg
   const ultima = dentro[dentro.length - 1].inicioSeg
   dur.duracionSeg = Math.max(dur.duracionSeg, ultima) // una marca válida no cae después del final
+  // Fin de cada segmento = inicio del siguiente (el último termina con el video). Es el
+  // único tiempo en que se puede dar por explicado lo que dice el segmento.
+  dentro.forEach((s, i) => { s.finSeg = i + 1 < dentro.length ? dentro[i + 1].inicioSeg : dur.duracionSeg })
+  // Tramos de más de 45 s: su fin no es un momento fiable (pueden esconder huecos). Se anota; la operación
+  // deja SIN minuto las preguntas que dependan de ellos (revisión docente) y la extracción lo reintenta una vez.
+  const largos = dentro.filter((s) => s.finSeg - s.inicioSeg > MAX_SEGMENTO_SEG).length
+  const fr = construirFrases(dentro, dur.duracionSeg)
+  for (const sg of dentro) delete sg.frases // las frases viven aparte, en `frases`
   return {
     videoId,
     fuente: 'gemini',
@@ -246,6 +310,9 @@ function construirContenido({ texto, uso, videoId, modelo, intentos, ms }) {
       proporcion: dur.duracionSeg > 0 ? Math.min(1, Math.round(((ultima - primera) / dur.duracionSeg) * 100) / 100) : 0,
     },
     descartados,
+    frases: fr.fiables ? fr.frases : [],
+    frasesInfo: fr.info,
+    segmentacion: { dudosa: largos > 0 || !fr.fiables, largos, frasesFiables: fr.fiables, reintento: false },
     uso: { ...uso, intentos, ms },
   }
 }
@@ -310,7 +377,7 @@ function clasificarHttp(status, mensajeApi) {
 const FIN_BLOQUEADO = new Set(['SAFETY', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII'])
 
 // Un intento contra Gemini. Devuelve { texto, uso } o lanza ErrorExtraccion.
-async function unaLlamada({ clave, modelo, videoUrl, timeoutMs }) {
+async function unaLlamada({ clave, modelo, videoUrl, timeoutMs, prompt = PROMPT_EXTRACCION }) {
   // El límite de tiempo es un setTimeout normal (AbortSignal.timeout usa un temporizador que
   // no mantiene vivo el proceso) y cubre la petición Y la lectura del cuerpo de la respuesta.
   const ac = new AbortController()
@@ -322,7 +389,7 @@ async function unaLlamada({ clave, modelo, videoUrl, timeoutMs }) {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-goog-api-key': clave },
       body: JSON.stringify({
-        contents: [{ parts: [{ fileData: { fileUri: videoUrl } }, { text: PROMPT_EXTRACCION }] }],
+        contents: [{ parts: [{ fileData: { fileUri: videoUrl } }, { text: prompt }] }],
         generationConfig: { temperature: 0.2 },
       }),
       signal: ac.signal,
@@ -383,6 +450,7 @@ async function extraerContenidoVideo(url, opciones = {}) {
       const contenido = construirContenido({ ...r, videoId, modelo: cfg.modelo, intentos, ms: ahora() - inicio })
       logger.info('EXTRACCION_VIDEO_OK', {
         videoId, modelo: cfg.modelo, intento, segmentos: contenido.segmentos.length, caracteres: contenido.caracteres,
+        segmentosLargos: contenido.segmentacion.largos, reintentoSegmentacion: contenido.segmentacion.reintento === true,
         duracionSeg: contenido.duracionSeg, duracionFuente: contenido.duracionFuente, descartados: contenido.descartados,
         tokensEntrada: r.uso.tokensEntrada, tokensSalida: r.uso.tokensSalida, ms: ahora() - inicio,
       })
@@ -410,7 +478,7 @@ async function extraerContenidoVideo(url, opciones = {}) {
 module.exports = {
   extraerContenidoVideo, evaluarSuficiencia, exigirSuficiencia, ErrorExtraccion, formatearMinuto,
   _pruebas: {
-    parsearRespuesta, resolverDuracion, clasificarHttp, leerTiempo, textoConTiempos, PROMPT_EXTRACCION, configuracion, DEFAULTS,
+    parsearRespuesta, resolverDuracion, clasificarHttp, leerTiempo, textoConTiempos, PROMPT_EXTRACCION, MAX_SEGMENTO_SEG, TOLERANCIA_DURACION_PCT, MAX_FRASE_SEG, construirFrases, configuracion, DEFAULTS,
     sobreescribir: (o) => { sobreescritos = { ...sobreescritos, ...o } },
     restaurar: () => { sobreescritos = {} },
   },

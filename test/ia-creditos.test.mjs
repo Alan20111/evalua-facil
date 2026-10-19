@@ -2449,10 +2449,19 @@ requireFn(rutaSdk)
 const SDK_REAL = require.cache[rutaSdk].exports
 const pedidosIA = []
 let respuestaIA = () => ({ palabras: [] })
+// El verificador del Video interactivo (functions/videoVerificacion.js) llama al mismo cliente; sus pedidos van
+// APARTE para que las pruebas del generador sigan contando solo las llamadas de generación.
+const pedidosVerificador = []
+let respuestaVerificador = () => ({ puedeResponderse: false })
 require.cache[rutaSdk].exports = class AnthropicFalso {
   constructor() {
     this.messages = {
       create: async (req) => {
+        if (String(req.system || '').startsWith('Verificador de preguntas de video')) {
+          pedidosVerificador.push(req)
+          const rv = await respuestaVerificador(req)
+          return { content: [{ type: 'text', text: typeof rv === 'string' ? rv : JSON.stringify(rv) }], usage: { input_tokens: 7, output_tokens: 3 } }
+        }
         pedidosIA.push(req)
         return { content: [{ type: 'text', text: JSON.stringify(await respuestaIA(req)) }], usage: { input_tokens: 10, output_tokens: 10 } }
       },
@@ -3352,7 +3361,9 @@ const TARIFAS_VIDEO = {
 const URL_YT = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
 // Gemini falso (el extractor llama a la API REST oficial). Contenido: 20 segmentos [m:ss] cada 15 s
 // en un video de 5:00 (27 000 tokens de video ≈ 300 s: la duración declarada y la de tokens coinciden).
-const segmentosGemini = (n = 20, paso = 15) => Array.from({ length: n }, (_, i) => `[${Math.floor((i * paso) / 60)}:${String((i * paso) % 60).padStart(2, '0')}] Se explica el concepto número ${i + 1} con un ejemplo concreto del tema y sus consecuencias.`).join('\n')
+const marcaG = (t) => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`
+// Un resumen por tramo y UNA frase por tramo (el índice de frase coincide con el del tramo).
+const segmentosGemini = (n = 20, paso = 15) => Array.from({ length: n }, (_, i) => `[${marcaG(i * paso)}] Se explica el concepto número ${i + 1} con un ejemplo concreto del tema y sus consecuencias.\n> [${marcaG(i * paso)}] Se dice el concepto número ${i + 1} con un ejemplo concreto y sus consecuencias.`).join('\n')
 const textoGeminiOk = ({ n = 20, paso = 15, habla = 'si', dur = '5:00' } = {}) => `IDIOMA: es\nHABLA: ${habla}\nDURACION: ${dur}\n${segmentosGemini(n, paso)}`
 const respGeminiOk = (texto = textoGeminiOk()) => ({ ok: true, status: 200, json: async () => ({
   candidates: [{ content: { parts: [{ text: texto }] }, finishReason: 'STOP' }],
@@ -3377,14 +3388,32 @@ const instalarGeminiFalso = () => {
 
 // El modelo falso lee del PROMPT cuántas preguntas de cada tipo se le piden y las produce.
 let vueltaIA = 0 // cuántas veces se ha llamado al modelo en la prueba en curso
+// Verdad conocida de cada pregunta falsa: en qué segmento queda explicada de verdad y cuál es su clave.
+const verdadVideo = new Map()
+// Verificador simulado: lee del PROMPT los segmentos que recibe (#n texto) y la pregunta, y decide con la verdad conocida.
+const verificadorSegunPrompt = (req) => {
+  const prompt = textoDelPedido(req)
+  const enun = /Pregunta: (.+)/.exec(prompt)[1]
+  const v = verdadVideo.get(enun)
+  const segs = [...prompt.matchAll(/^#(\d+) (.+)$/gm)].map((m) => ({ n: Number(m[1]), texto: m[2] }))
+  const maxN = segs[segs.length - 1].n
+  const cita = (n) => ({ segmento: n, texto: segs.find((x) => x.n === n).texto.slice(0, 30) })
+  if (prompt.includes('primerSegmento')) return { primerSegmento: v.fin, citas: [cita(v.fin)] }
+  if (maxN < v.fin) return { puedeResponderse: false }
+  return { puedeResponderse: true, evidenciaExplicita: true, respuesta: v.correcta ?? undefined, componentes: [{ afirmacion: 'Se dice el concepto de la pregunta', segmento: v.fin, cita: cita(v.fin).texto }] }
+}
+// Juez simulado: da por demostrados todos los componentes (los casos de rechazo lo sustituyen).
+const juezSegunPrompt = (req) => ({ componentes: Array.from({ length: (textoDelPedido(req).match(/^C\d+\)/gm) || []).length }, (_, i) => ({ i: i + 1, soporta: true })), cubreTodo: true, faltante: '' })
+const verificadorOJuez = (req) => (textoDelPedido(req).includes('JUEZ DE DEMOSTRACIÓN') ? juezSegunPrompt(req) : verificadorSegunPrompt(req))
 let generosoIA = (n) => n // cuántas devuelve de las que se le piden: (pedidas, vuelta) => entregadas
 const preguntasSegunPrompt = (req) => {
   vueltaIA += 1
   const texto = textoDelPedido(req)
   const pide = (tipo) => generosoIA(Number((new RegExp(`(\\d+) × ${tipo}`).exec(texto) || [0, 0])[1]), vueltaIA)
   const out = []
-  let t = 10
-  const nuevo = (o) => { out.push({ enunciado: `Pregunta ${vueltaIA}.${out.length + 1} (${o.tipo})`, timestampSeg: t, retroalimentacion: 'Porque el video lo explica.', ...o }); t += 12 }
+  // El modelo declara segmentos (1..20, a 15 s cada uno), no tiempos: cada pregunta se menciona en el
+  // segmento k y queda explicada en el k+1 → el servidor la ubica al terminar el k+1.
+  const nuevo = (o) => { const k = (out.length % 19) + 1; verdadVideo.set(`Pregunta ${vueltaIA}.${out.length + 1} (${o.tipo})`, { fin: k + 1, correcta: o.correcta ?? null }); out.push({ enunciado: `Pregunta ${vueltaIA}.${out.length + 1} (${o.tipo})`, introduceEn: k, completaEn: k + 1, retroalimentacion: 'Porque el video lo explica.', ...o }) }
   const cuantas_verdadero_falso = pide('verdadero_falso'), cuantas_opcion_multiple = pide('opcion_multiple'), cuantas_respuesta_corta = pide('respuesta_corta')
   for (let i = 0; i < cuantas_verdadero_falso; i += 1) nuevo({ tipo: 'verdadero_falso', correcta: i % 2 ? 'f' : 'v' })
   for (let i = 0; i < cuantas_opcion_multiple; i += 1) nuevo({ tipo: 'opcion_multiple', opciones: ['uno', 'dos', 'tres', 'cuatro'], correcta: i % 4 })
@@ -3403,6 +3432,9 @@ async function reiniciarVideo({ saldo = 100, tarifas = TARIFAS_VIDEO } = {}) {
   generosoIA = (n) => n
   vueltaIA = 0
   respuestaIA = preguntasSegunPrompt
+  pedidosVerificador.length = 0
+  verdadVideo.clear()
+  respuestaVerificador = verificadorOJuez
   comportamientoGemini = async () => respGeminiOk()
   process.env.GEMINI_API_KEY = CLAVE_GEMINI_FALSA
   EXTRACTOR.restaurar()
@@ -3447,7 +3479,11 @@ await caso('video: 10 preguntas (4 V/F + 4 opción múltiple + 2 abiertas) → e
   assert.strictEqual(pedidosIA.length, 1, 'una sola llamada al modelo'); assert.strictEqual(pedidosIA[0].model, 'claude-haiku-4-5')
   assert.strictEqual(llamadasGemini, 1, 'una sola extracción')
   // el contenido del video viajó al modelo como dato, con sus minutos
-  assert.ok(textoDelPedido(pedidosIA[0]).includes('[0:00] Se explica el concepto número 1'))
+  assert.ok(textoDelPedido(pedidosIA[0]).includes('#1 [0:00–0:15] Se explica el concepto número 1'))
+  // cada tiempo es el fin REAL de un segmento (múltiplo de 15) posterior a la mención; el respaldo guarda ese fragmento
+  // cada tiempo = fin REAL de una frase (múltiplo de 15) posterior a la mención + margen de 3.5 s (redondeado hacia arriba); el respaldo guarda esa frase
+  assert.ok(res.preguntas.every((p) => (p.timestampSeg - 4) % 15 === 0 && p.timestampSeg >= 34))
+  assert.ok(res.preguntas.every((p) => p.respaldo && p.respaldo.unidad === 'frase' && p.respaldo.finSeg + 4 === p.timestampSeg && p.respaldo.texto.includes(`concepto número ${p.respaldo.hastaSegmento} `) && !p.respaldo.texto.includes(`concepto número ${p.respaldo.hastaSegmento + 1} `)))
   assert.ok(/NO una transcripción literal/.test(textoDelPedido(pedidosIA[0])))
   // de dónde salió el contenido, sin pretender que sea una transcripción
   assert.deepStrictEqual(
@@ -3457,6 +3493,13 @@ await caso('video: 10 preguntas (4 V/F + 4 opción múltiple + 2 abiertas) → e
   let interno = null
   for (let i = 0; i < 20 && !interno; i += 1) { interno = (await db.doc(`iaConsumosInterno/${k}`).get()).data(); if (!interno) await new Promise((r) => setTimeout(r, 150)) }
   assert.deepStrictEqual([interno.geminiTokensEntrada, interno.geminiTokensSalida, interno.geminiIntentos], [27300, 900, 1])
+  // verificación independiente: una prueba de prefijo por pregunta (el generador acertó el segmento), tokens aparte y en el total
+  assert.strictEqual(pedidosVerificador.length, 22, 'verdadero/falso y opción múltiple: localización + prefijo (2); respuesta corta: además el juez (3); el candidato no se prueba')
+  assert.deepStrictEqual(res.generacion.verificacion, { verificadas: 10, corregidas: 0, sinVerificar: 0 })
+  assert.ok(res.preguntas.every((p) => p.verificacion.estado === 'verificada' && p.verificacion.citas.length >= 1 && p.verificacion.segmentoVerificado === p.respaldo.hastaSegmento))
+  assert.deepStrictEqual([interno.genTokensEntrada, interno.genTokensSalida, interno.verLlamadas, interno.verTokensEntrada, interno.verTokensSalida], [10, 10, 22, 154, 66])
+  assert.strictEqual(interno.verJuezLlamadas, 2, 'el juez solo interviene en las 2 preguntas de respuesta corta')
+  assert.deepStrictEqual([interno.tokensEntrada, interno.tokensSalida, interno.llamadas], [164, 76, 1], 'el total del modelo suma generación + verificación')
   assert.ok(!JSON.stringify(res).includes(CLAVE_GEMINI_FALSA))
   assert.ok(!JSON.stringify(res).includes('undefined'))
 })
@@ -3694,6 +3737,148 @@ await caso('video: la operación NO escribe actividades ni preguntas (solo propo
   await reiniciarVideo()
   await generarVideo()
   assert.strictEqual((await db.collection('activities').get()).size, 0)
+})
+
+// ── Verificación independiente del momento (functions/videoVerificacion.js) con el flujo completo y el libro de créditos ──
+// El generador falso declara que el concepto queda explicado en el segmento 1 (solo se menciona); en realidad se explica en el 9.
+const generadorPrematuro = (enunciado) => () => ({ preguntas: [{ tipo: 'verdadero_falso', enunciado, introduceEn: 1, completaEn: 1, correcta: 'v', retroalimentacion: 'Porque el video lo explica.' }] })
+
+await caso('video: concepto mencionado en el segmento 1 y explicado en el 9 → la pregunta se corrige al fin del 9 y no hay cobro extra', async () => {
+  await reiniciarVideo()
+  respuestaIA = generadorPrematuro('Concepto mencionado al inicio')
+  verdadVideo.set('Concepto mencionado al inicio', { fin: 9, correcta: 'v' })
+  const r = await generarVideo({ distribucion: { vf: 1, om: 0, abiertas: 0 } })
+  const [p] = r.resultado.preguntas
+  assert.strictEqual(p.timestampSeg, 139, 'fin REAL de la frase 9 (9 × 15 s) + 3.5 s de margen, no el de la 1')
+  assert.deepStrictEqual([p.verificacion.estado, p.verificacion.segmentoVerificado], ['corregida', 9])
+  assert.deepStrictEqual([p.respaldo.desdeSegmento, p.respaldo.hastaSegmento, p.respaldo.finSeg], [9, 9, 135])
+  assert.ok(p.respaldo.texto.includes('concepto número 9 ') && !p.respaldo.texto.includes('concepto número 10 '), 'el fragmento llega hasta la frase 9 y no más')
+  assert.deepStrictEqual(r.resultado.generacion.verificacion, { verificadas: 0, corregidas: 1, sinVerificar: 0 })
+  assert.strictEqual(pedidosVerificador.length, 2, 'localizar → prefijo(9); verdadero/falso: ni candidato ni juez')
+  // barrera: ninguna prueba de prefijo recibió un segmento posterior al que evaluaba
+  for (const req of pedidosVerificador) {
+    const t = textoDelPedido(req)
+    if (t.includes('primerSegmento') || t.includes('JUEZ DE DEMOSTRACIÓN')) continue
+    const max = Math.max(...[...t.matchAll(/^#(\d+) /gm)].map((m) => Number(m[1])))
+    for (let j = max + 1; j <= 20; j += 1) assert.ok(!t.includes(`concepto número ${j} `), `el prefijo ${max} no debe incluir el segmento ${j}`)
+    assert.ok(!/introduceEn|completaEn|timestampSeg/.test(t))
+  }
+  assert.strictEqual(r.creditosReales, 2); assert.strictEqual((await creditosDe()).saldo, 98, 'el cobro sigue siendo 2 créditos por pregunta')
+})
+
+await caso('video: explicación INSUFICIENTE (el verificador no la localiza) → la pregunta se entrega sin tiempo, se cobra igual y la generación sigue completa', async () => {
+  await reiniciarVideo()
+  respuestaIA = generadorPrematuro('Nunca se explica')
+  respuestaVerificador = (req) => (textoDelPedido(req).includes('primerSegmento') ? { primerSegmento: null, citas: [] } : { puedeResponderse: false })
+  const r = await generarVideo({ distribucion: { vf: 1, om: 0, abiertas: 0 } })
+  const [p] = r.resultado.preguntas
+  assert.deepStrictEqual([p.timestampSeg, p.verificacion.estado, p.verificacion.motivo], [null, 'sin_verificar', 'no_localizada'])
+  assert.strictEqual(r.resultado.generacion.estado, 'completa')
+  assert.deepStrictEqual(r.resultado.generacion.verificacion, { verificadas: 0, corregidas: 0, sinVerificar: 1 })
+  assert.strictEqual(r.creditosReales, 2); assert.strictEqual((await creditosDe()).saldo, 98)
+})
+
+await caso('video: si el verificador FALLA no se cancela la generación ni se cobra distinto; reintentar la misma clave no cobra de nuevo ni verifica otra vez', async () => {
+  await reiniciarVideo()
+  respuestaVerificador = () => { throw new Error('Anthropic caído') }
+  const k = clave()
+  const r = await generarVideo({ k })
+  assert.strictEqual(r.resultado.preguntas.length, 10); assert.strictEqual(r.resultado.generacion.estado, 'completa')
+  assert.ok(r.resultado.preguntas.every((p) => p.timestampSeg === null && p.verificacion.motivo === 'verificador_no_disponible'))
+  assert.deepStrictEqual(r.resultado.generacion.verificacion, { verificadas: 0, corregidas: 0, sinVerificar: 10 })
+  assert.strictEqual(r.creditosReales, 20); assert.strictEqual((await creditosDe()).saldo, 80, 'las mismas 2 cr × 10, sin devolución ni recargo')
+  const c = await consumoDe(k)
+  assert.strictEqual(c.estado, 'ejecutado'); assert.strictEqual(c.creditosReales, 20)
+  const llamadas = pedidosVerificador.length
+  assert.strictEqual(llamadas, 20, 'por pregunta: la localización con UN reintento y nada más (si falla no se sigue)')
+  const otra = await generarVideo({ k })
+  assert.strictEqual(otra.repetida, true); assert.deepStrictEqual(otra.resultado.preguntas, r.resultado.preguntas)
+  assert.strictEqual(pedidosVerificador.length, llamadas, 'no se volvió a verificar'); assert.strictEqual((await creditosDe()).saldo, 80)
+  assert.strictEqual((await db.collection('iaConsumos').get()).size, 1)
+})
+
+await caso('video: una respuesta del verificador con citas inventadas no da un tiempo verificado', async () => {
+  await reiniciarVideo()
+  respuestaVerificador = () => ({ puedeResponderse: true, respuesta: 'v', citas: [{ segmento: 1, texto: 'una frase que el video jamás dice' }], primerSegmento: 1 })
+  const r = await generarVideo({ distribucion: { vf: 2, om: 0, abiertas: 0 } })
+  assert.ok(r.resultado.preguntas.every((p) => p.timestampSeg === null && p.verificacion.estado === 'sin_verificar'))
+  assert.strictEqual(r.creditosReales, 4)
+})
+
+await caso('video: segmentos de más de 45 s → sin reintento de extracción; las preguntas afectadas quedan sin minuto, se cobra igual y se registra la única extracción', async () => {
+  await reiniciarVideo()
+  // Gemini devuelve 5 tramos de 70 s: se usa tal cual, marcados como dudosos (sin segunda extracción).
+  comportamientoGemini = async () => respGeminiOk(textoGeminiOk({ n: 5, paso: 70 }))
+  const k = clave()
+  const r = await generarVideo({ distribucion: { vf: 2, om: 0, abiertas: 0 }, k })
+  assert.strictEqual(llamadasGemini, 1, 'una sola extracción: no hay reintento estricto')
+  assert.strictEqual(r.resultado.preguntas.length, 2)
+  assert.ok(r.resultado.preguntas.every((p) => p.timestampSeg === null && p.verificacion.estado === 'sin_verificar'), 'las que dependen de tramos largos esperan al docente')
+  assert.deepStrictEqual([r.resultado.generacion.fuenteContenido.segmentacion.dudosa, r.resultado.generacion.fuenteContenido.segmentacion.reintento], [true, false])
+  assert.strictEqual(r.creditosReales, 4); assert.strictEqual((await creditosDe()).saldo, 96, 'el cobro no cambia')
+  let interno = null
+  for (let i = 0; i < 20 && !interno; i += 1) { interno = (await db.doc(`iaConsumosInterno/${k}`).get()).data(); if (!interno) await new Promise((x) => setTimeout(x, 150)) }
+  assert.deepStrictEqual([interno.geminiExtracciones, interno.geminiTokensEntrada, interno.geminiSegmentosLargos], [1, 27300, 4], 'el costo de la única extracción queda registrado')
+})
+
+await caso('video: una duración declarada que no coincide (>3 %) con los tokens deja SIN minuto la pregunta del último segmento', async () => {
+  await reiniciarVideo()
+  // Declara 5:37 (337 s) pero los tokens de video dicen 363 s: no fiable. 22 tramos de 15 s; el verificador simulado ubica cada pregunta en su segmento.
+  comportamientoGemini = async () => respGeminiOk(`IDIOMA: es\nHABLA: si\nDURACION: 5:37\n${segmentosGemini(22, 15)}`)
+  const r = await generarVideo({ distribucion: { vf: 4, om: 0, abiertas: 0 }, unidades: 4 })
+  const fuente = r.resultado.generacion.fuenteContenido
+  assert.deepStrictEqual([fuente.duracionConfiable, fuente.duracionFuente], [false, 'estimada_por_tokens'])
+  // ninguna pregunta con tiempo cae después de la explicación en el último segmento (22): el último nunca recibe minuto automático
+  assert.ok(r.resultado.preguntas.every((p) => p.timestampSeg === null || p.respaldo.hastaSegmento < 22))
+})
+
+await caso('video: el verificador responde con TEXTO alrededor del JSON → se lee igual, se verifica y el cobro no cambia', async () => {
+  await reiniciarVideo()
+  respuestaVerificador = (req) => `Claro, este es mi análisis:\n${JSON.stringify(verificadorOJuez(req))}\nSi necesitas algo más, avísame.`
+  const r = await generarVideo({ distribucion: { vf: 3, om: 0, abiertas: 0 } })
+  assert.ok(r.resultado.preguntas.every((p) => p.verificacion.estado === 'verificada' && Number.isInteger(p.timestampSeg)))
+  assert.strictEqual(r.creditosReales, 6); assert.strictEqual((await creditosDe()).saldo, 94)
+})
+
+await caso('video: evidencia que el verificador declara NO explícita (inferencia) → sin minuto, se entrega y se cobra igual', async () => {
+  await reiniciarVideo()
+  // Es la situación de «toda la noche»: el verificador puede deducir la respuesta, pero el video aún no la dice expresamente.
+  respuestaVerificador = (req) => { const r = verificadorSegunPrompt(req); return r.puedeResponderse === true ? { ...r, evidenciaExplicita: false } : r }
+  const r = await generarVideo({ distribucion: { vf: 2, om: 0, abiertas: 0 } })
+  assert.ok(r.resultado.preguntas.every((p) => p.timestampSeg === null && p.verificacion.estado === 'sin_verificar'))
+  assert.ok(r.resultado.preguntas.every((p) => p.verificacion.motivo === 'evidencia_no_explicita'))
+  assert.strictEqual(r.creditosReales, 4); assert.strictEqual((await creditosDe()).saldo, 96)
+  assert.strictEqual((await db.collection('iaConsumos').get()).size, 1, 'un solo consumo: sin cobros duplicados')
+})
+
+await caso('video: la extracción no trae frases fiables → ninguna pregunta recibe minuto automático (sin_frases), se cobra igual y el verificador no se llama', async () => {
+  await reiniciarVideo()
+  // Solo resúmenes por tramo, sin frases (una sola extracción).
+  const soloResumenes = `IDIOMA: es\nHABLA: si\nDURACION: 5:00\n${Array.from({ length: 20 }, (_, i) => `[${marcaG(i * 15)}] Se explica el concepto número ${i + 1} con un ejemplo concreto del tema y sus consecuencias.`).join('\n')}`
+  comportamientoGemini = async () => respGeminiOk(soloResumenes)
+  const r = await generarVideo({ distribucion: { vf: 2, om: 0, abiertas: 0 } })
+  assert.strictEqual(llamadasGemini, 1, 'una sola extracción')
+  assert.ok(r.resultado.preguntas.every((p) => p.timestampSeg === null && p.verificacion.motivo === 'sin_frases' && p.verificacion.nivel === 'frases' && p.minutoSugerido === null))
+  assert.strictEqual(pedidosVerificador.length, 0, 'sin frases no se llama al verificador')
+  assert.strictEqual(r.resultado.generacion.fuenteContenido.frases, 0)
+  assert.strictEqual(r.creditosReales, 4); assert.strictEqual((await creditosDe()).saldo, 96, 'el cobro no cambia')
+})
+
+await caso('video: el juez de demostración (solo respuesta corta) rechaza → sin minuto, con minuto SUGERIDO (prefijo verificado), se cobra igual y un solo consumo; verdadero/falso no pasa por el juez', async () => {
+  await reiniciarVideo()
+  respuestaVerificador = (req) => (textoDelPedido(req).includes('JUEZ DE DEMOSTRACIÓN') ? { componentes: [{ i: 1, soporta: false }], cubreTodo: false, faltante: 'la cita solo describe el tema' } : verificadorSegunPrompt(req))
+  const r = await generarVideo({ distribucion: { vf: 0, om: 0, abiertas: 2 } })
+  assert.ok(r.resultado.preguntas.every((p) => p.timestampSeg === null && p.verificacion.estado === 'sin_verificar' && p.verificacion.motivo === 'demostracion_insuficiente'))
+  assert.ok(r.resultado.preguntas.every((p) => Number.isInteger(p.minutoSugerido) && p.minutoSugerido === p.verificacion.sugerenciaSeg && p.verificacion.sugerenciaNivel === 'prefijo_verificado'), 'la sugerencia viaja aparte del minuto verificado')
+  assert.deepStrictEqual(r.resultado.generacion.verificacion, { verificadas: 0, corregidas: 0, sinVerificar: 2 })
+  assert.strictEqual(r.creditosReales, 4); assert.strictEqual((await creditosDe()).saldo, 96)
+  assert.strictEqual((await db.collection('iaConsumos').get()).size, 1)
+  // verdadero/falso con el MISMO juez hostil: el juez no interviene y las preguntas salen con minuto verificado
+  await reiniciarVideo()
+  respuestaVerificador = (req) => (textoDelPedido(req).includes('JUEZ DE DEMOSTRACIÓN') ? { componentes: [{ i: 1, soporta: false }], cubreTodo: false, faltante: 'x' } : verificadorSegunPrompt(req))
+  const vf = await generarVideo({ distribucion: { vf: 2, om: 0, abiertas: 0 } })
+  assert.ok(vf.resultado.preguntas.every((p) => Number.isInteger(p.timestampSeg) && p.minutoSugerido === null))
+  assert.ok(!pedidosVerificador.some((req) => textoDelPedido(req).includes('JUEZ DE DEMOSTRACIÓN')))
 })
 
 globalThis.fetch = fetchRealVideo
