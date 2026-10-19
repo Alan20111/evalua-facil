@@ -27,13 +27,14 @@ import { formatFileSize } from '../../utils/formatBytes'
 import { teacherDisplayName } from '../../utils/studentSearch'
 import { buildJobsForStudent, downloadSubmissionsZip } from '../../utils/downloadSubmissions'
 import { IS_NATIVE_APP } from '../../utils/platform'
+import useParcialesAbiertos from '../../hooks/useParcialesAbiertos'
 import FiltroSoloCalificables from '../../components/FiltroSoloCalificables'
 import SubjectIcon from '../../components/SubjectIcon'
 import AttachmentList from '../../components/AttachmentList'
 import { ArrowLeft, ChevronDown, ChevronUp, Clock, Star, FolderOpen, BookOpen, Paperclip, GraduationCap, ListChecks, FileText, ClipboardCheck, ExternalLink, Download, Megaphone, CheckCircle2, Bookmark, ChevronRight, Trash2, LogOut, RotateCcw, Sparkles,  } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
-import { promedioParcial, notasParaPromedio, cuentaEnPromedioDelAlumno, ponderacionActivaEnParcial, normalizeGrade, resultadoPublicadoAlumno, pesosVisiblesAlumno } from '../../utils/ponderacion'
+import { promedioParcial, notasParaPromedio, cuentaEnPromedioDelAlumno, ponderacionActivaEnParcial, normalizeGrade, resultadoPublicadoAlumno, pesosVisiblesAlumno, parcialCerrado } from '../../utils/ponderacion'
 import PonderacionPendiente from '../../components/PonderacionPendiente'
 import { STUDENT_CONTAINER } from '../../config/layout'
 import { useBackHandler } from '../../hooks/useBackHandler'
@@ -120,6 +121,7 @@ const CATEGORIA_LABELS = { actividad: 'Entregable', tarea: 'Entregable', entrega
 export default function StudentSubjectPage() {
   const { subjectId } = useParams()
   const { currentUser, userProfile } = useAuth()
+  const { estaAbierto: parcialAbierto, alternar: alternarParcial, reiniciar: reiniciarParcialesAbiertos } = useParcialesAbiertos('alumno', currentUser?.uid, subjectId)
   const [subject, setSubject] = useState(null)
   // El id de ESTA inscripción — es la llave con la que `activity.extensiones`
   // guarda las prórrogas individuales. Sin guardarlo, la lista de abajo no
@@ -158,7 +160,6 @@ export default function StudentSubjectPage() {
   const [umbralInasistencia, setUmbralInasistencia] = useState(20)
   const [teacherName, setTeacherName] = useState('')
   const [teacherPhoto, setTeacherPhoto] = useState(null)
-  const [openParcial, setOpenParcial] = useState(1)
   // Filtro de presentación por parcial ({ 1: true, … }); solo en memoria.
   const [soloCalificables, setSoloCalificables] = useState({})
   const routerLocation = useLocation()
@@ -435,9 +436,8 @@ export default function StudentSubjectPage() {
 
   async function loadAll() {
     setLoading(true)
-    // Default view for every subject: only the first parcial expanded. This same
-    // component is reused (not remounted) when switching subjects, so reset it here.
-    setOpenParcial(1)
+    // Vista inicial: solo el primer parcial, salvo lo que el estudiante dejó guardado.
+    reiniciarParcialesAbiertos()
     try {
       const [subSnap, studData] = await Promise.all([
         getDoc(doc(db, 'subjects', subjectId)),
@@ -702,7 +702,8 @@ export default function StudentSubjectPage() {
               ? promedioParcialVisible(calcParcialAvg(p), pServ)
               : { valor: null, oculto: false }
             const avg = promParcial.valor
-            const isOpen = openParcial === p
+            const cerradoDef = parcialCerrado(subject, p)
+            const isOpen = parcialAbierto(p, cerradoDef)
             return (
               <div data-esq="subj-alu-parcial" key={p} className="bg-surface-card rounded-card overflow-hidden shadow-card">
                 {(() => {
@@ -730,14 +731,14 @@ export default function StudentSubjectPage() {
                   const claseBoton = 'w-full px-4 py-3 flex items-center gap-3 hover:bg-surface transition-colors'
                   if (IS_NATIVE_APP) {
                     return (
-                      <button type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)} className={claseBoton}>
+                      <button type="button" onClick={() => alternarParcial(p, cerradoDef)} className={claseBoton}>
                         {cabecera}
                       </button>
                     )
                   }
                   return (
                     <>
-                      <button type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)} className={claseBoton}>
+                      <button type="button" onClick={() => alternarParcial(p, cerradoDef)} className={claseBoton}>
                         {cabecera}
                       </button>
                       <div className="px-4 pb-2 pl-16 -mt-1">
