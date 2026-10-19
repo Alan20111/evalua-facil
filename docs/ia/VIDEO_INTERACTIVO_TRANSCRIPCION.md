@@ -204,3 +204,16 @@ recuperación sigue sin cobrar dos veces, pero vuelve a leer el video.
 **Reglas de Firestore** (`firestore.rules`, subcolección `propuestasVideo`): solo el docente dueño, solo en
 actividades de video; nace `pendiente`; el tipo no cambia; `pendiente → aprobada|rechazada`, `rechazada → pendiente`;
 `aprobada` es terminal (tampoco se borra). **No se despliegan solas**: `firebase deploy --only firestore:rules`.
+
+### Minuto de las preguntas: verificación en frases (integración, 19-oct-2026)
+
+Antes, Haiku escribía `timestampSeg`. Ahora **el minuto nunca lo escribe el modelo**: sale del fin de una frase real de la extracción de Gemini + 3.5 s,
+solo si esa frase pasó una prueba de prefijo ciega (`functions/videoVerificacion.js`). Si no hay evidencia, `timestampSeg` es `null` y la pregunta
+llega **sin minuto** a la revisión docente, que no deja aprobarla hasta que el docente fije uno.
+
+- Extracción (`extraccionVideoGemini.js`): resumen por tramos + frases con marca (`> [m:ss]`); sin reintento estricto. Si las frases no son fiables, `frases` queda vacía y ninguna pregunta recibe minuto (`sin_frases`).
+- Verificación (modo frases): localizador → prueba de prefijo (avanza como máximo 2 frases y solo si aún «no responde») → minuto = `ceil(fin de la frase + 3.5 s)`.
+  Verdadero/falso y opción múltiple: sin juez. Respuesta corta: juez ciego de demostración; si rechaza, el candidato del generador (solo si es posterior) se prueba y juzga como respaldo; si no, sin minuto.
+- Pista para el docente: `minutoSugerido` solo si el prefijo se verificó y el juez no confirmó (`sugerenciaNivel: 'prefijo_verificado'`). Se muestra como texto, nunca rellena el minuto.
+- Respaldo: la propuesta guarda `respaldo` en la forma que lee la ventana de revisión (`leerEvidencia`); sin minuto verificado queda `no_verificable` y pide confirmación expresa.
+- Validación real (20 preguntas, 3 videos, referencias de subtítulos): 0 prematuras confirmadas; ~45 % sin minuto con el juez en todos los tipos (se limitó a respuesta corta para bajarlo; **esa versión simplificada NO se midió con llamadas reales**). Margen no garantizado: errores de Gemini de hasta 6 s se observaron.

@@ -48,6 +48,11 @@ export default function ControlTiempoVideo({ item, duracionSeg, disabled = false
         {(errorTexto || !v.ok) && <span role="alert" className="text-error">{errorTexto || v.error}</span>}
         {v.ok && v.aviso && <span className="text-amber-800">{v.aviso}</span>}
       </div>
+      {!Number.isInteger(seg) && Number.isInteger(item.minutoSugerido) && (
+        <p className="text-xs text-muted" data-testid="minuto-sugerido">
+          Pista de la IA (no confirmada): lo necesario ya se dice hacia el minuto {formatearMinuto(item.minutoSugerido)}. Revísalo en el video y escribe tú el minuto.
+        </p>
+      )}
     </div>
   )
 }

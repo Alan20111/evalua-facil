@@ -34,6 +34,23 @@ export function idPropuesta(generacionId, indice) {
   return `${g}_${String(indice).padStart(2, '0')}`
 }
 
+// Respaldo que el servidor guardó junto con la pregunta → forma que lee la ventana de revisión (leerEvidencia). La cita es texto de la
+// transcripción por frases, no un resumen. «verificado»/«reubicado» solo si el verificador demostró la respuesta con el video;
+// sin minuto verificado queda «no_verificable» y la revisión pide confirmación expresa del docente.
+export function respaldoParaRevision(p) {
+  const r = p?.respaldo
+  if (!r || typeof r !== 'object' || !Number.isFinite(r.finSeg)) return null
+  const estado = p?.verificacion?.estado
+  const verificacion = !Number.isInteger(p?.timestampSeg) ? 'no_verificable' : estado === 'corregida' ? 'reubicado' : estado === 'verificada' ? 'verificado' : 'no_verificable'
+  return {
+    inicioSeg: Number.isFinite(r.inicioSeg) ? r.inicioSeg : null,
+    finSeg: r.finSeg,
+    resumen: '',
+    cita: typeof r.texto === 'string' ? r.texto.trim().slice(0, 300) : '',
+    verificacion,
+  }
+}
+
 // Pregunta tal como la entrega `generar_preguntas_video` → documento de propuesta.
 // No se guardan campos que el docente no necesita ni se duplica el enunciado
 // original: las ediciones quedan en `cambios` (solo lo que se movió).
@@ -45,6 +62,9 @@ export function propuestaDesdeIA(p, generacionId) {
     respuestaCorrecta: p.tipo === 'respuesta_corta' ? null : (p.respuestaCorrecta ?? null),
     retroalimentacion: limpiar(p.retroalimentacion) || null,
     timestampSeg: Number.isInteger(p.timestampSeg) ? p.timestampSeg : null,
+    // Sugerencia (NO verificada como minuto): solo si el verificador comprobó el prefijo y no hay minuto; el docente decide.
+    minutoSugerido: !Number.isInteger(p.timestampSeg) && Number.isInteger(p.minutoSugerido) ? p.minutoSugerido : null,
+    respaldo: respaldoParaRevision(p),
     estado: ESTADO_PROPUESTA.PENDIENTE,
     origen: 'ia',
     generacionId: String(generacionId || ''),

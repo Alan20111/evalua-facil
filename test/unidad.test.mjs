@@ -5654,7 +5654,14 @@ const URL_VIDEO = 'https://youtu.be/dQw4w9WgXcQ'
 const falla = (fn) => fn().then(() => null, (e) => e)
 
 // Una respuesta de Gemini con segmentos [m:ss] cada `paso` segundos.
-const segs = (n = 20, paso = 15) => Array.from({ length: n }, (_, i) => `[${Math.floor((i * paso) / 60)}:${String((i * paso) % 60).padStart(2, '0')}] Se explica el concepto número ${i + 1} con un ejemplo concreto del tema y sus consecuencias.`).join('\n')
+const marca = (t) => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`
+// Cada tramo trae su resumen y sus FRASES (una cada 12 s como máximo) con el prefijo «>».
+const segs = (n = 20, paso = 15) => Array.from({ length: n }, (_, i) => {
+  const t0 = i * paso
+  const frases = []
+  for (let t = t0; t < t0 + paso; t += 12) frases.push(`> [${marca(t)}] Frase literal del tramo ${i + 1} dicha en el segundo ${t}.`)
+  return `[${marca(t0)}] Se explica el concepto número ${i + 1} con un ejemplo concreto del tema y sus consecuencias.\n${frases.join('\n')}`
+}).join('\n')
 const textoGemini = ({ n = 20, paso = 15, habla = 'si', dur = '5:00', idioma = 'es' } = {}) => `IDIOMA: ${idioma}\nHABLA: ${habla}\nDURACION: ${dur}\n${segs(n, paso)}`
 const respOk = (texto, tokensVideo = 27000) => ({ ok: true, status: 200, json: async () => ({
   candidates: [{ content: { parts: [{ text: texto }] }, finishReason: 'STOP' }],
@@ -5703,8 +5710,18 @@ caso('extractor · lectura de la respuesta: marcas [m:ss], [h:mm:ss], rangos, vi
 caso('extractor · duración: se contrasta lo que dice Gemini con los tokens de video; nunca es menor que la última marca', () => {
   const d = (declaradaSeg, tokensVideo, ultimaMarcaSeg) => EXP.resolverDuracion({ declaradaSeg, tokensVideo, ultimaMarcaSeg })
   assert.deepStrictEqual(d(300, 27000, 285), { duracionSeg: 300, duracionFuente: 'declarada_por_gemini', duracionConfiable: true })
-  assert.deepStrictEqual(d(300, 27900, 285), { duracionSeg: 300, duracionFuente: 'declarada_por_gemini', duracionConfiable: true }, 'dentro de ±10 %')
+  assert.deepStrictEqual(d(300, 27900, 285), { duracionSeg: 310, duracionFuente: 'estimada_por_tokens', duracionConfiable: false }, '3.2 % de diferencia ya NO es fiable (antes pasaba con ±10 %)')
   assert.deepStrictEqual(d(900, 27000, 285), { duracionSeg: 300, duracionFuente: 'estimada_por_tokens', duracionConfiable: false }, 'discrepan → manda la de tokens')
+  // UMBRAL de 3 % sobre la estimada por tokens (90 000 tokens de video = 1000 s): inferior, igual y superior, por ambos lados
+  const estimada = { duracionSeg: 1000, duracionFuente: 'estimada_por_tokens', duracionConfiable: false }
+  const firme = (s) => ({ duracionSeg: s, duracionFuente: 'declarada_por_gemini', duracionConfiable: true })
+  assert.deepStrictEqual(d(1020, 90000, 900), firme(1020), '2 % → fiable')
+  assert.deepStrictEqual(d(1030, 90000, 900), firme(1030), 'exactamente 3 % → fiable (el umbral es inclusivo)')
+  assert.deepStrictEqual(d(1031, 90000, 900), estimada, '3.1 % → no fiable, manda la estimada')
+  assert.deepStrictEqual(d(970, 90000, 900), firme(970), 'exactamente 3 % por debajo → fiable')
+  assert.deepStrictEqual(d(969, 90000, 900), estimada, '3.1 % por debajo → no fiable')
+  // el caso real que pasaba por buena: declarada 337 s, estimada 363 s (el video dura 360 s)
+  assert.deepStrictEqual(d(337, 32690, 330), { duracionSeg: 363, duracionFuente: 'estimada_por_tokens', duracionConfiable: false })
   assert.deepStrictEqual(d(null, 27000, 285), { duracionSeg: 300, duracionFuente: 'estimada_por_tokens', duracionConfiable: false })
   assert.deepStrictEqual(d(300, 0, 285), { duracionSeg: 300, duracionFuente: 'declarada_por_gemini', duracionConfiable: false })
   assert.deepStrictEqual(d(null, 0, 285), { duracionSeg: 285, duracionFuente: 'ultima_marca', duracionConfiable: false })
@@ -5872,8 +5889,10 @@ caso('extractor · suficiencia: depende de segmentos, densidad y cobertura — n
 caso('extractor · compatibilidad con la operación de preguntas: el contrato llega completo al prompt de Haiku', async () => {
   const c = await conGemini(falsoGemini(respOk(textoGemini())), () => EX.extraerContenidoVideo(URL_VIDEO))
   const prompt = VIA.promptPreguntasVideo({ asignatura: 'Informática', contenido: c }, { verdadero_falso: 2, opcion_multiple: 2, respuesta_corta: 1 }, [])
-  assert.ok(prompt.includes(c.texto) && prompt.includes('[4:45]'), 'viajan los segmentos con su minuto')
-  assert.ok(prompt.includes('entre 0 y 300') && /NO una transcripción literal/.test(prompt))
+  assert.ok(prompt.includes('#20 [4:45–5:00]') && prompt.includes('#1 [0:00–0:15]'), 'viajan los segmentos numerados con su rango real')
+  assert.ok(c.segmentos.every((s, i) => s.finSeg === (c.segmentos[i + 1]?.inicioSeg ?? c.duracionSeg)), 'fin = inicio del siguiente; el último termina con el video')
+  assert.ok(/introduceEn/.test(prompt) && /completaEn/.test(prompt) && !/timestampSeg/.test(prompt), 'el modelo declara segmentos, no tiempos')
+  assert.ok(/NO una transcripción literal/.test(prompt))
   assert.ok(!/NO tiene habla/.test(prompt))
   const mudo = VIA.promptPreguntasVideo({ asignatura: 'X', contenido: { ...c, habla: false } }, { verdadero_falso: 1, opcion_multiple: 0, respuesta_corta: 0 }, [])
   assert.ok(/NO tiene habla/.test(mudo), 'si el video no tiene habla se le dice a Haiku')
@@ -5909,49 +5928,85 @@ caso('extractor · el secreto GEMINI_API_KEY se enlaza SOLO a ejecutarOperacionI
 })
 
 const CTX_VIDEO = { asignatura: 'Informática', contenido: { duracionSeg: 300, texto: '[0:00] hola', habla: true } }
-const preg = (o) => ({ tipo: 'verdadero_falso', enunciado: 'Enunciado 1', timestampSeg: 30, correcta: 'v', retroalimentacion: 'Porque sí.', ...o })
+const preg = (o) => ({ tipo: 'verdadero_falso', enunciado: 'Enunciado 1', introduceEn: 2, completaEn: 3, correcta: 'v', retroalimentacion: 'Porque sí.', ...o })
+// 20 segmentos reales de 15 s (el segmento k va de (k-1)·15 a k·15) en un video de 300 s.
+const SEGS20 = Array.from({ length: 20 }, (_, i) => ({ inicioSeg: i * 15, finSeg: (i + 1) * 15, texto: `Segmento ${i + 1}: se desarrolla el tema con un ejemplo concreto.` }))
+const OPT20 = { duracionSeg: 300, duracionConfiable: true, segmentos: SEGS20 }
 
 caso('generación: el prompt lleva la distribución exacta, el tope de tiempo y trata la transcripción como dato', () => {
   const p = VIA.promptPreguntasVideo(CTX_VIDEO, { verdadero_falso: 4, opcion_multiple: 4, respuesta_corta: 2 }, [])
   assert.ok(p.includes('EXACTAMENTE 10 preguntas'))
   assert.ok(p.includes('4 × verdadero_falso') && p.includes('4 × opcion_multiple') && p.includes('2 × respuesta_corta'))
-  assert.ok(p.includes('entre 0 y 300'))
+  assert.ok(/Una simple mención NO basta/.test(p) && /nunca lo que se diga después/.test(p))
   assert.ok(/no instrucciones/i.test(p) && /ignórala/.test(VIA.SISTEMA))
   assert.ok(!p.includes('YA PROPUESTAS'))
   assert.ok(VIA.promptPreguntasVideo(CTX_VIDEO, { verdadero_falso: 1, opcion_multiple: 0, respuesta_corta: 0 }, ['Algo previo']).includes('"Algo previo"'))
 })
 
-caso('generación: acepta lo válido y descarta lo que no cumple (tipo, tiempo, opciones, clave, duplicados)', () => {
+caso('generación: acepta lo válido y descarta lo que no cumple (tipo, opciones, clave, duplicados)', () => {
   const restante = { verdadero_falso: 2, opcion_multiple: 1, respuesta_corta: 1 }
-  const om = (o) => ({ tipo: 'opcion_multiple', enunciado: 'OM', timestampSeg: 60, opciones: ['a', 'b', 'c', 'd'], correcta: 2, ...o })
+  const om = (o) => ({ tipo: 'opcion_multiple', enunciado: 'OM', introduceEn: 4, completaEn: 4, opciones: ['a', 'b', 'c', 'd'], correcta: 2, ...o })
   const crudas = { preguntas: [
     preg({ enunciado: 'VF buena' }),
-    preg({ enunciado: 'VF fuera de tiempo', timestampSeg: 999 }),
-    preg({ enunciado: 'VF sin tiempo', timestampSeg: undefined }),
-    preg({ enunciado: 'VF negativa', timestampSeg: -4 }),
     preg({ enunciado: 'VF sin clave', correcta: 'tal vez' }),
     preg({ enunciado: 'vf BUENA' }), // duplicada de la primera
     om({ enunciado: 'OM 3 opciones', opciones: ['a', 'b', 'c'] }),
     om({ enunciado: 'OM repetidas', opciones: ['a', 'a', 'b', 'c'] }),
     om({ enunciado: 'OM clave 9', correcta: 9 }),
     om({ enunciado: 'OM buena', correcta: '3' }),
-    { tipo: 'subir_archivo', enunciado: 'tipo no permitido', timestampSeg: 10 },
-    { tipo: 'respuesta_corta', enunciado: 'Abierta', timestampSeg: 120, correcta: 'x', retroalimentacion: 'Debe mencionar X.' },
-    preg({ enunciado: 'VF segunda', timestampSeg: 302 }), // dentro de la tolerancia de 2 s → se ajusta al final
-    preg({ enunciado: 'VF de más', timestampSeg: 5 }), // ya no caben más VF
+    { tipo: 'subir_archivo', enunciado: 'tipo no permitido', introduceEn: 1, completaEn: 1 },
+    { tipo: 'respuesta_corta', enunciado: 'Abierta', introduceEn: 8, completaEn: 8, correcta: 'x', retroalimentacion: 'Debe mencionar X.' },
+    preg({ enunciado: 'VF segunda', introduceEn: 20, completaEn: 20 }), // el último segmento termina con el video
+    preg({ enunciado: 'VF de más' }), // ya no caben más VF
   ] }
-  const r = VIA.normalizarPreguntasVideo(crudas, { restante, duracionSeg: 300 })
+  const r = VIA.normalizarPreguntasVideo(crudas, { restante, ...OPT20 })
   assert.deepStrictEqual(r.preguntas.map((q) => q.enunciado), ['VF buena', 'OM buena', 'Abierta', 'VF segunda'])
   assert.deepStrictEqual(r.faltan, { verdadero_falso: 0, opcion_multiple: 0, respuesta_corta: 0 })
-  assert.strictEqual(r.preguntas[3].timestampSeg, 300)
+  assert.deepStrictEqual(r.preguntas.map((q) => q.timestampSeg), [45, 60, 120, 300])
   assert.strictEqual(r.preguntas[1].correcta, 3)
   // basura total: nada aceptado, todo sigue faltando
   for (const basura of [null, {}, { preguntas: 'x' }, { preguntas: [null, 1, 'a'] }]) {
-    const b = VIA.normalizarPreguntasVideo(basura, { restante, duracionSeg: 300 })
+    const b = VIA.normalizarPreguntasVideo(basura, { restante, ...OPT20 })
     assert.strictEqual(b.preguntas.length, 0); assert.deepStrictEqual(b.faltan, restante)
   }
   // lo ya propuesto antes cuenta como duplicado
-  assert.strictEqual(VIA.normalizarPreguntasVideo({ preguntas: [preg({ enunciado: 'Ya existía' })] }, { restante, duracionSeg: 300, enunciadosPrevios: ['ya existía'] }).preguntas.length, 0)
+  assert.strictEqual(VIA.normalizarPreguntasVideo({ preguntas: [preg({ enunciado: 'Ya existía' })] }, { restante, ...OPT20, enunciadosPrevios: ['ya existía'] }).preguntas.length, 0)
+})
+
+caso('tiempo de la pregunta: sale SOLO del fin del segmento donde el concepto queda explicado, nunca de su primera mención ni de un valor del modelo', () => {
+  const restante = { verdadero_falso: 1, opcion_multiple: 0, respuesta_corta: 0 }
+  const una = (o, opt = OPT20) => VIA.normalizarPreguntasVideo({ preguntas: [preg(o)] }, { restante, ...opt }).preguntas[0]
+  // Concepto MENCIONADO en el segmento 1 (0:00–0:15) y EXPLICADO en el 8 (1:45–2:00): aparece a los 120 s, no a los 15.
+  const tardia = una({ introduceEn: 1, completaEn: 8 })
+  assert.strictEqual(tardia.timestampSeg, 120)
+  assert.ok(tardia.timestampSeg > SEGS20[0].finSeg, 'no aparece al terminar la mención')
+  assert.ok(tardia.timestampSeg >= SEGS20[7].finSeg, 'no antes de que termine la explicación')
+  // El respaldo guardado es EXACTAMENTE el texto de los segmentos 1..8, sin ninguno posterior.
+  assert.deepStrictEqual([tardia.respaldo.desdeSegmento, tardia.respaldo.hastaSegmento, tardia.respaldo.inicioSeg, tardia.respaldo.finSeg], [1, 8, 0, 120])
+  assert.strictEqual(tardia.respaldo.texto, SEGS20.slice(0, 8).map((s) => s.texto).join('\n'))
+  assert.ok(!tardia.respaldo.texto.includes('Segmento 9:'))
+  assert.strictEqual(tardia.respaldo.motivoSinTiempo, null)
+  // Un `timestampSeg` escrito por el modelo (aunque sea adelantado) se ignora.
+  assert.strictEqual(una({ introduceEn: 1, completaEn: 8, timestampSeg: 5 }).timestampSeg, 120)
+  // El tiempo no depende de segmentos posteriores: si cita el 3, sale el fin del 3 aunque haya más después.
+  assert.strictEqual(una({ introduceEn: 2, completaEn: 3 }).timestampSeg, 45)
+  // Sin respaldo fiable → null (la pregunta se conserva para revisión docente), nunca un tiempo inventado.
+  const caso0 = (o, opt) => { const q = una(o, opt); return [q.timestampSeg, q.respaldo?.motivoSinTiempo ?? 'sin_respaldo'] }
+  assert.deepStrictEqual(caso0({ introduceEn: undefined, completaEn: undefined, timestampSeg: 40 }), [null, 'sin_respaldo'])
+  assert.deepStrictEqual(caso0({ introduceEn: 3, completaEn: 99 }), [null, 'sin_respaldo'])
+  assert.deepStrictEqual(caso0({ introduceEn: 5, completaEn: 2 }), [null, 'sin_respaldo'])
+  assert.deepStrictEqual(caso0({ introduceEn: 1, completaEn: 12 }), [null, 'respaldo_extenso'])
+  assert.deepStrictEqual(caso0({ introduceEn: 2, completaEn: 2 }, { ...OPT20, segmentos: SEGS20.map((s, i) => (i === 1 ? { ...s, texto: 'ok' } : s)) }), [null, 'respaldo_corto'])
+  // El último segmento solo termina «con el video» si la duración es confiable.
+  assert.deepStrictEqual(caso0({ introduceEn: 20, completaEn: 20 }, { ...OPT20, duracionConfiable: false }), [null, 'duracion_no_confiable'])
+  assert.strictEqual(una({ introduceEn: 19, completaEn: 19 }, { ...OPT20, duracionConfiable: false }).timestampSeg, 285)
+  // Segmentos sin fin (contenido viejo): no se puede respaldar el tiempo.
+  assert.strictEqual(una({}, { ...OPT20, segmentos: SEGS20.map(({ finSeg, ...s }) => s) }).timestampSeg, null)
+  // Las sin tiempo no se pierden ni se cobran de menos: se entregan y quedan al final, pendientes de revisión.
+  const mezcla = VIA.normalizarPreguntasVideo({ preguntas: [preg({ enunciado: 'a', introduceEn: 9, completaEn: 9 }), preg({ enunciado: 'b' })] }, { restante: { verdadero_falso: 2, opcion_multiple: 0, respuesta_corta: 0 }, ...OPT20 })
+  assert.strictEqual(mezcla.preguntas.length, 2)
+  const prop = mezcla.preguntas.map(VIA.aPropuesta)
+  assert.ok(prop.every((x) => x.estado === 'propuesta' && 'timestampSeg' in x))
 })
 
 caso('generación: toda pregunta sale como «propuesta» de origen IA; la abierta no trae respuesta correcta automática', () => {
@@ -6438,6 +6493,785 @@ caso('propuestas: conteo por estado, orden por minuto, tope de preguntas y forma
 const casoA = async (nombre, fn) => {
   try { await fn(); console.log('  ✓', nombre); pasadas++ } catch (e) { console.log('  ✗', nombre); console.log('     ', e.message.split('\n')[0]); fallos.push({ nombre, e }) }
 }
+
+// ── Video interactivo: VERIFICACIÓN independiente del momento de cada pregunta (functions/videoVerificacion.js) ──
+// Todo con un verificador SIMULADO que lee el prompt: valida la lógica del servidor, no la calidad real del modelo.
+const VERIF = require('../functions/videoVerificacion.js')
+const SEGV = Array.from({ length: 20 }, (_, i) => ({ inicioSeg: i * 15, finSeg: (i + 1) * 15, texto: `Segmento ${i + 1}: se desarrolla el tema número ${i + 1} con un ejemplo concreto.` }))
+const OPTV = { segmentos: SEGV, duracionSeg: 300, duracionConfiable: true, modelo: 'm', client: {} }
+const finSegV = (k) => k * 15 // fin real del segmento k en SEGV
+
+// Pregunta ya normalizada, con la mención y el «completaEn» que declaró el generador.
+const pq = (enunciado, introduceEn, completaEn, o = {}) => {
+  const tipo = o.tipo || 'verdadero_falso'
+  const r = VIA.normalizarPreguntasVideo({ preguntas: [{ tipo, enunciado, introduceEn, completaEn, correcta: 'v', retroalimentacion: 'r', ...o }] },
+    { restante: { verdadero_falso: 0, opcion_multiple: 0, respuesta_corta: 0, [tipo]: 1 }, ...OPT20 })
+  return r.preguntas[0]
+}
+// Verificador simulado. `verdad[enunciado]` = { fin: segmento donde de verdad queda explicado (Infinity = nunca), respuesta, localiza, miente, citaFalsa, error }.
+function verificadorFalso(verdad) {
+  const llamadas = []
+  const pedirJSON = async ({ prompt, system }) => {
+    const enun = /Pregunta: (.+)/.exec(prompt)[1]
+    const v = verdad[enun]
+    const segs = [...prompt.matchAll(/^#(\d+) (.+)$/gm)].map((m) => ({ n: Number(m[1]), texto: m[2] }))
+    const maxN = segs[segs.length - 1].n
+    const esLoc = prompt.includes('PRIMER segmento')
+    llamadas.push({ tipo: esLoc ? 'localizar' : 'prefijo', k: maxN, prompt, system })
+    if (v?.error) throw new Error('verificador caído')
+    const cita = (n) => ({ segmento: n, texto: v?.citaFalsa ? 'una frase que el video jamás dice' : (segs.find((s) => s.n === n)?.texto || '').slice(0, 30) })
+    const interno = { tokensEntrada: 100, tokensSalida: 20, cacheEscritura: 0, cacheLectura: 0, ms: 5 }
+    if (esLoc) {
+      const k = v?.localiza ?? (Number.isFinite(v?.fin) ? v.fin : null)
+      return { datos: { primerSegmento: k, citas: k ? [cita(k)] : [] }, interno }
+    }
+    // Un verificador que «sabe» más de lo permitido y cita un segmento posterior al evaluado.
+    if (v?.miente) return { datos: { puedeResponderse: true, evidenciaExplicita: true, respuesta: v.respuesta ?? 'v', citas: [{ segmento: v.fin, texto: SEGV[v.fin - 1].texto.slice(0, 30) }] }, interno }
+    // «Inferencia»: antes de que el video lo diga expresamente (v.fin), desde v.inferencia ya se puede DEDUCIR la respuesta.
+    // Un verificador honesto lo declara (evidenciaExplicita false); uno malo (insisteExplicita) dice que es explícito.
+    if (v?.inferencia && maxN >= v.inferencia && maxN < v.fin) return { datos: { puedeResponderse: true, evidenciaExplicita: !!v.insisteExplicita, respuesta: v.respuesta ?? 'v', citas: [cita(v.inferencia)] }, interno }
+    if (maxN >= v.fin) return { datos: { puedeResponderse: true, evidenciaExplicita: true, respuesta: v.respuesta ?? 'v', citas: [cita(v.fin)] }, interno }
+    return { datos: { puedeResponderse: false }, interno }
+  }
+  return { pedirJSON, llamadas }
+}
+const verificar = async (preguntas, verdad, extra = {}) => {
+  const f = verificadorFalso(verdad)
+  const r = await VERIF.verificarPreguntas({ ...OPTV, ...extra, preguntas, pedirJSON: f.pedirJSON })
+  return { ...r, llamadas: f.llamadas }
+}
+
+await casoA('verificación · concepto MENCIONADO en el segmento 1 y EXPLICADO en el 9: no aparece antes del fin del 9', async () => {
+  // El generador se equivoca: cree que ya se explicó en el segmento 1 (completaEn = 1).
+  const q = pq('Concepto X', 1, 1)
+  assert.strictEqual(q.respaldo.hastaSegmento, 1, 'candidato equivocado del generador')
+  const r = await verificar([q], { 'Concepto X': { fin: 9 } })
+  const [x] = r.resultados
+  assert.strictEqual(x.timestampSeg, finSegV(9)); assert.ok(x.timestampSeg >= finSegV(9) && x.timestampSeg > finSegV(1))
+  assert.deepStrictEqual([x.verificacion.estado, x.verificacion.segmentoVerificado, x.verificacion.motivo], ['corregida', 9, null])
+  // prefijo(1) falla → localizar → prefijo(9) pasa
+  assert.deepStrictEqual(r.llamadas.map((c) => [c.tipo, c.k]), [['prefijo', 1], ['localizar', 20], ['prefijo', 9]])
+  // el fragmento guardado es EXACTAMENTE lo de los segmentos 1..9, nada posterior
+  assert.deepStrictEqual([x.respaldo.desdeSegmento, x.respaldo.hastaSegmento, x.respaldo.finSeg, x.respaldo.motivoSinTiempo], [1, 9, finSegV(9), null])
+  assert.strictEqual(x.respaldo.texto, SEGV.slice(0, 9).map((s) => s.texto).join('\n'))
+  assert.ok(x.verificacion.citas.length >= 1 && x.verificacion.citas.every((c) => c.segmento <= 9))
+  // las llamadas consumieron tokens y quedan sumados
+  assert.deepStrictEqual([r.interno.llamadas, r.interno.tokensEntrada, r.interno.tokensSalida], [3, 300, 60])
+})
+
+await casoA('verificación · BARRERA de información: la prueba de prefijo k no recibe NADA posterior a k, ni la decisión del generador, ni la clave', async () => {
+  const r = await verificar([pq('Concepto X', 1, 1), pq('Concepto Y', 2, 3)], { 'Concepto X': { fin: 9 }, 'Concepto Y': { fin: 3 } })
+  const prefijos = r.llamadas.filter((c) => c.tipo === 'prefijo')
+  assert.ok(prefijos.length >= 3)
+  for (const c of prefijos) {
+    for (let j = c.k + 1; j <= 20; j += 1) assert.ok(!c.prompt.includes(`Segmento ${j}:`), `el prefijo ${c.k} no debe contener el segmento ${j}`)
+    assert.ok(!c.prompt.includes(`#${c.k + 1} `), 'ni siquiera su número')
+    assert.ok(!/introduceEn|completaEn|timestampSeg|"correcta"/.test(c.prompt), 'sin lo que dijo el generador ni la clave')
+    assert.ok(c.system.startsWith('Verificador de preguntas de video'))
+  }
+  assert.ok(prefijos.some((c) => c.k === 1) && prefijos.some((c) => c.k === 3))
+  // solo la LOCALIZACIÓN ve la transcripción completa, y nunca decide el tiempo sola (siempre la sigue un prefijo)
+  const secuencia = r.llamadas.filter((c) => /Concepto X/.test(c.prompt)).map((c) => c.tipo)
+  assert.deepStrictEqual(secuencia, ['prefijo', 'localizar', 'prefijo'])
+})
+
+await casoA('verificación · generador correcto → «verificada»: prefijo + localización SIEMPRE (2 llamadas, sin repetir el prefijo), tiempo = fin real del segmento', async () => {
+  const r = await verificar([pq('Concepto Y', 2, 3)], { 'Concepto Y': { fin: 3 } })
+  const [x] = r.resultados
+  assert.deepStrictEqual([x.timestampSeg, x.verificacion.estado, r.llamadas.map((c) => c.tipo)], [finSegV(3), 'verificada', ['prefijo', 'localizar']])
+  assert.strictEqual(x.verificacion.segmentoLocalizado, 3)
+  assert.strictEqual(x.respaldo.desdeSegmento, 2)
+})
+
+await casoA('verificación · pregunta de APLICACIÓN que combina ideas de los segmentos 3 y 7: aparece al terminar el 7', async () => {
+  const r = await verificar([pq('Aplica A y B', 3, 3)], { 'Aplica A y B': { fin: 7 } })
+  const [x] = r.resultados
+  assert.deepStrictEqual([x.timestampSeg, x.verificacion.estado], [finSegV(7), 'corregida'])
+  assert.ok(x.timestampSeg > finSegV(3))
+})
+
+await casoA('verificación · INFORMACIÓN INSUFICIENTE: el video nunca la explica → null, nunca un tiempo', async () => {
+  const nunca = await verificar([pq('Nunca se explica', 4, 4)], { 'Nunca se explica': { fin: Infinity } })
+  assert.deepStrictEqual([nunca.resultados[0].timestampSeg, nunca.resultados[0].verificacion.estado, nunca.resultados[0].verificacion.motivo], [null, 'sin_verificar', 'no_localizada'])
+  assert.strictEqual(nunca.resultados[0].respaldo.motivoSinTiempo, 'no_localizada')
+  // el localizador apunta a un segmento, pero ahí tampoco se puede contestar: se re-verifica y no pasa
+  const incoherente = await verificar([pq('Dudosa', 4, 4)], { Dudosa: { fin: 99, localiza: 12 } })
+  assert.deepStrictEqual([incoherente.resultados[0].timestampSeg, incoherente.resultados[0].verificacion.motivo], [null, 'no_responde'])
+  // un localizador que contradice el prefijo ya fallido (apunta antes o igual) es descartado
+  const atras = await verificar([pq('Contradice', 6, 6)], { Contradice: { fin: 99, localiza: 5 } })
+  assert.deepStrictEqual([atras.resultados[0].timestampSeg, atras.resultados[0].verificacion.motivo], [null, 'no_responde'])
+})
+
+await casoA('verificación · el SERVIDOR valida citas y respuesta; no se fía de lo que diga el verificador', async () => {
+  // cita inventada (no existe en los segmentos) → no pasa, ni la prueba ni la localización
+  const falsa = await verificar([pq('Cita falsa', 2, 2)], { 'Cita falsa': { fin: 2, citaFalsa: true } })
+  assert.strictEqual(falsa.resultados[0].timestampSeg, null); assert.ok(['cita_invalida', 'localizacion_incoherente'].includes(falsa.resultados[0].verificacion.motivo))
+  const falsaLoc = await verificar([pq('Cita falsa 2', undefined, undefined)], { 'Cita falsa 2': { fin: 5, citaFalsa: true } })
+  assert.deepStrictEqual([falsaLoc.resultados[0].timestampSeg, falsaLoc.resultados[0].verificacion.motivo], [null, 'cita_invalida'])
+  // cita tomada de un segmento POSTERIOR al evaluado (el modelo «sabía» más de lo permitido) → rechazada
+  const filtrada = await verificar([pq('Fuga', 2, 2)], { Fuga: { fin: 9, miente: true } })
+  assert.ok(filtrada.resultados[0].timestampSeg === null || filtrada.resultados[0].timestampSeg >= finSegV(9), 'nunca antes del 9')
+  assert.ok(filtrada.resultados[0].verificacion.segmentoVerificado !== 2, 'el prefijo 2 no se acepta con una cita del segmento 9')
+  // la respuesta que derivó el verificador no coincide con la clave (VF y opción múltiple)
+  const vf = await verificar([pq('No coincide', 2, 2)], { 'No coincide': { fin: 2, respuesta: 'f' } })
+  assert.deepStrictEqual([vf.resultados[0].timestampSeg, vf.resultados[0].verificacion.motivo], [null, 'respuesta_no_coincide'])
+  const om = pq('OM no coincide', 2, 2, { tipo: 'opcion_multiple', opciones: ['a', 'b', 'c', 'd'], correcta: 2 })
+  assert.ok(om, 'la pregunta de opción múltiple se normalizó')
+  const rom = await verificar([om], { 'OM no coincide': { fin: 2, respuesta: 1 } })
+  assert.deepStrictEqual([rom.resultados[0].timestampSeg, rom.resultados[0].verificacion.motivo], [null, 'respuesta_no_coincide'])
+  const omOk = await verificar([om], { 'OM no coincide': { fin: 2, respuesta: 2 } })
+  assert.deepStrictEqual([omOk.resultados[0].timestampSeg, omOk.resultados[0].verificacion.estado], [finSegV(2), 'verificada'])
+  // la abierta no tiene clave: basta que se pueda responder con citas reales
+  const ab = pq('Abierta', 2, 2, { tipo: 'respuesta_corta', correcta: undefined })
+  assert.strictEqual((await verificar([ab], { Abierta: { fin: 2 } })).resultados[0].timestampSeg, finSegV(2))
+})
+
+await casoA('verificación · TIEMPOS DUDOSOS (segmento largo, desordenado, último con duración dudosa) → null y sin gastar llamadas', async () => {
+  const conHueco = SEGV.map((s, i) => (i === 3 ? { ...s, finSeg: s.inicioSeg + 90 } : s)) // el 4.º dura 90 s: esconde un hueco
+  const a = await verificar([pq('Hueco', 4, 4)], { Hueco: { fin: 4 } }, { segmentos: conHueco })
+  assert.deepStrictEqual([a.resultados[0].timestampSeg, a.resultados[0].verificacion.motivo, a.llamadas.length], [null, 'tiempo_dudoso', 0])
+  const desordenado = SEGV.map((s, i) => (i === 2 ? { ...s, inicioSeg: 100 } : s))
+  const b = await verificar([pq('Desorden', 4, 4)], { Desorden: { fin: 4 } }, { segmentos: desordenado })
+  assert.deepStrictEqual([b.resultados[0].timestampSeg, b.resultados[0].verificacion.motivo], [null, 'tiempo_dudoso'])
+  const c = await verificar([pq('Final', 20, 20)], { Final: { fin: 20 } }, { duracionConfiable: false })
+  assert.deepStrictEqual([c.resultados[0].timestampSeg, c.resultados[0].verificacion.motivo, c.llamadas.length], [null, 'tiempo_dudoso', 0])
+  // sin candidato se localiza, pero si el segmento hallado cae en un hueco tampoco se asigna tiempo
+  const d = await verificar([pq('Sin candidato', undefined, undefined)], { 'Sin candidato': { fin: 4 } }, { segmentos: conHueco })
+  assert.deepStrictEqual([d.resultados[0].timestampSeg, d.resultados[0].verificacion.motivo], [null, 'tiempo_dudoso'])
+  const e = await verificar([pq('Sin candidato 2', undefined, undefined)], { 'Sin candidato 2': { fin: 6 } })
+  assert.deepStrictEqual([e.resultados[0].timestampSeg, e.resultados[0].verificacion.estado, e.llamadas.map((x) => x.tipo)], [finSegV(6), 'corregida', ['localizar', 'prefijo']])
+  // sin segmentos → todas sin verificar, sin llamadas
+  const f = await verificar([pq('X', 1, 1)], {}, { segmentos: [] })
+  assert.deepStrictEqual([f.resultados[0].timestampSeg, f.resultados[0].verificacion.motivo, f.llamadas.length], [null, 'sin_segmentos', 0])
+})
+
+await casoA('verificación · si el verificador FALLA (error, JSON basura, tiempo agotado) no lanza: la pregunta queda sin tiempo y las demás siguen', async () => {
+  const preguntas = [pq('Cae', 2, 2), pq('Sigue', 3, 3)]
+  const caido = await verificar(preguntas, { Cae: { fin: 2, error: true }, Sigue: { fin: 3 } })
+  assert.deepStrictEqual([caido.resultados[0].timestampSeg, caido.resultados[0].verificacion.motivo], [null, 'verificador_no_disponible'])
+  assert.deepStrictEqual([caido.resultados[1].timestampSeg, caido.resultados[1].verificacion.estado], [finSegV(3), 'verificada'])
+  assert.strictEqual(caido.llamadas.filter((c) => /Cae/.test(c.prompt)).length, 4, 'prefijo y localización, cada una con UN reintento y nada más')
+  // respuesta que no es un objeto utilizable
+  const basura = await VERIF.verificarPreguntas({ ...OPTV, preguntas: [pq('Basura', 2, 2)], pedirJSON: async () => ({ datos: 'texto', interno: {} }) })
+  assert.deepStrictEqual([basura.resultados[0].timestampSeg, basura.resultados[0].verificacion.motivo], [null, 'respuesta_invalida'])
+  // presupuesto de tiempo agotado: ni siquiera se llama al modelo
+  const vencido = await VERIF.verificarPreguntas({ ...OPTV, preguntas: [pq('Tarde', 2, 2)], presupuestoMs: -1, pedirJSON: async () => { throw new Error('no debe llamarse') } })
+  assert.deepStrictEqual([vencido.resultados[0].timestampSeg, vencido.resultados[0].verificacion.motivo], [null, 'tiempo_agotado'])
+  // un pedirJSON que revienta siempre no hace que verificarPreguntas lance
+  const todo = await VERIF.verificarPreguntas({ ...OPTV, preguntas, pedirJSON: async () => { throw new Error('Anthropic caído') } })
+  assert.ok(todo.resultados.every((x) => x.timestampSeg === null && x.verificacion.estado === 'sin_verificar'))
+})
+
+await casoA('verificación · INVARIANTE: sobre 120 casos con verdad conocida, ninguna pregunta entregada con tiempo sale antes de su explicación', async () => {
+  let semilla = 7
+  const azar = (n) => { semilla = (semilla * 1103515245 + 12345) % 2147483648; return 1 + (semilla % n) }
+  const preguntas = []; const verdad = {}; const real = {}
+  for (let i = 0; i < 120; i += 1) {
+    const enun = `Caso ${i}`
+    const finReal = azar(10) === 1 ? Infinity : azar(20) // algunas nunca se explican
+    const cand = azar(20)
+    preguntas.push(pq(enun, Math.min(cand, azar(cand)), cand)); verdad[enun] = { fin: finReal }; real[enun] = finReal
+  }
+  const r = await verificar(preguntas, verdad)
+  let conTiempo = 0
+  r.resultados.forEach((x, i) => {
+    const enun = `Caso ${i}`
+    if (x.timestampSeg === null) { assert.strictEqual(x.verificacion.estado, 'sin_verificar'); return }
+    conTiempo += 1
+    assert.ok(Number.isFinite(real[enun]) && x.timestampSeg >= finSegV(real[enun]), `${enun}: ${x.timestampSeg} < fin real ${finSegV(real[enun])}`)
+    assert.ok(['verificada', 'corregida'].includes(x.verificacion.estado))
+  })
+  assert.ok(conTiempo > 60 && conTiempo < 120, `hubo preguntas verificadas y sin verificar (${conTiempo})`)
+})
+
+await casoA('revisión docente · sin minuto: no se puede aprobar, el docente ve la pista (sin botón que la aplique) y el respaldo viaja en la forma que ya lee la ventana', async () => {
+  const RV = await import('../src/components/video/revisionVideo.js')
+  // regla de no aprobar sin minuto: el tiempo null es inválido en la ventana y en la propuesta
+  assert.strictEqual(RV.validarTiempo(null, 300).ok, false)
+  assert.strictEqual(PV.validarPropuesta({ tipo: 'verdadero_falso', enunciado: 'x', respuestaCorrecta: 'v', timestampSeg: null }, 300).ok, false)
+  // la propuesta guarda la pista SOLO si no hay minuto, y un respaldo legible por la ventana
+  const sin = { tipo: 'verdadero_falso', enunciado: 'Algo', respuestaCorrecta: 'v', opciones: [{ id: 'v', texto: 'Verdadero' }, { id: 'f', texto: 'Falso' }], timestampSeg: null, minutoSugerido: 77, verificacion: { estado: 'sin_verificar' }, respaldo: { desdeSegmento: 3, hastaSegmento: 3, inicioSeg: 60, finSeg: 75, texto: 'Aquí se explica el tema.', unidad: 'frase' } }
+  const doc = PV.propuestaDesdeIA(sin, 'g1')
+  assert.deepStrictEqual([doc.timestampSeg, doc.minutoSugerido], [null, 77])
+  assert.deepStrictEqual(RV.leerEvidencia(doc.respaldo), { inicioSeg: 60, finSeg: 75, resumen: '', cita: 'Aquí se explica el tema.', verificacion: 'no_verificable' })
+  const con = PV.propuestaDesdeIA({ ...sin, timestampSeg: 80, minutoSugerido: 77, verificacion: { estado: 'verificada' } }, 'g1')
+  assert.deepStrictEqual([con.timestampSeg, con.minutoSugerido, RV.leerEvidencia(con.respaldo).verificacion], [80, null, 'verificado'])
+  assert.strictEqual(RV.leerEvidencia(PV.propuestaDesdeIA({ ...sin, timestampSeg: 80, verificacion: { estado: 'corregida' } }, 'g1').respaldo).verificacion, 'reubicado')
+  assert.strictEqual(PV.propuestaDesdeIA({ ...sin, respaldo: null }, 'g1').respaldo, null)
+  // el elemento de revisión conserva la pista y sin minuto exige confirmación expresa
+  const items = RV.construirItems({ propuestas: [{ id: 'p1', estado: 'pendiente', ...doc }], activas: [] })
+  assert.deepStrictEqual([items[0].timestampSeg, items[0].minutoSugerido, RV.requiereConfirmacion(items[0])], [null, 77, true])
+  // la ventana solo MUESTRA la pista: no hay botón que la aplique ni se rellena el minuto por su cuenta
+  const ct = readFileSync(new globalThis.URL('../src/components/video/ControlTiempoVideo.jsx', import.meta.url), 'utf8')
+  assert.ok(/Pista de la IA \(no confirmada\)/.test(ct) && /!Number\.isInteger\(seg\) && Number\.isInteger\(item\.minutoSugerido\)/.test(ct))
+  assert.ok(!/<button[^>]*minutoSugerido/.test(ct) && !/onCambiar\(item\.minutoSugerido\)/.test(ct), 'la pista no se aplica sola')
+})
+
+// ── Video interactivo: verificación ENDURECIDA (evidencia explícita), localización obligatoria y JSON tolerante ──
+const SEGN = [
+  'Se presenta la fotosíntesis: las plantas fabrican su alimento con agua, luz solar y dióxido de carbono.',
+  'Las raíces absorben agua y sales minerales formando la savia bruta, que sube por el xilema hasta las hojas.',
+  'En las hojas los cloroplastos con clorofila capturan la luz del sol y los estomas captan el dióxido de carbono.',
+  'La savia bruta se convierte en savia elaborada, que se distribuye por el floema, y se expulsa oxígeno.',
+  'La fotosíntesis solo se realiza durante el día porque se necesita luz solar; la respiración ocurre todo el día.',
+  'Las plantas son fundamentales para la vida en la Tierra porque limpian el aire.',
+  'Pantalla final de suscripción del canal.',
+].map((texto, i) => ({ inicioSeg: i * 20, finSeg: (i + 1) * 20, texto }))
+const OPTN = { segmentos: SEGN, duracionSeg: 140, duracionConfiable: true, modelo: 'm', client: {} }
+const NOCHE = 'La fotosíntesis se realiza durante toda la noche porque las plantas necesitan moverse.' // VF, clave «f»
+// pregunta VF «toda la noche» con el candidato que dio el generador (segmento 3: luz solar → «se deduce» que de noche no)
+const preguntaNoche = (cand) => {
+  const q = pq(NOCHE, cand, cand, { correcta: 'f' })
+  q.respaldo = { ...q.respaldo, texto: SEGN.slice(0, cand).map((s) => s.texto).join('\n') }
+  return q
+}
+const verN = (preguntas, verdad, extra = {}) => verificar(preguntas, verdad, { ...OPTN, ...extra })
+const citaN = (n) => ({ segmento: n, texto: SEGN[n - 1].texto.slice(0, 40) })
+
+await casoA('verificación endurecida · los prompts exigen evidencia EXPLÍCITA y citas que justifiquen; la barrera de información se mantiene', async () => {
+  const q = pq('Cualquiera', 2, 2)
+  const p = VERIF._pruebas.promptPrefijo(q, SEGV, 4); const l = VERIF._pruebas.promptLocalizar(q, SEGV)
+  for (const t of [p, l]) assert.ok(/EVIDENCIA EXPLÍCITA/.test(t) && /NO vale inferir/.test(t) && /diga lo contrario/.test(t))
+  assert.ok(/evidenciaExplicita/.test(p) && /JUSTIFICAR la respuesta/.test(p))
+  assert.ok(!p.includes('Segmento 5:') && p.includes('Segmento 4:'), 'el prefijo 4 sigue sin ver el segmento 5')
+  assert.ok(/no inferencias|ni inferencias/.test(VERIF._pruebas.SISTEMA_VERIFICADOR))
+})
+
+await casoA('verificación endurecida · «toda la noche» (se acepta antes de tiempo en la prueba real): ya NO sale en el segmento 3', async () => {
+  // Candidato del generador = 3 (luz solar). El video lo dice expresamente en el segmento 5 («solo durante el día»). Fin real del 5 = 100 s.
+  const verdad = { [NOCHE]: { fin: 5, respuesta: 'f', inferencia: 3 } }
+  // A) verificador honesto: declara que en el 3 solo es una INFERENCIA (evidenciaExplicita false) → el candidato no pasa; la localización manda (5)
+  const a = await verN([preguntaNoche(3)], verdad)
+  assert.deepStrictEqual([a.resultados[0].timestampSeg, a.resultados[0].verificacion.estado, a.resultados[0].verificacion.segmentoVerificado], [100, 'corregida', 5])
+  assert.deepStrictEqual(a.llamadas.map((c) => [c.tipo, c.k]), [['prefijo', 3], ['localizar', 7], ['prefijo', 5]])
+  assert.ok(a.resultados[0].timestampSeg >= 100 && a.resultados[0].timestampSeg > 60, 'no sale al terminar el segmento 3 (60 s)')
+  // B) verificador que SÍ se deja engañar en el prefijo 3 (dice «explícita»): la localización obligatoria lo corrige igualmente
+  const b = await verN([preguntaNoche(3)], { [NOCHE]: { ...verdad[NOCHE], insisteExplicita: true } })
+  assert.deepStrictEqual([b.resultados[0].timestampSeg, b.resultados[0].verificacion.estado, b.resultados[0].verificacion.segmentoLocalizado], [100, 'corregida', 5])
+  // C) la evidencia no explícita por sí sola jamás da minuto
+  const motivo = await VERIF.verificarPreguntas({ ...OPTN, preguntas: [preguntaNoche(3)],
+    pedirJSON: async ({ prompt }) => ({ datos: prompt.includes('PRIMER segmento') ? { primerSegmento: 3, citas: [citaN(3)] } : { puedeResponderse: true, evidenciaExplicita: false, respuesta: 'f', citas: [citaN(3)] }, interno: {} }) })
+  assert.deepStrictEqual([motivo.resultados[0].timestampSeg, motivo.resultados[0].verificacion.motivo], [null, 'evidencia_no_explicita'])
+})
+
+await casoA('verificación endurecida · LIMITACIÓN CONOCIDA: si el verificador insiste en el prefijo Y en la localización, una pregunta prematura SÍ se acepta', async () => {
+  // Un verificador malo que, con citas reales, declara «explícita» la inferencia y además localiza el segmento 3: nada del servidor lo detecta.
+  const r = await verN([preguntaNoche(3)], { [NOCHE]: { fin: 5, respuesta: 'f', inferencia: 3, insisteExplicita: true, localiza: 3 } })
+  assert.deepStrictEqual([r.resultados[0].timestampSeg, r.resultados[0].verificacion.estado], [60, 'verificada'])
+  assert.ok(r.resultados[0].timestampSeg < 100, 'queda 40 s ANTES de la explicación expresa: el sistema NO garantiza que no ocurra')
+})
+
+await casoA('verificación obligatoria de la localización · discrepancias y orden de segmentos', async () => {
+  const guion = (pf, loc) => async ({ prompt }) => {
+    const maxN = Math.max(...[...prompt.matchAll(/^#(\d+) /gm)].map((m) => Number(m[1])))
+    const interno = { tokensEntrada: 1, tokensSalida: 1 }
+    if (prompt.includes('PRIMER segmento')) return { datos: loc === null ? { primerSegmento: null, citas: [] } : { primerSegmento: loc, citas: [citaN(loc)] }, interno }
+    return pf(maxN) ? { datos: { puedeResponderse: true, evidenciaExplicita: true, respuesta: 'f', citas: [citaN(Math.min(maxN, 5))] }, interno } : { datos: { puedeResponderse: false }, interno }
+  }
+  const correr = (cand, pf, loc) => VERIF.verificarPreguntas({ ...OPTN, preguntas: [preguntaNoche(cand)], pedirJSON: guion(pf, loc) }).then((r) => r.resultados[0])
+  // el candidato pasa pero el video NO se localiza → discrepancia (sin minuto)
+  assert.deepStrictEqual(((x) => [x.timestampSeg, x.verificacion.motivo])(await correr(3, () => true, null)), [null, 'discrepancia'])
+  // el candidato falla pero el localizado es ≤ candidato y su prefijo pasa → se contradicen → sin minuto
+  assert.deepStrictEqual(((x) => [x.timestampSeg, x.verificacion.motivo])(await correr(6, (n) => n === 5, 5)), [null, 'discrepancia'])
+  // el localizado es POSTERIOR y su prefijo no pasa → sin minuto (nunca se usa un segmento que no superó la verificación)
+  assert.strictEqual((await correr(3, () => false, 5)).timestampSeg, null)
+  // el candidato pasa y el localizado es POSTERIOR y verificado → manda el localizado
+  const post = await correr(3, () => true, 5); assert.deepStrictEqual([post.timestampSeg, post.verificacion.estado], [100, 'corregida'])
+  // el localizado es ANTERIOR al candidato y ambos pasan → se queda el candidato (más tarde y verificado): jamás antes del localizado
+  const ant = await correr(6, () => true, 3); assert.deepStrictEqual([ant.timestampSeg, ant.verificacion.estado, ant.verificacion.segmentoVerificado, ant.verificacion.segmentoLocalizado], [120, 'verificada', 6, 3])
+  assert.ok(ant.timestampSeg >= SEGN[2].finSeg)
+  // sin candidato: manda el localizado, pero solo si su prefijo pasa
+  const sin = await correr(undefined, () => true, 5); assert.deepStrictEqual([sin.timestampSeg, sin.verificacion.estado], [100, 'corregida'])
+  assert.strictEqual((await correr(undefined, () => false, 5)).timestampSeg, null)
+})
+
+await casoA('localizador · el prompt limita las citas al prefijo (≤ primerSegmento) y el servidor sigue rechazando citas posteriores', async () => {
+  const l = VERIF._pruebas.promptLocalizar(pq('Cualquiera', 2, 2), SEGV)
+  assert.ok(/LÍMITE DE LAS CITAS/.test(l) && /MENOR O IGUAL al "primerSegmento"/.test(l))
+  assert.ok(/NO cites segmentos posteriores/.test(l) && /ni como apoyo extra/.test(l))
+  assert.ok(/devuelve primerSegmento null y citas vacías: no inventes citas/.test(l))
+  assert.ok(/nunca mayor que primerSegmento/.test(l))
+  assert.ok(/EVIDENCIA EXPLÍCITA/.test(l), 'la exigencia de evidencia explícita se conserva')
+  // El servidor NO cambió: el caso real («toda la noche»): localiza el 5 pero cita además el segmento 6 (posterior) → se rechaza igual
+  const guion = (cLoc) => async ({ prompt }) => {
+    const maxN = Math.max(...[...prompt.matchAll(/^#(\d+) /gm)].map((m) => Number(m[1])))
+    const interno = { tokensEntrada: 1, tokensSalida: 1 }
+    if (prompt.includes('PRIMER segmento')) return { datos: cLoc, interno }
+    return maxN >= 5 ? { datos: { puedeResponderse: true, evidenciaExplicita: true, respuesta: 'f', citas: [citaN(5)] }, interno } : { datos: { puedeResponderse: false }, interno }
+  }
+  const correr = (cLoc, cand = 3) => VERIF.verificarPreguntas({ ...OPTN, preguntas: [preguntaNoche(cand)], pedirJSON: guion(cLoc) }).then((r) => r.resultados[0])
+  const posterior = await correr({ primerSegmento: 5, citas: [citaN(5), citaN(6)] })
+  assert.deepStrictEqual([posterior.timestampSeg, posterior.verificacion.motivo], [null, 'cita_invalida'], 'una cita posterior al segmento elegido sigue invalidando la localización')
+  // con las citas DENTRO del límite (≤ 5) se acepta y se verifica el prefijo 5
+  const dentro = await correr({ primerSegmento: 5, citas: [citaN(5), citaN(3)] })
+  assert.deepStrictEqual([dentro.timestampSeg, dentro.verificacion.estado, dentro.verificacion.segmentoVerificado], [100, 'corregida', 5])
+  // sin evidencia dentro del límite: primerSegmento null y citas vacías → sin minuto, sin inventar nada
+  const nula = await correr({ primerSegmento: null, citas: [] })
+  assert.deepStrictEqual([nula.timestampSeg, nula.verificacion.motivo], [null, 'no_localizada'])
+  // un primerSegmento sin ninguna cita válida tampoco vale
+  const sinCitas = await correr({ primerSegmento: 5, citas: [] })
+  assert.strictEqual(sinCitas.timestampSeg, null)
+})
+
+// ── Video interactivo v2: extracción con FRASES, confirmación en frases, demostración por componentes, margen y minuto sugerido ──
+const marcaF = (t) => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`
+
+await casoA('extracción v2 · el prompt pide frases con «>» y [m:ss], anti-adelanto', async () => {
+  const p = EXP.PROMPT_EXTRACCION
+  assert.ok(/> \[m:ss\] <frase>/.test(p) && /transcripción literal o casi literal/.test(p))
+  assert.ok(/NO anticipes ni agrupes información que se dice después/.test(p) && /SOLO lo que se dice entre su marca y la del siguiente tramo/.test(p))
+  assert.strictEqual(EXP.PROMPT_EXTRACCION_ESTRICTO, undefined, 'no hay reintento estricto de extracción')
+  assert.strictEqual(EXP.MAX_FRASE_SEG, 30); assert.strictEqual(EXP.MAX_FRASE_SEG, VERIF._pruebas.MAX_FRASE_FIABLE_SEG, 'extracción y verificación usan el mismo límite de frase')
+})
+
+await casoA('extracción v2 · lectura de frases: viñetas, continuaciones, misma marca, frases sin tramo y marcas inválidas', async () => {
+  const t = ['IDIOMA: es', 'HABLA: sí', 'DURACION: 1:00',
+    '> [0:00] frase huérfana antes de cualquier tramo', '[0:00] Resumen uno', '> [0:00] Hola a todos', '> [0:05] Hoy veremos algo', 'que sigue en otra línea',
+    '[0:30] Resumen dos', '  > [0:31] Segunda parte', '> [0:31] misma marca', '> [xx:yy] marca inválida', '> [0:40] Fin del tema'].join('\n')
+  const p = EXP.parsearRespuesta(t)
+  assert.strictEqual(p.segmentos.length, 2)
+  assert.deepStrictEqual(p.segmentos[0].frases.map((f) => [f.inicioSeg, f.texto]), [[0, 'Hola a todos'], [5, 'Hoy veremos algo que sigue en otra línea']])
+  assert.deepStrictEqual(p.segmentos[1].frases.map((f) => f.inicioSeg), [31, 31, 40], 'dos frases con la misma marca se funden después, al construir la lista plana')
+  assert.ok(!JSON.stringify(p).includes('huérfana'), 'una frase antes del primer tramo se ignora')
+})
+
+await casoA('extracción v2 · frases fiables: lista plana con fin = inicio de la siguiente, índice de tramo y sin frases pegadas a los resúmenes', async () => {
+  const c = await conGemini(falsoGemini(respOk(textoGemini())), () => EX.extraerContenidoVideo(URL_VIDEO))
+  assert.strictEqual(c.segmentacion.frasesFiables, true)
+  assert.ok(c.frases.length >= 20 && c.frases.every((f, i) => f.finSeg === (c.frases[i + 1]?.inicioSeg ?? c.duracionSeg)))
+  assert.ok(c.frases.every((f) => Number.isInteger(f.segmento) && f.segmento >= 1 && f.segmento <= c.segmentos.length))
+  assert.ok(c.segmentos.every((s) => !('frases' in s)), 'los tramos no cargan las frases')
+  assert.deepStrictEqual(c.frases.slice(0, 3).map((f) => [f.inicioSeg, f.segmento]), [[0, 1], [12, 1], [15, 2]])
+  assert.ok(c.texto.includes('Se explica el concepto número 1') && !c.texto.includes('Frase literal'), 'el texto para el generador sigue siendo el resumen por tramos')
+})
+
+await casoA('extracción v2 · sin frases fiables (ausentes, escasas, larguísimas o fuera de su tramo): UNA sola extracción y frases vacías (sin reintento)', async () => {
+  const sinFrases = `IDIOMA: es\nHABLA: si\nDURACION: 5:00\n${Array.from({ length: 20 }, (_, i) => `[${marcaF(i * 15)}] Se explica el concepto número ${i + 1} con un ejemplo concreto del tema y sus consecuencias.`).join('\n')}`
+  const f1 = falsoGemini(respOk(sinFrases), respOk(textoGemini()))
+  const c1 = await conGemini(f1, () => EX.extraerContenidoVideo(URL_VIDEO))
+  assert.strictEqual(f1.llamadas.length, 1, 'una sola llamada: sin reintento estricto')
+  assert.deepStrictEqual([c1.frases.length, c1.segmentacion.frasesFiables, c1.segmentacion.dudosa, c1.segmentacion.reintento], [0, false, true, false])
+  assert.strictEqual(c1.uso.extracciones, undefined, 'el costo es el de una sola extracción')
+  // frases de 30 s o más (más del límite) en la mayoría → no fiables
+  const largas = `IDIOMA: es\nHABLA: si\nDURACION: 10:00\n${Array.from({ length: 10 }, (_, i) => `[${marcaF(i * 60)}] Resumen ${i + 1} con contenido suficiente para ser útil al generador.\n> [${marcaF(i * 60)}] Una sola frase larguísima del tramo ${i + 1}.`).join('\n')}`
+  assert.strictEqual(EXP.construirFrases(EXP.parsearRespuesta(largas).segmentos.map((s, i, a) => ({ ...s, finSeg: a[i + 1]?.inicioSeg ?? 600 })), 600).fiables, false)
+  // marcas de frase fuera de su tramo (más de 3 s) en más del 20 % → no fiables
+  const fuera = EXP.construirFrases([{ inicioSeg: 0, finSeg: 30, frases: [{ inicioSeg: 0, texto: 'a' }, { inicioSeg: 100, texto: 'b' }, { inicioSeg: 150, texto: 'c' }] }, { inicioSeg: 30, finSeg: 60, frases: [{ inicioSeg: 31, texto: 'd' }] }], 200)
+  assert.strictEqual(fuera.fiables, false)
+})
+
+// ── Verificación en modo FRASES ──
+// Línea de tiempo: 14 frases de 10 s (0–140 s) agrupadas en 6 tramos. La frase 12 (110–120 s) es la que DICE «convocó al levantamiento el 20 de noviembre»;
+// el RESUMEN del tramo 4 (60–80 s) ya lo anticipa (como hizo Gemini en el caso real N3-G2).
+const FR = Array.from({ length: 14 }, (_, i) => ({
+  inicioSeg: i * 10, finSeg: (i + 1) * 10, segmento: Math.min(6, Math.floor(i / 2) + 1),
+  texto: i === 11 ? 'Este plan hacía un llamado al pueblo para levantarse en armas, convocó al levantamiento el 20 de noviembre de 1910.' : `Frase número ${i + 1} sobre otro asunto distinto que no menciona el tema de la pregunta.`,
+}))
+const RES = [0, 20, 40, 60, 80, 100].map((ini, i) => ({
+  inicioSeg: ini, finSeg: i === 5 ? 140 : ini + 20,
+  texto: i === 3 ? 'El Plan de San Luis convocó al levantamiento armado el 20 de noviembre (resumen que adelanta información posterior).' : `Resumen del tramo ${i + 1} con contenido distinto.`,
+}))
+const OPTF = { segmentos: RES, frases: FR, duracionSeg: 140, duracionConfiable: true, modelo: 'm', client: {} }
+const QCONV = 'El Plan de San Luis convocó al levantamiento armado para el 20 de noviembre.'
+const pf = (enunciado, hastaSeg, o = {}) => ({ tipo: 'verdadero_falso', enunciado, correcta: 'v', retroalimentacion: null, respaldo: { desdeSegmento: hastaSeg, hastaSegmento: hastaSeg, inicioSeg: 0, finSeg: 0, texto: '', motivoSinTiempo: null }, ...o })
+
+// Verificador simulado para frases: una pregunta se «contesta» cuando entre las frases visibles hay una que contiene `clave`.
+function verificadorFrases(config) {
+  const llamadas = []
+  const pedirJSON = async ({ prompt, system }) => {
+    const interno = { tokensEntrada: 50, tokensSalida: 10, cacheEscritura: 0, cacheLectura: 0, ms: 3 }
+    const esJuez = prompt.includes('JUEZ DE DEMOSTRACIÓN')
+    llamadas.push({ tipo: esJuez ? 'juez' : prompt.includes('primerSegmento') ? 'localizar' : 'prefijo', prompt, system })
+    if (esJuez) {
+      if (config.errorJuez) throw new Error('juez caído')
+      if (config.juezBasura) return { datos: 'basura', interno }
+      const n = (prompt.match(/^C\d+\)/gm) || []).length
+      return { datos: config.juez ? config.juez(n) : { componentes: Array.from({ length: n }, (_, i) => ({ i: i + 1, soporta: true })), cubreTodo: true, faltante: '' }, interno }
+    }
+    const visibles = [...prompt.matchAll(/^#(\d+) (.+)$/gm)].map((m) => ({ n: Number(m[1]), texto: m[2] }))
+    const hit = visibles.find((x) => x.texto.includes(config.clave))
+    const comp = (n, t) => ({ afirmacion: config.afirmacion || 'La frase dice lo que la pregunta afirma', segmento: n, cita: config.citaFalsa ? 'una frase que el video nunca dice' : t.slice(0, 45) })
+    if (prompt.includes('primerSegmento')) {
+      const k = config.localiza ?? hit?.n ?? null
+      return { datos: { primerSegmento: k, citas: k ? [{ segmento: k, texto: visibles.find((x) => x.n === k).texto.slice(0, 45) }] : [] }, interno }
+    }
+    if (!hit) return { datos: { puedeResponderse: false }, interno }
+    const comps = config.componentes ? config.componentes(visibles, hit) : [comp(hit.n, hit.texto)]
+    return { datos: { puedeResponderse: true, evidenciaExplicita: config.explicita !== false, respuesta: 'v', componentes: comps }, interno }
+  }
+  return { pedirJSON, llamadas }
+}
+const verFrases = async (preguntas, config, extra = {}) => {
+  const f = verificadorFrases(config)
+  const r = await VERIF.verificarPreguntas({ ...OPTF, ...extra, preguntas, pedirJSON: f.pedirJSON })
+  return { ...r, llamadas: f.llamadas }
+}
+
+await casoA('frases · RESUMEN QUE ADELANTA información (caso real N3-G2, −21 s): el minuto sale de la FRASE, no del tramo que la anticipa', async () => {
+  // El generador vio el resumen del tramo 4 (60–80 s) y propone ese tramo; el resumen contiene la afirmación, las frases no (hasta la 12).
+  const q = pf(QCONV, 4)
+  const r = await verFrases([q], { clave: 'convocó al levantamiento' })
+  const [x] = r.resultados
+  assert.strictEqual(x.timestampSeg, 124, 'fin de la frase 12 (120 s) + 3.5 s, redondeado: NO los 80 s del tramo que lo anticipaba')
+  assert.ok(x.timestampSeg >= 120, 'nunca antes de que se diga')
+  assert.deepStrictEqual([x.verificacion.estado, x.verificacion.nivel, x.verificacion.segmentoVerificado, x.verificacion.segmentoLocalizado], ['corregida', 'frases', 12, 12])
+  assert.deepStrictEqual(r.llamadas.map((c) => c.tipo), ['localizar', 'prefijo'], 'verdadero/falso: localizar + prefijo; ni se prueba el candidato ni hay juez')
+  // el candidato (frase 8, fin del tramo 4) NO decide nada: manda el localizado con su prefijo verificado
+  assert.ok(/^#12 .*convocó al levantamiento/m.test(r.llamadas[1].prompt) && !/^#13 /m.test(r.llamadas[1].prompt), 'el prefijo llega hasta la frase 12')
+  // el RESUMEN nunca viaja como evidencia en ninguna llamada
+  for (const c of r.llamadas) assert.ok(!c.prompt.includes('resumen que adelanta información posterior'), 'ninguna llamada ve el resumen')
+  assert.deepStrictEqual([x.respaldo.unidad, x.respaldo.desdeSegmento, x.respaldo.hastaSegmento, x.respaldo.finSeg], ['frase', 12, 12, 120])
+  assert.strictEqual(x.verificacion.componentes.length, 1)
+  assert.strictEqual(r.interno.juez, 0, 'el juez solo opera en respuesta corta')
+})
+
+await casoA('frases · barrera de información, margen de 3.5 s y tiempo siempre ≥ fin de la frase verificada', async () => {
+  const r = await verFrases([pf(QCONV, 5)], { clave: 'convocó al levantamiento' })
+  for (const c of r.llamadas.filter((x) => x.tipo === 'prefijo')) {
+    const max = Math.max(...[...c.prompt.matchAll(/^#(\d+) /gm)].map((m) => Number(m[1])))
+    for (let j = max + 1; j <= 14; j += 1) assert.ok(!c.prompt.includes(`Frase número ${j} `), `el prefijo ${max} no debe incluir la frase ${j}`)
+    assert.ok(!/introduceEn|completaEn|timestampSeg|"correcta"/.test(c.prompt))
+    assert.ok(c.system.startsWith('Verificador de preguntas de video'))
+  }
+  assert.strictEqual(VERIF._pruebas.MARGEN_FRASES_SEG, 3.5)
+  const T = (k, dur = 140, conf = true) => VERIF._pruebas.tiempoDeUnidad(FR, k, dur, conf, { maxLargo: 30, margen: 3.5 })
+  assert.deepStrictEqual([T(1), T(12), T(13)], [14, 124, 134], 'ceil(fin + 3.5)')
+  assert.strictEqual(T(14, 140, false), null, 'la última frase con duración no fiable no recibe minuto'); assert.strictEqual(T(14), 140, 'con duración fiable, el margen se recorta a la duración')
+  assert.strictEqual(VERIF._pruebas.tiempoDeUnidad(FR, 13, 131, true, { maxLargo: 30, margen: 3.5 }), 131, 'el margen nunca pasa de la duración')
+  assert.strictEqual(VERIF._pruebas.ultimaFraseHasta(FR, 80), 8)
+  assert.strictEqual(VERIF._pruebas.ultimaFraseHasta(FR, 0), null)
+})
+
+await casoA('frases · sin frases fiables → ninguna pregunta recibe minuto; frases largas, desordenadas o la última con duración dudosa → tiempo_dudoso', async () => {
+  const r0 = await VERIF.verificarPreguntas({ ...OPTF, frases: [], preguntas: [pf(QCONV, 4)], pedirJSON: async () => { throw new Error('no debe llamarse') } })
+  assert.deepStrictEqual([r0.resultados[0].timestampSeg, r0.resultados[0].verificacion.motivo, r0.resultados[0].verificacion.nivel, r0.interno.llamadas], [null, 'sin_frases', 'frases', 0])
+  const larga = FR.map((f, i) => (i === 7 ? { ...f, finSeg: f.inicioSeg + 35 } : f)) // la frase 8 (candidata) dura 35 s: su fin no es fiable
+  const a = await verFrases([pf(QCONV, 4)], { clave: 'convocó al levantamiento' }, { frases: larga })
+  assert.ok(a.resultados[0].timestampSeg === null || a.resultados[0].timestampSeg >= 120, 'un candidato no fiable se IGNORA (no bloquea), pero nunca se adelanta el minuto')
+  assert.ok(a.llamadas.length > 0, 'el candidato no fiable no corta la verificación: sigue el localizador')
+  const larga12 = FR.map((f, i) => (i === 11 ? { ...f, finSeg: f.inicioSeg + 35 } : f)) // la frase que dice la afirmación dura 35 s
+  const a2 = await verFrases([pf(QCONV, 4)], { clave: 'convocó al levantamiento' }, { frases: larga12 })
+  assert.deepStrictEqual([a2.resultados[0].timestampSeg, a2.resultados[0].verificacion.motivo], [null, 'tiempo_dudoso'])
+  const desord = FR.map((f, i) => (i === 5 ? { ...f, inicioSeg: 200, finSeg: 210 } : f))
+  const b = await verFrases([pf(QCONV, 4)], { clave: 'convocó al levantamiento' }, { frases: desord })
+  assert.strictEqual(b.resultados[0].timestampSeg, null)
+  const c = await verFrases([pf(QCONV, 6)], { clave: 'Frase número 14' }, { duracionConfiable: false })
+  assert.deepStrictEqual([c.resultados[0].timestampSeg, c.resultados[0].verificacion.motivo], [null, 'tiempo_dudoso'])
+})
+
+await casoA('frases · componentes: cada afirmación necesita una cita LITERAL del prefijo; cita inventada, posterior, afirmación vacía o demasiados componentes → sin minuto', async () => {
+  const VC = VERIF._pruebas.validarComponentes
+  const ok = { afirmacion: 'El plan convocó al levantamiento', segmento: 12, cita: 'convocó al levantamiento el 20 de noviembre' }
+  assert.strictEqual(VC([ok], FR, 12).length, 1)
+  assert.strictEqual(VC([ok], FR, 11), null, 'una cita de una frase POSTERIOR al prefijo no vale')
+  assert.strictEqual(VC([{ ...ok, cita: 'esto no aparece en el video para nada' }], FR, 12), null)
+  assert.strictEqual(VC([{ ...ok, afirmacion: 'ok' }], FR, 12), null)
+  assert.strictEqual(VC([{ ...ok, cita: 'corta' }], FR, 12), null)
+  assert.strictEqual(VC([], FR, 12), null)
+  assert.strictEqual(VC(Array.from({ length: 7 }, () => ok), FR, 12), null)
+  const r = await verFrases([pf(QCONV, 5)], { clave: 'convocó al levantamiento', citaFalsa: true })
+  assert.deepStrictEqual([r.resultados[0].timestampSeg, r.resultados[0].verificacion.motivo], [null, 'cita_invalida'])
+  assert.ok(!r.llamadas.some((c) => c.tipo === 'juez'), 'sin componentes válidos no se llega al juez')
+})
+
+await casoA('juez · una cita que solo describe el tema NO demuestra la respuesta (caso real N4-D2): sin minuto, con sugerencia para el docente', async () => {
+  const pedirComp = (visibles, hit) => [{ afirmacion: 'El cloruro de sodio es iónico por su diferencia de electronegatividad', segmento: hit.n, cita: hit.texto.slice(0, 45) }]
+  const abierta = { tipo: 'respuesta_corta', enunciado: 'Explica por qué el enlace del cloruro de sodio es iónico usando los electrones de valencia y la diferencia de electronegatividades.', retroalimentacion: null, respaldo: { desdeSegmento: 5, hastaSegmento: 5, inicioSeg: 0, finSeg: 0, texto: '', motivoSinTiempo: null } }
+  // el juez ciego dice que la cita no demuestra un componente
+  const juezNo = (n) => ({ componentes: Array.from({ length: n }, (_, i) => ({ i: i + 1, soporta: false })), cubreTodo: false, faltante: 'faltan los valores de electronegatividad' })
+  const r = await verFrases([abierta], { clave: 'convocó al levantamiento', componentes: pedirComp, juez: juezNo })
+  const v = r.resultados[0]
+  assert.deepStrictEqual([v.timestampSeg, v.verificacion.motivo, v.verificacion.estado], [null, 'demostracion_insuficiente', 'sin_verificar'])
+  assert.deepStrictEqual([v.verificacion.sugerenciaSeg, v.verificacion.sugerenciaNivel], [124, 'prefijo_verificado'], 'se sugiere el minuto de la frase con PREFIJO verificado, sin usarlo')
+  assert.strictEqual(r.llamadas.filter((c) => c.tipo === 'juez').length, 1, 'un solo juicio: no hay reparación guiada')
+  assert.ok(!r.llamadas.some((c) => c.prompt.includes('REVISIÓN')), 'ninguna llamada de reparación')
+  assert.ok(v.verificacion.registro.some((e) => e.evento === 'juez' && e.detalle?.faltante), 'queda registrado por qué falló el juez')
+  assert.ok(r.llamadas.some((c) => c.tipo === 'juez'))
+  // el juez ve SOLO pregunta, componentes y citas: ninguna otra frase del video
+  const juez = r.llamadas.find((c) => c.tipo === 'juez')
+  assert.ok(juez.prompt.includes('Explica por qué el enlace del cloruro') && juez.prompt.includes('Cita: «'))
+  assert.ok(!juez.prompt.includes('Frase número 1 ') && !/^#\d+ /m.test(juez.prompt), 'el juez no ve la transcripción')
+  assert.ok(juez.system.startsWith('Verificador de preguntas de video') && /juez de demostración/.test(juez.system))
+  // los componentes están bien citados pero NO cubren todo lo que la pregunta pide (p. ej. «desde dónde») → cubreTodo false
+  const faltante = await verFrases([abierta], { clave: 'convocó al levantamiento', componentes: pedirComp, juez: (n) => ({ componentes: Array.from({ length: n }, (_, i) => ({ i: i + 1, soporta: true })), cubreTodo: false, faltante: 'no dice desde dónde' }) })
+  assert.deepStrictEqual([faltante.resultados[0].timestampSeg, faltante.resultados[0].verificacion.motivo], [null, 'demostracion_insuficiente'])
+  // un componente sin veredicto del juez cuenta como no demostrado
+  const sinVeredicto = await verFrases([abierta], { clave: 'convocó al levantamiento', componentes: (v, h) => [...pedirComp(v, h), ...pedirComp(v, h)], juez: () => ({ componentes: [{ i: 1, soporta: true }], cubreTodo: true, faltante: '' }) })
+  assert.strictEqual(sinVeredicto.resultados[0].timestampSeg, null)
+  // si el juez demuestra todo, la pregunta sale con su minuto
+  const bien = await verFrases([abierta], { clave: 'convocó al levantamiento', componentes: pedirComp })
+  assert.deepStrictEqual([bien.resultados[0].timestampSeg, bien.resultados[0].verificacion.estado, bien.interno.juez], [124, 'corregida', 1])
+})
+
+await casoA('juez · si falla (error, JSON basura) la pregunta abierta queda sin minuto, la generación no se rompe y los reintentos están acotados', async () => {
+  const abierta = { tipo: 'respuesta_corta', enunciado: QCONV, retroalimentacion: null, respaldo: { desdeSegmento: 5, hastaSegmento: 5, inicioSeg: 0, finSeg: 0, texto: '', motivoSinTiempo: null } }
+  const caido = await verFrases([abierta], { clave: 'convocó al levantamiento', errorJuez: true })
+  assert.deepStrictEqual([caido.resultados[0].timestampSeg, caido.resultados[0].verificacion.motivo, caido.resultados[0].verificacion.sugerenciaSeg], [null, 'verificador_no_disponible', 124])
+  assert.strictEqual(caido.llamadas.filter((c) => c.tipo === 'juez').length, 2, 'un reintento y nada más')
+  const basura = await verFrases([abierta], { clave: 'convocó al levantamiento', juezBasura: true })
+  assert.deepStrictEqual([basura.resultados[0].timestampSeg, basura.resultados[0].verificacion.motivo], [null, 'respuesta_invalida'])
+  assert.deepStrictEqual([VERIF._pruebas.validarRespuestaJuez({ componentes: [{ i: 1, soporta: true }], cubreTodo: true }), VERIF._pruebas.validarRespuestaJuez({ componentes: [{ i: 1 }], cubreTodo: true }), VERIF._pruebas.validarRespuestaJuez(null)], [true, false, false])
+  // verdadero/falso con el juez caído NO se ve afectado: el juez no interviene
+  const vf = await verFrases([pf(QCONV, 5)], { clave: 'convocó al levantamiento', errorJuez: true })
+  assert.deepStrictEqual([vf.resultados[0].timestampSeg, vf.llamadas.filter((c) => c.tipo === 'juez').length], [124, 0])
+})
+
+await casoA('frases · evidencia no explícita, localizador sin evidencia y discrepancias → sin minuto; la sugerencia solo existe si hay una frase localizada con tiempo fiable', async () => {
+  const inferencia = await verFrases([pf(QCONV, 5)], { clave: 'convocó al levantamiento', explicita: false })
+  assert.deepStrictEqual([inferencia.resultados[0].timestampSeg, inferencia.resultados[0].verificacion.motivo], [null, 'evidencia_no_explicita'])
+  const nunca = await verFrases([pf(QCONV, 5)], { clave: 'una afirmación que ninguna frase dice' })
+  assert.deepStrictEqual([nunca.resultados[0].timestampSeg, nunca.resultados[0].verificacion.motivo, nunca.resultados[0].verificacion.sugerenciaSeg], [null, 'no_localizada', null])
+  // candidato POSTERIOR a la frase localizada (tramo 6 = frase 14) y verificado: manda el localizado verificado (más temprano, sin dejar de ser seguro); el candidato solo es respaldo si el juez rechaza
+  const tardio = await verFrases([pf(QCONV, 6)], { clave: 'convocó al levantamiento' })
+  assert.deepStrictEqual([tardio.resultados[0].timestampSeg, tardio.resultados[0].verificacion.estado, tardio.resultados[0].verificacion.segmentoVerificado, tardio.resultados[0].verificacion.segmentoLocalizado], [124, 'corregida', 12, 12])
+  assert.ok(tardio.resultados[0].timestampSeg >= 124)
+  // candidato ANTERIOR (tramo 5 = frase 10): rechazado; manda el localizado verificado (12)
+  const temprano = await verFrases([pf(QCONV, 5)], { clave: 'convocó al levantamiento' })
+  assert.deepStrictEqual([temprano.resultados[0].timestampSeg, temprano.resultados[0].verificacion.estado], [124, 'corregida'])
+  // un localizador que apunta a una frase posterior (13): manda solo porque su prefijo TAMBIÉN pasa la verificación
+  const posterior = await verFrases([pf(QCONV, 5)], { clave: 'convocó al levantamiento', localiza: 13 })
+  assert.deepStrictEqual([posterior.resultados[0].timestampSeg, posterior.resultados[0].verificacion.estado, posterior.resultados[0].verificacion.segmentoVerificado], [134, 'corregida', 13])
+})
+
+await casoA('frases v3 · localizador temprano: se avanza como máximo 3 frases y SOLO hacia adelante; más allá, sin minuto y sin sugerencia', async () => {
+  // el localizador apunta a la frase 10 (no dice nada aún): se prueba 10, 11, 12 → el prefijo de la 12 sí pasa
+  const a = await verFrases([pf(QCONV, 5)], { clave: 'convocó al levantamiento', localiza: 10 })
+  const v = a.resultados[0]
+  assert.deepStrictEqual([v.timestampSeg, v.verificacion.estado, v.verificacion.segmentoVerificado, v.verificacion.segmentoLocalizado], [124, 'corregida', 12, 10])
+  assert.ok(a.llamadas.filter((c) => c.tipo === 'prefijo').every((c) => Math.max(...[...c.prompt.matchAll(/^#(\d+) /gm)].map((m) => Number(m[1]))) >= 8), 'nunca se prueba una unidad anterior a la candidata o localizada')
+  // localizado en la frase 5: 5, 6, 7, 8 no alcanzan (máximo 3 de avance) → sin minuto, sin sugerencia (ningún prefijo verificado)
+  const b = await verFrases([pf(QCONV, 5)], { clave: 'convocó al levantamiento', localiza: 5 })
+  assert.deepStrictEqual([b.resultados[0].timestampSeg, b.resultados[0].verificacion.sugerenciaSeg, b.resultados[0].verificacion.sugerenciaNivel], [null, null, null])
+  assert.ok(Math.max(...b.llamadas.filter((c) => c.tipo === 'prefijo').map((c) => Math.max(...[...c.prompt.matchAll(/^#(\d+) /gm)].map((m) => Number(m[1]))))) <= 10, 'el avance está acotado')
+})
+
+await casoA('frases v3 · el candidato del generador solo se prueba como respaldo (respuesta corta, posterior al localizado y con el juez rechazando); verdadero/falso nunca lo prueba', async () => {
+  const abierta = { tipo: 'respuesta_corta', enunciado: QCONV, retroalimentacion: null, respaldo: { desdeSegmento: 6, hastaSegmento: 6, inicioSeg: 0, finSeg: 0, texto: '', motivoSinTiempo: null } } // candidato = tramo 6 = frase 14
+  const rechazaA = (cuantos) => { let n = 0; return (m) => { n += 1; return n <= cuantos ? { componentes: Array.from({ length: m }, (_, i) => ({ i: i + 1, soporta: false })), cubreTodo: false, faltante: 'x' } : { componentes: Array.from({ length: m }, (_, i) => ({ i: i + 1, soporta: true })), cubreTodo: true, faltante: '' } } }
+  // el juez acepta lo localizado: el candidato jamás se prueba
+  const ok = await verFrases([abierta], { clave: 'convocó al levantamiento' })
+  assert.deepStrictEqual([ok.resultados[0].timestampSeg, ok.resultados[0].verificacion.estado, ok.llamadas.map((c) => c.tipo)], [124, 'corregida', ['localizar', 'prefijo', 'juez']])
+  // el juez rechaza lo localizado (frase 12): se prueba y se juzga el candidato (frase 14, posterior)
+  const resp = await verFrases([abierta], { clave: 'convocó al levantamiento', juez: rechazaA(1) })
+  assert.deepStrictEqual([resp.resultados[0].timestampSeg, resp.resultados[0].verificacion.estado, resp.resultados[0].verificacion.segmentoVerificado, resp.llamadas.map((c) => c.tipo)], [140, 'verificada', 14, ['localizar', 'prefijo', 'juez', 'prefijo', 'juez']])
+  // rechaza los dos: sin minuto, con la pista del localizado (prefijo verificado)
+  const nada = await verFrases([abierta], { clave: 'convocó al levantamiento', juez: rechazaA(2) })
+  assert.deepStrictEqual([nada.resultados[0].timestampSeg, nada.resultados[0].verificacion.sugerenciaSeg, nada.resultados[0].verificacion.sugerenciaNivel], [null, 124, 'prefijo_verificado'])
+  // verdadero/falso con el mismo candidato: localizar + prefijo, nada más
+  const vf = await verFrases([pf(QCONV, 6)], { clave: 'convocó al levantamiento' })
+  assert.deepStrictEqual([vf.resultados[0].timestampSeg, vf.llamadas.map((c) => c.tipo)], [124, ['localizar', 'prefijo']])
+  // un candidato ANTERIOR al localizado nunca baja el minuto
+  const antes = await verFrases([pf(QCONV, 2)], { clave: 'convocó al levantamiento' })
+  assert.ok(antes.resultados[0].timestampSeg >= 124)
+})
+
+await casoA('frases v3 · la sugerencia exige prefijo verificado: sin él (evidencia no explícita, cita inválida, discrepancia) no hay minuto sugerido', async () => {
+  for (const config of [{ clave: 'convocó al levantamiento', explicita: false }, { clave: 'convocó al levantamiento', citaFalsa: true }, { clave: 'una afirmación que ninguna frase dice' }]) {
+    const r = await verFrases([pf(QCONV, 5)], config)
+    assert.deepStrictEqual([r.resultados[0].timestampSeg, r.resultados[0].verificacion.sugerenciaSeg, r.resultados[0].verificacion.sugerenciaNivel], [null, null, null])
+  }
+  // el candidato no fiable (35 s) se ignora y no impide verificar con el localizador
+  const larga = FR.map((f, i) => (i === 7 ? { ...f, finSeg: f.inicioSeg + 35 } : f))
+  const r = await verFrases([pf(QCONV, 4)], { clave: 'convocó al levantamiento' }, { frases: larga })
+  assert.ok(r.llamadas.some((c) => c.tipo === 'localizar'))
+  assert.ok(r.resultados[0].verificacion.registro.some((e) => e.evento === 'candidato_ignorado'))
+})
+
+await casoA('frases · INVARIANTE sobre 150 líneas de tiempo aleatorias: ningún minuto antes del fin real de la frase que dice la afirmación', async () => {
+  let semilla = 11
+  const azar = (n) => { semilla = (semilla * 1103515245 + 12345) % 2147483648; return semilla % n }
+  let conMinuto = 0; let sin = 0
+  for (let caso = 0; caso < 150; caso += 1) {
+    const n = 16 + azar(20)
+    const inicios = [0]
+    for (let i = 1; i < n; i += 1) inicios.push(inicios[i - 1] + 8 + azar(8)) // frases de 8 a 15 s
+    const dur = inicios[n - 1] + 12
+    const frases = inicios.map((ini, i) => ({ inicioSeg: ini, finSeg: i + 1 < n ? inicios[i + 1] : dur, segmento: Math.floor(i / 3) + 1, texto: `Frase ${i + 1} del caso ${caso} con otro asunto.` }))
+    const verdad = azar(n) // índice (0-based) de la frase que DICE la afirmación
+    frases[verdad].texto = `Aquí se dice la AFIRMACION del caso ${caso} con todas sus letras.`
+    const tramos = Array.from({ length: Math.ceil(n / 3) }, (_, g) => ({ inicioSeg: frases[g * 3].inicioSeg, finSeg: frases[Math.min(n - 1, g * 3 + 3)] ? (g * 3 + 3 < n ? frases[g * 3 + 3].inicioSeg : dur) : dur, texto: `Resumen ${g + 1}` }))
+    const tramoCand = 1 + azar(tramos.length)
+    const q = { tipo: 'verdadero_falso', enunciado: `Afirmación ${caso}`, correcta: 'v', retroalimentacion: null, respaldo: { desdeSegmento: tramoCand, hastaSegmento: tramoCand, inicioSeg: 0, finSeg: 0, texto: '', motivoSinTiempo: null } }
+    const f = verificadorFrases({ clave: `AFIRMACION del caso ${caso} ` })
+    const r = await VERIF.verificarPreguntas({ preguntas: [q], segmentos: tramos, frases, duracionSeg: dur, duracionConfiable: true, modelo: 'm', client: {}, pedirJSON: f.pedirJSON })
+    const x = r.resultados[0]
+    if (x.timestampSeg === null) { sin += 1; continue }
+    conMinuto += 1
+    assert.ok(x.timestampSeg >= frases[verdad].finSeg, `caso ${caso}: ${x.timestampSeg} < fin real ${frases[verdad].finSeg}`)
+    assert.ok(x.timestampSeg <= dur)
+  }
+  assert.ok(conMinuto > 100, `la mayoría recibe minuto (${conMinuto}; sin minuto ${sin})`)
+})
+
+await casoA('margen · cubre el error de Gemini medido (hasta 6.0 s antes) con la tolerancia de 3 s; un error mayor SÍ puede adelantar (límite documentado)', async () => {
+  // Las marcas de Gemini son enteras y la referencia (subtítulos) continua: fin real = 100.3 s; la marca se corre `e` segundos.
+  const prematura = (e) => {
+    const finReal = 100.3
+    const marca = Math.round(finReal + e)
+    const frases = [{ inicioSeg: 0, finSeg: marca, segmento: 1, texto: 'Esta frase dice la AFIRMACION completa y literal del caso.' }, { inicioSeg: marca, finSeg: 200, segmento: 1, texto: 'Otra frase posterior distinta.' }]
+    const ts = VERIF._pruebas.tiempoDeUnidad(frases, 1, 200, true, { maxLargo: 120, margen: 3.5 })
+    return ts < finReal - 3 // criterio de «prematura»: más de 3 s antes del fin real
+  }
+  for (const e of [-6.3, -5.3, -5, -4, -3, -2, 0, 3]) assert.strictEqual(prematura(e), false, `error ${e}`)
+  assert.strictEqual(prematura(-7.3), true, 'con una marca 7.3 s antes (más que lo medido) el margen ya no alcanza')
+})
+
+await casoA('minuto sugerido · solo viaja cuando el minuto verificado es null; aPropuesta y propuestaDesdeIA lo conservan sin convertirlo en minuto', async () => {
+  const sin = VIA.aPropuesta({ tipo: 'verdadero_falso', enunciado: 'x', correcta: 'v', timestampSeg: null, retroalimentacion: null, verificacion: { estado: 'sin_verificar', sugerenciaSeg: 77, sugerenciaNivel: 'prefijo_verificado' } })
+  assert.deepStrictEqual([sin.timestampSeg, sin.minutoSugerido], [null, 77])
+  const sinNivel = VIA.aPropuesta({ tipo: 'verdadero_falso', enunciado: 'x', correcta: 'v', timestampSeg: null, retroalimentacion: null, verificacion: { estado: 'sin_verificar', sugerenciaSeg: 77 } })
+  assert.strictEqual(sinNivel.minutoSugerido, null, 'sin prefijo verificado la sugerencia NO se presenta')
+  const con = VIA.aPropuesta({ tipo: 'verdadero_falso', enunciado: 'x', correcta: 'v', timestampSeg: 50, retroalimentacion: null, verificacion: { estado: 'verificada', sugerenciaSeg: 77 } })
+  assert.deepStrictEqual([con.timestampSeg, con.minutoSugerido], [50, null])
+  const nada = VIA.aPropuesta({ tipo: 'verdadero_falso', enunciado: 'x', correcta: 'v', timestampSeg: null, retroalimentacion: null, verificacion: { estado: 'sin_verificar', sugerenciaSeg: null } })
+  assert.strictEqual(nada.minutoSugerido, null)
+  const PV2 = await import('../src/utils/propuestasVideo.js')
+  const doc = PV2.propuestaDesdeIA({ ...sin, opciones: [{ id: 'v', texto: 'V' }, { id: 'f', texto: 'F' }], respuestaCorrecta: 'v' }, 'gen1')
+  assert.deepStrictEqual([doc.timestampSeg, doc.minutoSugerido], [null, 77])
+  assert.strictEqual(PV2.propuestaDesdeIA({ ...con, opciones: [{ id: 'v', texto: 'V' }, { id: 'f', texto: 'F' }], respuestaCorrecta: 'v' }, 'gen1').minutoSugerido, null)
+  // y sin minuto no se puede aprobar aunque haya sugerencia: el docente debe fijar uno
+  assert.strictEqual(PV2.validarPropuesta({ ...doc, estado: 'pendiente', respuestaCorrecta: 'v' }, 140).ok, false)
+})
+
+await casoA('JSON del verificador · se extrae el objeto aunque haya texto adicional, se valida la estructura y los reintentos están acotados', async () => {
+  const E = VERIF._pruebas.extraerObjetoJSON
+  assert.deepStrictEqual(E('{"a":1}'), { a: 1 })
+  assert.deepStrictEqual(E('Claro, aquí está:\n{"puedeResponderse": false}\nEspero que sirva.'), { puedeResponderse: false })
+  assert.deepStrictEqual(E('\`\`\`json\n{"a": {"b": [1, 2]}}\n\`\`\`'), { a: { b: [1, 2] } })
+  assert.deepStrictEqual(E('Texto { no json } y luego {"x": "una llave } dentro de una cadena", "y": 2} fin'.replace('{ no json } y luego ', '')), { x: 'una llave } dentro de una cadena', y: 2 })
+  assert.deepStrictEqual(E('{"t": "comilla \\" y llave {"}'), { t: 'comilla " y llave {' })
+  for (const malo of ['', 'sin objeto', '{"a": 1', '[1,2,3]x', '{"a":}']) assert.throws(() => E(malo), undefined, `«${malo}» no es un objeto JSON`)
+  // validación de ESTRUCTURA
+  const VP = VERIF._pruebas.validarRespuestaPrefijo; const VL = VERIF._pruebas.validarRespuestaLocalizacion
+  assert.ok(VP({ puedeResponderse: false }) && VP({ puedeResponderse: true, evidenciaExplicita: true, citas: [] }))
+  for (const malo of [null, [], 'x', { puedeResponderse: 'sí' }, { puedeResponderse: true }, { puedeResponderse: true, citas: [] }, { puedeResponderse: true, evidenciaExplicita: 'sí', citas: [] }]) assert.ok(!VP(malo))
+  assert.ok(VL({ primerSegmento: null }) && VL({ primerSegmento: 3, citas: [] }) && VL({ primerSegmento: '3', citas: [] }))
+  for (const malo of [null, [], {}, { primerSegmento: 'tres', citas: [] }, { primerSegmento: 3 }]) assert.ok(!VL(malo))
+
+  // cliente Anthropic falso que responde TEXTO (como el modelo real): con prosa alrededor del JSON la pregunta se verifica igual
+  const texto = (o) => `Claro, este es mi análisis:\n${JSON.stringify(o)}\nSi necesitas algo más, avísame.`
+  const clienteCon = (responder) => { const pedidos = []; return { pedidos, messages: { create: async (req) => { pedidos.push(req); return { content: [{ type: 'text', text: await responder(req, pedidos.length) }], usage: { input_tokens: 11, output_tokens: 7 } } } } } }
+  const ok = (req) => {
+    const maxN = Math.max(...[...req.messages[0].content.matchAll(/^#(\d+) /gm)].map((m) => Number(m[1])))
+    if (req.messages[0].content.includes('PRIMER segmento')) return texto({ primerSegmento: 2, citas: [citaN(2)] })
+    return maxN >= 2 ? texto({ puedeResponderse: true, evidenciaExplicita: true, respuesta: 'v', citas: [citaN(2)] }) : texto({ puedeResponderse: false })
+  }
+  const cli = clienteCon(ok)
+  const buena = await VERIF.verificarPreguntas({ ...OPTN, client: cli, preguntas: [pq('Con prosa', 2, 2)] })
+  assert.deepStrictEqual([buena.resultados[0].timestampSeg, buena.resultados[0].verificacion.estado, buena.interno.llamadas], [20 * 2, 'verificada', 2])
+  assert.deepStrictEqual([buena.interno.tokensEntrada, buena.interno.tokensSalida], [22, 14])
+  // JSON inválido UNA vez → el reintento lo recupera; inválido dos veces → sin minuto y SOLO dos intentos por llamada
+  const unaVez = clienteCon((req, n) => (n === 1 ? 'no puedo responder en JSON' : ok(req)))
+  const rec = await VERIF.verificarPreguntas({ ...OPTN, client: unaVez, preguntas: [pq('Recupera', 2, 2)] })
+  assert.strictEqual(rec.resultados[0].timestampSeg, 40)
+  const siempre = clienteCon(() => 'Lo siento, no tengo JSON {roto')
+  const fallo = await VERIF.verificarPreguntas({ ...OPTN, client: siempre, preguntas: [pq('Sin JSON', 2, 2)] })
+  assert.deepStrictEqual([fallo.resultados[0].timestampSeg, fallo.resultados[0].verificacion.motivo], [null, 'respuesta_invalida'])
+  assert.strictEqual(siempre.pedidos.length, 4, 'prefijo y localización, cada una con UN reintento: nada de bucles')
+  assert.deepStrictEqual([fallo.interno.llamadas, fallo.interno.tokensEntrada], [4, 44], 'los tokens de las respuestas ilegibles también se registran')
+  // JSON válido pero con estructura equivocada: mismo trato
+  const mal = clienteCon(() => texto({ puedeResponderse: 'tal vez', citas: 'ninguna' }))
+  const m = await VERIF.verificarPreguntas({ ...OPTN, client: mal, preguntas: [pq('Estructura', 2, 2)] })
+  assert.deepStrictEqual([m.resultados[0].timestampSeg, m.resultados[0].verificacion.motivo, mal.pedidos.length], [null, 'respuesta_invalida', 4])
+})
+
+// ── Video interactivo: duración fiable (±3 %) y segmentos demasiado largos (sin reintento de extracción) ──
+await casoA('segmentos largos · prompt reforzado y constantes coherentes con la verificación', async () => {
+  assert.ok(/aproximadamente 20 a 30 segundos/.test(EXP.PROMPT_EXTRACCION) && /NINGÚN tramo puede durar más de 30 segundos/.test(EXP.PROMPT_EXTRACCION) && !/20 a 45/.test(EXP.PROMPT_EXTRACCION))
+  assert.ok(!/ATENCIÓN/.test(EXP.PROMPT_EXTRACCION), 'no hay segundo prompt «estricto»')
+  assert.strictEqual(EXP.MAX_SEGMENTO_SEG, 45); assert.strictEqual(EXP.MAX_SEGMENTO_SEG, VERIF._pruebas.MAX_SEGMENTO_FIABLE_SEG, 'extracción y verificación usan el mismo límite')
+  assert.strictEqual(EXP.TOLERANCIA_DURACION_PCT, 3)
+})
+
+await casoA('segmentos largos · primera extracción buena → UNA sola llamada, sin reintento', async () => {
+  const f = falsoGemini(respOk(textoGemini()))
+  const c = await conGemini(f, () => EX.extraerContenidoVideo(URL_VIDEO))
+  assert.strictEqual(f.llamadas.length, 1)
+  assert.deepStrictEqual(c.segmentacion, { dudosa: false, largos: 0, frasesFiables: true, reintento: false })
+  // 45 s exactos NO son «largos»; 46 s sí (y 60 s, el umbral anterior, ya tampoco pasa)
+  const sesenta = await conGemini(falsoGemini(respOk(textoGemini({ n: 7, paso: 45 }))), () => EX.extraerContenidoVideo(URL_VIDEO))
+  assert.strictEqual(sesenta.segmentacion.largos, 0)
+  const f61 = falsoGemini(respOk(textoGemini({ n: 7, paso: 46, dur: '5:00' })), respOk(textoGemini({ n: 7, paso: 46 })))
+  const sesentaYuno = await conGemini(f61, () => EX.extraerContenidoVideo(URL_VIDEO))
+  assert.ok(sesentaYuno.segmentacion.largos > 0 && f61.llamadas.length === 1, 'se marca dudosa pero NO se reintenta')
+})
+
+await casoA('segmentos largos · tramos de 70 s → UNA sola llamada: se conserva marcada como dudosa y no hay reintento ni costo extra', async () => {
+  const f = falsoGemini(respOk(textoGemini({ n: 5, paso: 70 })), respOk(textoGemini()))
+  const c = await conGemini(f, () => EX.extraerContenidoVideo(URL_VIDEO))
+  assert.strictEqual(f.llamadas.length, 1)
+  assert.deepStrictEqual([c.segmentos.length, c.segmentacion.dudosa, c.segmentacion.largos, c.segmentacion.reintento], [5, true, 4, false])
+  assert.deepStrictEqual([c.uso.tokensEntrada, c.uso.tokensSalida, c.uso.intentos], [27300, 900, 1], 'solo el costo de UNA extracción')
+})
+
+await casoA('umbral de 45 s · 45 s exactos son fiables, 46 s no, y el umbral anterior (60 s) ya no pasa; sin tiempo automático para tramos dudosos', async () => {
+  const seg = (ini, dur) => ({ inicioSeg: ini, finSeg: ini + dur, texto: `Tramo de ${dur} s que explica algo concreto del tema.` })
+  const T = VERIF._pruebas.tiempoDeSegmento
+  assert.strictEqual(T([seg(0, 45), seg(45, 20)], 1, 300, true), 45, '45 s exactos → fiable')
+  assert.strictEqual(T([seg(0, 46), seg(46, 20)], 1, 300, true), null, '46 s → dudoso')
+  assert.strictEqual(T([seg(0, 60), seg(60, 20)], 1, 300, true), null, '60 s (el umbral de antes) → dudoso')
+  // una pregunta cuyo segmento (candidato o localizado) dura 50 s queda SIN minuto aunque el verificador esté de acuerdo
+  const segs50 = [seg(0, 20), seg(20, 50), seg(70, 30), seg(100, 40)]
+  const p = (e, k) => { const q = pq(e, 1, 1); q.respaldo = { desdeSegmento: k, hastaSegmento: k, inicioSeg: segs50[k - 1].inicioSeg, finSeg: segs50[k - 1].finSeg, texto: segs50[k - 1].texto, motivoSinTiempo: null }; return q }
+  const cita = (n) => ({ segmento: n, texto: segs50[n - 1].texto.slice(0, 30) })
+  const siempreDeAcuerdo = (fin) => async ({ prompt }) => ({ datos: prompt.includes('PRIMER segmento') ? { primerSegmento: fin, citas: [cita(fin)] } : { puedeResponderse: true, evidenciaExplicita: true, respuesta: 'v', citas: [cita(fin)] }, interno: {} })
+  const opts = { segmentos: segs50, duracionSeg: 140, duracionConfiable: true, modelo: 'm', client: {} }
+  const largo = await VERIF.verificarPreguntas({ ...opts, preguntas: [p('Cae en el tramo de 50 s', 2)], pedirJSON: siempreDeAcuerdo(2) })
+  assert.deepStrictEqual([largo.resultados[0].timestampSeg, largo.resultados[0].verificacion.motivo, largo.interno.llamadas], [null, 'tiempo_dudoso', 0])
+  // sin candidato, el localizado cae en el tramo de 50 s → tampoco hay minuto (y no se gasta la prueba de prefijo)
+  const loc = await VERIF.verificarPreguntas({ ...opts, preguntas: [{ ...pq('Localizado en el tramo largo', 1, 1), respaldo: null }], pedirJSON: siempreDeAcuerdo(2) })
+  assert.deepStrictEqual([loc.resultados[0].timestampSeg, loc.resultados[0].verificacion.motivo], [null, 'tiempo_dudoso'])
+  // un tramo de 30 s sí recibe su fin real
+  const corto = await VERIF.verificarPreguntas({ ...opts, preguntas: [p('Cae en el tramo de 30 s', 3)], pedirJSON: siempreDeAcuerdo(3) })
+  assert.deepStrictEqual([corto.resultados[0].timestampSeg, corto.resultados[0].verificacion.estado], [100, 'verificada'])
+})
+
+await casoA('segmentos largos · tramos de 60 s (válidos con el umbral anterior) quedan dudosos sin reintento; las preguntas que dependen de ellos no reciben tiempo', async () => {
+  const f = falsoGemini(respOk(textoGemini({ n: 5, paso: 60 })), respOk(textoGemini()))
+  const c = await conGemini(f, () => EX.extraerContenidoVideo(URL_VIDEO))
+  assert.strictEqual(f.llamadas.length, 1, 'sin reintento')
+  assert.ok(c.segmentacion.dudosa && !c.segmentacion.reintento && c.segmentacion.largos === 5)
+  const cita = (n) => ({ segmento: n, texto: c.segmentos[n - 1].texto.slice(0, 30) })
+  const pedirJSON = async ({ prompt }) => ({ datos: prompt.includes('PRIMER segmento') ? { primerSegmento: 2, citas: [cita(2)] } : { puedeResponderse: true, evidenciaExplicita: true, respuesta: 'v', citas: [cita(2)] }, interno: {} })
+  const ver = await VERIF.verificarPreguntas({ preguntas: [pq('Depende de tramos largos', 2, 2)], segmentos: c.segmentos, duracionSeg: c.duracionSeg, duracionConfiable: c.duracionConfiable, modelo: 'm', client: {}, pedirJSON })
+  assert.deepStrictEqual([ver.resultados[0].timestampSeg, ver.resultados[0].verificacion.motivo], [null, 'tiempo_dudoso'])
+})
+
+await casoA('segmentos largos · las preguntas que dependen de tramos largos quedan SIN minuto (revisión docente) y las demás se verifican', async () => {
+  const f = falsoGemini(respOk(textoGemini({ n: 5, paso: 70 })))
+  const c = await conGemini(f, () => EX.extraerContenidoVideo(URL_VIDEO))
+  assert.ok(c.segmentacion.dudosa)
+  // segmentos 1-4 duran 70 s; el 5.º dura 20 s (280-300) y la duración es fiable
+  const ver = await VERIF.verificarPreguntas({
+    preguntas: [pq('En un tramo largo', 2, 2), pq('En el último tramo corto', 5, 5)],
+    segmentos: c.segmentos, duracionSeg: c.duracionSeg, duracionConfiable: c.duracionConfiable, modelo: 'm', client: {},
+    pedirJSON: verificadorFalso({ 'En un tramo largo': { fin: 2 }, 'En el último tramo corto': { fin: 5 } }).pedirJSON,
+  })
+  assert.deepStrictEqual([ver.resultados[0].timestampSeg, ver.resultados[0].verificacion.motivo], [null, 'tiempo_dudoso'])
+  assert.deepStrictEqual([ver.resultados[1].timestampSeg, ver.resultados[1].verificacion.estado], [300, 'verificada'])
+})
+
+await casoA('duración · una declarada 7 % corta ya no deja una pregunta ANTES del final real: el último segmento queda sin minuto', async () => {
+  // El video dura 360 s. Gemini declara 5:37 (337 s) y los tokens de video dicen 363 s: antes (±10 %) se daba por fiable.
+  const texto = `IDIOMA: es\nHABLA: si\nDURACION: 5:37\n${segs(22, 15)}`
+  const c = await conGemini(falsoGemini(respOk(texto, 32690)), () => EX.extraerContenidoVideo(URL_VIDEO))
+  assert.deepStrictEqual([c.duracionSeg, c.duracionConfiable, c.duracionFuente], [363, false, 'estimada_por_tokens'])
+  const n = c.segmentos.length
+  assert.strictEqual(c.segmentos[n - 1].finSeg, 363)
+  // Con la regla vieja (337 «confiable») la pregunta del último segmento saldría a los 337 s, 23 s antes de que termine el video:
+  assert.strictEqual(VERIF._pruebas.tiempoDeSegmento(c.segmentos.map((s, i) => (i === n - 1 ? { ...s, finSeg: 337 } : s)), n, 337, true), 337)
+  // Con la regla nueva el último segmento NO recibe tiempo automático; el anterior sí (su fin es una marca real de Gemini).
+  const ver = await VERIF.verificarPreguntas({
+    preguntas: [pq('Explicada al final', n, n), pq('Explicada antes', n - 1, n - 1)], segmentos: c.segmentos, duracionSeg: c.duracionSeg,
+    duracionConfiable: c.duracionConfiable, modelo: 'm', client: {},
+    pedirJSON: verificadorFalso({ 'Explicada al final': { fin: n }, 'Explicada antes': { fin: n - 1 } }).pedirJSON,
+  })
+  assert.deepStrictEqual([ver.resultados[0].timestampSeg, ver.resultados[0].verificacion.motivo], [null, 'tiempo_dudoso'])
+  assert.strictEqual(ver.resultados[1].timestampSeg, c.segmentos[n - 2].finSeg); assert.ok(['verificada', 'corregida'].includes(ver.resultados[1].verificacion.estado))
+  // y si la declarada coincide (≤ 3 %), el último segmento SÍ se puede fijar
+  const bien = await conGemini(falsoGemini(respOk(`IDIOMA: es\nHABLA: si\nDURACION: 6:03\n${segs(22, 15)}`, 32690)), () => EX.extraerContenidoVideo(URL_VIDEO))
+  assert.deepStrictEqual([bien.duracionSeg, bien.duracionConfiable], [363, true])
+})
 
 // ── Video interactivo: configuración, costo, generación, guardado, reintentos y errores (videoGeneracion.js) ──
 const VG = await import('../src/utils/videoGeneracion.js')
