@@ -7,6 +7,7 @@ import FiltroSoloCalificables from '../../../components/FiltroSoloCalificables'
 import { Fragment } from 'react'
 import { ICONO } from '../../../config/iconos'
 import { IS_NATIVE_APP } from '../../../utils/platform'
+import { parcialCerrado } from '../../../utils/ponderacion'
 import { IconButton } from '../../../components/ui'
 import { activityVisibilityState, formatDeadline, formatPublishAt, isDraftActivity, sinCalificacion } from '../../../utils/activityVisibility'
 import { buildUnifiedParcial } from './utilidades'
@@ -38,7 +39,7 @@ export default function TabActividades() {
     openEdit,
     openEditMaterial,
     openImport,
-    openParcial,
+    parcialAbierto,
     parcialesVistos,
     setActivityMenu,
     setDeleteMaterialConfirm,
@@ -46,7 +47,7 @@ export default function TabActividades() {
     setDragMatId,
     setDropZoneActive,
     setExpandedMaterialId,
-    setOpenParcial,
+    alternarParcial,
     setPublishDraftConfirm,
     setSoloCalificables,
     showActivityNow,
@@ -72,7 +73,9 @@ export default function TabActividades() {
               const filtrando = !IS_NATIVE_APP && !!soloCalificables[p]
               const totalMostrado = filtrando ? acts.filter((a) => !sinCalificacion(a)).length : numeradas
               const mats = materials.filter((m) => m.parcial === p)
-              const isOpen = openParcial === p
+              const cerradoDef = parcialCerrado(subject, p)
+              const isOpen = parcialAbierto(p, cerradoDef)
+              if (isOpen) parcialesVistos.current.add(p)
               const parcialOculto = (subject?.parcialesOcultos || []).includes(p)
               return (
                 // Open parcial gets the same accent container treatment as the
@@ -80,7 +83,7 @@ export default function TabActividades() {
                 <div data-esq="subj-doc-parcial" key={p} className={`bg-surface-card rounded-card overflow-hidden shadow-card ${isOpen ? 'border border-accent-soft' : ''}`}>
                   <div data-esq="subj-doc-parcial-cabecera-fondo" className={isOpen ? 'bg-accent-light border-b border-accent-soft' : ''}>
                   <div className="w-full flex items-center gap-1">
-                    <button data-esq="subj-doc-parcial-cabecera" type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)}
+                    <button data-esq="subj-doc-parcial-cabecera" type="button" onClick={() => alternarParcial(p, cerradoDef)}
                       className="flex-1 min-w-0 px-4 py-2 flex items-center gap-2 hover:bg-[var(--accent-medium)] transition-colors text-left">
                       <div data-esq="subj-doc-parcial-icono" className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${parcialOculto ? 'bg-surface-container' : 'bg-accent-light'}`}>
                         <span className={`font-bold text-sm ${parcialOculto ? 'text-hint' : 'text-accent'}`}>{p}</span>
@@ -108,7 +111,7 @@ export default function TabActividades() {
                     >
                       {parcialOculto ? <EyeOff size={ICONO.md} /> : <Eye size={ICONO.md} />}
                     </button>
-                    <button type="button" onClick={() => setOpenParcial(isOpen ? 0 : p)} aria-expanded={isOpen} aria-label={isOpen ? `Contraer el Parcial ${p}` : `Desplegar el Parcial ${p}`} className="size-control inline-flex items-center justify-center rounded-full mr-2 flex-shrink-0">
+                    <button type="button" onClick={() => alternarParcial(p, cerradoDef)} aria-expanded={isOpen} aria-label={isOpen ? `Contraer el Parcial ${p}` : `Desplegar el Parcial ${p}`} className="size-control inline-flex items-center justify-center rounded-full mr-2 flex-shrink-0">
                       {isOpen ? <ChevronUp size={ICONO.md} className="text-hint" /> : <ChevronDown size={ICONO.md} className="text-hint" />}
                     </button>
                   </div>
