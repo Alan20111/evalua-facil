@@ -222,6 +222,11 @@
     --accent: #c2410c;        /* orange-700 */
     --accent-hover: #9a3412;  /* orange-800 */
     --accent-light: #ffedd5;  /* orange-100 */
+    /* Plano de la barra lateral de escritorio del estudiante (verde esmeralda).
+       Solo el fondo y el texto de los estados activos sobre blanco lo usan
+       (StudentLayout.jsx); el <aside> conserva data-role="docente" para no
+       mover la escala tipográfica ni el acento azul de sus modales. */
+    --alumno-plane: #16845B;
   }
   /* ── Administración: paleta guinda ───────────────────────────────
      Al pasar por --accent, TODA la zona admin (tarjetas, tablas, botones,

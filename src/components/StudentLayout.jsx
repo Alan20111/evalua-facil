@@ -25,6 +25,15 @@ import { EsqueletoFilasLateralAlumno } from './esqueletos'
 import ConfirmModal from './ConfirmModal'
 import { IconButton } from './ui'
 import { SB_FILA, SB_ICONO, SB_INACTIVA, SB_ACTIVA, SB_ACTIVA_SUAVE, SB_GRUPO } from '../config/sidebar'
+
+// Variantes locales del panel verde del estudiante: las constantes de
+// config/sidebar.js se comparten con el docente (acento azul, blanco al 95 %),
+// así que aquí solo se reemplaza el color que cambia sobre el verde. Los fondos
+// de hover y de estado suave pasan de blanco translúcido a negro translúcido:
+// el blanco los aclaraba y bajaba el texto blanco de 4.5:1 (WCAG AA).
+const ACTIVA = SB_ACTIVA.replace('text-accent', 'text-[var(--alumno-plane)]')
+const INACTIVA = SB_INACTIVA.replace('text-white/95', 'text-white').replace('hover:bg-white/10', 'hover:bg-black/10')
+const ACTIVA_SUAVE = SB_ACTIVA_SUAVE.replace('bg-white/5', 'bg-black/10')
 import { ICONO } from '../config/iconos'
 
 // `refreshKey`: el Dashboard del alumno reordena sus asignaturas (flechas
@@ -154,7 +163,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
         <aside
           data-esq="sesion-lateral"
           data-role="docente"
-          className={`${IS_NATIVE_APP ? 'hidden' : 'hidden md:flex'} flex-col w-[300px] h-screen sticky top-0 bg-accent text-white flex-shrink-0 z-20`}
+          className={`${IS_NATIVE_APP ? 'hidden' : 'hidden md:flex'} flex-col w-[300px] h-screen sticky top-0 bg-[var(--alumno-plane)] text-white flex-shrink-0 z-20`}
         >
           {/* Logo — siempre sobre blanco: recuadro blanco sobre el azul del sidebar. */}
           <div className="px-3 pt-2 pb-1">
@@ -168,7 +177,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
                 insignia — el resto del sidebar se queda en el azul institucional. */}
             <div className="flex items-center gap-2 pt-1" data-role="alumno">
               {!IS_NATIVE_APP && (
-                <p className="text-metadata text-white/95 pl-1">
+                <p className="text-metadata text-white pl-1">
                   {new Date(__BUILD_TIMESTAMP__).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </p>
               )}
@@ -184,7 +193,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
           <button
             type="button"
             onClick={() => navigate('/alumno/perfil')}
-            className="flex items-center gap-3 px-3 py-2 mx-2 rounded text-left hover:bg-white/10 transition-colors focus:outline-none"
+            className="flex items-center gap-3 px-3 py-2 mx-2 rounded text-left hover:bg-black/10 transition-colors focus:outline-none"
             data-tooltip="Mi perfil"
           >
             {/* 65px pedido explícito. */}
@@ -192,7 +201,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
               {photoURL ? (
                 <img src={photoURL} alt="" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-2xl font-bold text-accent">{initials}</span>
+                <span className="text-2xl font-bold text-[var(--alumno-plane)]">{initials}</span>
               )}
             </div>
             <div className="min-w-0 flex-1">
@@ -200,7 +209,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
                   el panel del docente (Layout.jsx) — pedido explícito. */}
               <p className="text-[18px] font-semibold text-white truncate">{displayName}</p>
               {schoolName && (
-                <p className="text-[16px] text-white/95 truncate">{schoolName}</p>
+                <p className="text-[16px] text-white truncate">{schoolName}</p>
               )}
             </div>
             <ChevronRight size={ICONO.xs} className="text-white/80 flex-shrink-0" />
@@ -214,7 +223,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
               to="/alumno/agenda"
               className={({ isActive }) =>
                 `${SB_FILA} font-semibold ${
-                  isActive ? SB_ACTIVA : 'bg-white/5 text-white hover:bg-white/10 ring-1 ring-white/30'
+                  isActive ? ACTIVA : 'bg-black/10 text-white hover:bg-black/15 ring-1 ring-white/30'
                 }`
               }
             >
@@ -226,7 +235,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
           {/* Subjects heading — links to dashboard */}
           <NavLink
             to="/alumno/dashboard"
-            className="mx-2 mt-2 pl-4 pr-2 py-2 flex items-center justify-between rounded-full hover:bg-white/10 transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="mx-2 mt-2 pl-4 pr-2 py-2 flex items-center justify-between rounded-full hover:bg-black/10 transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
             {/* Mismo tamaño y tratamiento que "Asignaturas" en el panel del
                 docente (Layout.jsx): 22px, sin `uppercase` — "Asignaturas"
@@ -243,14 +252,14 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
             {loadingSidebar ? (
               <EsqueletoFilasLateralAlumno />
             ) : activeSubjects.length === 0 ? (
-              <p className="text-body-sm text-white/95 px-4 py-2.5">Sin asignaturas aún</p>
+              <p className="text-body-sm text-white px-4 py-2.5">Sin asignaturas aún</p>
             ) : (
               activeSubjects.map((s) => (
                 <NavLink data-esq="sba-fila"
                   key={s.id}
                   to={`/alumno/materia/${s.id}`}
                   className={({ isActive }) =>
-                    `${SB_FILA} ${isActive ? SB_ACTIVA : SB_INACTIVA}`
+                    `${SB_FILA} ${isActive ? ACTIVA : INACTIVA}`
                   }
                 >
                   <SubjectIcon iconKey={s.icon} size={SB_ICONO} className="flex-shrink-0" />
@@ -267,7 +276,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
             <button
               type="button"
               onClick={() => navigate('/alumno/dashboard', { state: { openJoin: true } })}
-              className={`${SB_FILA} text-white hover:bg-white/10`}
+              className={`${SB_FILA} text-white hover:bg-black/10`}
             >
               <Plus size={SB_ICONO} className="flex-shrink-0" />
               Unirme a otra asignatura…
@@ -290,7 +299,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
               to="/alumno/mi-espacio"
               data-tooltip="Guarda tus archivos personales aquí"
               data-tooltip-nowrap=""
-              className={({ isActive }) => `${SB_FILA} ${isActive ? SB_ACTIVA_SUAVE : SB_INACTIVA}`}
+              className={({ isActive }) => `${SB_FILA} ${isActive ? ACTIVA_SUAVE : INACTIVA}`}
             >
               <Cloud size={SB_ICONO} className="flex-shrink-0" />
               Mi espacio
@@ -298,13 +307,13 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
 
             <NavLink
               to="/alumno/tips"
-              className={({ isActive }) => `${SB_FILA} ${isActive ? SB_ACTIVA_SUAVE : SB_INACTIVA}`}
+              className={({ isActive }) => `${SB_FILA} ${isActive ? ACTIVA_SUAVE : INACTIVA}`}
             >
               <Lightbulb size={SB_ICONO} className="flex-shrink-0" />
               Tips
             </NavLink>
 
-            <AppQRButton className={`${SB_FILA} ${SB_INACTIVA}`} iconSize={SB_ICONO}>
+            <AppQRButton className={`${SB_FILA} ${INACTIVA}`} iconSize={SB_ICONO}>
               QR de Evalúa Fácil
             </AppQRButton>
           </div>
@@ -321,7 +330,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
                 type="button"
                 onClick={() => setShowArchived((a) => !a)}
                 aria-expanded={showArchived}
-                className={`${SB_FILA} text-white/95 hover:bg-white/10 hover:text-white`}
+                className={`${SB_FILA} text-white hover:bg-black/10`}
               >
                 <Archive size={SB_ICONO} className="flex-shrink-0" />
                 <span className="flex-1 text-left">Archivadas ({archivedSubjects.length})</span>
@@ -336,7 +345,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
                     key={s.id}
                     to={`/alumno/materia/${s.id}`}
                     className={({ isActive }) =>
-                      `${SB_FILA} pl-10 ${isActive ? SB_ACTIVA : 'text-white/95 hover:bg-white/15'}`
+                      `${SB_FILA} pl-10 ${isActive ? ACTIVA : 'text-white hover:bg-black/15'}`
                     }
                   >
                     <SubjectIcon iconKey={s.icon} size={SB_ICONO} className="flex-shrink-0" />
@@ -351,7 +360,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
             <button
               type="button"
               onClick={handleLogout}
-              className={`${SB_FILA} ${SB_INACTIVA}`}
+              className={`${SB_FILA} ${INACTIVA}`}
             >
               <LogOut size={SB_ICONO} className="flex-shrink-0" />
               Cerrar sesión
