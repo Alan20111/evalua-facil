@@ -47,7 +47,7 @@ import { isPerfilIACompleto, perfilIAVacio } from '../src/utils/perfilIA.js'
 import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales, MAX_FUENTES_POR_GRUPO, esMismaFuente } from '../src/utils/fuentesAsignatura.js'
 import { planeacionVigente, validarArchivoPlaneacion, extensionPlaneacion } from '../src/utils/planeacionVigente.js'
 import { estadoRegaloIA } from '../src/utils/creditosHelpers.js'
-import { tituloMovimiento, detalleMovimiento, esRuido, prepararMovimientos, desplazarPeriodo, etiquetaPeriodo, periodoDe as periodoMovimiento } from '../src/utils/movimientosCreditos.js'
+import { tituloMovimiento, detalleMovimiento, prepararMovimientos, categoriasVisibles, consumoTotalVisible, importeMovimiento, partesFechaMovimiento, desplazarPeriodo, etiquetaPeriodo, periodoDe as periodoMovimiento } from '../src/utils/movimientosCreditos.js'
 import {
   calcularCostoUSD, claveDia, inicioDelDia, clavesDeDias, rangoDeDias,
   margenSobreCostoIA, costoPromedioDiario, diasEstimadosRestantes, RANGOS_DIAS,
@@ -10927,15 +10927,79 @@ grupo('guardado de respuestas — cola por pregunta, estados, reintentos y enví
     assert.strictEqual(detalleMovimiento({ estado: 'aplicado' }), null)
   })
 
-  caso('registro de movimientos · el Chat sin costo se oculta por defecto (y solo ese)', () => {
+  caso('registro de movimientos · «chat_asistente» NUNCA aparece, con costo o sin él, y las demás operaciones se conservan', () => {
     const movs = [
-      { id: 'a', tipo: 'consumo', operacion: 'chat_asistente', delta: 0, fecha: ts(3) },
-      { id: 'b', tipo: 'consumo', operacion: 'chat_asistente', delta: -1, fecha: ts(2) },
-      { id: 'c', tipo: 'compra', delta: 50, fecha: ts(1) },
+      { id: 'a', tipo: 'consumo', operacion: 'chat_asistente', delta: 0, estado: 'aplicado', fecha: ts(5) },
+      { id: 'b', tipo: 'consumo', operacion: 'chat_asistente', delta: -1, estado: 'aplicado', fecha: ts(4) },
+      { id: 'c', tipo: 'consumo', operacion: 'chat_asistente', delta: 0, estado: 'sin_cobro', motivoCodigo: 'fallido', fecha: ts(3) },
+      { id: 'd', tipo: 'consumo', operacion: 'rubrica', delta: -2, estado: 'aplicado', fecha: ts(2) },
+      { id: 'e', tipo: 'compra', delta: 50, estado: 'aplicado', fecha: ts(1) },
     ]
-    assert.deepStrictEqual(prepararMovimientos(movs).map((m) => m.id), ['b', 'c'])
-    assert.deepStrictEqual(prepararMovimientos(movs, { mostrarChatSinCosto: true }).map((m) => m.id), ['a', 'b', 'c'])
-    assert.strictEqual(esRuido(movs[1]), false)
+    for (const filtro of ['todos', 'consumos', 'recargas']) {
+      const ids = prepararMovimientos(movs, { filtro }).map((m) => m.id)
+      assert.ok(!ids.some((id) => ['a', 'b', 'c'].includes(id)), `filtro ${filtro}`)
+    }
+    assert.deepStrictEqual(prepararMovimientos(movs).map((m) => m.id), ['d', 'e'])
+  })
+
+  caso('registro de movimientos · las tres operaciones del chat (chat_asistente, chat_crear_actividad, chat_crear_examen) nunca aparecen', () => {
+    const movs = ['chat_asistente', 'chat_crear_actividad', 'chat_crear_examen'].flatMap((operacion, i) => [
+      { id: `${operacion}-0`, tipo: 'consumo', operacion, delta: 0, estado: 'aplicado', fecha: ts(10 + i) },
+      { id: `${operacion}-c`, tipo: 'consumo', operacion, delta: -4, estado: 'aplicado', fecha: ts(20 + i) },
+      { id: `${operacion}-s`, tipo: 'consumo', operacion, delta: 0, estado: 'sin_cobro', motivoCodigo: 'fallido', fecha: ts(30 + i) },
+    ]).concat([{ id: 'ok', tipo: 'consumo', operacion: 'rubrica', delta: -2, estado: 'aplicado', fecha: ts(1) }])
+    for (const filtro of ['todos', 'consumos', 'recargas']) {
+      assert.ok(!prepararMovimientos(movs, { filtro }).some((m) => m.id.startsWith('chat_')), `filtro ${filtro}`)
+    }
+    assert.deepStrictEqual(prepararMovimientos(movs).map((m) => m.id), ['ok'])
+  })
+
+  caso('consumo por categoría · «Utilizados en total» visible = total real menos lo del Chat; coherente con el desglose', () => {
+    const cats = { 'Chat con Asistente': 4, Evaluaciones: 7, Actividades: 2, 'Calificación de evidencias': 0.5 }
+    assert.strictEqual(consumoTotalVisible(13.5, cats), 9.5)
+    assert.strictEqual(categoriasVisibles(cats).reduce((t, [, v]) => t + v, 0), 9.5)
+    assert.strictEqual(consumoTotalVisible(22, { 'Chat con Asistente': 22 }), 0)
+    assert.strictEqual(consumoTotalVisible(5, { 'Chat con Asistente': 0, Actividades: 5 }), 5)
+    assert.strictEqual(consumoTotalVisible(601.25, { Actividades: 2000 }), 601.25, 'sin chat no cambia nada, aunque el consumo histórico no esté atribuido')
+    assert.strictEqual(consumoTotalVisible(1, { 'Chat con Asistente': 3 }), 0, 'nunca negativo')
+    assert.strictEqual(consumoTotalVisible(undefined, undefined), 0)
+    assert.deepStrictEqual(cats, { 'Chat con Asistente': 4, Evaluaciones: 7, Actividades: 2, 'Calificación de evidencias': 0.5 }, 'los datos originales no se modifican')
+  })
+
+  caso('registro de movimientos · «Sin cobro» de las demás operaciones SÍ se conserva', () => {
+    const movs = [{ id: 'f', tipo: 'consumo', operacion: 'rubrica', delta: 0, estado: 'sin_cobro', motivoCodigo: 'fallido', fecha: ts(1) }]
+    assert.deepStrictEqual(prepararMovimientos(movs).map((m) => m.id), ['f'])
+  })
+
+  caso('registro de movimientos · el texto «Chat con Asistente» no sale de ningún título de movimiento', () => {
+    for (const operacion of ['chat_asistente', 'chat_crear_actividad', 'chat_crear_examen', 'rubrica', 'operacion_nueva']) {
+      assert.ok(!tituloMovimiento({ tipo: 'consumo', operacion }).includes('Chat con Asistente'), operacion)
+    }
+  })
+
+  caso('consumo por categoría · «Chat con Asistente» se oculta SIEMPRE (con valor y con 0) sin tocar el original', () => {
+    const original = { 'Chat con Asistente': 22, Evaluaciones: 7, Actividades: 2 }
+    assert.deepStrictEqual(categoriasVisibles(original), [['Evaluaciones', 7], ['Actividades', 2]])
+    assert.deepStrictEqual(categoriasVisibles({ 'Chat con Asistente': 0, Actividades: 1 }), [['Actividades', 1]])
+    assert.deepStrictEqual(categoriasVisibles({ 'Chat con Asistente': 5 }), [])
+    assert.deepStrictEqual(categoriasVisibles(undefined), [])
+    assert.strictEqual(original['Chat con Asistente'], 22, 'los datos originales no se modifican')
+  })
+
+  caso('registro de movimientos · columna Créditos: consumo resta, recarga/ajuste suman, ajuste negativo resta, sin cobro 0', () => {
+    assert.deepStrictEqual(importeMovimiento(-2), { texto: '−2', tono: 'cargo' })
+    assert.deepStrictEqual(importeMovimiento(-0.5), { texto: '−0.5', tono: 'cargo' })
+    assert.deepStrictEqual(importeMovimiento(50), { texto: '+50', tono: 'abono' })
+    assert.deepStrictEqual(importeMovimiento(30), { texto: '+30', tono: 'abono' })
+    assert.deepStrictEqual(importeMovimiento(-150), { texto: '−150', tono: 'cargo' })
+    assert.deepStrictEqual(importeMovimiento(0), { texto: '0', tono: 'neutro' })
+  })
+
+  caso('registro de movimientos · columna Fecha: día y hora en hora de México', () => {
+    const p = partesFechaMovimiento({ toMillis: () => Date.parse('2026-10-20T03:20:00Z') })
+    assert.ok(p.dia.includes('19'), p.dia)
+    assert.ok(p.hora.length > 0)
+    assert.deepStrictEqual(partesFechaMovimiento(null), { dia: '', hora: '' })
   })
 
   caso('registro de movimientos · filtros y orden: más reciente primero', () => {

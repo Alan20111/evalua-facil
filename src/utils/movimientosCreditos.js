@@ -35,9 +35,6 @@ const OPERACIONES = {
   analizar_asignatura: 'Análisis de asignatura',
   diagnostico_contexto: 'Diagnóstico de contexto',
   diagnostico_conocimientos: 'Diagnóstico de conocimientos',
-  chat_asistente: 'Chat con Asistente',
-  chat_crear_actividad: 'Actividad creada desde el chat',
-  chat_crear_examen: 'Examen creado desde el chat',
 }
 
 const TIPOS = {
@@ -65,9 +62,41 @@ export function detalleMovimiento(m) {
   return null
 }
 
-// Chat con Asistente sin costo: ruido en el historial, se oculta por defecto.
-export function esRuido(m) {
-  return m.operacion === 'chat_asistente' && !m.delta
+// Chat con Asistente: función retirada. NUNCA se muestra, ni en el registro de
+// movimientos ni en el consumo por categoría, tenga costo o sea gratuita. Son
+// las tres operaciones del chat (todas de la categoría «Chat con Asistente» en
+// config/iaTarifas; solo se lanzaban desde ChatAsistente.jsx). Es solo
+// presentación: los datos históricos y los saldos no se tocan.
+const OPERACIONES_OCULTAS = new Set(['chat_asistente', 'chat_crear_actividad', 'chat_crear_examen'])
+const CATEGORIA_OCULTA = 'Chat con Asistente'
+
+export function esOperacionOculta(m) {
+  return OPERACIONES_OCULTAS.has(m.operacion)
+}
+
+// «Utilizados en total» para mostrar: lo consumido menos lo de la categoría
+// oculta, así el total visible es coherente con el desglose. Resta, no suma las
+// categorías: el consumo que no está atribuido a una categoría (cuentas del
+// modelo anterior) sigue contando. No modifica ningún dato.
+export function consumoTotalVisible(consumidoTotal, consumoPorCategoria) {
+  const oculto = Number((consumoPorCategoria || {})[CATEGORIA_OCULTA]) || 0
+  return Math.round(Math.max(0, (Number(consumidoTotal) || 0) - oculto) * 100) / 100
+}
+
+// Consumo por categoría para mostrar: sin la categoría retirada, de mayor a
+// menor. No modifica el mapa original (los totales de iaCreditos siguen igual).
+export function categoriasVisibles(consumoPorCategoria) {
+  return Object.entries(consumoPorCategoria || {})
+    .filter(([nombre]) => nombre !== CATEGORIA_OCULTA)
+    .sort((a, b) => b[1] - a[1])
+}
+
+// Columna «Créditos»: consumo y ajuste negativo restan, recarga, bienvenida y
+// ajuste positivo suman; sin cobro es 0.
+export function importeMovimiento(delta) {
+  if (!delta) return { texto: '0', tono: 'neutro' }
+  const n = Math.abs(delta).toLocaleString('es-MX', { maximumFractionDigits: 2 })
+  return delta > 0 ? { texto: `+${n}`, tono: 'abono' } : { texto: `−${n}`, tono: 'cargo' }
 }
 
 export const FILTROS = [
@@ -85,9 +114,9 @@ export function millisDe(t) {
 
 // Más reciente primero. Sin orderBy en Firestore (regla del proyecto): se
 // ordena aquí.
-export function prepararMovimientos(movs, { filtro = 'todos', mostrarChatSinCosto = false } = {}) {
+export function prepararMovimientos(movs, { filtro = 'todos' } = {}) {
   return movs
-    .filter((m) => (mostrarChatSinCosto ? true : !esRuido(m)))
+    .filter((m) => !esOperacionOculta(m))
     .filter((m) => (filtro === 'consumos' ? m.tipo === 'consumo' : filtro === 'recargas' ? m.tipo !== 'consumo' : true))
     .sort((a, b) => millisDe(b.fecha) - millisDe(a.fecha))
 }
@@ -110,8 +139,13 @@ export function etiquetaPeriodo(periodo) {
   return texto.charAt(0).toUpperCase() + texto.slice(1)
 }
 
-export function formatoFechaMovimiento(t) {
+// Columna «Fecha»: día arriba y hora abajo (cabe en pantallas chicas).
+export function partesFechaMovimiento(t) {
   const ms = millisDe(t)
-  if (!ms) return ''
-  return new Date(ms).toLocaleString('es-MX', { timeZone: ZONA, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  if (!ms) return { dia: '', hora: '' }
+  const f = new Date(ms)
+  return {
+    dia: f.toLocaleDateString('es-MX', { timeZone: ZONA, day: 'numeric', month: 'short' }),
+    hora: f.toLocaleTimeString('es-MX', { timeZone: ZONA, hour: '2-digit', minute: '2-digit' }),
+  }
 }
