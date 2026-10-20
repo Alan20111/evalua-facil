@@ -1,7 +1,7 @@
-# Bitácora de créditos IA del docente (`iaMovimientos`)
+# Registro de movimientos de créditos IA del docente (`iaMovimientos`)
 
-Autorizada por Kike (19-oct-2026). Esta bitácora es para que el docente entienda su
-historial de créditos; no es una bitácora de costos internos de API.
+Autorizada por Kike (19-oct-2026). En la interfaz se llama «Registro de movimientos»; `iaMovimientos` y los nombres técnicos no cambian. Este registro de movimientos es para que el docente entienda su
+historial de créditos; no es un registro de costos internos de API.
 
 ## Qué es
 
@@ -34,9 +34,9 @@ la IA, el `motivo` ni el `adminUid` de un ajuste. La interfaz muestra textos fij
 ## Integridad
 
 - IDs deterministas: un reintento reescribe el mismo documento, no duplica.
-- Las escrituras de bitácora van en la transacción del ledger: concurrencia cubierta por
+- Las escrituras del registro de movimientos van en la transacción del ledger: concurrencia cubierta por
   las mismas transacciones que ya protegen el saldo.
-- Una reserva anterior a la bitácora (sin movimiento) que se liquida después crea su
+- Una reserva anterior al registro de movimientos (sin movimiento) que se liquida después crea su
   movimiento completo (la escritura es `merge`).
 - Invariante probada: el `saldoDespues` del movimiento más reciente es igual a
   `iaCreditos.saldo`.
@@ -74,7 +74,7 @@ se puede leer.
 - **Parecido, mismo origen:** `iaConsumos` también es legible por su dueño y trae
   `resultado` (contenido completo generado por la IA) y `motivo` (hubo errores crudos del
   proveedor: `401 …`, `Connection error`), y un registro tiene una `devolucion` manual
-  con texto interno. La bitácora nueva no los expone, pero siguen siendo legibles en esos
+  con texto interno. El registro de movimientos nuevo no los expone, pero siguen siendo legibles en esos
   documentos.
 - **Corrección propuesta (requiere autorización, toca permisos/datos):**
   1. Dejar de escribir `motivo` y `adminUid` en `iaCreditos`; registrarlos en una

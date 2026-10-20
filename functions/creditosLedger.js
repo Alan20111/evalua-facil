@@ -61,7 +61,7 @@ const CREDITOS_BIENVENIDA = 30
 // crédito equivale a medio centavo.
 const round2 = (n) => Math.round(n * 100) / 100
 
-// ── Bitácora de movimientos del docente (iaMovimientos) ─────────────────────
+// ── Registro de movimientos del docente (iaMovimientos) ─────────────────────
 // Un documento por movimiento de créditos, escrito DENTRO de la misma
 // transacción que mueve el saldo: o se aplican las dos cosas o ninguna, y
 // `saldoDespues` es el saldo real que dejó esa transacción. El cliente solo
@@ -79,7 +79,7 @@ const round2 = (n) => Math.round(n * 100) / 100
 const ZONA_PERIODO = 'America/Mexico_City'
 
 // 'AAAA-MM' en hora de México: es la llave de paginación mensual de la
-// bitácora (dos igualdades, uid + periodo, sin índice compuesto).
+// registro de movimientos (dos igualdades, uid + periodo, sin índice compuesto).
 function periodoDe(fecha) {
   const partes = new Intl.DateTimeFormat('en-CA', { timeZone: ZONA_PERIODO, year: 'numeric', month: '2-digit' }).formatToParts(fecha)
   const anio = partes.find((p) => p.type === 'year').value
@@ -87,7 +87,7 @@ function periodoDe(fecha) {
   return `${anio}-${mes}`
 }
 
-// merge: true — si el movimiento no existe (reserva anterior a la bitácora
+// merge: true — si el movimiento no existe (reserva anterior al registro de movimientos
 // que se liquida después) se crea completo; si existe, solo se actualiza.
 function escribirMovimiento(tx, id, datos) {
   tx.set(db().doc(`iaMovimientos/${id}`), { ...datos, origen: 'ledger' }, { merge: true })
@@ -190,7 +190,7 @@ async function reservar({ uid, operacion, idempotencyKey, unidades = 1, asignatu
       createdAt,
     })
     const saldoTrasReserva = round2((creditos.saldo || 0) - costo)
-    // Bitácora: «en proceso» con la reserva ya descontada. Se cierra en
+    // Registro: «en proceso» con la reserva ya descontada. Se cierra en
     // liquidar (cobro real) o reembolsar (sin cobro).
     escribirMovimiento(tx, idempotencyKey, {
       ...baseConsumo({ uid, operacion, categoria, createdAt }),
@@ -291,7 +291,7 @@ async function reembolsar({ uid, idempotencyKey, motivo = 'fallo', estadoFinal =
       liquidadoEn: FieldValue.serverTimestamp(),
     })
     tx.update(refCreditos, { saldo, actualizadoEn: FieldValue.serverTimestamp() })
-    // Bitácora: sin cobro. `motivoCodigo` es el estado final ('fallido',
+    // Registro: sin cobro. `motivoCodigo` es el estado final ('fallido',
     // 'expirado', 'cancelado'): nunca el `motivo` técnico del proveedor.
     escribirMovimiento(tx, idempotencyKey, {
       ...baseConsumo(consumo),
@@ -346,7 +346,7 @@ async function ajustarSaldoManual({ uid, delta, motivo, adminUid }) {
     const snap = await tx.get(ref)
     const actual = snap.exists ? (snap.data().saldo || 0) : 0
     const saldo = round2(Math.max(0, actual + delta))
-    // Bitácora: se registra lo que de verdad cambió el saldo (un delta que
+    // Registro: se registra lo que de verdad cambió el saldo (un delta que
     // lo cruzaría por debajo de cero se recorta). Sin motivo ni adminUid: el
     // docente solo ve «Ajuste de Evalúa Fácil».
     const aplicado = round2(saldo - actual)

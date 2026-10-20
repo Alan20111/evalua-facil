@@ -10908,10 +10908,10 @@ grupo('guardado de respuestas — cola por pregunta, estados, reintentos y enví
   })
 }
 
-// ── Bitácora de créditos (lógica pura de presentación) ─────────────────────
+// ── Registro de movimientos de créditos (lógica pura de presentación) ─────────────────────
 {
   const ts = (ms) => ({ toMillis: () => ms })
-  caso('bitácora · el texto es del docente: operación conocida, categoría de respaldo y tipos fijos', () => {
+  caso('registro de movimientos · el texto es del docente: operación conocida, categoría de respaldo y tipos fijos', () => {
     assert.strictEqual(tituloMovimiento({ tipo: 'consumo', operacion: 'rubrica' }), 'Rúbrica con IA')
     assert.strictEqual(tituloMovimiento({ tipo: 'consumo', operacion: 'operacion_nueva', categoria: 'Evaluaciones' }), 'Evaluaciones')
     assert.strictEqual(tituloMovimiento({ tipo: 'ajuste' }), 'Ajuste de Evalúa Fácil')
@@ -10919,7 +10919,7 @@ grupo('guardado de respuestas — cola por pregunta, estados, reintentos y enví
     assert.strictEqual(tituloMovimiento({ tipo: 'compra' }), 'Compra de créditos')
   })
 
-  caso('bitácora · «sin cobro» dice que no se descontó nada y no deja pasar texto técnico', () => {
+  caso('registro de movimientos · «sin cobro» dice que no se descontó nada y no deja pasar texto técnico', () => {
     const d = detalleMovimiento({ estado: 'sin_cobro', motivoCodigo: 'fallido', motivo: '401 invalid x-api-key' })
     assert.ok(d.includes('No se descontó nada'))
     assert.ok(!d.includes('401') && !d.includes('x-api-key'))
@@ -10927,7 +10927,7 @@ grupo('guardado de respuestas — cola por pregunta, estados, reintentos y enví
     assert.strictEqual(detalleMovimiento({ estado: 'aplicado' }), null)
   })
 
-  caso('bitácora · el Chat sin costo se oculta por defecto (y solo ese)', () => {
+  caso('registro de movimientos · el Chat sin costo se oculta por defecto (y solo ese)', () => {
     const movs = [
       { id: 'a', tipo: 'consumo', operacion: 'chat_asistente', delta: 0, fecha: ts(3) },
       { id: 'b', tipo: 'consumo', operacion: 'chat_asistente', delta: -1, fecha: ts(2) },
@@ -10938,7 +10938,7 @@ grupo('guardado de respuestas — cola por pregunta, estados, reintentos y enví
     assert.strictEqual(esRuido(movs[1]), false)
   })
 
-  caso('bitácora · filtros y orden: más reciente primero', () => {
+  caso('registro de movimientos · filtros y orden: más reciente primero', () => {
     const movs = [
       { id: 'a', tipo: 'consumo', operacion: 'aviso', delta: -1, fecha: ts(1) },
       { id: 'b', tipo: 'bienvenida', delta: 30, fecha: ts(3) },
@@ -10949,7 +10949,7 @@ grupo('guardado de respuestas — cola por pregunta, estados, reintentos y enví
     assert.deepStrictEqual(prepararMovimientos(movs, { filtro: 'recargas' }).map((m) => m.id), ['b'])
   })
 
-  caso('bitácora · periodos en hora de México y navegación entre meses', () => {
+  caso('registro de movimientos · periodos en hora de México y navegación entre meses', () => {
     assert.strictEqual(periodoMovimiento(new Date('2026-11-01T05:30:00Z')), '2026-10')
     assert.strictEqual(periodoMovimiento(new Date('2026-11-01T06:30:00Z')), '2026-11')
     assert.strictEqual(desplazarPeriodo('2026-01', -1), '2025-12')

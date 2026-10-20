@@ -1,4 +1,4 @@
-// Bitácora de créditos IA del docente — lógica pura (sin Firebase ni React).
+// Registro de movimientos de créditos IA del docente — lógica pura (sin Firebase ni React).
 //
 // Los movimientos (`iaMovimientos/{id}`) los escribe SOLO el ledger del
 // servidor (functions/creditosLedger.js) dentro de la transacción que mueve el

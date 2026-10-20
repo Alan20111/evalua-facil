@@ -1939,7 +1939,7 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Bitácora de movimientos de créditos del docente (iaMovimientos). La
+    // Registro de movimientos de créditos del docente (iaMovimientos). La
     // escribe SOLO el ledger (functions/creditosLedger.js), dentro de la misma
     // transacción que mueve el saldo. Cada quien lee únicamente los suyos; la
     // consulta del cliente filtra por uid (y por periodo) y no puede salirse

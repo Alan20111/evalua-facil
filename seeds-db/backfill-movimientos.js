@@ -1,4 +1,4 @@
-// Backfill de la bitácora de créditos (iaMovimientos) con el historial que SÍ
+// Backfill del registro de movimientos de créditos (iaMovimientos) con el historial que SÍ
 // se puede demostrar con los datos que ya existen.
 //
 //   node seeds-db/backfill-movimientos.js                # SIMULACIÓN (no escribe nada)
@@ -62,7 +62,7 @@ async function main() {
 
   // Cuentas que SIGUEN existiendo (users/{uid}). Los registros de una cuenta ya
   // eliminada no se importan: borrar la cuenta no debe dejar residuos, y la
-  // bitácora de alguien que ya no existe no la va a leer nadie.
+  // registro de movimientos de alguien que ya no existe no la va a leer nadie.
   const uids = new Set([
     ...consumos.docs.map((d) => d.data().uid),
     ...registros.docs.map((d) => d.id),

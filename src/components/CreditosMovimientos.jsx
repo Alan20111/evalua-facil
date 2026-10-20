@@ -1,4 +1,4 @@
-// Bitácora de créditos IA — lista de movimientos del mes dentro del panel de
+// Registro de movimientos de créditos IA — lista de movimientos del mes dentro del panel de
 // créditos. Solo lectura: lo que se muestra lo escribió el servidor en la misma
 // transacción que movió el saldo. Un mes por vez (sin índices ni orderBy).
 //
@@ -39,13 +39,13 @@ export default function CreditosMovimientos() {
   )
 
   return (
-    <section aria-label="Movimientos de créditos" className="mt-6">
-      <h4 className="text-sm font-semibold text-on-surface mb-2">Movimientos</h4>
+    <section aria-label="Registro de movimientos de créditos" className="mt-6 pb-24 md:pb-0">
+      <h4 className="text-sm font-semibold text-on-surface mb-2">Registro de movimientos</h4>
 
       <div className="flex items-center justify-between gap-2 mb-2">
-        <IconButton icon={ChevronLeft} label="Mes anterior" onClick={() => setPeriodo((p) => desplazarPeriodo(p, -1))} />
+        <IconButton icon={ChevronLeft} label="Mes anterior" tooltip={false} onClick={() => setPeriodo((p) => desplazarPeriodo(p, -1))} />
         <span className="text-sm font-medium text-on-surface" data-testid="movimientos-periodo">{etiquetaPeriodo(periodo)}</span>
-        <IconButton icon={ChevronRight} label="Mes siguiente" disabled={periodo >= actual} onClick={() => setPeriodo((p) => desplazarPeriodo(p, 1))} />
+        <IconButton icon={ChevronRight} label="Mes siguiente" tooltip={false} disabled={periodo >= actual} onClick={() => setPeriodo((p) => desplazarPeriodo(p, 1))} />
       </div>
 
       <div className="flex flex-wrap gap-2 mb-2">

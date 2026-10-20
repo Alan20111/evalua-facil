@@ -1,4 +1,4 @@
-// Movimientos de créditos IA del docente en un mes (bitácora).
+// Movimientos de créditos IA del docente en un mes (registro de movimientos).
 //
 // Lee `iaMovimientos` con DOS igualdades (uid + periodo): es la consulta que
 // permiten las reglas, no necesita índice compuesto ni orderBy (el orden se

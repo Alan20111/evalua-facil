@@ -3888,7 +3888,7 @@ EXTRACTOR.restaurar()
 require.cache[rutaSdk].exports = SDK_REAL
 
 // ═════════════════════════════════════════════════════════════════════════════
-grupo('Bitácora de movimientos (iaMovimientos) — escrita por el ledger, en la misma transacción')
+grupo('Registro de movimientos (iaMovimientos) — escrita por el ledger, en la misma transacción')
 
 const movDe = async (id) => (await db.doc(`iaMovimientos/${id}`).get()).data()
 const movimientosDe = async (uid = DOCENTE) => (await db.collection('iaMovimientos').where('uid', '==', uid).get()).docs.map((d) => ({ id: d.id, ...d.data() }))
@@ -3943,7 +3943,7 @@ await caso('operación fallida: «sin_cobro», delta 0, saldo devuelto y NUNCA e
   assert.strictEqual(m.motivoCodigo, 'fallido')
   assert.strictEqual(m.saldoDespues, antes)
   assert.strictEqual((await creditosDe()).saldo, antes)
-  assert.ok(!('motivo' in m), 'el motivo técnico no llega a la bitácora')
+  assert.ok(!('motivo' in m), 'el motivo técnico no llega al registro de movimientos')
   assert.ok(!JSON.stringify(m).includes('x-api-key'), 'nada del proveedor en el documento')
 })
 
@@ -4027,7 +4027,7 @@ await caso('ajuste del admin: se registra lo aplicado, sin motivo ni adminUid; u
   assert.strictEqual((await movimientosDe()).length, antes, 'un ajuste que no cambia el saldo no deja movimiento')
 })
 
-await caso('reserva anterior a la bitácora (sin movimiento): al liquidarse se crea completo, con el saldo real', async () => {
+await caso('reserva anterior al registro de movimientos (sin movimiento): al liquidarse se crea completo, con el saldo real', async () => {
   await limpiar()
   await sembrarDocente()
   await darSaldo(DOCENTE, 9)

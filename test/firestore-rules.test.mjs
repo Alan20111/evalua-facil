@@ -1738,7 +1738,7 @@ ok('IA · client CANNOT forge consumption records')
 await assertFails(getDoc(doc(asT1, 'iaConsumosInterno', 'CONS_T1')))
 ok('IA · NOBODY (client-side) can read internal token metrics')
 
-// ── Bitácora de movimientos (iaMovimientos): solo lectura propia ──────────
+// ── Registro de movimientos (iaMovimientos): solo lectura propia ──────────
 await testEnv.withSecurityRulesDisabled(async (ctx) => {
   const db = ctx.firestore()
   await setDoc(doc(db, 'iaMovimientos', 'MOV_T1'), { uid: T1, periodo: '2026-10', tipo: 'consumo', operacion: 'aviso', delta: -1, estado: 'aplicado', saldoDespues: 119 })

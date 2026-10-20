@@ -113,7 +113,7 @@ export default function CreditosPanel({ onCerrar }) {
           </ul>
         )}
 
-        {/* Bitácora de movimientos (solo lectura, un mes por vez) */}
+        {/* Registro de movimientos (solo lectura, un mes por vez) */}
         <CreditosMovimientos />
       </Modal>
       {PUEDE_COMPRAR && <ComprarCreditosModal open={comprarAbierto} onClose={() => setComprarAbierto(false)} />}
