@@ -16,6 +16,7 @@ import { useState } from 'react'
 import { Sparkles } from 'lucide-react'
 import useCreditosIA from '../hooks/useCreditosIA'
 import ComprarCreditosModal from './ComprarCreditosModal'
+import CreditosMovimientos from './CreditosMovimientos'
 import { PUEDE_COMPRAR } from '../utils/platform'
 import { Button, Modal } from './ui'
 import { ICONO } from '../config/iconos'
@@ -111,6 +112,9 @@ export default function CreditosPanel({ onCerrar }) {
             ))}
           </ul>
         )}
+
+        {/* Bitácora de movimientos (solo lectura, un mes por vez) */}
+        <CreditosMovimientos />
       </Modal>
       {PUEDE_COMPRAR && <ComprarCreditosModal open={comprarAbierto} onClose={() => setComprarAbierto(false)} />}
     </>

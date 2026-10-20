@@ -1738,6 +1738,39 @@ ok('IA · client CANNOT forge consumption records')
 await assertFails(getDoc(doc(asT1, 'iaConsumosInterno', 'CONS_T1')))
 ok('IA · NOBODY (client-side) can read internal token metrics')
 
+// ── Bitácora de movimientos (iaMovimientos): solo lectura propia ──────────
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  const db = ctx.firestore()
+  await setDoc(doc(db, 'iaMovimientos', 'MOV_T1'), { uid: T1, periodo: '2026-10', tipo: 'consumo', operacion: 'aviso', delta: -1, estado: 'aplicado', saldoDespues: 119 })
+})
+
+await assertSucceeds(getDoc(doc(asT1, 'iaMovimientos', 'MOV_T1')))
+ok('IA · docente CAN read own movement')
+
+await assertSucceeds(getDocs(query(collection(asT1, 'iaMovimientos'), where('uid', '==', T1), where('periodo', '==', '2026-10'))))
+ok('IA · docente CAN list own movements by uid + periodo (the panel query)')
+
+await assertFails(getDoc(doc(asT2, 'iaMovimientos', 'MOV_T1')))
+ok('IA · foreign user CANNOT read a movement of another teacher')
+
+await assertFails(getDocs(query(collection(asT2, 'iaMovimientos'), where('uid', '==', T1), where('periodo', '==', '2026-10'))))
+ok('IA · foreign user CANNOT list the movements of another teacher')
+
+await assertFails(getDocs(query(collection(asT1, 'iaMovimientos'), where('periodo', '==', '2026-10'))))
+ok('IA · docente CANNOT list movements without filtering by own uid')
+
+await assertFails(setDoc(doc(asT1, 'iaMovimientos', 'MOV_FAKE'), { uid: T1, periodo: '2026-10', tipo: 'compra', delta: 9999 }))
+ok('IA · owner CANNOT forge a movement')
+
+await assertFails(updateDoc(doc(asT1, 'iaMovimientos', 'MOV_T1'), { delta: 500 }))
+ok('IA · owner CANNOT edit a movement')
+
+await assertFails(deleteDoc(doc(asT1, 'iaMovimientos', 'MOV_T1')))
+ok('IA · owner CANNOT delete a movement')
+
+await assertFails(getDoc(doc(testEnv.unauthenticatedContext().firestore(), 'iaMovimientos', 'MOV_T1')))
+ok('IA · anonymous CANNOT read movements')
+
 // Bienvenida voluntaria (20-ago-2026): el dueño SÍ puede leer su propio
 // estado de bienvenida (para que el frontend sepa si mostrar el CTA de
 // activación) — pero nunca escribirlo, la acreditación sigue siendo

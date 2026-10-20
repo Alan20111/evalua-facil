@@ -1939,6 +1939,16 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Bitácora de movimientos de créditos del docente (iaMovimientos). La
+    // escribe SOLO el ledger (functions/creditosLedger.js), dentro de la misma
+    // transacción que mueve el saldo. Cada quien lee únicamente los suyos; la
+    // consulta del cliente filtra por uid (y por periodo) y no puede salirse
+    // de ahí. No lleva motivos técnicos, resultados de IA ni datos del admin.
+    match /iaMovimientos/{movimientoId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.uid;
+      allow write: if false;
+    }
+
     // Métricas internas (tokens, modelo, tiempos) y registro de medición del
     // trial: nada de esto es visible para ningún cliente.
     match /iaConsumosInterno/{consumoId} {
