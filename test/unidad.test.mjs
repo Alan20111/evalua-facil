@@ -47,7 +47,7 @@ import { isPerfilIACompleto, perfilIAVacio } from '../src/utils/perfilIA.js'
 import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales, MAX_FUENTES_POR_GRUPO, esMismaFuente } from '../src/utils/fuentesAsignatura.js'
 import { planeacionVigente, validarArchivoPlaneacion, extensionPlaneacion } from '../src/utils/planeacionVigente.js'
 import { estadoRegaloIA } from '../src/utils/creditosHelpers.js'
-import { tituloMovimiento, detalleMovimiento, prepararMovimientos, categoriasVisibles, importeMovimiento, partesFechaMovimiento, desplazarPeriodo, etiquetaPeriodo, periodoDe as periodoMovimiento } from '../src/utils/movimientosCreditos.js'
+import { tituloMovimiento, detalleMovimiento, prepararMovimientos, categoriasVisibles, consumoTotalVisible, importeMovimiento, partesFechaMovimiento, desplazarPeriodo, etiquetaPeriodo, periodoDe as periodoMovimiento } from '../src/utils/movimientosCreditos.js'
 import {
   calcularCostoUSD, claveDia, inicioDelDia, clavesDeDias, rangoDeDias,
   margenSobreCostoIA, costoPromedioDiario, diasEstimadosRestantes, RANGOS_DIAS,
@@ -10940,6 +10940,30 @@ grupo('guardado de respuestas — cola por pregunta, estados, reintentos y enví
       assert.ok(!ids.some((id) => ['a', 'b', 'c'].includes(id)), `filtro ${filtro}`)
     }
     assert.deepStrictEqual(prepararMovimientos(movs).map((m) => m.id), ['d', 'e'])
+  })
+
+  caso('registro de movimientos · las tres operaciones del chat (chat_asistente, chat_crear_actividad, chat_crear_examen) nunca aparecen', () => {
+    const movs = ['chat_asistente', 'chat_crear_actividad', 'chat_crear_examen'].flatMap((operacion, i) => [
+      { id: `${operacion}-0`, tipo: 'consumo', operacion, delta: 0, estado: 'aplicado', fecha: ts(10 + i) },
+      { id: `${operacion}-c`, tipo: 'consumo', operacion, delta: -4, estado: 'aplicado', fecha: ts(20 + i) },
+      { id: `${operacion}-s`, tipo: 'consumo', operacion, delta: 0, estado: 'sin_cobro', motivoCodigo: 'fallido', fecha: ts(30 + i) },
+    ]).concat([{ id: 'ok', tipo: 'consumo', operacion: 'rubrica', delta: -2, estado: 'aplicado', fecha: ts(1) }])
+    for (const filtro of ['todos', 'consumos', 'recargas']) {
+      assert.ok(!prepararMovimientos(movs, { filtro }).some((m) => m.id.startsWith('chat_')), `filtro ${filtro}`)
+    }
+    assert.deepStrictEqual(prepararMovimientos(movs).map((m) => m.id), ['ok'])
+  })
+
+  caso('consumo por categoría · «Utilizados en total» visible = total real menos lo del Chat; coherente con el desglose', () => {
+    const cats = { 'Chat con Asistente': 4, Evaluaciones: 7, Actividades: 2, 'Calificación de evidencias': 0.5 }
+    assert.strictEqual(consumoTotalVisible(13.5, cats), 9.5)
+    assert.strictEqual(categoriasVisibles(cats).reduce((t, [, v]) => t + v, 0), 9.5)
+    assert.strictEqual(consumoTotalVisible(22, { 'Chat con Asistente': 22 }), 0)
+    assert.strictEqual(consumoTotalVisible(5, { 'Chat con Asistente': 0, Actividades: 5 }), 5)
+    assert.strictEqual(consumoTotalVisible(601.25, { Actividades: 2000 }), 601.25, 'sin chat no cambia nada, aunque el consumo histórico no esté atribuido')
+    assert.strictEqual(consumoTotalVisible(1, { 'Chat con Asistente': 3 }), 0, 'nunca negativo')
+    assert.strictEqual(consumoTotalVisible(undefined, undefined), 0)
+    assert.deepStrictEqual(cats, { 'Chat con Asistente': 4, Evaluaciones: 7, Actividades: 2, 'Calificación de evidencias': 0.5 }, 'los datos originales no se modifican')
   })
 
   caso('registro de movimientos · «Sin cobro» de las demás operaciones SÍ se conserva', () => {

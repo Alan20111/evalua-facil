@@ -57,9 +57,11 @@ guardado en cada movimiento pero no se muestra en la tabla. Un mes sin movimient
 muestra su mensaje dentro de la tabla.
 
 **Chat con Asistente (función retirada):** es solo presentación. Las operaciones
-`chat_asistente` nunca aparecen en el registro, tengan costo o no, y la categoría «Chat
-con Asistente» nunca aparece en «Consumo por categoría». Los datos históricos, los
-saldos y el ledger no se tocan (siguen contando en «Utilizados en total»).
+`chat_asistente`, `chat_crear_actividad` y `chat_crear_examen` nunca aparecen en el
+registro, tengan costo o no, y la categoría «Chat con Asistente» nunca aparece en
+«Consumo por categoría». «Utilizados en total» muestra el total real menos lo de esa
+categoría, para que cuadre con el desglose. Los datos históricos, los saldos y el ledger
+no se tocan (`iaCreditos.consumidoTotal` sigue incluyéndolo).
 
 ## Historial anterior (backfill)
 

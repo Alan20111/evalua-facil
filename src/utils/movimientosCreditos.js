@@ -35,8 +35,6 @@ const OPERACIONES = {
   analizar_asignatura: 'Análisis de asignatura',
   diagnostico_contexto: 'Diagnóstico de contexto',
   diagnostico_conocimientos: 'Diagnóstico de conocimientos',
-  chat_crear_actividad: 'Actividad creada desde el chat',
-  chat_crear_examen: 'Examen creado desde el chat',
 }
 
 const TIPOS = {
@@ -65,13 +63,24 @@ export function detalleMovimiento(m) {
 }
 
 // Chat con Asistente: función retirada. NUNCA se muestra, ni en el registro de
-// movimientos ni en el consumo por categoría, tenga costo o sea gratuita. Es
-// solo presentación: los datos históricos y los saldos no se tocan.
-const OPERACION_OCULTA = 'chat_asistente'
+// movimientos ni en el consumo por categoría, tenga costo o sea gratuita. Son
+// las tres operaciones del chat (todas de la categoría «Chat con Asistente» en
+// config/iaTarifas; solo se lanzaban desde ChatAsistente.jsx). Es solo
+// presentación: los datos históricos y los saldos no se tocan.
+const OPERACIONES_OCULTAS = new Set(['chat_asistente', 'chat_crear_actividad', 'chat_crear_examen'])
 const CATEGORIA_OCULTA = 'Chat con Asistente'
 
 export function esOperacionOculta(m) {
-  return m.operacion === OPERACION_OCULTA
+  return OPERACIONES_OCULTAS.has(m.operacion)
+}
+
+// «Utilizados en total» para mostrar: lo consumido menos lo de la categoría
+// oculta, así el total visible es coherente con el desglose. Resta, no suma las
+// categorías: el consumo que no está atribuido a una categoría (cuentas del
+// modelo anterior) sigue contando. No modifica ningún dato.
+export function consumoTotalVisible(consumidoTotal, consumoPorCategoria) {
+  const oculto = Number((consumoPorCategoria || {})[CATEGORIA_OCULTA]) || 0
+  return Math.round(Math.max(0, (Number(consumidoTotal) || 0) - oculto) * 100) / 100
 }
 
 // Consumo por categoría para mostrar: sin la categoría retirada, de mayor a

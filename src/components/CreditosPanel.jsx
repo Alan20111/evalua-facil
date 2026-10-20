@@ -17,7 +17,7 @@ import { Sparkles } from 'lucide-react'
 import useCreditosIA from '../hooks/useCreditosIA'
 import ComprarCreditosModal from './ComprarCreditosModal'
 import CreditosMovimientos from './CreditosMovimientos'
-import { categoriasVisibles } from '../utils/movimientosCreditos'
+import { categoriasVisibles, consumoTotalVisible } from '../utils/movimientosCreditos'
 import { PUEDE_COMPRAR } from '../utils/platform'
 import { Button, Modal } from './ui'
 import { ICONO } from '../config/iconos'
@@ -27,7 +27,9 @@ export default function CreditosPanel({ onCerrar }) {
   const [comprarAbierto, setComprarAbierto] = useState(false)
   if (!c.listo) return null
 
-  const usados = c.consumidoTotal
+  // Sin lo consumido en el Chat con Asistente (función retirada): el total visible
+  // coincide con el desglose por categoría. Los datos reales no se tocan.
+  const usados = consumoTotalVisible(c.consumidoTotal, c.consumoPorCategoria)
   const agotado = c.saldo === 0
 
   // «Chat con Asistente» (función retirada) nunca se muestra; los datos no se tocan.
