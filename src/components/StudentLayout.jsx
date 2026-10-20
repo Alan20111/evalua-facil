@@ -28,9 +28,12 @@ import { SB_FILA, SB_ICONO, SB_INACTIVA, SB_ACTIVA, SB_ACTIVA_SUAVE, SB_GRUPO } 
 
 // Variantes locales del panel verde del estudiante: las constantes de
 // config/sidebar.js se comparten con el docente (acento azul, blanco al 95 %),
-// así que aquí solo se reemplaza el color que cambia sobre el verde.
+// así que aquí solo se reemplaza el color que cambia sobre el verde. Los fondos
+// de hover y de estado suave pasan de blanco translúcido a negro translúcido:
+// el blanco los aclaraba y bajaba el texto blanco de 4.5:1 (WCAG AA).
 const ACTIVA = SB_ACTIVA.replace('text-accent', 'text-[var(--alumno-plane)]')
-const INACTIVA = SB_INACTIVA.replace('text-white/95', 'text-white')
+const INACTIVA = SB_INACTIVA.replace('text-white/95', 'text-white').replace('hover:bg-white/10', 'hover:bg-black/10')
+const ACTIVA_SUAVE = SB_ACTIVA_SUAVE.replace('bg-white/5', 'bg-black/10')
 import { ICONO } from '../config/iconos'
 
 // `refreshKey`: el Dashboard del alumno reordena sus asignaturas (flechas
@@ -190,7 +193,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
           <button
             type="button"
             onClick={() => navigate('/alumno/perfil')}
-            className="flex items-center gap-3 px-3 py-2 mx-2 rounded text-left hover:bg-white/10 transition-colors focus:outline-none"
+            className="flex items-center gap-3 px-3 py-2 mx-2 rounded text-left hover:bg-black/10 transition-colors focus:outline-none"
             data-tooltip="Mi perfil"
           >
             {/* 65px pedido explícito. */}
@@ -220,7 +223,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
               to="/alumno/agenda"
               className={({ isActive }) =>
                 `${SB_FILA} font-semibold ${
-                  isActive ? ACTIVA : 'bg-white/5 text-white hover:bg-white/10 ring-1 ring-white/30'
+                  isActive ? ACTIVA : 'bg-black/10 text-white hover:bg-black/15 ring-1 ring-white/30'
                 }`
               }
             >
@@ -232,7 +235,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
           {/* Subjects heading — links to dashboard */}
           <NavLink
             to="/alumno/dashboard"
-            className="mx-2 mt-2 pl-4 pr-2 py-2 flex items-center justify-between rounded-full hover:bg-white/10 transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="mx-2 mt-2 pl-4 pr-2 py-2 flex items-center justify-between rounded-full hover:bg-black/10 transition-colors group focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
           >
             {/* Mismo tamaño y tratamiento que "Asignaturas" en el panel del
                 docente (Layout.jsx): 22px, sin `uppercase` — "Asignaturas"
@@ -273,7 +276,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
             <button
               type="button"
               onClick={() => navigate('/alumno/dashboard', { state: { openJoin: true } })}
-              className={`${SB_FILA} text-white hover:bg-white/10`}
+              className={`${SB_FILA} text-white hover:bg-black/10`}
             >
               <Plus size={SB_ICONO} className="flex-shrink-0" />
               Unirme a otra asignatura…
@@ -296,7 +299,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
               to="/alumno/mi-espacio"
               data-tooltip="Guarda tus archivos personales aquí"
               data-tooltip-nowrap=""
-              className={({ isActive }) => `${SB_FILA} ${isActive ? SB_ACTIVA_SUAVE : INACTIVA}`}
+              className={({ isActive }) => `${SB_FILA} ${isActive ? ACTIVA_SUAVE : INACTIVA}`}
             >
               <Cloud size={SB_ICONO} className="flex-shrink-0" />
               Mi espacio
@@ -304,7 +307,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
 
             <NavLink
               to="/alumno/tips"
-              className={({ isActive }) => `${SB_FILA} ${isActive ? SB_ACTIVA_SUAVE : INACTIVA}`}
+              className={({ isActive }) => `${SB_FILA} ${isActive ? ACTIVA_SUAVE : INACTIVA}`}
             >
               <Lightbulb size={SB_ICONO} className="flex-shrink-0" />
               Tips
@@ -327,7 +330,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
                 type="button"
                 onClick={() => setShowArchived((a) => !a)}
                 aria-expanded={showArchived}
-                className={`${SB_FILA} text-white hover:bg-white/10`}
+                className={`${SB_FILA} text-white hover:bg-black/10`}
               >
                 <Archive size={SB_ICONO} className="flex-shrink-0" />
                 <span className="flex-1 text-left">Archivadas ({archivedSubjects.length})</span>
@@ -342,7 +345,7 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
                     key={s.id}
                     to={`/alumno/materia/${s.id}`}
                     className={({ isActive }) =>
-                      `${SB_FILA} pl-10 ${isActive ? ACTIVA : 'text-white hover:bg-white/15'}`
+                      `${SB_FILA} pl-10 ${isActive ? ACTIVA : 'text-white hover:bg-black/15'}`
                     }
                   >
                     <SubjectIcon iconKey={s.icon} size={SB_ICONO} className="flex-shrink-0" />
