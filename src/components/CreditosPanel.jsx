@@ -17,6 +17,7 @@ import { Sparkles } from 'lucide-react'
 import useCreditosIA from '../hooks/useCreditosIA'
 import ComprarCreditosModal from './ComprarCreditosModal'
 import CreditosMovimientos from './CreditosMovimientos'
+import { categoriasVisibles } from '../utils/movimientosCreditos'
 import { PUEDE_COMPRAR } from '../utils/platform'
 import { Button, Modal } from './ui'
 import { ICONO } from '../config/iconos'
@@ -29,7 +30,8 @@ export default function CreditosPanel({ onCerrar }) {
   const usados = c.consumidoTotal
   const agotado = c.saldo === 0
 
-  const categorias = Object.entries(c.consumoPorCategoria).sort((a, b) => b[1] - a[1])
+  // «Chat con Asistente» (función retirada) nunca se muestra; los datos no se tocan.
+  const categorias = categoriasVisibles(c.consumoPorCategoria)
 
   return (
     <>
@@ -99,9 +101,11 @@ export default function CreditosPanel({ onCerrar }) {
         )}
 
         {/* Consumo por categorías (histórico total, no por ciclo) */}
-        <h4 className="text-sm font-semibold text-on-surface mb-2">Consumo por categoría (histórico)</h4>
+        {(categorias.length > 0 || usados === 0) && (
+          <h4 className="text-sm font-semibold text-on-surface mb-2">Consumo por categoría (histórico)</h4>
+        )}
         {categorias.length === 0 ? (
-          <p className="text-sm text-muted mb-4">Todavía no has utilizado créditos.</p>
+          usados === 0 && <p className="text-sm text-muted mb-4">Todavía no has utilizado créditos.</p>
         ) : (
           <ul className="mb-4 space-y-1">
             {categorias.map(([nombre, cant]) => (

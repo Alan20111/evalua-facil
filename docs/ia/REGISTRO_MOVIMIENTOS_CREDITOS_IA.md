@@ -46,8 +46,20 @@ la IA, el `motivo` ni el `adminUid` de un ajuste. La interfaz muestra textos fij
 
 `where('uid','==',uid)` + `where('periodo','==','AAAA-MM')`: dos igualdades, sin
 `orderBy` (regla del proyecto) y **sin índice compuesto**. Se pagina por mes
-(«Mes anterior / siguiente») y se ordena en memoria. Se oculta por defecto el Chat con
-Asistente que no cuesta nada (casilla para mostrarlo).
+(«Mes anterior / siguiente») y se ordena en memoria.
+
+## Presentación
+
+Una tabla de tres columnas —**Fecha**, **Concepto** y **Créditos**— con los filtros
+«Todos / Consumos / Recargas y ajustes». Créditos: consumo y ajuste negativo restan;
+compra, bienvenida y ajuste positivo suman; «Sin cobro» es 0. El saldo posterior sigue
+guardado en cada movimiento pero no se muestra en la tabla. Un mes sin movimientos
+muestra su mensaje dentro de la tabla.
+
+**Chat con Asistente (función retirada):** es solo presentación. Las operaciones
+`chat_asistente` nunca aparecen en el registro, tengan costo o no, y la categoría «Chat
+con Asistente» nunca aparece en «Consumo por categoría». Los datos históricos, los
+saldos y el ledger no se tocan (siguen contando en «Utilizados en total»).
 
 ## Historial anterior (backfill)
 
