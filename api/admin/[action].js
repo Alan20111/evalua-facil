@@ -179,6 +179,7 @@ async function handleDeleteAccount(req, res) {
   const bitacora = await docsPorCampo(db, 'notificationLog', 'uid', targetUid)
   const consumosIA = await docsPorCampo(db, 'iaConsumos', 'uid', targetUid)
   const consumosIAInterno = await docsPorCampo(db, 'iaConsumosInterno', 'uid', targetUid)
+  const movimientosIA = await docsPorCampo(db, 'iaMovimientos', 'uid', targetUid)
 
   const todosLosDocs = [
     ...Object.values(porColeccion).flat(),
@@ -215,6 +216,7 @@ async function handleDeleteAccount(req, res) {
     ...planos.map((r) => [r.path, r]),
     ...consumosIA.map((d) => [d.ref.path, d.ref]),
     ...consumosIAInterno.map((d) => [d.ref.path, d.ref]),
+    ...movimientosIA.map((d) => [d.ref.path, d.ref]),
     [`iaCreditos/${targetUid}`, db.collection('iaCreditos').doc(targetUid)],
     [`iaTrialRegistro/${targetUid}`, db.collection('iaTrialRegistro').doc(targetUid)],
     [`notificationSettings/${targetUid}`, db.collection('notificationSettings').doc(targetUid)],

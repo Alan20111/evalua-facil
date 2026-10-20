@@ -47,6 +47,7 @@ import { isPerfilIACompleto, perfilIAVacio } from '../src/utils/perfilIA.js'
 import { tipoFuentePermitido, extensionDeArchivo, hayFuentesGenerales, MAX_FUENTES_POR_GRUPO, esMismaFuente } from '../src/utils/fuentesAsignatura.js'
 import { planeacionVigente, validarArchivoPlaneacion, extensionPlaneacion } from '../src/utils/planeacionVigente.js'
 import { estadoRegaloIA } from '../src/utils/creditosHelpers.js'
+import { tituloMovimiento, detalleMovimiento, esRuido, prepararMovimientos, desplazarPeriodo, etiquetaPeriodo, periodoDe as periodoMovimiento } from '../src/utils/movimientosCreditos.js'
 import {
   calcularCostoUSD, claveDia, inicioDelDia, clavesDeDias, rangoDeDias,
   margenSobreCostoIA, costoPromedioDiario, diasEstimadosRestantes, RANGOS_DIAS,
@@ -10904,6 +10905,56 @@ grupo('guardado de respuestas — cola por pregunta, estados, reintentos y enví
     assert.deepStrictEqual(Object.keys(r), ['q2'])
     assert.deepStrictEqual(GR.respuestasPorRecuperar(resp, {}, 5000), {}, 'un respaldo anterior al inicio del intento no se usa')
     assert.deepStrictEqual(GR.respuestasPorRecuperar(null, {}), {})
+  })
+}
+
+// ── Registro de movimientos de créditos (lógica pura de presentación) ─────────────────────
+{
+  const ts = (ms) => ({ toMillis: () => ms })
+  caso('registro de movimientos · el texto es del docente: operación conocida, categoría de respaldo y tipos fijos', () => {
+    assert.strictEqual(tituloMovimiento({ tipo: 'consumo', operacion: 'rubrica' }), 'Rúbrica con IA')
+    assert.strictEqual(tituloMovimiento({ tipo: 'consumo', operacion: 'operacion_nueva', categoria: 'Evaluaciones' }), 'Evaluaciones')
+    assert.strictEqual(tituloMovimiento({ tipo: 'ajuste' }), 'Ajuste de Evalúa Fácil')
+    assert.strictEqual(tituloMovimiento({ tipo: 'bienvenida' }), 'Créditos de bienvenida')
+    assert.strictEqual(tituloMovimiento({ tipo: 'compra' }), 'Compra de créditos')
+  })
+
+  caso('registro de movimientos · «sin cobro» dice que no se descontó nada y no deja pasar texto técnico', () => {
+    const d = detalleMovimiento({ estado: 'sin_cobro', motivoCodigo: 'fallido', motivo: '401 invalid x-api-key' })
+    assert.ok(d.includes('No se descontó nada'))
+    assert.ok(!d.includes('401') && !d.includes('x-api-key'))
+    assert.strictEqual(detalleMovimiento({ estado: 'en_proceso' }), 'En proceso')
+    assert.strictEqual(detalleMovimiento({ estado: 'aplicado' }), null)
+  })
+
+  caso('registro de movimientos · el Chat sin costo se oculta por defecto (y solo ese)', () => {
+    const movs = [
+      { id: 'a', tipo: 'consumo', operacion: 'chat_asistente', delta: 0, fecha: ts(3) },
+      { id: 'b', tipo: 'consumo', operacion: 'chat_asistente', delta: -1, fecha: ts(2) },
+      { id: 'c', tipo: 'compra', delta: 50, fecha: ts(1) },
+    ]
+    assert.deepStrictEqual(prepararMovimientos(movs).map((m) => m.id), ['b', 'c'])
+    assert.deepStrictEqual(prepararMovimientos(movs, { mostrarChatSinCosto: true }).map((m) => m.id), ['a', 'b', 'c'])
+    assert.strictEqual(esRuido(movs[1]), false)
+  })
+
+  caso('registro de movimientos · filtros y orden: más reciente primero', () => {
+    const movs = [
+      { id: 'a', tipo: 'consumo', operacion: 'aviso', delta: -1, fecha: ts(1) },
+      { id: 'b', tipo: 'bienvenida', delta: 30, fecha: ts(3) },
+      { id: 'c', tipo: 'consumo', operacion: 'rubrica', delta: -2, fecha: ts(2) },
+    ]
+    assert.deepStrictEqual(prepararMovimientos(movs).map((m) => m.id), ['b', 'c', 'a'])
+    assert.deepStrictEqual(prepararMovimientos(movs, { filtro: 'consumos' }).map((m) => m.id), ['c', 'a'])
+    assert.deepStrictEqual(prepararMovimientos(movs, { filtro: 'recargas' }).map((m) => m.id), ['b'])
+  })
+
+  caso('registro de movimientos · periodos en hora de México y navegación entre meses', () => {
+    assert.strictEqual(periodoMovimiento(new Date('2026-11-01T05:30:00Z')), '2026-10')
+    assert.strictEqual(periodoMovimiento(new Date('2026-11-01T06:30:00Z')), '2026-11')
+    assert.strictEqual(desplazarPeriodo('2026-01', -1), '2025-12')
+    assert.strictEqual(desplazarPeriodo('2026-12', 1), '2027-01')
+    assert.strictEqual(etiquetaPeriodo('2026-10'), 'Octubre de 2026')
   })
 }
 

@@ -153,6 +153,8 @@ const ENLACE = {
   iaCreditos: { id: DOCENTE, datos: { plan: 'pro', capacidad: 350, saldo: 120 } },
   iaConsumos: { datos: { uid: DOCENTE, operacion: 'aviso', estado: 'ejecutado', creditosReales: 1 } },
   iaConsumosInterno: { datos: { uid: DOCENTE, operacion: 'aviso', tokensEntrada: 700 } },
+  // Registro de movimientos (iaMovimientos): también es del docente y se va con su cuenta.
+  iaMovimientos: { datos: { uid: DOCENTE, tipo: 'consumo', operacion: 'aviso', periodo: '2026-10', delta: -1, estado: 'aplicado' } },
   iaTrialRegistro: { id: DOCENTE, datos: { uid: DOCENTE, creditosAsignados: 350 } },
 }
 

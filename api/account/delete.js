@@ -205,6 +205,7 @@ export default async function handler(req, res) {
     // el lote de abajo. Sin nada de esto, borrar la cuenta dejaría residuo.
     const consumosIA = await docsPorCampo(db, 'iaConsumos', 'uid', uid)
     const consumosIAInterno = await docsPorCampo(db, 'iaConsumosInterno', 'uid', uid)
+    const movimientosIA = await docsPorCampo(db, 'iaMovimientos', 'uid', uid)
 
     // ── 5. Archivos de todo lo anterior, subcolecciones incluidas ───────
     const todosLosDocs = [
@@ -251,6 +252,7 @@ export default async function handler(req, res) {
       ...planos.map((r) => [r.path, r]),
       ...consumosIA.map((d) => [d.ref.path, d.ref]),
       ...consumosIAInterno.map((d) => [d.ref.path, d.ref]),
+      ...movimientosIA.map((d) => [d.ref.path, d.ref]),
       [`iaCreditos/${uid}`, db.collection('iaCreditos').doc(uid)],
       [`iaTrialRegistro/${uid}`, db.collection('iaTrialRegistro').doc(uid)],
       [`notificationSettings/${uid}`, db.collection('notificationSettings').doc(uid)],

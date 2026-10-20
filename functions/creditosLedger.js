@@ -61,6 +61,51 @@ const CREDITOS_BIENVENIDA = 30
 // crédito equivale a medio centavo.
 const round2 = (n) => Math.round(n * 100) / 100
 
+// ── Registro de movimientos del docente (iaMovimientos) ─────────────────────
+// Un documento por movimiento de créditos, escrito DENTRO de la misma
+// transacción que mueve el saldo: o se aplican las dos cosas o ninguna, y
+// `saldoDespues` es el saldo real que dejó esa transacción. El cliente solo
+// lee lo suyo (firestore.rules); nunca escribe.
+//
+// IDs deterministas (un reintento reescribe el mismo documento, no duplica):
+//   · consumo   → la clave de idempotencia (misma que iaConsumos/{clave});
+//   · compra    → compra_{purchaseId};
+//   · bienvenida→ bienvenida_{uid};
+//   · ajuste    → ajuste_{id aleatorio} (cada ajuste del admin es un hecho nuevo).
+//
+// Lo que NUNCA se copia aquí: `motivo` de errores del proveedor, `resultado`
+// de la IA, el `motivo`/`adminUid` de un ajuste. El docente solo ve códigos
+// fijos (`motivoCodigo`) que la interfaz traduce a texto.
+const ZONA_PERIODO = 'America/Mexico_City'
+
+// 'AAAA-MM' en hora de México: es la llave de paginación mensual de la
+// registro de movimientos (dos igualdades, uid + periodo, sin índice compuesto).
+function periodoDe(fecha) {
+  const partes = new Intl.DateTimeFormat('en-CA', { timeZone: ZONA_PERIODO, year: 'numeric', month: '2-digit' }).formatToParts(fecha)
+  const anio = partes.find((p) => p.type === 'year').value
+  const mes = partes.find((p) => p.type === 'month').value
+  return `${anio}-${mes}`
+}
+
+// merge: true — si el movimiento no existe (reserva anterior al registro de movimientos
+// que se liquida después) se crea completo; si existe, solo se actualiza.
+function escribirMovimiento(tx, id, datos) {
+  tx.set(db().doc(`iaMovimientos/${id}`), { ...datos, origen: 'ledger' }, { merge: true })
+}
+
+// Movimiento de un consumo a partir de su documento de iaConsumos.
+function baseConsumo(consumo) {
+  const fecha = consumo.createdAt?.toDate?.() || new Date()
+  return {
+    uid: consumo.uid,
+    tipo: 'consumo',
+    operacion: consumo.operacion,
+    categoria: consumo.categoria || 'Otros',
+    fecha: consumo.createdAt || Timestamp.fromDate(fecha),
+    periodo: periodoDe(fecha),
+  }
+}
+
 // ── Errores con código, para que el callable los traduzca a HttpsError ──────
 class ErrorCreditos extends Error {
   constructor(codigo, mensaje, datos = {}) {
@@ -133,6 +178,7 @@ async function reservar({ uid, operacion, idempotencyKey, unidades = 1, asignatu
     }
 
     // Escrituras: consumo reservado + saldo descontado, atómicos.
+    const createdAt = Timestamp.fromDate(ahora)
     tx.set(refConsumo, {
       uid,
       operacion,
@@ -141,9 +187,18 @@ async function reservar({ uid, operacion, idempotencyKey, unidades = 1, asignatu
       unidades,
       creditosReservados: costo,
       estado: 'reservado',
-      createdAt: Timestamp.fromDate(ahora),
+      createdAt,
     })
     const saldoTrasReserva = round2((creditos.saldo || 0) - costo)
+    // Registro: «en proceso» con la reserva ya descontada. Se cierra en
+    // liquidar (cobro real) o reembolsar (sin cobro).
+    escribirMovimiento(tx, idempotencyKey, {
+      ...baseConsumo({ uid, operacion, categoria, createdAt }),
+      delta: -costo,
+      estado: 'en_proceso',
+      saldoDespues: saldoTrasReserva,
+      actualizadoEn: FieldValue.serverTimestamp(),
+    })
     tx.set(refCreditos, {
       ...camposNuevos,
       saldo: saldoTrasReserva,
@@ -203,6 +258,13 @@ async function liquidar({ uid, idempotencyKey, creditosReales, resultado = null 
       consumoPorCategoria: categorias,
       actualizadoEn: FieldValue.serverTimestamp(),
     })
+    escribirMovimiento(tx, idempotencyKey, {
+      ...baseConsumo(consumo),
+      delta: -reales,
+      estado: 'aplicado',
+      saldoDespues: saldoFinal,
+      actualizadoEn: FieldValue.serverTimestamp(),
+    })
 
     return { repetida: false, creditosReales: reales, saldo: saldoFinal }
   })
@@ -229,6 +291,16 @@ async function reembolsar({ uid, idempotencyKey, motivo = 'fallo', estadoFinal =
       liquidadoEn: FieldValue.serverTimestamp(),
     })
     tx.update(refCreditos, { saldo, actualizadoEn: FieldValue.serverTimestamp() })
+    // Registro: sin cobro. `motivoCodigo` es el estado final ('fallido',
+    // 'expirado', 'cancelado'): nunca el `motivo` técnico del proveedor.
+    escribirMovimiento(tx, idempotencyKey, {
+      ...baseConsumo(consumo),
+      delta: 0,
+      estado: 'sin_cobro',
+      motivoCodigo: estadoFinal,
+      saldoDespues: saldo,
+      actualizadoEn: FieldValue.serverTimestamp(),
+    })
     return { hecho: true, saldo }
   })
 }
@@ -274,6 +346,23 @@ async function ajustarSaldoManual({ uid, delta, motivo, adminUid }) {
     const snap = await tx.get(ref)
     const actual = snap.exists ? (snap.data().saldo || 0) : 0
     const saldo = round2(Math.max(0, actual + delta))
+    // Registro: se registra lo que de verdad cambió el saldo (un delta que
+    // lo cruzaría por debajo de cero se recorta). Sin motivo ni adminUid: el
+    // docente solo ve «Ajuste de Evalúa Fácil».
+    const aplicado = round2(saldo - actual)
+    if (aplicado !== 0) {
+      const ahora = new Date()
+      escribirMovimiento(tx, `ajuste_${db().collection('iaMovimientos').doc().id}`, {
+        uid,
+        tipo: 'ajuste',
+        delta: aplicado,
+        estado: 'aplicado',
+        saldoDespues: saldo,
+        fecha: Timestamp.fromDate(ahora),
+        periodo: periodoDe(ahora),
+        actualizadoEn: FieldValue.serverTimestamp(),
+      })
+    }
     tx.set(ref, {
       saldo,
       consumidoTotal: snap.exists ? (snap.data().consumidoTotal || 0) : 0,
@@ -348,6 +437,16 @@ async function activarCreditosBienvenida({ uid, ahora = new Date() }) {
       bienvenidaActivada: true,
       activadaEn: Timestamp.fromDate(ahora),
     }, { merge: true })
+    escribirMovimiento(tx, `bienvenida_${uid}`, {
+      uid,
+      tipo: 'bienvenida',
+      delta: CREDITOS_BIENVENIDA,
+      estado: 'aplicado',
+      saldoDespues: saldoActual + CREDITOS_BIENVENIDA,
+      fecha: Timestamp.fromDate(ahora),
+      periodo: periodoDe(ahora),
+      actualizadoEn: FieldValue.serverTimestamp(),
+    })
 
     return { repetida: false, saldo: saldoActual + CREDITOS_BIENVENIDA }
   })
@@ -391,6 +490,18 @@ async function acreditarCompraCreditos({ purchaseId, adminUid }) {
       resueltoEn: FieldValue.serverTimestamp(),
       resueltoPor: adminUid,
     })
+    const ahora = new Date()
+    escribirMovimiento(tx, `compra_${purchaseId}`, {
+      uid: compra.docenteId,
+      tipo: 'compra',
+      delta: compra.creditos,
+      estado: 'aplicado',
+      saldoDespues: nuevoSaldo,
+      ref: purchaseId,
+      fecha: Timestamp.fromDate(ahora),
+      periodo: periodoDe(ahora),
+      actualizadoEn: FieldValue.serverTimestamp(),
+    })
     return { repetida: false, creditos: compra.creditos, saldo: nuevoSaldo }
   })
 }
@@ -407,4 +518,5 @@ module.exports = {
   reembolsar,
   limpiarReservasHuerfanas,
   ajustarSaldoManual,
+  periodoDe,
 }

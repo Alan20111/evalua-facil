@@ -3887,4 +3887,188 @@ EXTRACTOR.restaurar()
 
 require.cache[rutaSdk].exports = SDK_REAL
 
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('Registro de movimientos (iaMovimientos) — escrita por el ledger, en la misma transacción')
+
+const movDe = async (id) => (await db.doc(`iaMovimientos/${id}`).get()).data()
+const movimientosDe = async (uid = DOCENTE) => (await db.collection('iaMovimientos').where('uid', '==', uid).get()).docs.map((d) => ({ id: d.id, ...d.data() }))
+
+await caso('consumo feliz: nace «en_proceso» con la reserva y se cierra «aplicado» con el cobro real y el saldo real', async () => {
+  await limpiar()
+  await sembrarDocente()
+  await darSaldo(DOCENTE, 50)
+  const k = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'examen', idempotencyKey: k, tarifas: TARIFAS })
+  let m = await movDe(k)
+  assert.strictEqual(m.estado, 'en_proceso')
+  assert.strictEqual(m.tipo, 'consumo')
+  assert.strictEqual(m.delta, -10)
+  assert.strictEqual(m.saldoDespues, 40)
+  assert.strictEqual(m.uid, DOCENTE)
+  assert.strictEqual(m.operacion, 'examen')
+  assert.strictEqual(m.categoria, 'Evaluaciones')
+  assert.strictEqual(m.origen, 'ledger')
+  assert.match(m.periodo, /^\d{4}-\d{2}$/)
+
+  await L.liquidar({ uid: DOCENTE, idempotencyKey: k, creditosReales: 7 })
+  m = await movDe(k)
+  assert.strictEqual(m.estado, 'aplicado')
+  assert.strictEqual(m.delta, -7, 'se muestra lo cobrado, no lo reservado')
+  assert.strictEqual(m.saldoDespues, 43)
+  assert.strictEqual(m.saldoDespues, (await creditosDe()).saldo, 'el saldo del movimiento ES el saldo real')
+  assert.strictEqual((await movimientosDe()).length, 1, 'una sola fila por operación')
+})
+
+await caso('idempotencia: reintentar reservar o liquidar la misma clave no duplica ni cambia el movimiento', async () => {
+  const k = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: k, tarifas: TARIFAS })
+  await L.liquidar({ uid: DOCENTE, idempotencyKey: k, creditosReales: 1 })
+  const antes = await movDe(k)
+  await L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: k, tarifas: TARIFAS })
+  await L.liquidar({ uid: DOCENTE, idempotencyKey: k, creditosReales: 1 })
+  const despues = await movDe(k)
+  assert.deepStrictEqual(despues, antes)
+  assert.strictEqual((await movimientosDe()).filter((x) => x.id === k).length, 1)
+  assert.strictEqual(despues.saldoDespues, (await creditosDe()).saldo)
+})
+
+await caso('operación fallida: «sin_cobro», delta 0, saldo devuelto y NUNCA el texto técnico del error', async () => {
+  const antes = (await creditosDe()).saldo
+  const k = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'examen', idempotencyKey: k, tarifas: TARIFAS })
+  await L.reembolsar({ uid: DOCENTE, idempotencyKey: k, motivo: '401 {"type":"error","error":{"message":"invalid x-api-key"}}' })
+  const m = await movDe(k)
+  assert.strictEqual(m.estado, 'sin_cobro')
+  assert.strictEqual(m.delta, 0)
+  assert.strictEqual(m.motivoCodigo, 'fallido')
+  assert.strictEqual(m.saldoDespues, antes)
+  assert.strictEqual((await creditosDe()).saldo, antes)
+  assert.ok(!('motivo' in m), 'el motivo técnico no llega al registro de movimientos')
+  assert.ok(!JSON.stringify(m).includes('x-api-key'), 'nada del proveedor en el documento')
+})
+
+await caso('reserva expirada y borrador cancelado: «sin_cobro» con su código', async () => {
+  const kExp = clave()
+  const kCan = clave()
+  const hace = new Date(Date.now() - 60 * 60 * 1000)
+  await L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: kExp, tarifas: TARIFAS, ahora: hace })
+  await L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: kCan, tarifas: TARIFAS })
+  await L.reembolsar({ uid: DOCENTE, idempotencyKey: kCan, motivo: 'borrador cancelado por el docente', estadoFinal: 'cancelado' })
+  await L.limpiarReservasHuerfanas({ minutos: 15 })
+  assert.strictEqual((await movDe(kExp)).motivoCodigo, 'expirado')
+  assert.strictEqual((await movDe(kExp)).estado, 'sin_cobro')
+  assert.strictEqual((await movDe(kCan)).motivoCodigo, 'cancelado')
+})
+
+await caso('concurrencia: 5 reservas simultáneas con saldo para 3 → 3 movimientos y saldos posteriores sin repetir', async () => {
+  await limpiar()
+  await sembrarDocente()
+  await darSaldo(DOCENTE, 3)
+  const claves = [clave(), clave(), clave(), clave(), clave()]
+  const res = await Promise.allSettled(claves.map((k) => L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: k, tarifas: TARIFAS })))
+  assert.strictEqual(res.filter((r) => r.status === 'fulfilled').length, 3)
+  const movs = await movimientosDe()
+  assert.strictEqual(movs.length, 3, 'las rechazadas por saldo no dejan movimiento')
+  assert.deepStrictEqual(movs.map((m) => m.saldoDespues).sort(), [0, 1, 2], 'cada transacción ve su saldo, sin choques')
+  assert.strictEqual((await creditosDe()).saldo, 0)
+})
+
+await caso('saldo insuficiente: ni reserva ni movimiento', async () => {
+  const antes = (await movimientosDe()).length
+  await assert.rejects(() => L.reservar({ uid: DOCENTE, operacion: 'examen', idempotencyKey: clave(), tarifas: TARIFAS }), (e) => e.codigo === 'SALDO_INSUFICIENTE')
+  assert.strictEqual((await movimientosDe()).length, antes)
+})
+
+await caso('bienvenida: un movimiento +30 con su saldo; doble activación no duplica', async () => {
+  await limpiar()
+  await sembrarDocente()
+  await L.marcarBienvenidaDisponible({ uid: DOCENTE })
+  await Promise.all([L.activarCreditosBienvenida({ uid: DOCENTE }), L.activarCreditosBienvenida({ uid: DOCENTE })])
+  const movs = await movimientosDe()
+  assert.strictEqual(movs.length, 1)
+  assert.strictEqual(movs[0].id, `bienvenida_${DOCENTE}`)
+  assert.strictEqual(movs[0].tipo, 'bienvenida')
+  assert.strictEqual(movs[0].delta, 30)
+  assert.strictEqual(movs[0].saldoDespues, 30)
+  assert.strictEqual((await creditosDe()).saldo, 30)
+})
+
+await caso('compra aprobada: un movimiento +créditos con saldo; aprobarla dos veces no duplica', async () => {
+  await db.doc('creditPurchases/C1').set({ docenteId: DOCENTE, creditos: 100, montoMXN: 100, metodo: 'transferencia', status: 'pendiente', origen: 'creditos_adicionales' })
+  await L.acreditarCompraCreditos({ purchaseId: 'C1', adminUid: 'admin_1' })
+  await L.acreditarCompraCreditos({ purchaseId: 'C1', adminUid: 'admin_1' })
+  const m = await movDe('compra_C1')
+  assert.strictEqual(m.tipo, 'compra')
+  assert.strictEqual(m.delta, 100)
+  assert.strictEqual(m.saldoDespues, 130)
+  assert.strictEqual(m.ref, 'C1')
+  assert.strictEqual((await movimientosDe()).filter((x) => x.tipo === 'compra').length, 1)
+  assert.strictEqual((await creditosDe()).saldo, 130)
+  assert.ok(!JSON.stringify(m).includes('admin_1'))
+})
+
+await caso('ajuste del admin: se registra lo aplicado, sin motivo ni adminUid; un recorte a cero registra solo lo que cambió', async () => {
+  await L.ajustarSaldoManual({ uid: DOCENTE, delta: 20, motivo: 'cortesía secreta', adminUid: 'admin_secreto' })
+  const ajustes = (await movimientosDe()).filter((x) => x.tipo === 'ajuste')
+  assert.strictEqual(ajustes.length, 1)
+  assert.strictEqual(ajustes[0].delta, 20)
+  assert.strictEqual(ajustes[0].saldoDespues, 150)
+  const texto = JSON.stringify(ajustes[0])
+  assert.ok(!texto.includes('cortesía secreta') && !texto.includes('admin_secreto'), 'sin notas internas ni datos del admin')
+
+  await L.ajustarSaldoManual({ uid: DOCENTE, delta: -1000, motivo: 'corrección', adminUid: 'admin_1' })
+  const recorte = (await movimientosDe()).filter((x) => x.tipo === 'ajuste' && x.delta < 0)
+  assert.strictEqual(recorte.length, 1)
+  assert.strictEqual(recorte[0].delta, -150, 'solo lo que de verdad bajó el saldo')
+  assert.strictEqual(recorte[0].saldoDespues, 0)
+
+  const antes = (await movimientosDe()).length
+  await L.ajustarSaldoManual({ uid: DOCENTE, delta: -5, motivo: 'nada que quitar', adminUid: 'admin_1' })
+  assert.strictEqual((await movimientosDe()).length, antes, 'un ajuste que no cambia el saldo no deja movimiento')
+})
+
+await caso('reserva anterior al registro de movimientos (sin movimiento): al liquidarse se crea completo, con el saldo real', async () => {
+  await limpiar()
+  await sembrarDocente()
+  await darSaldo(DOCENTE, 9)
+  const k = clave()
+  await db.doc(`iaConsumos/${k}`).set({
+    uid: DOCENTE, operacion: 'examen', categoria: 'Evaluaciones', asignaturaId: null, unidades: 1,
+    creditosReservados: 10, estado: 'reservado', createdAt: Timestamp.fromDate(new Date('2026-09-15T18:00:00Z')),
+  })
+  await db.doc(`iaCreditos/${DOCENTE}`).set({ saldo: 9, consumidoTotal: 0, consumoPorCategoria: {} })
+  await L.liquidar({ uid: DOCENTE, idempotencyKey: k, creditosReales: 4 })
+  const m = await movDe(k)
+  assert.strictEqual(m.uid, DOCENTE)
+  assert.strictEqual(m.operacion, 'examen')
+  assert.strictEqual(m.delta, -4)
+  assert.strictEqual(m.saldoDespues, 15)
+  assert.strictEqual(m.periodo, '2026-09')
+  assert.strictEqual(m.estado, 'aplicado')
+})
+
+await caso('coherencia: tras una secuencia de movimientos, el saldo del último coincide con iaCreditos.saldo', async () => {
+  await limpiar()
+  await sembrarDocente()
+  await L.marcarBienvenidaDisponible({ uid: DOCENTE })
+  await L.activarCreditosBienvenida({ uid: DOCENTE })
+  for (const real of [1, 0.5, 1]) {
+    const k = clave()
+    await L.reservar({ uid: DOCENTE, operacion: 'aviso', idempotencyKey: k, tarifas: TARIFAS })
+    await L.liquidar({ uid: DOCENTE, idempotencyKey: k, creditosReales: real })
+  }
+  const k = clave()
+  await L.reservar({ uid: DOCENTE, operacion: 'examen', idempotencyKey: k, tarifas: TARIFAS })
+  await L.reembolsar({ uid: DOCENTE, idempotencyKey: k, motivo: 'x' })
+  const movs = (await movimientosDe()).sort((a, b) => a.actualizadoEn.toMillis() - b.actualizadoEn.toMillis())
+  const suma = movs.reduce((t, m) => t + m.delta, 0)
+  assert.strictEqual(Math.round(suma * 100) / 100, 27.5, '30 de bienvenida − 1 − 0.5 − 1')
+  assert.strictEqual(movs[movs.length - 1].saldoDespues, (await creditosDe()).saldo)
+})
+
+await caso('periodoDe usa la hora de México (UTC−6): la medianoche UTC del día 1 todavía es el mes anterior', async () => {
+  assert.strictEqual(L.periodoDe(new Date('2026-11-01T05:30:00Z')), '2026-10')
+  assert.strictEqual(L.periodoDe(new Date('2026-11-01T06:30:00Z')), '2026-11')
+})
+
 resumen('pruebas del ledger de créditos IA')
