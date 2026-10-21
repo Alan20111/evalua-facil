@@ -27,9 +27,9 @@ export function QrImagen({ url, lado, className = '' }) {
 }
 
 /** Pantalla de espera de la modalidad externa: QR enorme + instrucción + código. */
-export default function SalaQr({ sesion, area }) {
+export default function SalaQr({ sesion, area, tam = null }) {
   const url = urlParticipacion(sesion.codigo)
-  const t = tamanosProyeccion(area.ancho, area.alto)
+  const t = tam || tamanosProyeccion(area.ancho, area.alto)
   const lado = ladoQr(area.ancho, area.alto)
   const horizontal = area.ancho >= area.alto * 1.15
   return (
@@ -46,9 +46,9 @@ export default function SalaQr({ sesion, area }) {
 }
 
 /** QR que se vuelve a desplegar durante la actividad con un control: grande y centrado, sin tapar la pregunta cuando se oculta. */
-export function QrSuperpuesto({ sesion, area, onCerrar }) {
+export function QrSuperpuesto({ sesion, area, tam = null, onCerrar }) {
   const url = urlParticipacion(sesion.codigo)
-  const t = tamanosProyeccion(area.ancho, area.alto)
+  const t = tam || tamanosProyeccion(area.ancho, area.alto)
   const lado = ladoQr(area.ancho, area.alto)
   return (
     <div className="absolute inset-0 z-barra flex flex-col items-center justify-center gap-[2vmin] text-slate-900" style={{ backgroundColor: 'rgba(255,255,255,0.97)' }}>

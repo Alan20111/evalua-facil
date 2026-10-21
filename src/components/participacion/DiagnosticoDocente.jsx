@@ -21,8 +21,7 @@ function Lista({ titulo, items }) {
   )
 }
 
-function Cuerpo({ pregunta, informe, respuestas, claves }) {
-  const clave = claves?.[pregunta.id]
+function Cuerpo({ pregunta, informe, respuestas }) {
   const citas = (ids) => ids.slice(0, 2).map((id) => respuestas.find((r) => r.id === id)?.texto).filter(Boolean)
   return (
     <div className="space-y-3">
@@ -30,7 +29,7 @@ function Cuerpo({ pregunta, informe, respuestas, claves }) {
       {pregunta.tipo === 'opcion_unica' && informe.confusiones?.length > 0 && (
         <Lista titulo="Confusiones que aparecen" items={informe.confusiones.map((c) => {
           const i = pregunta.opciones.findIndex((o) => o.id === c.opcion)
-          return <li key={c.opcion}><strong>{c.n}</strong> eligieron la opción <strong>{letra(i)}</strong>: {c.texto || clave?.confusiones?.[c.opcion]}</li>
+          return <li key={c.opcion}><strong>{c.n}</strong> eligieron la opción <strong>{letra(i)}</strong>: {c.texto}</li>
         })} />
       )}
       {pregunta.tipo !== 'opcion_unica' && (
@@ -82,7 +81,7 @@ export default function DiagnosticoDocente({ sesion, pregunta, respuestas, infor
       </header>
       {!sesion.analisisActivo && <p className="text-sm text-muted">Activa «Analizar con IA» para obtener el diagnóstico de esta pregunta.</p>}
       {sesion.analisisActivo && doc?.estado === 'generando' && <p className="text-sm text-muted flex items-center gap-2"><Loader2 size={16} className="animate-spin" aria-hidden="true" />Preparando el diagnóstico…</p>}
-      {sesion.analisisActivo && doc?.estado === 'listo' && <Cuerpo pregunta={pregunta} informe={{ ...doc.informe, cobertura: doc.informe?.cobertura || cobertura }} respuestas={respuestas} claves={claves} />}
+      {sesion.analisisActivo && doc?.estado === 'listo' && <Cuerpo pregunta={pregunta} informe={{ ...doc.informe, cobertura: doc.informe?.cobertura || cobertura }} respuestas={respuestas} />}
       {sesion.analisisActivo && doc?.estado === 'error' && <p className="text-sm text-red-700">No se pudo preparar el diagnóstico. Puedes intentarlo de nuevo.</p>}
       {sesion.analisisActivo && (!doc || doc.estado === 'insuficiente') && (
         <div className="space-y-2">

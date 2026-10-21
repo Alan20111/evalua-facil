@@ -6,10 +6,10 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import VistaPregunta from './VistaPregunta'
 import { tamanosProyeccion } from '../../utils/proyeccionVivo'
 
-export default function RecorridoResultados({ sesion, respuestas, claves, area, indiceInicial = 0 }) {
+export default function RecorridoResultados({ sesion, respuestas, claves, area, tamBase = null, indiceInicial = 0 }) {
   const [i, setI] = useState(indiceInicial)
   const n = sesion.preguntas.length
-  const t = tamanosProyeccion(area.ancho, area.alto)
+  const t = tamBase || tamanosProyeccion(area.ancho, area.alto)
   useEffect(() => {
     const tecla = (e) => {
       if (e.key === 'ArrowRight') setI((v) => Math.min(n - 1, v + 1))
@@ -25,7 +25,7 @@ export default function RecorridoResultados({ sesion, respuestas, claves, area, 
   return (
     <div className="h-full w-full flex flex-col">
       <div className="flex-1 min-h-0">
-        <VistaPregunta pregunta={pregunta} respuestas={respuestas} area={{ ancho: area.ancho, alto: area.alto - barra }}
+        <VistaPregunta pregunta={pregunta} respuestas={respuestas} area={{ ancho: area.ancho, alto: area.alto - barra }} tamBase={t}
           correcta={sesion.calificable ? claves?.[pregunta.id]?.correcta ?? null : null} revelar={sesion.calificable}
           encabezado={`Resultados · pregunta ${i + 1} de ${n} · ${total} ${total === 1 ? 'respuesta' : 'respuestas'}`} />
       </div>

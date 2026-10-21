@@ -56,11 +56,11 @@ export function useAmortiguado(valor, ms = 1500) {
 const canal = (codigo) => (typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel(`ef-vivo-${codigo}`))
 
 /**
- * Estado que el docente decide en su ventana (revelar la correcta, QR, momento, palabras comunes) y que la ventana de
+ * Estado que el docente decide en su ventana (revelar la correcta, QR, momento) y que la ventana de
  * proyección solo REFLEJA, por BroadcastChannel del mismo origen (no pasa por Firestore ni escribe nada).
  */
 export function useEstadoProyeccion(codigo, { emisor }) {
-  const [estado, setEstado] = useState({ verCorrecta: false, mostrarQr: false, momento: 'opciones', incluirVacias: false })
+  const [estado, setEstado] = useState({ verCorrecta: false, mostrarQr: false, momento: 'opciones' })
   const ch = useRef(null)
   const ultimo = useRef(estado)
   useEffect(() => {

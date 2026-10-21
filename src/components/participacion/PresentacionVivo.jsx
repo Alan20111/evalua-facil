@@ -7,7 +7,7 @@
 // «Proyectar en otra ventana» abre una ventana de solo lectura con la vista del grupo (se sincroniza por
 // BroadcastChannel; no escribe nada). Etapas: sala de espera (QR protagonista) → preguntas → resultados finales,
 // pregunta por pregunta y sin desplazamiento.
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, Check, Eye, Lock, LockOpen, Maximize2, MonitorUp, Play, QrCode, Sparkles, Square, Users, X } from 'lucide-react'
 import { useToast } from '../Toast'
 import { Button, Modal } from '../ui'
@@ -42,16 +42,20 @@ function Pantalla({ children, onCerrar, autonoma }) {
 function Escenario({ sesion, respuestas, informes, claves, vista, estado, reservaInferior = 0, onOcultarQr }) {
   const [ref, area] = useAreaMedida()
   const finalizada = sesion.estado === 'finalizada'
+  // La barra de controles flota sobre el escenario: se RESERVA su altura al pie para que ni las flechas ni nada quede
+  // debajo de ella. El tamaño de letra sale del escenario completo, así que reservar espacio no encoge la pregunta.
+  const areaUtil = { ancho: area.ancho, alto: Math.max(0, area.alto - reservaInferior) }
+  const tamBase = tamanosProyeccion(area.ancho, area.alto)
   return (
     <div ref={ref} className="flex-1 min-h-0 relative overflow-hidden bg-white" style={{ paddingBottom: reservaInferior }}>
       {area.ancho > 0 && vista === 'docente' && (
         <VistaDocente sesion={sesion} respuestas={respuestas} informes={informes} claves={claves} indice={sesion.preguntaIndex}
-          verCorrecta={estado.verCorrecta} momento={estado.momento} incluirVacias={estado.incluirVacias} />
+          verCorrecta={estado.verCorrecta} momento={estado.momento} />
       )}
       {area.ancho > 0 && vista === 'grupo' && (finalizada
-        ? <RecorridoResultados sesion={sesion} respuestas={respuestas} claves={claves} area={area} />
-        : <VistaGrupo sesion={sesion} respuestas={respuestas} claves={claves} area={area} verCorrecta={estado.verCorrecta} mostrarQr={estado.mostrarQr} onOcultarQr={onOcultarQr}
-          momento={estado.momento} incluirVacias={estado.incluirVacias} />)}
+        ? <RecorridoResultados sesion={sesion} respuestas={respuestas} claves={claves} area={areaUtil} tamBase={tamBase} />
+        : <VistaGrupo sesion={sesion} respuestas={respuestas} claves={claves} area={areaUtil} tamBase={tamBase} verCorrecta={estado.verCorrecta} mostrarQr={estado.mostrarQr} onOcultarQr={onOcultarQr}
+          momento={estado.momento} />)}
     </div>
   )
 }
@@ -68,6 +72,17 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
   const [confirmandoAnalisis, setConfirmandoAnalisis] = useState(false)
   const [activandoAnalisis, setActivandoAnalisis] = useState(false)
   const [confirmandoFin, setConfirmandoFin] = useState(false)
+  // Altura real de la barra de controles (cambia si se parte en dos filas en una ventana estrecha).
+  const [alturaBarra, setAlturaBarra] = useState(72)
+  const observador = useRef(null)
+  const barraRef = useCallback((nodo) => {
+    observador.current?.disconnect()
+    if (!nodo) return
+    const medir = () => setAlturaBarra(Math.ceil(nodo.getBoundingClientRect().height))
+    medir()
+    observador.current = new ResizeObserver(medir)
+    observador.current.observe(nodo)
+  }, [])
 
   useEffect(() => escucharSesionVivo(codigo, setSesion, () => setSesion(null)), [codigo])
   useEffect(() => escucharRespuestasVivo(codigo, docenteId, setRespuestas, () => toast('Se perdió la conexión con las respuestas; reintentando', 'error')), [codigo, docenteId, toast])
@@ -132,11 +147,11 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
   return (
     <>
       <Pantalla onCerrar={onCerrar}>
-        <Escenario sesion={sesion} respuestas={respuestas} informes={informes} claves={claves} vista={vista} estado={estado} reservaInferior={vista === 'docente' ? 72 : 0}
+        <Escenario sesion={sesion} respuestas={respuestas} informes={informes} claves={claves} vista={vista} estado={estado} reservaInferior={alturaBarra}
           onOcultarQr={() => cambiar({ mostrarQr: false })} />
 
         {/* Controles: se ocultan solos a los 3 s en la vista del grupo; el contenido nunca se encoge por ellos. */}
-        <div role="toolbar" aria-label="Controles de la presentación"
+        <div ref={barraRef} role="toolbar" aria-label="Controles de la presentación"
           className={`absolute inset-x-0 bottom-0 z-barra flex flex-wrap items-center justify-center gap-2 px-4 py-3 border-t border-slate-300 bg-white/95 transition-opacity duration-estandar ${controlesVisibles ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
           style={{ fontSize: Math.min(t.resto, 18) }}>
           <Button variant="quiet" size="sm" icon={X} className={barra} onClick={onCerrar} aria-label="Salir de la presentación (la sesión sigue activa)">Salir</Button>
@@ -161,11 +176,6 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
               {enMomentos && (
                 <Button variant="quiet" size="sm" className={barra} onClick={() => cambiar({ momento: estado.momento === 'opciones' ? 'resultados' : 'opciones' })}>
                   {estado.momento === 'opciones' ? 'Ver resultados' : 'Ver opciones'}
-                </Button>
-              )}
-              {pregunta?.tipo === 'abierta_breve' && (
-                <Button variant="quiet" size="sm" className={barra} onClick={() => cambiar({ incluirVacias: !estado.incluirVacias })}>
-                  {estado.incluirVacias ? 'Ocultar palabras comunes' : 'Mostrar todas las palabras'}
                 </Button>
               )}
               {!ultima && <Button size="sm" iconRight={ArrowRight} onClick={() => ir(sesion.preguntaIndex + 1)}>Siguiente</Button>}

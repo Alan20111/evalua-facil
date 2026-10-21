@@ -32,7 +32,7 @@ function Clave({ pregunta, clave }) {
   return clave.esperada ? <p className="text-sm text-on-surface"><strong>Respuesta esperada:</strong> {clave.esperada}</p> : null
 }
 
-export default function VistaDocente({ sesion, respuestas, informes, claves, indice, verCorrecta, momento, incluirVacias }) {
+export default function VistaDocente({ sesion, respuestas, informes, claves, indice, verCorrecta, momento }) {
   const [ref, area] = useAreaMedida()
   if (sesion.estado === 'finalizada') {
     return (
@@ -55,7 +55,7 @@ export default function VistaDocente({ sesion, respuestas, informes, claves, ind
       <div ref={ref} className="min-h-[60dvh] lg:min-h-0 rounded-card border border-outline-variant bg-white overflow-hidden">
         {area.ancho > 0 && (
           <VistaPregunta pregunta={pregunta} respuestas={respuestas} area={area} correcta={clave?.correcta ?? null} revelar={verCorrecta}
-            momento={momento} incluirVacias={incluirVacias} autoPaginar={false} encabezado={`Pregunta ${indice + 1} de ${sesion.preguntas.length}`} />
+            momento={momento} autoPaginar={false} encabezado={`Pregunta ${indice + 1} de ${sesion.preguntas.length}`} />
         )}
       </div>
       <aside className="overflow-y-auto space-y-3 min-h-0">

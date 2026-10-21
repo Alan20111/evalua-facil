@@ -31,7 +31,7 @@ export const medirEstimado = (texto, tamano) => texto.length * tamano * 0.56
 
 /** Orientación estable: depende solo de la palabra y de si es la dominante (rango 0). */
 export function esVertical(clave, texto, rango) {
-  return rango > 0 && texto.length >= 4 && texto.length <= 14 && hash32(clave) % 100 < 32
+  return rango > 0 && !/\s/.test(texto) && texto.length >= 4 && texto.length <= 14 && hash32(clave) % 100 < 32
 }
 
 export function colorDe(clave, rango) {
@@ -97,7 +97,7 @@ function centrar(colocadas, ancho, alto) {
 }
 
 /**
- * items: [{clave, texto, n}] ordenados por n desc (como los devuelve frecuenciasNube).
+ * items: [{clave, texto, n}] ordenados por n desc (una opción completa por elemento).
  * Devuelve { paginas: [{ palabras: [{clave,texto,n,x,y,w,h,tamano,vertical,color}], desde, hasta }], total }.
  */
 export function componerNube(items, ancho, alto, { medir = medirEstimado, tamanoMin = TAMANO_MIN_NUBE, tamanoMax = Math.floor(Math.min(ancho, alto) * 0.3), maxPorPagina = MAX_PALABRAS_PAGINA } = {}) {

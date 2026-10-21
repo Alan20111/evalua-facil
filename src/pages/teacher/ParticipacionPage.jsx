@@ -18,7 +18,7 @@ import Spinner from '../../components/Spinner'
 import ConfirmModal from '../../components/ConfirmModal'
 import PresentacionVivo from '../../components/participacion/PresentacionVivo'
 import { TEACHER_CONTAINER } from '../../config/layout'
-import { ACCESOS_VIVO, PROPOSITOS_VIVO, TIPOS_PREGUNTA_VIVO, VIVO_CFG, sanearPreguntasVivo } from '../../utils/participacionVivo'
+import { ACCESOS_VIVO, PROPOSITOS_VIVO, TIPOS_PREGUNTA_VIVO, VISUALIZACIONES_OPCION, VIVO_CFG, nubePermitida, sanearPreguntasVivo, visualizacionDe } from '../../utils/participacionVivo'
 import { crearSesionVivo, sesionesDeActividad } from '../../utils/participacionVivoDb'
 import { deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { subjectDisplayName } from '../../utils/subjectName'
@@ -29,19 +29,25 @@ function aModeloEdicion(p, clave = {}) {
   return {
     id: p.id, tipo: p.tipo, enunciado: p.enunciado, puntos: p.puntos ?? 1,
     opciones: p.opciones || [], correcta: clave.correcta ?? null,
-    criterios: clave.criterios || '', esperada: clave.esperada || '', conceptosTexto: (clave.conceptos || []).join(', '), confusiones: clave.confusiones || {},
+    criterios: clave.criterios || '', esperada: clave.esperada || '', conceptosTexto: (clave.conceptos || []).join(', '),
+    visualizacion: visualizacionDe(p),
   }
 }
 function deModeloEdicion(m) {
   return {
     id: m.id, tipo: m.tipo, enunciado: m.enunciado, puntos: m.puntos, opciones: m.opciones, correcta: m.correcta,
-    criterios: m.criterios, esperada: m.esperada, conceptos: m.conceptosTexto.split(',').map((c) => c.trim()).filter(Boolean), confusiones: m.confusiones,
+    criterios: m.criterios, esperada: m.esperada, conceptos: m.conceptosTexto.split(',').map((c) => c.trim()).filter(Boolean),
+    visualizacion: m.visualizacion,
   }
 }
 
 function EditorPregunta({ m, indice, total, bloqueado, onCambio, onMover, onQuitar }) {
   const set = (campo, valor) => onCambio({ ...m, [campo]: valor })
-  const setOpcion = (i, texto) => set('opciones', m.opciones.map((o, j) => (j === i ? { ...o, texto } : o)))
+  const setOpcion = (i, texto) => {
+    const opciones = m.opciones.map((o, j) => (j === i ? { ...o, texto } : o))
+    onCambio({ ...m, opciones, visualizacion: visualizacionDe({ ...m, opciones }) }) // si la edición hace inválida la nube, vuelve a barras
+  }
+  const permiteNube = nubePermitida(m.opciones)
   return (
     <Card as="section" aria-label={`Pregunta ${indice + 1}`} className="space-y-3">
       <div className="flex items-center gap-2">
@@ -63,15 +69,11 @@ function EditorPregunta({ m, indice, total, bloqueado, onCambio, onMover, onQuit
               <Input aria-label={`Opción ${i + 1}`} wrapperClassName="flex-1" value={o.texto} maxLength={VIVO_CFG.MAX_OPCION} onChange={(e) => setOpcion(i, e.target.value)} />
             </div>
           ))}
-          {m.opciones.some((o) => o.id !== m.correcta) && (
-            <div className="pt-2 space-y-2">
-              <p className="text-sm font-medium text-on-surface">Confusión que revela cada opción incorrecta <span className="font-normal text-hint">(opcional; mejora el diagnóstico)</span></p>
-              {m.opciones.map((o, i) => o.id !== m.correcta && (
-                <Input key={o.id} label={`Si alguien elige la opción ${String.fromCharCode(65 + i)}, cree que…`} maxLength={160}
-                  value={m.confusiones?.[o.id] || ''} onChange={(e) => set('confusiones', { ...m.confusiones, [o.id]: e.target.value })} />
-              ))}
-            </div>
-          )}
+          <Select label="Cómo mostrar los resultados" value={visualizacionDe(m)} onChange={(v) => set('visualizacion', v)}
+            options={Object.entries(VISUALIZACIONES_OPCION).filter(([value]) => value !== 'nube' || permiteNube).map(([value, label]) => ({ value, label }))}
+            hint={permiteNube
+              ? 'Barras compara las opciones. La nube escribe cada opción completa con un tamaño proporcional a cuántas veces se eligió.'
+              : 'La nube de palabras solo está disponible cuando todas las opciones tienen una o dos palabras.'} />
         </fieldset>
       ) : (
         <>
