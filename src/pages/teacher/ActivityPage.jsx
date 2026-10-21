@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, useParams, useLocation } from 'react-router-dom'
+import { Navigate, useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   collection,
   query,
@@ -1198,6 +1198,10 @@ export default function ActivityPage() {
   if (loading || pendingOpenId) return (
       <EsqueletoActividadDocente />
   )
+
+  // Participación en vivo tiene su propia pantalla (revisar, iniciar, proyectar): la lista de actividades
+  // sigue apuntando aquí y desde aquí se redirige.
+  if (activity?.categoria === 'participacion') return <Navigate to={`/participacion/${activityId}`} replace />
 
   // Eliminar actividad — un solo nodo, reutilizado en las dos ramas del
   // ternario de abajo (evaluación y entregable/observación) para que

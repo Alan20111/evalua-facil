@@ -1,7 +1,8 @@
 // Parte del render de SubjectPage.jsx (fase 5 de PLAN_NORMALIZACION_UI:
 // dividir sin cambio visual). Recibe lo que usa del componente principal por
 // el contexto Asignatura.
-import { useId } from 'react'
+import { useId, useState } from 'react'
+import CrearParticipacionModal from '../../../components/participacion/CrearParticipacionModal'
 import { AlertTriangle, Archive, ArrowDown, ArrowLeft, ArrowRightLeft, ArrowUp, ArrowUpDown, Check as CheckIcon, ChevronRight, ClipboardCheck, Copy, Download, Eye, FileText, Gamepad2, GraduationCap, KeyRound, ListChecks, Lock, LogIn, Paperclip, Pencil, Plus, RotateCcw, Trash2, WandSparkles, Upload, UserPlus, X } from 'lucide-react'
 import { Animado, Button, Checkbox, IconButton, IconTile, Input, Modal, MotivoApagado, PanelFlotante, Radio, SkeletonList } from '../../../components/ui'
 import EFDateTimePicker from '../../../components/EFDateTimePicker'
@@ -343,7 +344,12 @@ export default function ModalesAsignatura() {
     unarchivedSaving,
     zipDownloading,
     zipProgress,
+    currentUser,
+    navigate,
+    subjectId,
   } = useAsignatura()
+  // Participación en vivo con IA: su modal se abre desde el menú «Interactiva» de este mismo diálogo.
+  const [crearParticipacion, setCrearParticipacion] = useState(false)
   // Lo que falta para poder guardar (el botón se apaga y lo dice). Las fechas
   // aquí son recomendadas, no obligatorias: hay asignaturas viejas sin ellas.
   const faltanEditar = [
@@ -360,6 +366,18 @@ export default function ModalesAsignatura() {
   ].filter(Boolean)
   return (
     <>
+      {crearParticipacion && (
+        <CrearParticipacionModal
+          open
+          asignaturaId={subjectId}
+          asignaturaNombre={subjectDisplayName(subject)}
+          parcial={modalParcial}
+          docenteId={currentUser?.uid}
+          existingActivitiesCountInParcial={activities.filter((a) => a.parcial === modalParcial).length}
+          onClose={() => setCrearParticipacion(false)}
+          onCreated={(activityId) => { setCrearParticipacion(false); navigate(`/participacion/${activityId}`) }}
+        />
+      )}
       {/* ── Activity create/edit modal ── */}
       {showModal && (
         <Modal open onClose={() => setShowModal(false)} variant="sheet" size="3xl" z={40} padding="p-4">
@@ -448,6 +466,9 @@ export default function ModalesAsignatura() {
                     <OpcionCreacion ia label="Video interactivo"
                       desc="Pega un video de YouTube y el asistente propone preguntas que se hacen en el momento justo del video."
                       onClick={() => { setShowModal(false); setCrearVideoIA(true) }} />
+                    <OpcionCreacion ia label="Participación en vivo"
+                      desc="Tus estudiantes responden desde su celular y tú proyectas los resultados en tiempo real: nube de palabras, barras y análisis con IA."
+                      onClick={() => { setShowModal(false); setCrearParticipacion(true) }} />
                     <p className="text-xs text-muted text-center pt-2">Próximamente más actividades interactivas</p>
                   </>
                 )}
@@ -651,7 +672,7 @@ export default function ModalesAsignatura() {
                  Publicar
               </Button>
               <Button icon={Pencil} className="flex-1"
-                onClick={() => { const a = publishDraftConfirm; setPublishDraftConfirm(null); openEdit(a, activityLabelById[a.id]) }}>
+                onClick={() => { const a = publishDraftConfirm; setPublishDraftConfirm(null); if (a.categoria === 'participacion') navigate(`/participacion/${a.id}`); else openEdit(a, activityLabelById[a.id]) }}>
                  Editar
               </Button>
             </div>
@@ -1032,7 +1053,7 @@ export default function ModalesAsignatura() {
                 quedaría imposible de confirmar y de publicar. */}
             <button type="button"
               disabled={!esCopiable(activityMenu.a)}
-              data-tooltip={!esCopiable(activityMenu.a) ? 'Termina y confirma el juego para poder duplicarlo' : undefined}
+              data-tooltip={!esCopiable(activityMenu.a) ? (activityMenu.a.categoria === 'participacion' ? 'Una participación en vivo no se duplica: genérala de nuevo en la asignatura que la necesite' : 'Termina y confirma el juego para poder duplicarlo') : undefined}
               onClick={() => { const a = activityMenu.a; setActivityMenu(null); setDuplicateConfirm(a) }}
               className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-default">
               <Copy size={ICONO.sm} className="text-hint flex-shrink-0" /> Duplicar como borrador

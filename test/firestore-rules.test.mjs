@@ -4279,5 +4279,84 @@ ok('F-05 · admin CAN read publicProfiles')
   ok('VERSIÓN · reactivosHistorial y rubricaHistorial: solo los lee el docente dueño; nadie los escribe ni borra desde un cliente (la clave viaja ahí)')
 }
 
+// ── Participación en vivo: sesiones y respuestas ──
+// Los participantes (inscritos y externos) jamás tocan Firestore: entran por /api/subject/vivo-*.
+// El docente maneja el avance de SU sesión pero no puede activar el análisis de IA (se cobra en el servidor).
+{
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, 'activities', 'AVIVO'), { docenteId: T1, asignaturaId: 'S1', categoria: 'participacion', sinCalificacion: true, oculta: true })
+    await setDoc(doc(db, 'activities', 'AVIVO', 'clave', 'p1'), { correcta: 'a' })
+    await setDoc(doc(db, 'vivoRespuestas', 'RVIVO_1'), { sesionId: 'ABCDEFGHJK', actividadId: 'AVIVO', docenteId: T1, preguntaId: 'p1', preguntaTipo: 'opcion_unica', opcion: 'a', estadoIA: null })
+  })
+  const sesionNueva = (extra = {}) => ({
+    actividadId: 'AVIVO', asignaturaId: 'S1', docenteId: T1, titulo: 'Prueba', acceso: 'externo', calificable: false,
+    estado: 'activa', preguntaIndex: -1, aceptando: false, preguntas: [{ id: 'p1', tipo: 'opcion_unica', enunciado: '¿?', puntos: 1, opciones: [{ id: 'a', texto: 'A' }, { id: 'b', texto: 'B' }] }],
+    analisisActivo: false, creadaEn: serverTimestamp(), ...extra,
+  })
+
+  await assertSucceeds(setDoc(doc(asT1, 'vivoSesiones', 'ABCDEFGHJK'), sesionNueva()))
+  ok('VIVO · el docente dueño de la actividad crea una sesión (código aleatorio de 10 caracteres)')
+  await assertFails(setDoc(doc(asT2, 'vivoSesiones', 'BCDEFGHJKM'), sesionNueva({ docenteId: T2 })))
+  ok('VIVO · otro docente NO crea sesiones sobre una actividad ajena')
+  await assertFails(setDoc(doc(asT1, 'vivoSesiones', 'CDEFGHJKMN'), sesionNueva({ analisisActivo: true })))
+  ok('VIVO · la sesión no puede nacer con el análisis de IA ya «pagado»')
+  await assertFails(setDoc(doc(asT1, 'vivoSesiones', 'abc'), sesionNueva()))
+  await assertFails(setDoc(doc(asT1, 'vivoSesiones', 'DEFGHJKMNP'), sesionNueva({ estado: 'finalizada' })))
+  await assertFails(setDoc(doc(asT1, 'vivoSesiones', 'EFGHJKMNPQ'), sesionNueva({ acceso: 'publico' })))
+  ok('VIVO · código mal formado, estado inicial distinto de «activa» o acceso inventado: rechazados')
+  await testEnv.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'activities', 'AVIVO_S2'), { docenteId: T1, asignaturaId: 'S1', categoria: 'participacion' }))
+  await assertFails(setDoc(doc(asT1, 'vivoSesiones', 'GHJKMNPQRS'), sesionNueva({ actividadId: 'AVIVO_S2', asignaturaId: 'S2' })))
+  ok('VIVO · la asignatura de la sesión debe ser la de su actividad (no se puede abrir una sesión «grupo» sobre alumnos ajenos)')
+  await assertFails(setDoc(doc(asJuan, 'vivoSesiones', 'FGHJKMNPQR'), sesionNueva({ docenteId: U_JUAN })))
+  ok('VIVO · un estudiante NO crea sesiones')
+
+  await assertSucceeds(getDoc(doc(asT1, 'vivoSesiones', 'ABCDEFGHJK')))
+  await assertSucceeds(getDocs(query(collection(asT1, 'vivoSesiones'), where('docenteId', '==', T1), where('actividadId', '==', 'AVIVO'))))
+  ok('VIVO · el dueño lee su sesión (documento y consulta por docente + actividad)')
+  await assertFails(getDoc(doc(asT2, 'vivoSesiones', 'ABCDEFGHJK')))
+  await assertFails(getDoc(doc(asJuan, 'vivoSesiones', 'ABCDEFGHJK')))
+  await assertFails(getDocs(query(collection(asJuan, 'vivoSesiones'), where('actividadId', '==', 'AVIVO'))))
+  ok('VIVO · ni otro docente ni un estudiante leen la sesión (los participantes usan la API, no Firestore)')
+
+  await assertSucceeds(updateDoc(doc(asT1, 'vivoSesiones', 'ABCDEFGHJK'), { preguntaIndex: 0, aceptando: true }))
+  await assertSucceeds(updateDoc(doc(asT1, 'vivoSesiones', 'ABCDEFGHJK'), { aceptando: false }))
+  ok('VIVO · el dueño avanza de pregunta y abre/cierra respuestas')
+  await assertFails(updateDoc(doc(asT1, 'vivoSesiones', 'ABCDEFGHJK'), { analisisActivo: true }))
+  ok('VIVO · el docente NO puede activar el análisis de IA por su cuenta (se cobra en el servidor)')
+  await assertFails(updateDoc(doc(asT1, 'vivoSesiones', 'ABCDEFGHJK'), { acceso: 'grupo' }))
+  await assertFails(updateDoc(doc(asT1, 'vivoSesiones', 'ABCDEFGHJK'), { calificable: true }))
+  await assertFails(updateDoc(doc(asT1, 'vivoSesiones', 'ABCDEFGHJK'), { preguntas: [] }))
+  await assertFails(updateDoc(doc(asT1, 'vivoSesiones', 'ABCDEFGHJK'), { docenteId: T2 }))
+  ok('VIVO · acceso, calificable, preguntas y dueño quedan fijos durante la sesión')
+  await assertFails(updateDoc(doc(asT2, 'vivoSesiones', 'ABCDEFGHJK'), { aceptando: true }))
+  ok('VIVO · otro docente NO maneja una sesión ajena')
+  await assertSucceeds(updateDoc(doc(asT1, 'vivoSesiones', 'ABCDEFGHJK'), { estado: 'finalizada', aceptando: false, finalizadaEn: serverTimestamp() }))
+  await assertFails(updateDoc(doc(asT1, 'vivoSesiones', 'ABCDEFGHJK'), { estado: 'activa' }))
+  ok('VIVO · finalizar es de un solo sentido: una sesión terminada no se reactiva')
+
+  await assertSucceeds(getDocs(query(collection(asT1, 'vivoRespuestas'), where('docenteId', '==', T1), where('sesionId', '==', 'ABCDEFGHJK'))))
+  await assertSucceeds(getDoc(doc(asT1, 'vivoRespuestas', 'RVIVO_1')))
+  ok('VIVO · el dueño lee las respuestas de su sesión en tiempo real (consulta por docente + sesión)')
+  await assertFails(getDocs(query(collection(asT1, 'vivoRespuestas'), where('sesionId', '==', 'ABCDEFGHJK'))))
+  ok('VIVO · una consulta sin el filtro del docente es rechazada (no se puede enumerar)')
+  await assertFails(getDoc(doc(asT2, 'vivoRespuestas', 'RVIVO_1')))
+  await assertFails(getDoc(doc(asJuan, 'vivoRespuestas', 'RVIVO_1')))
+  ok('VIVO · otro docente ni un estudiante leen las respuestas')
+  await assertFails(setDoc(doc(asT1, 'vivoRespuestas', 'RVIVO_2'), { sesionId: 'ABCDEFGHJK', actividadId: 'AVIVO', docenteId: T1, preguntaId: 'p1', opcion: 'a' }))
+  await assertFails(updateDoc(doc(asT1, 'vivoRespuestas', 'RVIVO_1'), { estadoIA: 'analizada' }))
+  await assertFails(setDoc(doc(asJuan, 'vivoRespuestas', 'RVIVO_3'), { sesionId: 'ABCDEFGHJK', actividadId: 'AVIVO', docenteId: T1, preguntaId: 'p1', opcion: 'a' }))
+  ok('VIVO · nadie escribe respuestas ni su evaluación desde un cliente: solo el servidor (Admin SDK)')
+  await assertFails(deleteDoc(doc(asT2, 'vivoRespuestas', 'RVIVO_1')))
+  await assertSucceeds(deleteDoc(doc(asT1, 'vivoRespuestas', 'RVIVO_1')))
+  ok('VIVO · solo el dueño puede borrar las respuestas de su sesión')
+
+  await assertSucceeds(setDoc(doc(asT1, 'activities', 'AVIVO', 'clave', 'p2'), { correcta: 'b' }))
+  await assertSucceeds(getDoc(doc(asT1, 'activities', 'AVIVO', 'clave', 'p1')))
+  await assertFails(getDoc(doc(asJuan, 'activities', 'AVIVO', 'clave', 'p1')))
+  await assertFails(getDoc(doc(asT2, 'activities', 'AVIVO', 'clave', 'p1')))
+  ok('VIVO · la clave (respuesta correcta y criterios) solo la lee y escribe el docente dueño')
+}
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

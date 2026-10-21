@@ -59,6 +59,23 @@ exports.ejecutarOperacionIA = ia.ejecutarOperacionIA
 // Misma lógica con 540 s de margen, solo para la Planeación Didáctica.
 exports.ejecutarPlaneacionIA = ia.ejecutarPlaneacionIA
 exports.mantenimientoCreditosIA = ia.mantenimientoCreditosIA
+exports.onRespuestaVivoEscrita = ia.onRespuestaVivoEscrita
+// Participación en vivo: una respuesta que se quedó en «analizando» (la función murió) o en «recibida» (el
+// disparador nunca corrió) se reintenta un máximo de 2 veces y después se marca «error». No toca créditos ni notas.
+exports.recuperarAnalisisVivo = onSchedule({ schedule: 'every 5 minutes', timeoutSeconds: 120 }, async () => {
+  try {
+    const r = await require('./participacionVivo').recuperarAnalisisAtascado()
+    if (r.reencoladas || r.tocadas || r.fallidas) logger.info(`recuperarAnalisisVivo: ${JSON.stringify(r)}`)
+  } catch (e) {
+    logger.error('recuperarAnalisisVivo:', e)
+  }
+})
+// Borrar una Participación en vivo (desde la lista, al borrar la asignatura, etc.) limpia sus sesiones,
+// respuestas y claves. Solo actúa sobre actividades de esa categoría.
+exports.onParticipacionBorrada = onDocumentDeleted('activities/{activityId}', async (event) => {
+  if (event.data?.data()?.categoria !== 'participacion') return
+  await require('./participacionVivo').limpiarVivoDeActividad({ activityId: event.params.activityId })
+})
 // Análisis integral de asignatura con IA (functions/analisisAcademico.js): la
 // preparación gratuita del diálogo (qué fuentes tienen datos y cuánto cuesta
 // la selección) y la limpieza del historial al borrar la asignatura. La

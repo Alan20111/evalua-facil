@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams, useLocation } from 'react-router-dom'
+import { Navigate, useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   collection,
   getDoc,
@@ -526,6 +526,9 @@ export default function StudentActivityPage() {
       <SkeletonText lines={6} className="p-4 sm:p-6 max-w-3xl mx-auto" />
     </StudentLayout>
   )
+
+  // Participación en vivo se responde en su propia pantalla (el servidor verifica la inscripción).
+  if (activity?.categoria === 'participacion') return <Navigate to={`/alumno/participacion/${activityId}`} replace />
 
   if (activity?.tipo === 'evaluacion') {
     const ev = activity.evaluacion || {}

@@ -100,6 +100,9 @@ const ARCHIVOS = [
   // Versión del cálculo (oct-2026): huella de la evaluación y estructura de cada
   // intento, para recalcular con lo que se calificó y no con lo vigente.
   'versionCalculo.js',
+  // Participación en vivo: validación de preguntas, tope de análisis, puntos por respuesta y
+  // calificación propuesta — las mismas reglas en la pantalla del docente y en el servidor.
+  'participacionVivo.js',
 ]
 
 function fallar(mensaje) {

@@ -27,6 +27,8 @@ const OPERACIONES = {
   calificar_entregable_ia_lote_imagenes: 'Calificación de entregables (imágenes) en lote',
   crear_actividad_ia: 'Actividad creada con IA',
   generar_preguntas_video: 'Preguntas de video con IA',
+  generar_dinamica_vivo: 'Participación en vivo con IA',
+  activar_analisis_vivo: 'Análisis en vivo de participación',
   generar_contenido_juego: 'Crucigrama o sopa de letras',
   planeacion_didactica_inicial: 'Planeación didáctica con IA',
   planeacion_formato_oficial: 'Planeación en formato oficial',

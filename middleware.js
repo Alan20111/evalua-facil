@@ -32,6 +32,13 @@ const RULES = [
   // 20 firmas/min/IP cubre subidas simultáneas normales sin dar margen para
   // generar firmas en masa y usarlas desde otra IP o más tarde.
   { pattern: '/api/subject/sign-upload',      limit: 20, windowSec: 60 },
+  // Participación en vivo (sin sesión en la modalidad externa). El estado se consulta cada pocos
+  // segundos desde cada celular, y todo un salón comparte la IP de la escuela (NAT): 40 celulares ×
+  // ~20 consultas/min ≈ 800/min por IP. Se deja holgura para ~2 grupos a la vez; el límite sigue
+  // frenando un script de inundación sin tumbar una clase.
+  { pattern: '/api/subject/vivo-estado',      limit: 2400, windowSec: 60 },
+  // Enviar respuesta: una por pregunta por participante; 40 alumnos contestando a la vez caben de sobra.
+  { pattern: '/api/subject/vivo-responder',   limit: 400, windowSec: 60 },
 ]
 
 // Orígenes CORS permitidos (mismo conjunto que api/_lib/cors.js) — se incluyen
@@ -100,5 +107,7 @@ export const config = {
     '/api/student/recover-password',
     '/api/subject/info',
     '/api/subject/sign-upload',
+    '/api/subject/vivo-estado',
+    '/api/subject/vivo-responder',
   ],
 }

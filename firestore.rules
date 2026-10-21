@@ -1285,6 +1285,40 @@ service cloud.firestore {
         request.auth.uid == resource.data.docenteId;
     }
 
+    // ── Participación en vivo ─────────────────────────────────────────────────
+    // La sesión (`vivoSesiones/{codigo}`) y sus respuestas (`vivoRespuestas`) las leen solo el docente
+    // dueño y el admin. Los PARTICIPANTES (inscritos y externos) nunca tocan Firestore: entran por
+    // /api/subject/vivo-estado y vivo-responder (Admin SDK), que verifican la modalidad de la sesión.
+    // Las respuestas las escribe únicamente ese servidor, y la evaluación de la IA, la Cloud Function.
+    //
+    // El docente maneja el avance (pregunta actual, abrir/cerrar respuestas, finalizar), pero NO puede
+    // tocar el análisis de IA: `analisisActivo` solo lo escribe el servidor al cobrar `activar_analisis_vivo`.
+    // Por eso la sesión nace con él en falso y el update solo admite los cuatro campos de avance. El código
+    // (id) es aleatorio, de 10 caracteres.
+    match /vivoSesiones/{codigo} {
+      allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
+      allow create: if isDocente() &&
+        codigo.matches('^[A-HJ-KM-NP-Z2-9]{10}$') &&
+        request.resource.data.docenteId == request.auth.uid &&
+        ownsActivity(request.resource.data.actividadId) &&
+        // La asignatura de la sesión es la de su actividad: de ahí sale quién puede participar en modalidad «grupo».
+        get(/databases/$(database)/documents/activities/$(request.resource.data.actividadId)).data.asignaturaId == request.resource.data.asignaturaId &&
+        request.resource.data.estado == 'activa' &&
+        request.resource.data.acceso in ['grupo', 'externo'] &&
+        request.resource.data.get('analisisActivo', false) == false;
+      allow update: if isDocente() && resource.data.docenteId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'preguntaIndex', 'aceptando', 'finalizadaEn']) &&
+        (request.resource.data.estado == resource.data.estado ||
+          (resource.data.estado == 'activa' && request.resource.data.estado == 'finalizada'));
+      allow delete: if isDocente() && resource.data.docenteId == request.auth.uid;
+    }
+
+    match /vivoRespuestas/{respuestaId} {
+      allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
+      allow create, update: if false;
+      allow delete: if isDocente() && resource.data.docenteId == request.auth.uid;
+    }
+
     match /submissions/{submissionId} {
       // F-06 (2026-09-06): acceso cruzado entre docentes de distintas escuelas.
       // Antes: isDocente() sin restricción → cualquier docente leía las calificaciones
