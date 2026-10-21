@@ -52,6 +52,9 @@ const paginas = {
   StudentActivityPage: () => import('./pages/student/ActivityPage'),
   EvaluacionRunner: () => import('./pages/student/EvaluacionRunner'),
   JuegoRunner: () => import('./pages/student/JuegoRunner'),
+  ParticipacionDocente: () => import('./pages/teacher/ParticipacionPage'),
+  ParticipacionAlumno: () => import('./pages/student/ParticipacionPage'),
+  ParticipacionPublica: () => import('./pages/ParticipacionPublica'),
   EvaluacionRevision: () => import('./pages/student/EvaluacionRevision'),
   NotificationSettings: () => import('./pages/student/NotificationSettings'),
   StudentAgenda: () => import('./pages/student/Agenda'),
@@ -106,6 +109,9 @@ const StudentSubjectPage = lazy(paginas.StudentSubjectPage)
 const StudentActivityPage = lazy(paginas.StudentActivityPage)
 const EvaluacionRunner = lazy(paginas.EvaluacionRunner)
 const JuegoRunner = lazy(paginas.JuegoRunner)
+const ParticipacionDocente = lazy(paginas.ParticipacionDocente)
+const ParticipacionAlumno = lazy(paginas.ParticipacionAlumno)
+const ParticipacionPublica = lazy(paginas.ParticipacionPublica)
 const EvaluacionRevision = lazy(paginas.EvaluacionRevision)
 const NotificationSettings = lazy(paginas.NotificationSettings)
 const StudentAgenda = lazy(paginas.StudentAgenda)
@@ -325,6 +331,8 @@ export default function App() {
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/privacidad" element={<Privacidad />} />
             <Route path="/privacy" element={<Privacidad />} />
+            {/* Participación en vivo, acceso externo: sin cuenta ni sesión (api/_lib/vivo.js decide qué puede ver). */}
+            <Route path="/p/:codigo" element={<ParticipacionPublica />} />
             <Route path="/eliminar-cuenta" element={<EliminarCuenta />} />
 
             {/* Descarga directa del APK de Android — ruta NO listada, a propósito.
@@ -349,6 +357,7 @@ export default function App() {
               <Route path="/dashboard" element={<TeacherDashboard />} />
               <Route path="/subject/:subjectId" element={<SubjectPage />} />
               <Route path="/activity/:activityId" element={<ActivityPage />} />
+              <Route path="/participacion/:activityId" element={<ParticipacionDocente />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/perfil-ia" element={<PerfilIA />} />
               <Route path="/calendario" element={<CalendarPage />} />
@@ -364,6 +373,7 @@ export default function App() {
             <Route path="/alumno/evaluacion/:activityId" element={<ProtectedStudent><EvaluacionRunner /></ProtectedStudent>} />
             <Route path="/alumno/evaluacion/:activityId/revision" element={<ProtectedStudent><EvaluacionRevision /></ProtectedStudent>} />
             <Route path="/alumno/juego/:activityId" element={<ProtectedStudent><JuegoRunner /></ProtectedStudent>} />
+            <Route path="/alumno/participacion/:activityId" element={<ProtectedStudent><ParticipacionAlumno /></ProtectedStudent>} />
             <Route path="/alumno/notificaciones" element={<ProtectedStudent><NotificationSettings /></ProtectedStudent>} />
             <Route path="/alumno/agenda" element={<ProtectedStudent><StudentAgenda /></ProtectedStudent>} />
             <Route path="/alumno/perfil" element={<ProtectedStudent><StudentProfile /></ProtectedStudent>} />

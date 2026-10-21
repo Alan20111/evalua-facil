@@ -13,6 +13,7 @@ import { extraerAssets, borrarAssets } from '../_lib/cloudinary.js'
 import { aplicarCors } from '../_lib/cors.js'
 import { ocultarPesosNoPublicados } from '../../src/utils/ponderacion.js'
 import { exigirAppCheck } from '../_lib/appCheck.js'
+import { handleVivoEstado, handleVivoResponder } from '../_lib/vivo.js'
 
 // ── /api/subject/info ──────────────────────────────────────────────────────
 // F-11 (2026-09-07): endpoint público para el flujo de activación QR.
@@ -496,6 +497,8 @@ async function handleSignUpload(req, res) {
 // │ delete-fuente                   │ Sí    │ Borra fuente de IA          │
 // │ delete-planeacion-archivo       │ Sí    │ Borra archivo de planeación │
 // │ delete-resources                │ Sí    │ Borra recursos/materiales   │
+// │ vivo-estado / vivo-responder    │ Según │ Participación en vivo (api/_lib/vivo.js);
+// │                                 │ sesión│ 'grupo' exige sesión de estudiante, 'externo' no │
 // └─────────────────────────────────┴───────┴─────────────────────────────┘
 
 export default async function handler(req, res) {
@@ -509,6 +512,8 @@ export default async function handler(req, res) {
     if (action === 'delete-fuente')             return await handleDeleteFuente(req, res)
     if (action === 'delete-planeacion-archivo') return await handleDeletePlaneacionArchivo(req, res)
     if (action === 'delete-resources')          return await handleDeleteResources(req, res)
+    if (action === 'vivo-estado')               return await handleVivoEstado(req, res)
+    if (action === 'vivo-responder')            return await handleVivoResponder(req, res)
     return res.status(404).json({ error: 'Acción no encontrada.' })
   } catch (err) {
     return res.status(err.status || 500).json({ error: err.message || 'Error interno.' })

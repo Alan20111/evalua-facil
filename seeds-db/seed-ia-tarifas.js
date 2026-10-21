@@ -44,8 +44,10 @@ const dryRun = process.argv.includes('--dry-run')
 const TARIFAS = {
   // v12 (16-oct-2026): SOLO planeacion_didactica_inicial 20 → 40. El resto de
   // la tabla es idéntico a la v11.
-  version: 12,
-  actualizadoEl: '2026-10-16',
+  // v13: se agregan generar_dinamica_vivo (6) y activar_analisis_vivo (10). NO correr este seed para esto:
+  // usar seeds-db/agregar-tarifas-participacion-vivo.js, que solo agrega esas dos (ver su encabezado).
+  version: 13,
+  actualizadoEl: '2026-10-21',
   // Flag de sistema: false = endpoint rechaza ANTES de llamar a Anthropic.
   // true (o campo ausente) = activo. Cambia aquí y re-corre el seed.
   chatAsistenteActivo: false,
@@ -116,6 +118,10 @@ const TARIFAS = {
     // de src/utils/videoInteractivo.js: el precheck rechaza la operación si no
     // coinciden, para que la pantalla nunca prometa un costo distinto al cobrado.
     generar_preguntas_video: 2,
+    // Participación en vivo (montos autorizados por Kike): generar la dinámica 6 créditos fijos;
+    // activar el análisis en vivo de una sesión 10 créditos fijos (cubre hasta 40 respuestas abiertas).
+    generar_dinamica_vivo: 6,
+    activar_analisis_vivo: 10,
     // Crear entregable/observación completa con IA — incluye la actividad
     // de Observación con IA (no existe "guía de observación" aparte).
     crear_actividad_ia: 1,
@@ -206,6 +212,8 @@ const TARIFAS = {
     calificar_entregable_ia_lote: 'Calificación de evidencias',
     crear_evaluacion_ia: 'Evaluaciones',
     generar_preguntas_video: 'Evaluaciones',
+    generar_dinamica_vivo: 'Actividades',
+    activar_analisis_vivo: 'Actividades',
     crear_actividad_ia: 'Actividades',
     analizar_resultados: 'Evaluaciones',
     diagnostico_contexto: 'Diagnóstico',
@@ -244,6 +252,10 @@ const TARIFAS = {
     crear_evaluacion_ia: 'claude-haiku-4-5',
     // Video interactivo (etapa 2): mismo modelo que el resto de las operaciones de evaluación.
     generar_preguntas_video: 'claude-haiku-4-5',
+    // Participación en vivo: generar la dinámica y evaluar cada respuesta abierta (el disparador lee el
+    // modelo de `activar_analisis_vivo`).
+    generar_dinamica_vivo: 'claude-haiku-4-5',
+    activar_analisis_vivo: 'claude-haiku-4-5',
     // OP-05 (11-ago-2026): crear entregable/observación completo con IA.
     crear_actividad_ia: 'claude-haiku-4-5',
     // OP-10 (11-ago-2026): análisis de resultados de un cuestionario o examen.

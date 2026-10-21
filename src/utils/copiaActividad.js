@@ -32,6 +32,9 @@ export function esJuego(a) {
 // tiene ese problema, porque su contenido ya se cobró en el original y la
 // copia nace lista, sin volver a tocar el ledger.
 export function esCopiable(a) {
+  // Participación en vivo: sus respuestas correctas y criterios viven en `clave/` y sus sesiones son de
+  // ESE grupo; una copia llegaría sin clave y sin sentido. Se genera de nuevo en la asignatura destino.
+  if (a?.categoria === 'participacion') return false
   if (!esJuego(a)) return true
   return a?.juego?.estado === 'juego_confirmado'
 }

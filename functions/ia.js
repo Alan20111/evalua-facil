@@ -38,6 +38,8 @@ const juegoFns = require('./juego')
 // requiere ia.js de vuelta — recibe pedirJSON/textoPlano por parámetro.
 const analisisAcademico = require('./analisisAcademico')
 const videoInteractivoIA = require('./videoInteractivoIA')
+const participacionVivo = require('./participacionVivo')
+const { onDocumentWritten } = require('firebase-functions/v2/firestore')
 // Escribir la nota de la IA en una entrega (decide, en transacción, si puede):
 // ver functions/aplicarNotaIA.js.
 const { aplicarNotaIA } = require('./aplicarNotaIA')
@@ -355,6 +357,10 @@ const OPERACIONES = {
   // Video interactivo con IA (etapa 2): 2 créditos por pregunta entregada.
   // Solo propone; no escribe nada (functions/videoInteractivoIA.js).
   generar_preguntas_video: (args) => videoInteractivoIA.ejecutarGenerarPreguntasVideo({ ...args, pedirJSON }),
+  // Participación en vivo (functions/participacionVivo.js): generar la dinámica (tarifa fija) y activar
+  // el análisis de una sesión (cuota fija; no llama al modelo, lo hace el disparador por respuesta).
+  generar_dinamica_vivo: (args) => participacionVivo.ejecutarGenerarDinamicaVivo({ ...args, pedirJSON }),
+  activar_analisis_vivo: (args) => participacionVivo.ejecutarActivarAnalisisVivo(args),
 }
 
 // Comprobaciones que corren ANTES de reservar créditos. Una operación con
@@ -379,6 +385,8 @@ const PRECHECKS = {
   analizar_entregable: (args) => analisisAcademico.precheckAnalizarEntregable({ ...args, textoPlano }),
   // El contenido del video lo extrae Gemini AQUÍ, antes de reservar: sin contenido, sin cobro.
   generar_preguntas_video: (args) => videoInteractivoIA.precheckGenerarPreguntasVideo(args),
+  generar_dinamica_vivo: (args) => participacionVivo.precheckGenerarDinamicaVivo({ ...args, deps: { fuentesIA, creditosDe } }),
+  activar_analisis_vivo: (args) => participacionVivo.precheckActivarAnalisisVivo(args),
 }
 
 // ── Piloto C-03 · Redactar aviso ────────────────────────────────────────────
@@ -6967,6 +6975,19 @@ exports.ejecutarPlaneacionIA = crearCallableIA(
 // Mantenimiento diario: en créditos puros ya no hay ciclos que renovar ni
 // trials que cerrar por tiempo — solo queda recuperar reservas huérfanas
 // (proceso que murió entre reservar() y liquidar()/reembolsar()).
+// Participación en vivo: evalúa cada respuesta abierta apenas queda registrada como `recibida`. Se dispara
+// también cuando una respuesta pasa a `recibida` al activar el análisis (las que llegaron antes). El cobro ya
+// se hizo al activar (activar_analisis_vivo); aquí NO se toca el ledger. Un evento repetido no repite la
+// llamada: participacionVivo.reclamarRespuesta la toma en una transacción.
+exports.onRespuestaVivoEscrita = onDocumentWritten(
+  { document: 'vivoRespuestas/{respuestaId}', secrets: [ANTHROPIC_API_KEY_PROD], timeoutSeconds: 90, maxInstances: 20, memory: '256MiB' },
+  async (event) => {
+    const despues = event.data?.after
+    if (!despues?.exists || despues.data().estadoIA !== 'recibida') return
+    await participacionVivo.procesarRespuestaVivo({ ref: despues.ref, deps: { pedirJSON, obtenerClave: claveAnthropic } })
+  }
+)
+
 exports.mantenimientoCreditosIA = onSchedule('every 24 hours', async () => {
   try {
     // generar_contenido_juego (23-ago-2026): su reserva queda abierta

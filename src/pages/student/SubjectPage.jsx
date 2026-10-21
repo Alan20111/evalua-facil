@@ -116,7 +116,7 @@ const TABS = ['Actividades y calificaciones', 'Asistencias', 'Recursos', 'Avisos
 // 'actividad'/'tarea' are legacy categoria values from before they were
 // merged into a single "Entregable" option — still mapped here so old
 // activities keep showing a correct label without needing a data migration.
-const CATEGORIA_LABELS = { actividad: 'Entregable', tarea: 'Entregable', entregable: 'Entregable', cuestionario: 'Cuestionario', examen: 'Examen', observacion: 'Observación', juego: 'Juego' }
+const CATEGORIA_LABELS = { actividad: 'Entregable', tarea: 'Entregable', entregable: 'Entregable', cuestionario: 'Cuestionario', examen: 'Examen', observacion: 'Observación', juego: 'Juego', participacion: 'Participación en vivo' }
 
 export default function StudentSubjectPage() {
   const { subjectId } = useParams()
@@ -786,12 +786,12 @@ export default function StudentSubjectPage() {
                         const ActIcon = a.categoria === 'examen' ? GraduationCap
                           : a.categoria === 'cuestionario' ? ListChecks
                           : a.categoria === 'observacion' ? ClipboardCheck
-                          : a.categoria === 'juego' ? Sparkles
+                          : a.categoria === 'juego' || a.categoria === 'participacion' ? Sparkles
                           : FileText
                         return (
                           <Button variant="secondary" fullWidth className="text-left"
                             key={a.id}
-                            onClick={() => navigate(`/alumno/actividad/${a.id}`)}>
+                            onClick={() => navigate(a.categoria === 'participacion' ? `/alumno/participacion/${a.id}` : `/alumno/actividad/${a.id}`)}>
                             <ActIcon size={ICONO.md} className={`flex-shrink-0 ${a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : 'text-hint'}`} />
                             <div className="flex-1 min-w-0">
                               <p className="text-base font-medium leading-tight text-on-surface truncate">
@@ -836,6 +836,9 @@ export default function StudentSubjectPage() {
                                 </div>
                               ) : delivered ? (
                                 <span className="text-xs bg-accent-light text-accent px-2 py-1 rounded-full">Entregada</span>
+                              ) : a.categoria === 'participacion' ? (
+                                // Se responde en vivo: no hay entrega pendiente ni vence.
+                                <span className="text-xs bg-accent-light text-accent px-2 py-1 rounded-full">En vivo</span>
                               ) : overdue ? (
                                 <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full">Vencida</span>
                               ) : (
