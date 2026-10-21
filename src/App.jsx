@@ -53,6 +53,7 @@ const paginas = {
   EvaluacionRunner: () => import('./pages/student/EvaluacionRunner'),
   JuegoRunner: () => import('./pages/student/JuegoRunner'),
   ParticipacionDocente: () => import('./pages/teacher/ParticipacionPage'),
+  ProyeccionVivo: () => import('./pages/teacher/ProyeccionVivoPage'),
   ParticipacionAlumno: () => import('./pages/student/ParticipacionPage'),
   ParticipacionPublica: () => import('./pages/ParticipacionPublica'),
   EvaluacionRevision: () => import('./pages/student/EvaluacionRevision'),
@@ -110,6 +111,7 @@ const StudentActivityPage = lazy(paginas.StudentActivityPage)
 const EvaluacionRunner = lazy(paginas.EvaluacionRunner)
 const JuegoRunner = lazy(paginas.JuegoRunner)
 const ParticipacionDocente = lazy(paginas.ParticipacionDocente)
+const ProyeccionVivo = lazy(paginas.ProyeccionVivo)
 const ParticipacionAlumno = lazy(paginas.ParticipacionAlumno)
 const ParticipacionPublica = lazy(paginas.ParticipacionPublica)
 const EvaluacionRevision = lazy(paginas.EvaluacionRevision)
@@ -353,6 +355,8 @@ export default function App() {
             <Route path="/protect-account" element={<ProtectedTeacherProtectAccount><ProtectAccount /></ProtectedTeacherProtectAccount>} />
             {/* Layout compartido — un solo TeacherLayout montado para las 6 rutas;
                 ver TeacherLayoutRoute arriba. */}
+            {/* Ventana de proyección de Participación en vivo: pantalla completa, sin layout, solo lectura. */}
+            <Route path="/proyeccion-vivo/:codigo" element={<ProtectedTeacher><ProyeccionVivo /></ProtectedTeacher>} />
             <Route element={<ProtectedTeacher><TeacherLayoutRoute /></ProtectedTeacher>}>
               <Route path="/dashboard" element={<TeacherDashboard />} />
               <Route path="/subject/:subjectId" element={<SubjectPage />} />

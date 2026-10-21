@@ -1319,6 +1319,13 @@ service cloud.firestore {
       allow delete: if isDocente() && resource.data.docenteId == request.auth.uid;
     }
 
+    // Diagnóstico pedagógico de una sesión en vivo (uno por pregunta y uno final). Lo escribe y borra únicamente el
+    // servidor; el docente dueño lo lee. La consulta debe filtrar por docenteId (igual que vivoRespuestas).
+    match /vivoInformes/{informeId} {
+      allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
+      allow write: if false;
+    }
+
     match /submissions/{submissionId} {
       // F-06 (2026-09-06): acceso cruzado entre docentes de distintas escuelas.
       // Antes: isDocente() sin restricción → cualquier docente leía las calificaciones

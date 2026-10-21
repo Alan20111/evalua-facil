@@ -4,7 +4,8 @@
 //     los escribe el servidor al cobrar `activar_analisis_vivo`).
 //   · Los PARTICIPANTES jamás tocan Firestore: usan /api/subject/vivo-estado y vivo-responder.
 import { doc, setDoc, updateDoc, collection, query, where, getDocs, serverTimestamp, onSnapshot } from 'firebase/firestore'
-import { auth, db } from '../firebase'
+import { httpsCallable } from 'firebase/functions'
+import { auth, db, functions } from '../firebase'
 import { fetchApi } from './apiBase'
 import { generarCodigoVivo } from './participacionVivo'
 
@@ -63,6 +64,20 @@ export function escucharRespuestasVivo(codigo, docenteId, cb, onError) {
     (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
     onError
   )
+}
+
+/** Diagnósticos pedagógicos de la sesión (uno por pregunta y uno final), en tiempo real. Solo lectura. */
+export function escucharInformesVivo(codigo, docenteId, cb, onError) {
+  return onSnapshot(
+    query(collection(db, 'vivoInformes'), where('docenteId', '==', docenteId), where('sesionId', '==', codigo)),
+    (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    onError
+  )
+}
+
+/** «Actualizar» manual de un diagnóstico (sin preguntaId = el informe final). Sin cargo: el servidor limita las llamadas. */
+export function actualizarInformeVivo({ sesionId, preguntaId = null }) {
+  return httpsCallable(functions, 'actualizarInformeVivo')({ sesionId, preguntaId }).then((r) => r.data)
 }
 
 // ── Participantes ──────────────────────────────────────────────────────────

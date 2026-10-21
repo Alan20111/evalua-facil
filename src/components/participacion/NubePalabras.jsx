@@ -1,49 +1,88 @@
-// Nube de palabras para proyectar. El tamaño de cada palabra depende de cuántas respuestas la
-// contienen (frecuencia REAL, calculada en participacionVivo.frecuenciasNube); se distribuyen en
-// espiral sin encimarse. Se recalcula con cada respuesta nueva y las palabras se deslizan a su sitio.
+// Nube de palabras EDITORIAL para proyectar: fondo claro, colores armoniosos, palabras horizontales y verticales,
+// tamaño proporcional a la frecuencia real y composición que aprovecha todo el espacio (ver utils/nubeVivo.js).
+// No es una lista ni una gráfica de barras. Nunca baja del tamaño mínimo de legibilidad: si no caben todas las
+// palabras, se reparten en PÁGINAS por frecuencia y cada página se recompone a tamaño completo.
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { COLORES_VIVO, disponerNube, frecuenciasNube } from '../../utils/participacionVivo'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { frecuenciasNube } from '../../utils/participacionVivo'
+import { componerNube, TAMANO_MIN_NUBE } from '../../utils/nubeVivo'
+import { tamanosProyeccion } from '../../utils/proyeccionVivo'
+import { useAmortiguado } from '../../hooks/useProyeccion'
 
-export default function NubePalabras({ textos, alturaMin = 320 }) {
+// Medida real del texto con el canvas y la fuente de la página (no una estimación por número de letras).
+function crearMedidor(familia) {
+  const ctx = typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null
+  return (texto, tamano) => {
+    if (!ctx) return texto.length * tamano * 0.56
+    ctx.font = `600 ${tamano}px ${familia}`
+    return ctx.measureText(texto).width
+  }
+}
+
+export default function NubePalabras({ textos, area, tam = null, incluirVacias = false, autoPaginar = false }) {
+  const t = tam || tamanosProyeccion(area.ancho, area.alto)
+  const [pagina, setPagina] = useState(0)
   const ref = useRef(null)
-  const [caja, setCaja] = useState({ w: 0, h: 0 })
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return undefined
-    const medir = () => setCaja({ w: el.clientWidth, h: el.clientHeight })
-    medir()
-    const ro = new ResizeObserver(medir)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-
-  const items = useMemo(() => frecuenciasNube(textos), [textos])
-  const { colocadas, omitidas } = useMemo(
-    () => disponerNube(items, caja.w, caja.h, { tamanoMin: 20, tamanoMax: Math.max(40, Math.min(110, Math.floor(caja.h / 4))) }),
-    [items, caja]
+  const [familia, setFamilia] = useState('sans-serif')
+  useEffect(() => { if (ref.current) setFamilia(getComputedStyle(ref.current).fontFamily) }, [])
+  const medir = useMemo(() => crearMedidor(familia), [familia])
+  // La nube se recompone como máximo cada 1.5 s: cada respuesta nueva cambia las frecuencias, pero la pantalla no «baila».
+  const items = useAmortiguado(useMemo(() => frecuenciasNube(textos, { incluirVacias }), [textos, incluirVacias]))
+  const compuesta = useMemo(
+    () => (area.ancho > 0 && area.alto > 0
+      ? componerNube(items, area.ancho, Math.max(1, area.alto - Math.round(t.resto * 2.6)), { medir, tamanoMin: Math.max(TAMANO_MIN_NUBE, t.respuesta - 8) })
+      : { paginas: [], total: 0 }),
+    [items, area.ancho, area.alto, medir, t.resto, t.respuesta]
   )
+  const paginas = compuesta.paginas
+  const actual = Math.min(pagina, Math.max(0, paginas.length - 1))
+  useEffect(() => {
+    if (!autoPaginar || paginas.length < 2) return undefined
+    const id = setInterval(() => setPagina((p) => (p + 1) % paginas.length), 12000)
+    return () => clearInterval(id)
+  }, [autoPaginar, paginas.length])
+  useEffect(() => {
+    const tecla = (e) => {
+      if (e.key === 'PageDown') setPagina((p) => Math.min(paginas.length - 1, p + 1))
+      if (e.key === 'PageUp') setPagina((p) => Math.max(0, p - 1))
+    }
+    window.addEventListener('keydown', tecla)
+    return () => window.removeEventListener('keydown', tecla)
+  }, [paginas.length])
 
+  const pag = paginas[actual]
+  const alturaNube = Math.max(1, area.alto - Math.round(t.resto * 2.6))
   return (
-    <div className="w-full h-full" style={{ minHeight: alturaMin }}>
-      <div ref={ref} className="relative w-full h-full overflow-hidden" style={{ minHeight: alturaMin }}>
-        {colocadas.map((p, i) => (
-          <span key={p.clave}
-            className="absolute whitespace-nowrap font-bold leading-none select-none transition-[left,top,width,height,font-size] duration-lenta ease-out motion-reduce:transition-none"
-            style={{ left: p.x, top: p.y, width: p.w, height: p.h, fontSize: p.tamano, color: COLORES_VIVO[i % COLORES_VIVO.length], display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            title={`${p.texto}: ${p.n} ${p.n === 1 ? 'respuesta' : 'respuestas'}`}>
-            {p.texto}
-          </span>
-        ))}
-        {!items.length && (
-          <p className="absolute inset-0 flex items-center justify-center text-xl text-white/80">Las palabras aparecerán aquí conforme lleguen las respuestas</p>
-        )}
-      </div>
+    <div ref={ref} className="relative h-full w-full select-none">
+      {!items.length && (
+        <p className="absolute inset-0 flex items-center justify-center text-center text-slate-600 font-medium px-[6vmin]" style={{ fontSize: t.opcion }}>
+          Las palabras aparecerán aquí conforme lleguen las respuestas
+        </p>
+      )}
+      {pag && (
+        <div className="relative w-full" style={{ height: alturaNube }}>
+          {pag.palabras.map((p) => (
+            <span key={p.clave} data-nube-palabra data-n={p.n} data-vertical={p.vertical ? '1' : '0'}
+              className="absolute flex items-center justify-center whitespace-nowrap font-semibold leading-none"
+              style={{
+                left: p.x, top: p.y, width: p.w, height: p.h, fontSize: p.tamano, color: p.color,
+                ...(p.vertical ? { writingMode: 'vertical-rl', transform: 'rotate(180deg)' } : null),
+                transition: 'left 600ms ease, top 600ms ease, font-size 600ms ease',
+              }}>
+              {p.texto}
+            </span>
+          ))}
+        </div>
+      )}
+      {paginas.length > 1 && (
+        <div className="absolute bottom-0 inset-x-0 flex items-center justify-center gap-[3vmin] text-slate-900" style={{ height: Math.round(t.resto * 2.6) }}>
+          <button type="button" aria-label="Palabras anteriores" onClick={() => setPagina(Math.max(0, actual - 1))} disabled={actual === 0} className="rounded-full border-2 border-slate-900 disabled:opacity-40 flex items-center justify-center" style={{ width: t.resto * 2, height: t.resto * 2 }}><ChevronLeft size={40} aria-hidden="true" /></button>
+          <span className="font-semibold tabular-nums" style={{ fontSize: t.resto }}>Más palabras · {actual + 1}/{paginas.length}</span>
+          <button type="button" aria-label="Palabras siguientes" onClick={() => setPagina(Math.min(paginas.length - 1, actual + 1))} disabled={actual === paginas.length - 1} className="rounded-full border-2 border-slate-900 disabled:opacity-40 flex items-center justify-center" style={{ width: t.resto * 2, height: t.resto * 2 }}><ChevronRight size={40} aria-hidden="true" /></button>
+        </div>
+      )}
       {/* Lectura para lector de pantalla: la nube visual no lo es. */}
-      <ul className="sr-only">
-        {items.map((p) => <li key={p.clave}>{p.texto}: {p.n}</li>)}
-      </ul>
-      {omitidas > 0 && <p className="text-xs text-white/80 text-right mt-1">+{omitidas} palabras menos frecuentes no caben en pantalla</p>}
+      <ul className="sr-only">{items.map((p) => <li key={p.clave}>{p.texto}: {p.n}</li>)}</ul>
     </div>
   )
 }

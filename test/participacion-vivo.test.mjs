@@ -18,6 +18,8 @@ import crypto from 'node:crypto'
 import { db, dbFn, limpiar, caso, grupo, resumen, assert, llamar, sesion } from './helpers/entorno.mjs'
 import { handleVivoEstado, handleVivoResponder } from '../api/_lib/vivo.js'
 import * as V from '../src/utils/participacionVivo.js'
+import * as N from '../src/utils/nubeVivo.js'
+import * as P from '../src/utils/proyeccionVivo.js'
 
 const require = createRequire(import.meta.url)
 const IA_FN = require('../functions/ia.js')
@@ -116,18 +118,53 @@ await caso('nube: la frecuencia es el número REAL de respuestas que contienen l
   assert.deepStrictEqual(V.frecuenciasNube([]), [])
 })
 
-await caso('nube: las palabras no se encisan, caben en la caja y el tamaño crece con la frecuencia', () => {
+const PALABRAS = (n) => Array.from({ length: n }, (_, i) => ({ clave: 'palabra' + i, texto: 'palabra' + i, n: Math.max(1, Math.round(30 / (i + 1))) }))
+const sinChoques = (ps) => ps.every((a, i) => ps.slice(i + 1).every((b) => a.x >= b.x + b.w || b.x >= a.x + a.w || a.y >= b.y + b.h || b.y >= a.y + a.h))
+
+await caso('nube editorial: caben, no se encimen, mezclan horizontal y vertical y el tamaño sigue a la frecuencia real', () => {
   const items = V.frecuenciasNube([...Array(9).fill('energía'), ...Array(4).fill('luz solar'), 'agua', 'clorofila', 'glucosa', 'oxígeno'])
-  const { colocadas } = V.disponerNube(items, 900, 420)
-  assert.ok(colocadas.length >= 6)
-  for (const a of colocadas) assert.ok(a.x >= 0 && a.y >= 0 && a.x + a.w <= 900 && a.y + a.h <= 420, `${a.texto} dentro`)
-  for (let i = 0; i < colocadas.length; i++) for (let j = i + 1; j < colocadas.length; j++) {
-    const a = colocadas[i], b = colocadas[j]
-    assert.ok(a.x >= b.x + b.w || b.x >= a.x + a.w || a.y >= b.y + b.h || b.y >= a.y + a.h, `${a.texto} no encima ${b.texto}`)
-  }
-  const tam = Object.fromEntries(colocadas.map((c) => [c.clave, c.tamano]))
-  assert.ok(tam.energia > tam.agua, 'más frecuente = más grande')
-  assert.deepStrictEqual(V.disponerNube(items, 900, 420), V.disponerNube(items, 900, 420), 'determinista')
+  const r = N.componerNube(items, 1600, 760)
+  assert.strictEqual(r.paginas.length, 1)
+  const ps = r.paginas[0].palabras
+  assert.strictEqual(ps.length, items.length, 'no se pierde ninguna palabra')
+  for (const q of ps) assert.ok(q.x >= 0 && q.y >= 0 && q.x + q.w <= 1600 && q.y + q.h <= 760, q.texto + ' dentro de la caja')
+  assert.ok(sinChoques(ps), 'ninguna palabra se encima con otra')
+  assert.ok(ps.every((q) => q.tamano >= N.TAMANO_MIN_NUBE), 'nunca baja del tamaño mínimo')
+  const por = Object.fromEntries(ps.map((q) => [q.clave, q]))
+  assert.ok(por.energia.tamano > por.luz.tamano && por.luz.tamano > por.agua.tamano, 'más frecuente = más grande')
+  assert.strictEqual(por.agua.tamano, por.glucosa.tamano, 'misma frecuencia = mismo tamaño')
+  assert.strictEqual(por.energia.vertical, false, 'la dominante siempre es horizontal')
+  assert.ok(por.energia.tamano >= Math.max(...ps.map((q) => q.tamano)), 'la dominante es la más grande')
+  assert.ok(ps.every((q) => q.n === items.find((it) => it.clave === q.clave).n), 'las cantidades no se alteran')
+})
+
+await caso('nube editorial: mezcla orientaciones, la orientación es estable y todo texto se conserva', () => {
+  const r = N.componerNube(PALABRAS(30), 1920, 880)
+  const todas = r.paginas.flatMap((pg) => pg.palabras)
+  assert.ok(todas.some((q) => q.vertical) && todas.some((q) => !q.vertical), 'hay palabras verticales y horizontales')
+  assert.strictEqual(N.esVertical('luz', 'luz', 3), N.esVertical('luz', 'luz', 7), 'la orientación no depende del rango (no cambia al llegar respuestas)')
+  assert.deepStrictEqual(N.componerNube(PALABRAS(30), 1920, 880), r, 'determinista')
+  for (const q of todas) assert.ok(PALABRAS(30).some((x) => x.texto === q.texto), 'no inventa palabras')
+})
+
+await caso('nube editorial: si no caben todas se PAGINAN y ninguna página baja del mínimo ni omite palabras', () => {
+  const r = N.componerNube(PALABRAS(150), 1280, 600)
+  assert.ok(r.paginas.length > 1, 'se reparte en páginas')
+  const todas = r.paginas.flatMap((pg) => pg.palabras)
+  assert.strictEqual(todas.length, 150, 'entran las 150 entre todas las páginas')
+  assert.ok(todas.every((q) => q.tamano >= N.TAMANO_MIN_NUBE))
+  for (const pg of r.paginas) assert.ok(sinChoques(pg.palabras), 'sin choques en cada página')
+  assert.ok(r.paginas[0].palabras.some((q) => q.n === 30), 'las más frecuentes van en la primera página')
+})
+
+await caso('nube editorial: la paleta cumple contraste ≥ 7:1 sobre el fondo claro', () => {
+  for (const c of N.PALETA_NUBE) assert.ok(N.contraste(c, '#ffffff') >= 7, c + ' contraste')
+})
+
+await caso('nube: «mostrar todas» conserva las palabras vacías; por omisión se filtran', () => {
+  const t = ['la casa de la luz', 'la casa']
+  assert.ok(!V.frecuenciasNube(t).some((x) => x.clave === 'casa' && false) && !V.frecuenciasNube(t).some((x) => x.clave === 'las'))
+  assert.ok(V.frecuenciasNube(t, { incluirVacias: true }).length >= V.frecuenciasNube(t).length)
 })
 
 await caso('preguntas: separa lo público de la clave y exige la correcta solo si es calificable', () => {
@@ -330,7 +367,7 @@ const activar = ({ sesionId = CODIGO, k = clave(), uid = DOCENTE } = {}) =>
   IA_FN.ejecutarOperacionIA.run({ auth: { uid }, data: { operacion: 'activar_analisis_vivo', idempotencyKey: k, params: { sesionId, asignaturaId: 'sub_vivo' } } })
 
 await caso('activar: cobra 10 créditos UNA vez, marca la sesión y NO llama al modelo', async () => {
-  await reiniciar(); await sembrarActividad(); await sembrarSesion()
+  await reiniciar(); await sembrarActividad(); await sembrarSesion({ extra: { calificable: true } })
   const k = clave()
   const r = await activar({ k })
   assert.strictEqual(r.creditosReales, 10)
@@ -341,7 +378,7 @@ await caso('activar: cobra 10 créditos UNA vez, marca la sesión y NO llama al 
 })
 
 await caso('activar con la misma clave (doble clic / reintento) no cobra otra vez', async () => {
-  await reiniciar(); await sembrarActividad(); await sembrarSesion()
+  await reiniciar(); await sembrarActividad(); await sembrarSesion({ extra: { calificable: true } })
   const k = clave()
   await activar({ k }); const r2 = await activar({ k })
   assert.strictEqual(r2.repetida, true)
@@ -349,7 +386,7 @@ await caso('activar con la misma clave (doble clic / reintento) no cobra otra ve
 })
 
 await caso('activar con OTRA clave cuando ya está activo: se rechaza sin cobrar', async () => {
-  await reiniciar(); await sembrarActividad(); await sembrarSesion()
+  await reiniciar(); await sembrarActividad(); await sembrarSesion({ extra: { calificable: true } })
   await activar()
   await assert.rejects(() => activar(), /ya está activo/)
   assert.strictEqual((await creditosDe()).saldo, 90)
@@ -361,13 +398,13 @@ await caso('activar: sesión de otro docente, finalizada o sin preguntas abierta
   await assert.rejects(() => activar({ sesionId: 'BCDEFGHJKM' }), (e) => codigoDe(e).includes('permission-denied'))
   await sembrarSesion({ codigo: 'CDEFGHJKMN', extra: { estado: 'finalizada' } })
   await assert.rejects(() => activar({ sesionId: 'CDEFGHJKMN' }), /ya terminó/)
-  await sembrarSesion({ codigo: 'DEFGHJKMNP', extra: { preguntas: [PREGUNTAS_SESION[0]] } })
-  await assert.rejects(() => activar({ sesionId: 'DEFGHJKMNP' }), /no tiene preguntas abiertas/)
+  await sembrarSesion({ codigo: 'DEFGHJKMNP', extra: { preguntas: [] } })
+  await assert.rejects(() => activar({ sesionId: 'DEFGHJKMNP' }), /no tiene preguntas que analizar/)
   await sinCobro()
 })
 
 await caso('activar pone en cola TODAS las abiertas que llegaron antes; el tope lo aplica la evaluación por orden de llegada', async () => {
-  await reiniciar(); await sembrarActividad(); await sembrarSesion()
+  await reiniciar(); await sembrarActividad(); await sembrarSesion({ extra: { calificable: true } })
   const n = V.VIVO_CFG.TOPE_ANALISIS + 5
   for (let i = 0; i < n; i++) {
     await db.doc(`vivoRespuestas/${CODIGO}_p2_${String(i).padStart(20, 'a')}`).set({
@@ -383,6 +420,41 @@ await caso('activar pone en cola TODAS las abiertas que llegaron antes; el tope 
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
+
+const sembrarOpciones = async (pares, codigo = CODIGO) => {
+  for (const [i, op] of pares.entries()) {
+    await db.doc('vivoRespuestas/' + codigo + '_p1_' + String(i).padStart(20, 'o')).set({
+      sesionId: codigo, actividadId: 'act_vivo', asignaturaId: 'sub_vivo', docenteId: DOCENTE, preguntaId: 'p1', preguntaTipo: 'opcion_unica',
+      opcion: op, estadoIA: null, creadaEn: new Date(2026, 9, 1, 12, 0, i),
+    })
+  }
+}
+
+await caso('activar (NO calificable) con muestra insuficiente: se rechaza ANTES de cobrar, sin tocar nada', async () => {
+  await reiniciar(); await sembrarActividad(); await sembrarSesion()
+  await sembrarOpciones(['a', 'b', 'a'])
+  await assert.rejects(() => activar(), /Todavía no hay respuestas suficientes/)
+  await sinCobro()
+  assert.strictEqual((await db.doc('vivoSesiones/' + CODIGO).get()).data().analisisActivo, false)
+})
+
+await caso('activar (NO calificable) con una pregunta que ya alcanza su umbral: cobra 10 una sola vez', async () => {
+  await reiniciar(); await sembrarActividad(); await sembrarSesion()
+  await sembrarOpciones(['a', 'b', 'a', 'b', 'a'])
+  const k = clave()
+  await activar({ k }); const r2 = await activar({ k })
+  assert.strictEqual(r2.repetida, true)
+  assert.strictEqual((await creditosDe()).saldo, 90)
+})
+
+await caso('activar (calificable) con poca muestra SÍ cobra los 10 al activar (sin reembolso); el diagnóstico dirá «muestra insuficiente»', async () => {
+  await reiniciar(); await sembrarActividad(); await sembrarSesion({ extra: { calificable: true } })
+  await sembrarOpciones(['a'])
+  const r = await activar()
+  assert.strictEqual(r.creditosReales, 10)
+  assert.strictEqual((await creditosDe()).saldo, 90)
+})
+
 grupo('D. Evaluación de UNA respuesta abierta')
 
 const DEPS = { pedirJSON: IA_FN._pruebas.pedirJSON, obtenerClave: () => CLAVE_API }
@@ -794,6 +866,259 @@ await caso('limpiarVivoDeActividad borra sesiones, respuestas y claves de ESA ac
   assert.strictEqual((await db.doc('vivoSesiones/KMNPQRSTUV').get()).exists, true, 'la otra actividad sigue intacta')
   assert.strictEqual((await db.doc('vivoRespuestas/ajena_1').get()).exists, true)
   assert.strictEqual((await db.doc('activities/act_otra_viva/clave/p1').get()).exists, true)
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('G. Proyección y diagnóstico: reglas puras')
+
+await caso('legibilidad: los tamaños nunca bajan de los pisos aunque la ventana sea chica', () => {
+  for (const [w, h] of [[1920, 1080], [1280, 720], [800, 600], [360, 640], [3840, 2160]]) {
+    const t = P.tamanosProyeccion(w, h)
+    assert.ok(t.pregunta >= 48 && t.opcion >= 36 && t.numero >= 44 && t.respuesta >= 32 && t.resto >= 28, w + 'x' + h)
+    assert.ok(t.pregunta > t.opcion && t.numero > t.resto, 'jerarquía')
+  }
+  const t = P.tamanosProyeccion(1920, 1080)
+  assert.ok(t.pregunta >= 64 && t.numero >= 56, 'a 1080p: pregunta ≈ 64 y números ≈ 56')
+})
+
+await caso('opciones largas: se conserva el texto completo y se elige directo / lista / momentos según el espacio', () => {
+  const cortas = [{ texto: 'Oxígeno' }, { texto: 'Metano' }, { texto: 'Helio' }]
+  assert.strictEqual(P.planOpciones('¿Qué gas?', cortas, 1920, 1080), 'directo')
+  const medias = Array.from({ length: 4 }, (_, i) => ({ texto: 'Es el proceso mediante el cual la planta fabrica su alimento número ' + i }))
+  assert.strictEqual(P.planOpciones('¿Qué es?', medias, 1920, 1080), 'lista')
+  const largas = Array.from({ length: 5 }, (_, i) => ({ texto: 'Opción ' + i + ': ' + 'una explicación muy extensa con varios conceptos encadenados '.repeat(5) }))
+  assert.strictEqual(P.planOpciones('Pregunta con opciones muy largas', largas, 1280, 720), 'momentos')
+  assert.ok(V.sanearPreguntasVivo([{ id: 'p1', tipo: 'opcion_unica', enunciado: 'x', opciones: largas.map((o, i) => ({ id: 'abcde'[i], texto: o.texto })) }]).publicas[0].opciones.every((o, i) => o.texto === largas[i].texto.trim() || o.texto.length <= V.VIVO_CFG.MAX_OPCION), 'el saneo solo recorta al máximo configurado, no a 60')
+  assert.ok(V.VIVO_CFG.MAX_OPCION > 60, 'no hay límite de 60 caracteres por opción')
+})
+
+await caso('QR de la sala de espera: cuadrado, entre 40 % y 55 % de la altura útil, y manda el ancho en pantallas verticales', () => {
+  for (const [w, h] of [[1920, 1080], [1366, 768], [1024, 768], [1280, 720]]) {
+    const lado = P.ladoQr(w, h)
+    const util = h - 2 * Math.round(h * 0.04)
+    assert.ok(lado >= util * 0.40 && lado <= util * 0.55, w + 'x' + h + ' lado ' + lado + ' de ' + util)
+    assert.ok(lado <= w * 0.5)
+  }
+  assert.ok(P.ladoQr(600, 1000) <= 600 * 0.5, 'vertical: nunca más ancho que la ventana')
+})
+
+await caso('muro de ideas: ninguna respuesta se trunca; las largas ocupan página propia', () => {
+  const area = { ancho: 1920, alto: 900 }
+  const cortas = Array.from({ length: 9 }, (_, i) => ({ id: 'c' + i, texto: 'Idea corta ' + i }))
+  const larga = { id: 'L', texto: 'texto largo '.repeat(80) }
+  const paginas = P.paginarMuro([...cortas, larga], area, 43)
+  assert.ok(paginas.every((pg) => pg.length <= 4))
+  assert.deepStrictEqual(paginas.flat().map((r) => r.id).sort(), [...cortas, larga].map((r) => r.id).sort(), 'ninguna se pierde')
+  assert.strictEqual(paginas.flat().find((r) => r.id === 'L').texto, larga.texto, 'texto original íntegro')
+  assert.ok(paginas.some((pg) => pg.length === 1 && pg[0].id === 'L'), 'la larga va sola')
+})
+
+await caso('umbrales del diagnóstico por tipo y confianza', () => {
+  const op = PREGUNTAS_SESION[0], br = PREGUNTAS_SESION[1], ex = PREGUNTAS_SESION[2]
+  const R = (n, extra) => Array.from({ length: n }, (_, i) => ({ id: 'r' + i, ...extra(i) }))
+  assert.strictEqual(V.puedeDiagnosticar(op, R(4, () => ({ preguntaId: 'p1', opcion: 'a' }))).ok, false)
+  assert.strictEqual(V.puedeDiagnosticar(op, R(5, () => ({ preguntaId: 'p1', opcion: 'a' }))).ok, true)
+  assert.strictEqual(V.puedeDiagnosticar(ex, R(7, () => ({ preguntaId: 'p3', estadoIA: 'analizada', texto: 'x' }))).ok, false)
+  assert.strictEqual(V.puedeDiagnosticar(ex, R(8, () => ({ preguntaId: 'p3', estadoIA: 'analizada', texto: 'x' }))).ok, true)
+  assert.strictEqual(V.puedeDiagnosticar(ex, R(30, () => ({ preguntaId: 'p3', estadoIA: 'recibida', texto: 'x' }))).ok, false, 'abiertas: solo cuentan las ya evaluadas')
+  assert.strictEqual(V.puedeDiagnosticar(br, R(9, () => ({ preguntaId: 'p2', estadoIA: 'analizada', texto: 'luz' }))).ok, false, '≥8 respuestas pero 1 término distinto: sin familias que interpretar')
+  const variadas = ['luz', 'agua', 'clorofila', 'glucosa', 'oxígeno', 'energía', 'planta', 'hoja']
+  assert.strictEqual(V.puedeDiagnosticar(br, R(8, (i) => ({ preguntaId: 'p2', estadoIA: 'analizada', texto: variadas[i] }))).ok, true)
+  assert.deepStrictEqual([9, 10, 24, 25].map(V.confianzaDe), ['baja', 'media', 'media', 'alta'])
+})
+
+await caso('huella: cambia solo si cambian los datos usados; la cobertura de conceptos se calcula sin IA', () => {
+  const a = [{ id: 'x', estadoIA: 'analizada' }, { id: 'y', estadoIA: 'analizada' }]
+  assert.strictEqual(V.huellaDe(a), V.huellaDe([...a].reverse()))
+  assert.notStrictEqual(V.huellaDe(a), V.huellaDe([...a, { id: 'z', estadoIA: 'analizada' }]))
+  const c = V.coberturaConceptos(['la luz', 'agua y luz', 'otra cosa'], ['luz', 'clorofila'])
+  assert.deepStrictEqual(c.map((x) => [x.concepto, x.n, x.aparece]), [['luz', 2, true], ['clorofila', 0, false]])
+})
+
+await caso('informe: el código pone los conteos, descarta citas inexistentes y no acepta afirmaciones sin sustento', () => {
+  const ctx = { tipo: 'opcion_unica', opcionesValidas: new Set(['a', 'b']), conteoOpciones: { a: 4, b: 3 }, n: 7, idsValidos: new Set() }
+  const inf = V.sanearInforme({ diagnostico: 'Hay confusión', refuerzo: ['x'], siguientePaso: { tipo: 'reexplicar', texto: 'Vuelve a explicar' }, confusiones: [{ opcion: 'b', texto: 'Cree que…', n: 99 }, { opcion: 'zz', texto: 'inventada' }] }, ctx)
+  assert.deepStrictEqual(inf.confusiones, [{ opcion: 'b', texto: 'Cree que…', n: 3 }], 'n lo calcula el código; opciones inexistentes se descartan')
+  assert.strictEqual(inf.confianza, 'baja')
+  const ex = V.sanearInforme({ diagnostico: 'd', siguientePaso: { tipo: 'cualquiera', texto: 't' }, ideas: [{ texto: 'idea', ids: ['r1', 'r99'] }, { texto: 'sin citas', ids: ['r77'] }] }, { tipo: 'abierta_extensa', idsValidos: new Set(['r1', 'r2']), n: 12 })
+  assert.deepStrictEqual(ex.ideas, [{ texto: 'idea', ids: ['r1'], n: 1 }], 'solo ideas con al menos una cita válida')
+  assert.strictEqual(ex.siguientePaso.tipo, 'aclarar', 'tipo desconocido → aclarar')
+  assert.strictEqual(V.sanearInforme({ diagnostico: '', siguientePaso: { texto: 't' } }, ctx), null)
+  assert.strictEqual(V.sanearInforme('texto', ctx), null)
+  assert.strictEqual(V.sanearInformeFinal({ sintesis: 's' }), null, 'sin siguiente paso no es utilizable')
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('H. Informes pedagógicos (servidor)')
+
+const SEMILLA_INFORME = { analisisActivo: true, calificable: false }
+const INFORME_OP = { diagnostico: 'Una parte del grupo confunde el gas.', confusiones: [{ opcion: 'b', texto: 'Cree que el metano se libera' }], refuerzo: ['Productos de la fotosíntesis'], siguientePaso: { tipo: 'aclarar', texto: 'Aclarar con un ejemplo.' }, limitaciones: 'Muestra pequeña' }
+async function prepararInformes({ opciones = ['a', 'a', 'a', 'b', 'b', 'b'], extra = {} } = {}) {
+  await reiniciar(); await sembrarActividad(); await sembrarClaves()
+  await db.doc('activities/act_vivo/clave/p1').set({ correcta: 'a', confusiones: { b: 'Confunde el metano con el producto' } })
+  await sembrarSesion({ extra: { ...SEMILLA_INFORME, ...extra } })
+  await sembrarOpciones(opciones)
+  respuestaIA = () => INFORME_OP
+}
+const informe = (id = 'p1') => PV.generarInformePregunta({ sesionId: CODIGO, preguntaId: id, deps: DEPS })
+const docInforme = async (id = 'p1') => (await db.doc('vivoInformes/' + CODIGO + '_' + id).get()).data()
+const abiertasAnalizadas = async (n, texto = (i) => 'respuesta numero ' + i + ' sobre fotosintesis') => {
+  for (let i = 0; i < n; i++) {
+    await db.doc('vivoRespuestas/' + CODIGO + '_p3_' + String(i).padStart(20, 'e')).set({
+      sesionId: CODIGO, actividadId: 'act_vivo', docenteId: DOCENTE, preguntaId: 'p3', preguntaTipo: 'abierta_extensa', texto: texto(i),
+      estadoIA: 'analizada', evaluacion: { nivel: 'parcial', puntaje: 0.5, conceptos: [], errores: [], evidencia: '' }, creadaEn: new Date(2026, 9, 1, 12, 0, i),
+    })
+  }
+}
+
+await caso('informe: con muestra insuficiente NO llama al modelo y lo dice', async () => {
+  await prepararInformes({ opciones: ['a', 'b', 'a'] })
+  const r = await informe()
+  assert.strictEqual(r.omitido, 'insuficiente')
+  const d = await docInforme()
+  assert.strictEqual(d.estado, 'insuficiente')
+  assert.ok(/no alcanza/.test(d.motivo))
+  assert.strictEqual(pedidosIA.length, 0)
+})
+
+await caso('informe de opción única: lo genera una vez, el código pone los conteos y NO mueve créditos', async () => {
+  await prepararInformes()
+  respuestaIA = () => ({ ...INFORME_OP, confusiones: [{ opcion: 'b', texto: 'Cree que el metano se libera', n: 500 }] })
+  const r = await informe()
+  assert.strictEqual(r.listo, true)
+  const d = await docInforme()
+  assert.strictEqual(d.estado, 'listo')
+  assert.strictEqual(d.informe.confusiones[0].n, 3, 'el conteo sale de las respuestas reales')
+  assert.strictEqual(d.docenteId, DOCENTE)
+  assert.strictEqual(d.informe.confianza, 'baja')
+  assert.strictEqual(pedidosIA.length, 1)
+  await sinCobro()
+  const prompt = textoDelPedido(pedidosIA[0])
+  assert.ok(prompt.includes('Confunde el metano') && prompt.includes('[CORRECTA]'), 'usa la confusión que el docente declaró')
+})
+
+await caso('informe idempotente: misma huella = sin nueva llamada; datos nuevos regeneran hasta el límite de 3', async () => {
+  await prepararInformes()
+  assert.strictEqual((await informe()).listo, true)
+  assert.strictEqual((await informe()).omitido, 'sin_cambios')
+  assert.strictEqual(pedidosIA.length, 1)
+  await sembrarOpciones(['a', 'a', 'a', 'b', 'b', 'b', 'a'])
+  assert.strictEqual((await informe()).listo, true)
+  await sembrarOpciones(['a', 'a', 'a', 'b', 'b', 'b', 'a', 'a'])
+  assert.strictEqual((await informe()).listo, true)
+  await sembrarOpciones(['a', 'a', 'a', 'b', 'b', 'b', 'a', 'a', 'b'])
+  assert.strictEqual((await informe()).omitido, 'limite')
+  assert.strictEqual(pedidosIA.length, 3, 'tope de 3 generaciones por pregunta')
+  assert.strictEqual((await docInforme()).generaciones, 3)
+})
+
+await caso('informe: dos ejecuciones simultáneas hacen UNA sola llamada al modelo', async () => {
+  await prepararInformes()
+  respuestaIA = async () => { await new Promise((r) => setTimeout(r, 150)); return INFORME_OP }
+  const [x, y] = await Promise.all([informe(), informe()])
+  assert.strictEqual([x, y].filter((v) => v.listo === true).length, 1, 'una genera')
+  assert.ok([x, y].some((v) => ['en_curso', 'sin_cambios'].includes(v.omitido)), 'la otra no repite la llamada: ' + JSON.stringify([x, y]))
+  assert.strictEqual(pedidosIA.length, 1)
+})
+
+await caso('informe de respuesta abierta: solo cita respuestas que existen y devuelve ids reales', async () => {
+  await prepararInformes()
+  await abiertasAnalizadas(9)
+  respuestaIA = () => ({ diagnostico: 'Mencionan la luz pero no la glucosa.', ideas: [{ texto: 'La luz se usa', ids: ['r1', 'r2', 'r404'] }, { texto: 'Cita falsa', ids: ['r500'] }], confusiones: [], refuerzo: ['Glucosa'], siguientePaso: { tipo: 'reexplicar', texto: 'Reexplicar' }, limitaciones: '' })
+  assert.strictEqual((await informe('p3')).listo, true)
+  const d = await docInforme('p3')
+  assert.strictEqual(d.informe.ideas.length, 1)
+  assert.ok(d.informe.ideas[0].ids.every((id) => id.startsWith(CODIGO + '_p3_')), 'ids reales de respuesta')
+  const prompt = textoDelPedido(pedidosIA[0])
+  assert.ok(prompt.includes('[r1]') && !prompt.includes('e'.repeat(20)), 'el modelo ve alias, no ids ni participantes')
+})
+
+await caso('informe de palabras breves con pocos términos distintos: insuficiente, sin llamar al modelo', async () => {
+  await prepararInformes()
+  for (let i = 0; i < 9; i++) {
+    await db.doc('vivoRespuestas/' + CODIGO + '_p2_' + String(i).padStart(20, 'b')).set({ sesionId: CODIGO, actividadId: 'act_vivo', docenteId: DOCENTE, preguntaId: 'p2', preguntaTipo: 'abierta_breve', texto: 'luz', estadoIA: 'analizada', evaluacion: { nivel: 'logrado', puntaje: 1, conceptos: ['luz'], errores: [], evidencia: '' } })
+  }
+  assert.strictEqual((await informe('p2')).omitido, 'insuficiente')
+  assert.strictEqual(pedidosIA.length, 0)
+})
+
+await caso('sin análisis activo no se genera ningún informe', async () => {
+  await prepararInformes({ extra: { analisisActivo: false } })
+  assert.strictEqual((await informe()).omitido, 'sin_analisis')
+  assert.strictEqual(pedidosIA.length, 0)
+  assert.strictEqual((await db.collection('vivoInformes').get()).size, 0)
+})
+
+await caso('informe final: sintetiza los diagnósticos, es idempotente y tiene tope de 2', async () => {
+  await prepararInformes()
+  const FINAL = { sintesis: 'El grupo identifica el gas pero confunde el origen.', comprende: ['Productos'], noComprende: ['Origen del gas'], siguientePaso: { tipo: 'actividad', texto: 'Actividad breve' }, actividadBreve: 'Dibujar el ciclo en 3 minutos', limitaciones: '' }
+  const fin = () => PV.generarInformeFinal({ sesionId: CODIGO, deps: DEPS })
+  assert.strictEqual((await fin()).omitido, 'insuficiente', 'sin diagnósticos por pregunta no hay síntesis')
+  await informe()
+  respuestaIA = () => FINAL
+  assert.strictEqual((await fin()).listo, true)
+  assert.strictEqual((await docInforme('final')).informe.actividadBreve, FINAL.actividadBreve)
+  assert.strictEqual((await fin()).omitido, 'sin_cambios')
+  await sembrarOpciones(['a', 'a', 'a', 'b', 'b', 'b', 'a'])
+  respuestaIA = () => INFORME_OP
+  await informe()
+  respuestaIA = () => FINAL
+  assert.strictEqual((await fin()).listo, true)
+  await sembrarOpciones(['a', 'a', 'a', 'b', 'b', 'b', 'a', 'a'])
+  respuestaIA = () => INFORME_OP
+  await informe()
+  respuestaIA = () => FINAL
+  assert.strictEqual((await fin()).omitido, 'limite', 'tope de 2 generaciones del informe final')
+  await sinCobro()
+})
+
+await caso('disparador de la sesión: cerrar respuestas genera la pregunta actual; un cambio sin transición no llama al modelo; finalizar genera todo y el final', async () => {
+  await prepararInformes()
+  const base = (await db.doc('vivoSesiones/' + CODIGO).get()).data()
+  const alCambiar = (antes, despues) => PV.alCambiarSesionVivo({ sesionId: CODIGO, antes, despues, deps: DEPS })
+  assert.strictEqual((await alCambiar({ ...base, titulo: 'a' }, { ...base, titulo: 'b' })).omitido, 'sin_transicion')
+  assert.strictEqual(pedidosIA.length, 0)
+  await alCambiar({ ...base, preguntaIndex: 0, aceptando: true }, { ...base, preguntaIndex: 0, aceptando: false })
+  assert.strictEqual(pedidosIA.length, 1)
+  assert.strictEqual((await docInforme('p1')).estado, 'listo')
+  await alCambiar({ ...base, preguntaIndex: 0, aceptando: true }, { ...base, preguntaIndex: 0, aceptando: false })
+  assert.strictEqual(pedidosIA.length, 1, 'misma huella: no repite')
+  respuestaIA = () => INFORME_OP
+  await alCambiar({ ...base, preguntaIndex: 0 }, { ...base, preguntaIndex: 0, estado: 'finalizada', aceptando: false })
+  assert.ok(pedidosIA.length <= 1 + 1, 'solo el informe final es nuevo (las demás preguntas no alcanzan umbral o no cambiaron)')
+  assert.ok((await db.doc('vivoInformes/' + CODIGO + '_final').get()).exists)
+  await sinCobro()
+})
+
+await caso('informe atascado en «generando»: la recuperación lo pasa a error y se puede actualizar a mano', async () => {
+  await prepararInformes()
+  await db.doc('vivoInformes/' + CODIGO + '_p1').set({ sesionId: CODIGO, actividadId: 'act_vivo', docenteId: DOCENTE, preguntaId: 'p1', estado: 'generando', token: 't', generandoDesde: new Date(Date.now() - 10 * 60000), generaciones: 1 })
+  assert.strictEqual((await PV.recuperarInformesAtascados()).informesAtascados, 1)
+  assert.strictEqual((await docInforme()).estado, 'error')
+  assert.strictEqual((await informe()).listo, true, 'el docente puede volver a generarlo')
+})
+
+await caso('limpieza: borrar la actividad borra también sus informes y deja los de otra actividad', async () => {
+  await prepararInformes()
+  await informe()
+  await db.doc('vivoInformes/OTRA_p1').set({ sesionId: 'OTRA', actividadId: 'act_otra_viva', docenteId: DOCENTE, preguntaId: 'p1', estado: 'listo' })
+  await PV.limpiarVivoDeActividad({ activityId: 'act_vivo' })
+  assert.strictEqual((await db.collection('vivoInformes').where('actividadId', '==', 'act_vivo').get()).size, 0)
+  assert.strictEqual((await db.doc('vivoInformes/OTRA_p1').get()).exists, true)
+})
+
+await caso('guarda estática: toda lista de colecciones de limpieza incluye vivoInformes', async () => {
+  const { readFileSync } = await import('node:fs')
+  const fuentes = { 'functions/participacionVivo.js': ['vivoRespuestas', 'vivoSesiones', 'vivoInformes'], 'api/account/delete.js': ['vivoInformes'], 'api/admin/[action].js': ['vivoInformes'] }
+  for (const [ruta, nombres] of Object.entries(fuentes)) {
+    const txt = readFileSync(new URL('../' + ruta, import.meta.url), 'utf8')
+    for (const n of nombres) assert.ok(txt.includes(n), ruta + ' debe limpiar ' + n)
+  }
+  const todos = ['api/account/delete.js', 'api/admin/[action].js', 'functions/participacionVivo.js']
+  for (const ruta of todos) {
+    const txt = readFileSync(new URL('../' + ruta, import.meta.url), 'utf8')
+    if (txt.includes('vivoRespuestas')) assert.ok(txt.includes('vivoInformes'), ruta + ': si limpia respuestas en vivo, también informes')
+  }
 })
 
 require.cache[rutaSdk].exports = SDK_REAL

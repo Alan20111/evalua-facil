@@ -1,125 +1,57 @@
-// Participación en vivo · vista de PRESENTACIÓN del docente (pantalla grande / proyector).
+// Participación en vivo · PRESENTACIÓN del docente (pantalla grande / proyector).
 //
-// La pregunta es lo principal. Los resultados se dibujan en tiempo real a partir de las respuestas que
-// llegan por Firestore (onSnapshot): barras de color para opción única, nube de palabras para respuestas
-// breves, tarjetas para respuestas extensas. Los controles son discretos y están abajo.
-//
-// Etapas de una sesión: sala de espera (código/QR) → preguntas → finalizada (resultados + calificación).
+// Dos vistas en la misma ventana (interruptor «Vista del grupo / Vista del docente»):
+//   · GRUPO: lo único que ve el salón; tema claro, letra grande, sin controles ni análisis. Los controles aparecen al
+//     mover el ratón o tocar y se ocultan solos a los 3 s.
+//   · DOCENTE: lo mismo + estado de las respuestas, clave y diagnóstico pedagógico.
+// «Proyectar en otra ventana» abre una ventana de solo lectura con la vista del grupo (se sincroniza por
+// BroadcastChannel; no escribe nada). Etapas: sala de espera (QR protagonista) → preguntas → resultados finales,
+// pregunta por pregunta y sin desplazamiento.
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, ArrowRight, Check, Lock, LockOpen, Maximize2, Play, QrCode, Sparkles, Square, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Eye, Lock, LockOpen, Maximize2, MonitorUp, Play, QrCode, Sparkles, Square, Users, X } from 'lucide-react'
 import { useToast } from '../Toast'
 import { Button, Modal } from '../ui'
 import Spinner from '../Spinner'
 import ConfirmacionCreditosModal from '../ConfirmacionCreditosModal'
 import useCreditosIA from '../../hooks/useCreditosIA'
+import { useAreaMedida, useAutoOcultar, useEstadoProyeccion } from '../../hooks/useProyeccion'
 import {
-  alternarRespuestasVivo, escucharRespuestasVivo, escucharSesionVivo, finalizarSesionVivo, irAPreguntaVivo, urlParticipacion,
+  alternarRespuestasVivo, escucharInformesVivo, escucharRespuestasVivo, escucharSesionVivo, finalizarSesionVivo, irAPreguntaVivo,
 } from '../../utils/participacionVivoDb'
-import { VIVO_CFG, esTipoAbierto } from '../../utils/participacionVivo'
-import NubePalabras from './NubePalabras'
-import ResultadoOpciones from './ResultadoOpciones'
-import TarjetasRespuestas from './TarjetasRespuestas'
-import PanelAnalisisIA from './PanelAnalisisIA'
+import { UMBRALES_DIAGNOSTICO, VIVO_CFG, esTipoAbierto, puedeDiagnosticar } from '../../utils/participacionVivo'
+import { IS_NATIVE_APP } from '../../utils/platform'
+import { planOpciones, rutaProyeccion, tamanosProyeccion } from '../../utils/proyeccionVivo'
+import VistaGrupo from './VistaGrupo'
+import VistaDocente from './VistaDocente'
+import RecorridoResultados from './RecorridoResultados'
 import PanelCalificacionVivo from './PanelCalificacionVivo'
+
 
 // Pantalla de proyección: el diálogo de la app (ui/Modal) estirado a toda la ventana. Hereda el foco atrapado,
 // Escape y el botón Atrás de Android (todos solo SALEN de la presentación: la sesión sigue activa).
-function Pantalla({ children, onCerrar }) {
+function Pantalla({ children, onCerrar, autonoma }) {
+  if (autonoma) return <div className="h-dvh w-full bg-white text-slate-900 flex flex-col">{children}</div>
   return (
-    <Modal open onClose={onCerrar} ariaLabel="Participación en vivo" size="full" padding="p-0" closeOnBackdrop={false}
-      className="!w-full !max-w-none h-dvh !max-h-dvh !rounded-none !bg-slate-950 text-white flex flex-col !overflow-hidden">
+    <Modal open onClose={onCerrar} ariaLabel="Participación en vivo" size="full" padding="p-0" closeOnBackdrop={false} z={60}
+      className="!w-full !max-w-none !h-full !max-h-full !rounded-none !bg-white text-slate-900 flex flex-col !overflow-hidden">
       {children}
     </Modal>
   )
 }
 
-function useQR(url) {
-  const [src, setSrc] = useState(null)
-  useEffect(() => {
-    let cancelado = false
-    import('qrcode').then((m) => m.default.toDataURL(url, { width: 520, margin: 1, color: { dark: '#0f172a', light: '#ffffff' } }))
-      .then((d) => { if (!cancelado) setSrc(d) }).catch(() => {})
-    return () => { cancelado = true }
-  }, [url])
-  return src
-}
-
-function SalaDeEspera({ sesion }) {
-  const externo = sesion.acceso === 'externo'
-  const url = urlParticipacion(sesion.codigo)
-  const qr = useQR(url)
+function Escenario({ sesion, respuestas, informes, claves, vista, estado, reservaInferior = 0, onOcultarQr }) {
+  const [ref, area] = useAreaMedida()
+  const finalizada = sesion.estado === 'finalizada'
   return (
-    <div className="flex-1 flex flex-col items-center justify-center text-center px-6 gap-6">
-      <h1 className="text-4xl md:text-5xl font-bold">{sesion.titulo || 'Participación en vivo'}</h1>
-      {externo ? (
-        <div className="flex flex-col md:flex-row items-center gap-8">
-          {qr ? <img src={qr} alt={`Código QR para participar: ${url}`} className="size-56 md:size-72 rounded-card bg-white p-2" /> : <Spinner />}
-          <div className="text-left">
-            <p className="text-xl text-white/80">Escanea el código o entra a</p>
-            <p className="text-2xl md:text-3xl font-semibold break-all">{url.replace(/^https?:\/\//, '')}</p>
-            <p className="text-lg text-white/80 mt-4">Código</p>
-            <p className="text-5xl font-bold tracking-widest tabular-nums">{sesion.codigo}</p>
-          </div>
-        </div>
-      ) : (
-        <p className="text-2xl text-white/80 max-w-2xl">
-          Tus estudiantes participan desde su asignatura en Evalúa Fácil: abren esta actividad en su lista y responden desde su celular.
-        </p>
+    <div ref={ref} className="flex-1 min-h-0 relative overflow-hidden bg-white" style={{ paddingBottom: reservaInferior }}>
+      {area.ancho > 0 && vista === 'docente' && (
+        <VistaDocente sesion={sesion} respuestas={respuestas} informes={informes} claves={claves} indice={sesion.preguntaIndex}
+          verCorrecta={estado.verCorrecta} momento={estado.momento} incluirVacias={estado.incluirVacias} />
       )}
-      <p className="text-lg text-white/80">Cuando estén listos, pulsa «Comenzar».</p>
-    </div>
-  )
-}
-
-function Escenario({ sesion, pregunta, respuestas, claves, verCorrecta, vistaAbierta, setVistaAbierta }) {
-  const propias = useMemo(() => respuestas.filter((r) => r.preguntaId === pregunta.id), [respuestas, pregunta.id])
-  const abierta = esTipoAbierto(pregunta.tipo)
-  const breve = pregunta.tipo === 'abierta_breve'
-  const mostrarNube = breve && vistaAbierta === 'nube'
-  return (
-    <div className="flex-1 min-h-0 flex flex-col px-6 md:px-12 pb-4 overflow-y-auto">
-      <p className="text-lg text-white/80 mt-2">Pregunta {sesion.preguntaIndex + 1} de {sesion.total ?? sesion.preguntas.length}</p>
-      <h1 className="text-4xl md:text-6xl font-bold leading-tight my-4">{pregunta.enunciado}</h1>
-      <div className="flex-1">
-        {pregunta.tipo === 'opcion_unica' && (
-          <ResultadoOpciones pregunta={pregunta} respuestas={propias} correcta={verCorrecta ? claves?.[pregunta.id]?.correcta : null} />
-        )}
-        {breve && (
-          <div className="flex flex-col h-full">
-            <div className="flex justify-end mb-2">
-              <Button variant="quiet" size="sm" className="!text-white/80 hover:!text-white" onClick={() => setVistaAbierta(mostrarNube ? 'tarjetas' : 'nube')}>
-                {mostrarNube ? 'Ver respuestas una por una' : 'Ver nube de palabras'}
-              </Button>
-            </div>
-            {mostrarNube ? <div className="flex-1 min-h-80"><NubePalabras textos={propias.map((r) => r.texto)} /></div> : <TarjetasRespuestas respuestas={propias} grande />}
-          </div>
-        )}
-        {abierta && !breve && <TarjetasRespuestas respuestas={propias} grande />}
-      </div>
-      {abierta && sesion.analisisActivo && (
-        <div className="mt-4"><PanelAnalisisIA pregunta={pregunta} respuestas={propias} analisisActivo /></div>
-      )}
-    </div>
-  )
-}
-
-function ResumenFinal({ sesion, respuestas, claves }) {
-  return (
-    <div className="flex-1 overflow-y-auto px-6 md:px-12 pb-6 space-y-8">
-      <h1 className="text-4xl font-bold mt-2">Resultados: {sesion.titulo || 'Participación en vivo'}</h1>
-      {sesion.preguntas.map((p, i) => {
-        const propias = respuestas.filter((r) => r.preguntaId === p.id)
-        return (
-          <section key={p.id} aria-label={`Pregunta ${i + 1}`}>
-            <p className="text-sm text-white/80">Pregunta {i + 1} · {propias.length} {propias.length === 1 ? 'respuesta' : 'respuestas'}</p>
-            <h2 className="text-2xl font-semibold mb-3">{p.enunciado}</h2>
-            {p.tipo === 'opcion_unica' && <ResultadoOpciones pregunta={p} respuestas={propias} correcta={sesion.calificable ? claves?.[p.id]?.correcta : null} />}
-            {p.tipo === 'abierta_breve' && <div className="h-72"><NubePalabras textos={propias.map((r) => r.texto)} alturaMin={240} /></div>}
-            {esTipoAbierto(p.tipo) && <div className="mt-3"><TarjetasRespuestas respuestas={propias} /></div>}
-            {esTipoAbierto(p.tipo) && sesion.analisisActivo && <div className="mt-3"><PanelAnalisisIA pregunta={p} respuestas={propias} analisisActivo /></div>}
-          </section>
-        )
-      })}
+      {area.ancho > 0 && vista === 'grupo' && (finalizada
+        ? <RecorridoResultados sesion={sesion} respuestas={respuestas} claves={claves} area={area} />
+        : <VistaGrupo sesion={sesion} respuestas={respuestas} claves={claves} area={area} verCorrecta={estado.verCorrecta} mostrarQr={estado.mostrarQr} onOcultarQr={onOcultarQr}
+          momento={estado.momento} incluirVacias={estado.incluirVacias} />)}
     </div>
   )
 }
@@ -129,26 +61,38 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
   const creditosIA = useCreditosIA()
   const [sesion, setSesion] = useState(undefined) // undefined = cargando, null = no existe
   const [respuestas, setRespuestas] = useState([])
-  const [verCorrecta, setVerCorrecta] = useState(false)
-  const [vistaAbierta, setVistaAbierta] = useState('nube')
+  const [informes, setInformes] = useState([])
+  const [vista, setVista] = useState('grupo')
+  const [estado, cambiar] = useEstadoProyeccion(codigo, { emisor: true })
+  const [visibles] = useAutoOcultar(3000)
   const [confirmandoAnalisis, setConfirmandoAnalisis] = useState(false)
   const [activandoAnalisis, setActivandoAnalisis] = useState(false)
   const [confirmandoFin, setConfirmandoFin] = useState(false)
-  const [conQR, setConQR] = useState(false)
 
   useEffect(() => escucharSesionVivo(codigo, setSesion, () => setSesion(null)), [codigo])
   useEffect(() => escucharRespuestasVivo(codigo, docenteId, setRespuestas, () => toast('Se perdió la conexión con las respuestas; reintentando', 'error')), [codigo, docenteId, toast])
+  useEffect(() => escucharInformesVivo(codigo, docenteId, setInformes, () => {}), [codigo, docenteId])
+  // Cada pregunta empieza mostrando sus opciones (si son largas) y sin revelar la correcta.
+  const indice = sesion?.preguntaIndex
+  useEffect(() => { cambiar({ momento: 'opciones', verCorrecta: false }) }, [indice, cambiar])
 
   const costoAnalisis = creditosIA.estimar(VIVO_CFG.OP_ANALISIS)
   const tieneAbiertas = (sesion?.preguntas || []).some((p) => esTipoAbierto(p.tipo))
-
   const ir = useCallback((i) => irAPreguntaVivo(codigo, i).catch(() => toast('No se pudo cambiar de pregunta', 'error')), [codigo, toast])
+
+  // Una sesión NO calificable solo puede activar el análisis si ya hay una pregunta que alcance su umbral de datos:
+  // se valida ANTES de cobrar (el servidor lo vuelve a comprobar y rechaza sin cobrar).
+  const hayDatosSuficientes = useMemo(
+    () => (sesion?.preguntas || []).some((p) => puedeDiagnosticar(p, respuestas).ok),
+    [sesion, respuestas]
+  )
+  const puedeActivar = sesion?.calificable === true || hayDatosSuficientes
 
   async function activarAnalisis() {
     setActivandoAnalisis(true)
     try {
       await creditosIA.ejecutar(VIVO_CFG.OP_ANALISIS, { sesionId: codigo, asignaturaId: sesion.asignaturaId })
-      toast('Análisis en vivo activado: las respuestas abiertas se evaluarán conforme lleguen')
+      toast('Análisis activado: las respuestas abiertas se evaluarán y cada pregunta tendrá su diagnóstico')
       setConfirmandoAnalisis(false)
     } catch (e) {
       toast(e.message || 'No se pudo activar el análisis', 'error')
@@ -158,9 +102,12 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
     }
   }
 
-  if (sesion === undefined) {
-    return <Pantalla onCerrar={onCerrar}><div className="flex-1 flex items-center justify-center"><Spinner /></div></Pantalla>
+  function proyectarEnOtraVentana() {
+    const w = window.open(rutaProyeccion(codigo), 'ef-proyeccion-vivo', 'popup=yes,width=1280,height=720')
+    if (!w) toast('Tu navegador bloqueó la ventana. Permite las ventanas emergentes para este sitio.', 'error')
   }
+
+  if (sesion === undefined) return <Pantalla onCerrar={onCerrar}><div className="flex-1 flex items-center justify-center"><Spinner /></div></Pantalla>
   if (sesion === null) {
     return (
       <Pantalla onCerrar={onCerrar}>
@@ -176,88 +123,83 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
   const enEspera = !finalizada && sesion.preguntaIndex < 0
   const pregunta = !finalizada && !enEspera ? sesion.preguntas[sesion.preguntaIndex] : null
   const ultima = sesion.preguntaIndex >= sesion.preguntas.length - 1
-  const propiasActual = pregunta ? respuestas.filter((r) => r.preguntaId === pregunta.id).length : 0
-
-  const barra = 'text-white hover:!bg-white/15 hover:!text-white'
+  const t = tamanosProyeccion(window.innerWidth, window.innerHeight)
+  // En la vista del docente los controles no se ocultan: es su pantalla de trabajo.
+  const controlesVisibles = visibles || vista === 'docente' || confirmandoAnalisis || confirmandoFin
+  const barra = 'hover:!bg-slate-100'
+  // Opciones largas: se presentan en dos momentos (opciones completas → resultados); el docente alterna entre ellos.
+  const enMomentos = pregunta?.tipo === 'opcion_unica' && planOpciones(pregunta.enunciado, pregunta.opciones, window.innerWidth, window.innerHeight) === 'momentos'
   return (
     <>
       <Pantalla onCerrar={onCerrar}>
-        {/* Barra superior discreta */}
-        <div className="flex items-center gap-3 px-4 py-2 text-sm text-white/80">
+        <Escenario sesion={sesion} respuestas={respuestas} informes={informes} claves={claves} vista={vista} estado={estado} reservaInferior={vista === 'docente' ? 72 : 0}
+          onOcultarQr={() => cambiar({ mostrarQr: false })} />
+
+        {/* Controles: se ocultan solos a los 3 s en la vista del grupo; el contenido nunca se encoge por ellos. */}
+        <div role="toolbar" aria-label="Controles de la presentación"
+          className={`absolute inset-x-0 bottom-0 z-barra flex flex-wrap items-center justify-center gap-2 px-4 py-3 border-t border-slate-300 bg-white/95 transition-opacity duration-estandar ${controlesVisibles ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          style={{ fontSize: Math.min(t.resto, 18) }}>
           <Button variant="quiet" size="sm" icon={X} className={barra} onClick={onCerrar} aria-label="Salir de la presentación (la sesión sigue activa)">Salir</Button>
-          <span className="truncate">{asignaturaNombre}</span>
-          <span className="ml-auto flex items-center gap-3">
-            {sesion.analisisActivo && <span className="flex items-center gap-1"><Sparkles size={14} aria-hidden="true" /> Análisis en vivo activo</span>}
-            {pregunta && <span aria-live="polite" className="tabular-nums">{propiasActual} {propiasActual === 1 ? 'respuesta' : 'respuestas'}</span>}
-            {finalizada && <span className="font-semibold text-white">Sesión finalizada</span>}
-          </span>
+          <span className="truncate text-slate-700 max-w-48">{asignaturaNombre}</span>
+          <Button variant="quiet" size="sm" icon={vista === 'grupo' ? Eye : Users} className={barra} onClick={() => setVista(vista === 'grupo' ? 'docente' : 'grupo')}>
+            {vista === 'grupo' ? 'Vista del docente' : 'Vista del grupo'}
+          </Button>
+          {!finalizada && (enEspera ? (
+            <Button icon={Play} onClick={() => ir(0)}>Comenzar</Button>
+          ) : (
+            <>
+              <Button variant="quiet" size="sm" icon={ArrowLeft} className={barra} disabled={sesion.preguntaIndex <= 0} onClick={() => ir(sesion.preguntaIndex - 1)}>Anterior</Button>
+              <Button variant="quiet" size="sm" icon={sesion.aceptando ? Lock : LockOpen} className={barra}
+                onClick={() => alternarRespuestasVivo(codigo, !sesion.aceptando).catch(() => toast('No se pudo cambiar', 'error'))}>
+                {sesion.aceptando ? 'Cerrar respuestas' : 'Abrir respuestas'}
+              </Button>
+              {pregunta?.tipo === 'opcion_unica' && claves?.[pregunta.id]?.correcta && (
+                <Button variant="quiet" size="sm" icon={Check} className={barra} onClick={() => cambiar({ verCorrecta: !estado.verCorrecta })}>
+                  {estado.verCorrecta ? 'Ocultar la correcta' : 'Mostrar la correcta'}
+                </Button>
+              )}
+              {enMomentos && (
+                <Button variant="quiet" size="sm" className={barra} onClick={() => cambiar({ momento: estado.momento === 'opciones' ? 'resultados' : 'opciones' })}>
+                  {estado.momento === 'opciones' ? 'Ver resultados' : 'Ver opciones'}
+                </Button>
+              )}
+              {pregunta?.tipo === 'abierta_breve' && (
+                <Button variant="quiet" size="sm" className={barra} onClick={() => cambiar({ incluirVacias: !estado.incluirVacias })}>
+                  {estado.incluirVacias ? 'Ocultar palabras comunes' : 'Mostrar todas las palabras'}
+                </Button>
+              )}
+              {!ultima && <Button size="sm" iconRight={ArrowRight} onClick={() => ir(sesion.preguntaIndex + 1)}>Siguiente</Button>}
+            </>
+          ))}
+          {!finalizada && tieneAbiertas && !sesion.analisisActivo && (
+            <Button variant="quiet" size="sm" icon={Sparkles} className={barra} disabled={costoAnalisis == null || !puedeActivar} onClick={() => setConfirmandoAnalisis(true)}
+              title={costoAnalisis == null ? 'El análisis aún no está disponible' : !puedeActivar ? `Aún no hay respuestas suficientes (mínimo ${UMBRALES_DIAGNOSTICO.abierta_extensa} en una pregunta abierta, ${UMBRALES_DIAGNOSTICO.opcion_unica} en opción única)` : undefined}>
+              Analizar con IA
+            </Button>
+          )}
+          {!finalizada && sesion.acceso === 'externo' && (
+            <Button variant="quiet" size="sm" icon={QrCode} className={barra} onClick={() => cambiar({ mostrarQr: !estado.mostrarQr })}>{estado.mostrarQr ? 'Ocultar QR' : 'Mostrar QR'}</Button>
+          )}
+          {!IS_NATIVE_APP && <Button variant="quiet" size="sm" icon={MonitorUp} className={barra} onClick={proyectarEnOtraVentana}>Proyectar en otra ventana</Button>}
+          <Button variant="quiet" size="sm" icon={Maximize2} className={barra} onClick={() => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.())}>Pantalla completa</Button>
+          {!finalizada && <Button variant="danger-outline" size="sm" icon={Square} onClick={() => setConfirmandoFin(true)}>{ultima || enEspera ? 'Finalizar' : 'Finalizar sesión'}</Button>}
         </div>
 
-        {enEspera && <SalaDeEspera sesion={sesion} />}
-        {pregunta && (
-          <Escenario sesion={sesion} pregunta={pregunta} respuestas={respuestas} claves={claves} verCorrecta={verCorrecta}
-            vistaAbierta={vistaAbierta} setVistaAbierta={setVistaAbierta} />
-        )}
-        {finalizada && (
-          <div className="flex-1 min-h-0 flex flex-col overflow-y-auto">
-            <ResumenFinal sesion={sesion} respuestas={respuestas} claves={claves} />
-            {sesion.calificable && (
-              <div className="px-6 md:px-12 pb-8">
-                <PanelCalificacionVivo sesion={sesion} actividad={actividad} claves={claves} respuestas={respuestas} asignaturaId={sesion.asignaturaId} />
-              </div>
-            )}
+        {/* Calificación propuesta de una sesión calificable: solo en la vista del docente. */}
+        {finalizada && sesion.calificable && vista === 'docente' && (
+          <div className="absolute inset-x-0 bottom-16 z-barra max-h-[40%] overflow-y-auto px-6 pb-4 bg-white border-t border-slate-300">
+            <PanelCalificacionVivo sesion={sesion} actividad={actividad} claves={claves} respuestas={respuestas} asignaturaId={sesion.asignaturaId} />
           </div>
         )}
-
-        {/* Controles */}
-        {!finalizada && (
-          <div className="flex flex-wrap items-center justify-center gap-2 px-4 py-3 border-t border-white/10 bg-black/30">
-            {enEspera ? (
-              <Button icon={Play} onClick={() => ir(0)}>Comenzar</Button>
-            ) : (
-              <>
-                <Button variant="quiet" icon={ArrowLeft} className={barra} disabled={sesion.preguntaIndex <= 0} onClick={() => ir(sesion.preguntaIndex - 1)}>Anterior</Button>
-                <Button variant="quiet" icon={sesion.aceptando ? Lock : LockOpen} className={barra}
-                  onClick={() => alternarRespuestasVivo(codigo, !sesion.aceptando).catch(() => toast('No se pudo cambiar', 'error'))}>
-                  {sesion.aceptando ? 'Cerrar respuestas' : 'Abrir respuestas'}
-                </Button>
-                {pregunta?.tipo === 'opcion_unica' && claves?.[pregunta.id]?.correcta && (
-                  <Button variant="quiet" icon={Check} className={barra} onClick={() => setVerCorrecta((v) => !v)}>
-                    {verCorrecta ? 'Ocultar la correcta' : 'Mostrar la correcta'}
-                  </Button>
-                )}
-                {!ultima && <Button iconRight={ArrowRight} onClick={() => ir(sesion.preguntaIndex + 1)}>Siguiente</Button>}
-              </>
-            )}
-            {tieneAbiertas && !sesion.analisisActivo && (
-              <Button variant="quiet" icon={Sparkles} className={barra} disabled={costoAnalisis == null}
-                onClick={() => setConfirmandoAnalisis(true)}
-                title={costoAnalisis == null ? 'El análisis en vivo aún no está disponible' : undefined}>
-                Analizar con IA
-              </Button>
-            )}
-            {sesion.acceso === 'externo' && (
-              <Button variant="quiet" icon={QrCode} className={barra} onClick={() => setConQR((v) => !v)}>{conQR ? 'Ocultar QR' : 'Mostrar QR'}</Button>
-            )}
-            <Button variant="quiet" icon={Maximize2} className={barra} onClick={() => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.()}>Pantalla completa</Button>
-            <Button variant="danger-outline" icon={Square} onClick={() => setConfirmandoFin(true)}>{ultima || enEspera ? 'Finalizar' : 'Finalizar sesión'}</Button>
-          </div>
-        )}
-        {finalizada && (
-          <div className="flex justify-center px-4 py-3 border-t border-white/10 bg-black/30">
-            <Button variant="secondary" onClick={onCerrar}>Cerrar resultados</Button>
-          </div>
-        )}
-
-        {conQR && !finalizada && sesion.acceso === 'externo' && <QRFlotante sesion={sesion} onCerrar={() => setConQR(false)} />}
       </Pantalla>
 
       {confirmandoAnalisis && costoAnalisis != null && (
         <ConfirmacionCreditosModal
-          titulo="Analizar respuestas con IA en vivo"
-          descripcion={`La IA evaluará cada respuesta abierta conforme llega y resumirá las tendencias. Cubre hasta ${VIVO_CFG.TOPE_ANALISIS} respuestas abiertas de esta sesión; las siguientes se conservan sin analizar y no tienen cargo.`}
+          titulo="Analizar con IA"
+          descripcion={`Un solo cargo cubre: la evaluación de cada respuesta abierta conforme llega (hasta ${VIVO_CFG.TOPE_ANALISIS}; las siguientes se conservan sin analizar), el diagnóstico pedagógico de cada pregunta y el informe final, sin cargos adicionales por pregunta, informe ni actualización. ${sesion.calificable ? 'Esta sesión es calificable, así que puedes activarlo aunque lleguen pocas respuestas: se cobra al activar y, si la muestra no alcanza, el diagnóstico dirá «muestra insuficiente» sin devolver el cargo.' : 'Se activa porque ya hay datos suficientes en al menos una pregunta.'}`}
           costoMin={costoAnalisis}
           ejecutando={activandoAnalisis}
+          z={70}
           onCancelar={() => setConfirmandoAnalisis(false)}
           onContinuar={activarAnalisis}
         />
@@ -272,22 +214,22 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
   )
 }
 
-function QRFlotante({ sesion, onCerrar }) {
-  const url = urlParticipacion(sesion.codigo)
-  const qr = useQR(url)
-  return (
-    <div className="absolute bottom-20 right-4 rounded-card bg-white text-slate-900 p-3 shadow-2xl text-center">
-      {qr ? <img src={qr} alt={`QR: ${url}`} className="size-44" /> : <Spinner />}
-      <p className="text-lg font-bold tracking-widest tabular-nums">{sesion.codigo}</p>
-      <button type="button" onClick={onCerrar} className="text-xs text-slate-600 underline mt-1">Ocultar</button>
-    </div>
-  )
+/** Ventana de proyección: solo la vista del grupo, de solo lectura, sincronizada con la ventana del docente. */
+export function ProyeccionSolaVista({ codigo, claves, docenteId }) {
+  const [sesion, setSesion] = useState(undefined)
+  const [respuestas, setRespuestas] = useState([])
+  const [estado] = useEstadoProyeccion(codigo, { emisor: false })
+  useEffect(() => escucharSesionVivo(codigo, setSesion, () => setSesion(null)), [codigo])
+  useEffect(() => escucharRespuestasVivo(codigo, docenteId, setRespuestas, () => {}), [codigo, docenteId])
+  if (sesion === undefined) return <Pantalla autonoma><div className="flex-1 flex items-center justify-center"><Spinner /></div></Pantalla>
+  if (sesion === null) return <Pantalla autonoma><div className="flex-1 flex items-center justify-center text-xl">No se encontró esta sesión.</div></Pantalla>
+  return <Pantalla autonoma><Escenario sesion={sesion} respuestas={respuestas} informes={[]} claves={claves} vista="grupo" estado={estado} /></Pantalla>
 }
 
-// Confirmación propia: este componente vive sobre la pantalla oscura.
+// Confirmación propia: este componente vive sobre la pantalla de proyección.
 function ConfirmFin({ onCancelar, onConfirmar }) {
   return (
-    <Modal open onClose={onCancelar} title="¿Finalizar la sesión?" size="sm" z={60}
+    <Modal open onClose={onCancelar} title="¿Finalizar la sesión?" size="sm" z={70}
       footer={<div className="flex justify-end gap-2"><Button variant="quiet" onClick={onCancelar}>Seguir</Button><Button variant="danger" onClick={onConfirmar}>Finalizar</Button></div>}>
       <p className="text-sm text-muted">Los participantes ya no podrán responder. Podrás consultar los resultados completos.</p>
     </Modal>

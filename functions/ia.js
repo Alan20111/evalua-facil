@@ -6988,6 +6988,34 @@ exports.onRespuestaVivoEscrita = onDocumentWritten(
   }
 )
 
+// Participación en vivo · diagnóstico pedagógico. El disparador reacciona a los cambios de la SESIÓN (cerrar respuestas,
+// pasar de pregunta, finalizar); el callable es el «Actualizar» manual del docente. Ninguno toca el libro de créditos.
+exports.onSesionVivoActualizada = require('firebase-functions/v2/firestore').onDocumentUpdated(
+  { document: 'vivoSesiones/{codigo}', secrets: [ANTHROPIC_API_KEY_PROD], timeoutSeconds: 300, maxInstances: 10, memory: '256MiB' },
+  async (event) => {
+    await participacionVivo.alCambiarSesionVivo({
+      sesionId: event.params.codigo, antes: event.data?.before?.data(), despues: event.data?.after?.data(),
+      deps: { pedirJSON, obtenerClave: claveAnthropic },
+    })
+  }
+)
+exports.actualizarInformeVivo = require('firebase-functions/v2/https').onCall(
+  { secrets: [ANTHROPIC_API_KEY_PROD], timeoutSeconds: 120 },
+  async (request) => {
+    const uid = request.auth?.uid
+    if (!uid) throw new HttpsError('unauthenticated', 'Inicia sesión para usar esta función')
+    const sesionId = String(request.data?.sesionId || '')
+    const preguntaId = request.data?.preguntaId ? String(request.data.preguntaId) : null
+    const ses = (await getFirestore().doc(`vivoSesiones/${sesionId}`).get()).data()
+    if (!ses) throw new HttpsError('not-found', 'La sesión no existe')
+    if (ses.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta sesión no es tuya')
+    const deps = { pedirJSON, obtenerClave: claveAnthropic }
+    return preguntaId
+      ? participacionVivo.generarInformePregunta({ sesionId, preguntaId, deps, manual: true })
+      : participacionVivo.generarInformeFinal({ sesionId, deps, manual: true })
+  }
+)
+
 exports.mantenimientoCreditosIA = onSchedule('every 24 hours', async () => {
   try {
     // generar_contenido_juego (23-ago-2026): su reserva queda abierta
