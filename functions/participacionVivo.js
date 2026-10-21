@@ -24,6 +24,10 @@ const V = require('./_shared/participacionVivo.js')
 
 const MAX_CONTEXTO = 6000
 const INTENTOS_IA = 3
+const TIEMPO_LLAMADA_MS = 25000 // 3 intentos × 25 s + esperas < 90 s de la función
+const UMBRAL_ANALIZANDO_MS = 3 * 60 * 1000 // la función dura 90 s: pasado esto, quien la reclamó ya no sigue vivo
+const UMBRAL_RECIBIDA_MS = 5 * 60 * 1000
+const MAX_REINTENTOS_RECUPERACION = 2
 let esperasReintentoMs = [800, 2500] // las pruebas las acortan (_pruebas.configurarEsperas)
 
 const limpiar = (v, max) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max)
@@ -255,7 +259,7 @@ async function ejecutarActivarAnalisisVivo({ params, modelo }) {
   const pendientes = previas.docs.filter((d) => d.data().estadoIA === V.ESTADO_IA.SIN_ANALISIS)
   for (let i = 0; i < pendientes.length; i += 400) {
     const lote = db.batch()
-    pendientes.slice(i, i + 400).forEach((d) => lote.update(d.ref, { estadoIA: V.ESTADO_IA.RECIBIDA }))
+    pendientes.slice(i, i + 400).forEach((d) => lote.update(d.ref, { estadoIA: V.ESTADO_IA.RECIBIDA, encoladaEn: FieldValue.serverTimestamp() }))
     await lote.commit()
   }
 
@@ -308,6 +312,9 @@ async function dentroDelTope(db, ref, r) {
 }
 
 // Reclama la respuesta (recibida → analizando) en una transacción. null si no hay nada que hacer.
+// El reclamo lleva un TOKEN propio: toda escritura posterior de ESA ejecución exige que el documento siga
+// «analizando» con ese mismo token. Así, una ejecución lenta que reaparece después de que la recuperación
+// (recuperarAnalisisAtascado) ya reasignó la respuesta no pisa el resultado de la nueva.
 async function reclamarRespuesta(ref) {
   const db = getFirestore()
   return db.runTransaction(async (tx) => {
@@ -315,8 +322,19 @@ async function reclamarRespuesta(ref) {
     if (!snap.exists) return null
     const r = snap.data()
     if (r.estadoIA !== V.ESTADO_IA.RECIBIDA || !V.esTipoAbierto(r.preguntaTipo)) return null
-    tx.update(ref, { estadoIA: V.ESTADO_IA.ANALIZANDO, analizandoDesde: FieldValue.serverTimestamp() })
-    return r
+    const token = require('crypto').randomUUID()
+    tx.update(ref, { estadoIA: V.ESTADO_IA.ANALIZANDO, analizandoDesde: FieldValue.serverTimestamp(), analizandoToken: token })
+    return { ...r, __token: token }
+  })
+}
+
+// Escribe el resultado SOLO si esta ejecución sigue siendo la dueña del análisis. Devuelve false si no.
+async function escribirSiToken(ref, token, parche) {
+  return getFirestore().runTransaction(async (tx) => {
+    const r = (await tx.get(ref)).data()
+    if (!r || r.estadoIA !== V.ESTADO_IA.ANALIZANDO || r.analizandoToken !== token) return false
+    tx.update(ref, { ...parche, analizandoToken: FieldValue.delete() })
+    return true
   })
 }
 
@@ -328,11 +346,11 @@ async function procesarRespuestaVivo({ ref, deps }) {
 
   if (!(await dentroDelTope(db, ref, r))) {
     // Pasó la cuota pagada: se conserva igual, solo que sin análisis (y sin cargo adicional).
-    await ref.update({ estadoIA: V.ESTADO_IA.OMITIDA_TOPE, analizadaEn: FieldValue.serverTimestamp() })
+    await escribirSiToken(ref, r.__token, { estadoIA: V.ESTADO_IA.OMITIDA_TOPE, analizadaEn: FieldValue.serverTimestamp() })
     return { omitida: true, tope: true }
   }
 
-  const marcarError = (codigo) => ref.update({ estadoIA: V.ESTADO_IA.ERROR, errorIA: codigo, analizadaEn: FieldValue.serverTimestamp() })
+  const marcarError = (codigo) => escribirSiToken(ref, r.__token, { estadoIA: V.ESTADO_IA.ERROR, errorIA: codigo, analizadaEn: FieldValue.serverTimestamp() })
   try {
     const [sesSnap, actSnap, claveSnap, ctxSnap, tarifasSnap] = await Promise.all([
       db.doc(`vivoSesiones/${r.sesionId}`).get(),
@@ -349,7 +367,9 @@ async function procesarRespuestaVivo({ ref, deps }) {
     const proposito = sesSnap.data()?.proposito || actSnap.data()?.participacion?.proposito
 
     const Anthropic = require('@anthropic-ai/sdk')
-    const client = new Anthropic({ apiKey: deps.obtenerClave() })
+    // Sin reintentos del SDK y con tiempo propio: los reintentos los controla el ciclo de abajo, y una llamada
+    // colgada no puede agotar la función (90 s) dejando la respuesta en «analizando».
+    const client = new Anthropic({ apiKey: deps.obtenerClave(), timeout: TIEMPO_LLAMADA_MS, maxRetries: 0 })
     const prompt = promptEvaluar({ resumen: ctxSnap.exists ? ctxSnap.data().resumen : '', pregunta, clave, texto: limpiar(r.texto, V.VIVO_CFG.MAX_RESPUESTA_EXTENSA), proposito })
 
     let ultimoError = null
@@ -358,14 +378,15 @@ async function procesarRespuestaVivo({ ref, deps }) {
         const { datos, interno } = await deps.pedirJSON({ client, modelo, maxTokens: 350, system: SISTEMA_EVALUAR, prompt })
         const evaluacion = V.sanearEvaluacionIA(datos, clave.conceptos || [])
         if (!evaluacion) throw new Error('evaluacion_invalida')
-        await ref.update({
+        const escrita = await escribirSiToken(ref, r.__token, {
           estadoIA: V.ESTADO_IA.ANALIZADA,
           evaluacion,
           analizadaEn: FieldValue.serverTimestamp(),
           // Medición del costo real por respuesta (no la ve el participante).
           metricaIA: { modelo, tokensEntrada: interno.tokensEntrada, tokensSalida: interno.tokensSalida, ms: interno.ms, intentos: intento + 1 },
         })
-        return { analizada: true }
+        // false = la recuperación ya reasignó esta respuesta mientras tardaba: el resultado nuevo es el que vale.
+        return escrita ? { analizada: true } : { omitida: true, reasignada: true }
       } catch (e) {
         ultimoError = e
         if (intento < INTENTOS_IA - 1) await dormir(esperasReintentoMs[intento] ?? 2500)
@@ -379,6 +400,51 @@ async function procesarRespuestaVivo({ ref, deps }) {
     await marcarError('inesperado').catch(() => {})
     return { error: true }
   }
+}
+
+// ── Recuperación de análisis atascados ─────────────────────────────────────
+// Una respuesta se queda en «analizando» si la función murió después de reclamarla (reinicio de la instancia,
+// tiempo agotado) y en «recibida» si el disparador nunca llegó a correr. Ningún evento la vuelve a despertar,
+// así que una tarea programada la revisa cada pocos minutos:
+//   · «analizando» con más de UMBRAL_ANALIZANDO_MS → vuelve a «recibida» (eso dispara de nuevo la evaluación);
+//   · «recibida» con más de UMBRAL_RECIBIDA_MS sin evaluarse → se «toca» para despertar al disparador;
+//   · tras MAX_REINTENTOS_RECUPERACION intentos se marca «error» (se conserva el texto, el panel lo muestra y el
+//     docente decide). Nunca más de eso: el esfuerzo está acotado.
+// NO toca créditos (la cuota se pagó al activar) ni calificaciones (la nota solo la escribe el docente): reintentar
+// solo puede volver a producir la evaluación de UNA respuesta, y el token de reclamo impide que dos ejecuciones
+// escriban a la vez.
+async function recuperarAnalisisAtascado({ ahora = Date.now() } = {}) {
+  const db = getFirestore()
+  const ms = (t) => t?.toMillis?.() ?? 0
+  const resumen = { reencoladas: 0, tocadas: 0, fallidas: 0 }
+
+  const vencidas = (estado, campo, umbral) => db.collection('vivoRespuestas').where('estadoIA', '==', estado).get()
+    .then((snap) => snap.docs.filter((d) => ahora - (ms(d.data()[campo]) || ms(d.data().creadaEn)) > umbral))
+
+  for (const [estado, campo, umbral] of [
+    [V.ESTADO_IA.ANALIZANDO, 'analizandoDesde', UMBRAL_ANALIZANDO_MS],
+    [V.ESTADO_IA.RECIBIDA, 'encoladaEn', UMBRAL_RECIBIDA_MS],
+  ]) {
+    for (const d of await vencidas(estado, campo, umbral)) {
+      await db.runTransaction(async (tx) => {
+        const r = (await tx.get(d.ref)).data()
+        // Se vuelve a comprobar dentro de la transacción: pudo terminar mientras se listaba.
+        if (!r || r.estadoIA !== estado || ahora - (ms(r[campo]) || ms(r.creadaEn)) <= umbral) return
+        const intentos = r.reintentosIA || 0
+        if (intentos >= MAX_REINTENTOS_RECUPERACION) {
+          tx.update(d.ref, { estadoIA: V.ESTADO_IA.ERROR, errorIA: estado === V.ESTADO_IA.ANALIZANDO ? 'atascada' : 'sin_evaluar', analizandoToken: FieldValue.delete(), analizadaEn: FieldValue.serverTimestamp() })
+          resumen.fallidas += 1
+        } else if (estado === V.ESTADO_IA.ANALIZANDO) {
+          tx.update(d.ref, { estadoIA: V.ESTADO_IA.RECIBIDA, reintentosIA: intentos + 1, encoladaEn: FieldValue.serverTimestamp(), analizandoToken: FieldValue.delete() })
+          resumen.reencoladas += 1
+        } else {
+          tx.update(d.ref, { reintentosIA: intentos + 1, encoladaEn: FieldValue.serverTimestamp() })
+          resumen.tocadas += 1
+        }
+      })
+    }
+  }
+  return resumen
 }
 
 // ── 4. Limpieza al borrar la actividad ─────────────────────────────────────
@@ -396,9 +462,9 @@ async function limpiarVivoDeActividad({ activityId }) {
 }
 
 module.exports = {
-  limpiarVivoDeActividad,
+  limpiarVivoDeActividad, recuperarAnalisisAtascado,
   precheckGenerarDinamicaVivo, ejecutarGenerarDinamicaVivo,
   precheckActivarAnalisisVivo, ejecutarActivarAnalisisVivo,
   procesarRespuestaVivo,
-  _pruebas: { configurarEsperas: (a) => { esperasReintentoMs = a }, promptGenerar, promptEvaluar, aPreguntaCompleta, reclamarRespuesta, SISTEMA_GENERAR, SISTEMA_EVALUAR },
+  _pruebas: { configurarEsperas: (a) => { esperasReintentoMs = a }, promptGenerar, promptEvaluar, aPreguntaCompleta, reclamarRespuesta, escribirSiToken, SISTEMA_GENERAR, SISTEMA_EVALUAR },
 }

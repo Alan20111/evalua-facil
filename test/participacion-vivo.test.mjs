@@ -485,6 +485,105 @@ await caso('texto con una instrucción maliciosa: viaja como DATO y el resultado
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
+grupo('D2. Respuestas atascadas — recuperación acotada, sin cobros ni notas')
+
+const hace = (min) => new Date(Date.now() - min * 60000)
+const recuperar = () => PV.recuperarAnalisisAtascado()
+const sinMovimientoDeDinero = async () => {
+  assert.strictEqual((await db.collection('iaConsumos').get()).size, 0, 'la recuperación no reserva ni cobra créditos')
+  assert.strictEqual((await db.collection('submissions').get()).size, 0, 'la recuperación no escribe notas')
+}
+
+await caso('«analizando» vieja: vuelve a «recibida» (1er reintento), se evalúa de nuevo UNA vez y no mueve créditos ni notas', async () => {
+  await prepararEvaluacion()
+  respuestaIA = () => ({ nivel: 'logrado', puntaje: 1, conceptos: ['glucosa'], errores: [], evidencia: 'x' })
+  const id = await sembrarRespuesta(undefined, { estadoIA: 'analizando', analizandoDesde: hace(10), analizandoToken: 'viejo' })
+  assert.deepStrictEqual(await recuperar(), { reencoladas: 1, tocadas: 0, fallidas: 0 })
+  const d = await dato(id)
+  assert.strictEqual(d.estadoIA, 'recibida'); assert.strictEqual(d.reintentosIA, 1); assert.strictEqual(d.analizandoToken, undefined)
+  assert.strictEqual((await evaluar(id)).analizada, true)
+  assert.strictEqual(pedidosIA.length, 1)
+  assert.strictEqual((await dato(id)).estadoIA, 'analizada')
+  await sinMovimientoDeDinero()
+  assert.strictEqual((await creditosDe()).saldo, 100)
+})
+
+await caso('«analizando» reciente NO se toca (todavía puede estar trabajando); estados terminales tampoco', async () => {
+  await prepararEvaluacion()
+  const a = await sembrarRespuesta(`${CODIGO}_p3_${'1'.repeat(24)}`, { estadoIA: 'analizando', analizandoDesde: hace(1), analizandoToken: 'vivo' })
+  const otros = []
+  for (const [i, e] of ['analizada', 'omitida_tope', 'sin_analisis', 'error'].entries()) otros.push(await sembrarRespuesta(`${CODIGO}_p3_${String(i + 2).repeat(24)}`, { estadoIA: e, creadaEn: hace(60) }))
+  assert.deepStrictEqual(await recuperar(), { reencoladas: 0, tocadas: 0, fallidas: 0 })
+  assert.strictEqual((await dato(a)).estadoIA, 'analizando')
+  assert.deepStrictEqual(await Promise.all(otros.map(async (id) => (await dato(id)).estadoIA)), ['analizada', 'omitida_tope', 'sin_analisis', 'error'])
+})
+
+await caso('límite: tras 2 reintentos se marca «error» (atascada), se conserva el texto y no se vuelve a intentar', async () => {
+  await prepararEvaluacion()
+  const id = await sembrarRespuesta(undefined, { estadoIA: 'analizando', analizandoDesde: hace(10), analizandoToken: 't0', reintentosIA: 2 })
+  assert.deepStrictEqual(await recuperar(), { reencoladas: 0, tocadas: 0, fallidas: 1 })
+  const d = await dato(id)
+  assert.strictEqual(d.estadoIA, 'error'); assert.strictEqual(d.errorIA, 'atascada'); assert.ok(d.texto)
+  assert.deepStrictEqual(await recuperar(), { reencoladas: 0, tocadas: 0, fallidas: 0 })
+  assert.strictEqual(pedidosIA.length, 0)
+})
+
+await caso('tres atascos seguidos: reintento 1, reintento 2 y al tercero «error» (nunca un ciclo infinito)', async () => {
+  await prepararEvaluacion()
+  const id = await sembrarRespuesta()
+  const resultados = []
+  for (let vuelta = 0; vuelta < 4; vuelta++) {
+    // simula que cada ejecución reclama la respuesta y muere
+    if ((await dato(id)).estadoIA === 'error') break
+    await PV._pruebas.reclamarRespuesta(dbFn.doc(`vivoRespuestas/${id}`))
+    await db.doc(`vivoRespuestas/${id}`).update({ analizandoDesde: hace(10) })
+    await recuperar()
+    resultados.push((await dato(id)).estadoIA + ':' + ((await dato(id)).reintentosIA || 0))
+  }
+  assert.deepStrictEqual(resultados, ['recibida:1', 'recibida:2', 'error:2'])
+})
+
+await caso('«recibida» sin evaluar >5 min: se «toca» para despertar al disparador; reciente no; con el límite agotado → «error»', async () => {
+  await prepararEvaluacion()
+  const vieja = await sembrarRespuesta(`${CODIGO}_p3_${'7'.repeat(24)}`, { estadoIA: 'recibida', encoladaEn: hace(10) })
+  const reciente = await sembrarRespuesta(`${CODIGO}_p3_${'8'.repeat(24)}`, { estadoIA: 'recibida', encoladaEn: hace(1) })
+  const agotada = await sembrarRespuesta(`${CODIGO}_p3_${'9'.repeat(24)}`, { estadoIA: 'recibida', encoladaEn: hace(10), reintentosIA: 2 })
+  assert.deepStrictEqual(await recuperar(), { reencoladas: 0, tocadas: 1, fallidas: 1 })
+  assert.strictEqual((await dato(vieja)).reintentosIA, 1); assert.strictEqual((await dato(vieja)).estadoIA, 'recibida')
+  assert.strictEqual((await dato(reciente)).reintentosIA, undefined)
+  const f = await dato(agotada)
+  assert.strictEqual(f.estadoIA, 'error'); assert.strictEqual(f.errorIA, 'sin_evaluar')
+  assert.deepStrictEqual(await recuperar(), { reencoladas: 0, tocadas: 0, fallidas: 0 }, 'idempotente: lo recién tocado ya no está vencido')
+})
+
+await caso('una ejecución LENTA que reaparece tras la recuperación NO pisa el resultado nuevo (token de reclamo)', async () => {
+  await prepararEvaluacion()
+  respuestaIA = () => ({ nivel: 'parcial', puntaje: 0.5, conceptos: [], errores: [], evidencia: 'nueva' })
+  const id = await sembrarRespuesta()
+  const ref = dbFn.doc(`vivoRespuestas/${id}`)
+  const lenta = await PV._pruebas.reclamarRespuesta(ref) // la ejecución original reclama y se «cuelga»
+  await db.doc(`vivoRespuestas/${id}`).update({ analizandoDesde: hace(10) })
+  await recuperar()
+  assert.strictEqual((await evaluar(id)).analizada, true) // la nueva ejecución termina bien
+  const tarde = await PV._pruebas.escribirSiToken(ref, lenta.__token, { estadoIA: 'analizada', evaluacion: { nivel: 'logrado', puntaje: 1, conceptos: [], errores: [], evidencia: 'vieja' } })
+  assert.strictEqual(tarde, false, 'la ejecución vieja descarta su escritura')
+  const d = await dato(id)
+  assert.strictEqual(d.evaluacion.evidencia, 'nueva'); assert.strictEqual(d.evaluacion.nivel, 'parcial')
+  await sinMovimientoDeDinero()
+})
+
+await caso('la llamada al modelo lleva tiempo propio y sin reintentos del SDK (no puede colgar la función)', async () => {
+  await prepararEvaluacion()
+  let opciones = null
+  const Original = require.cache[rutaSdk].exports
+  require.cache[rutaSdk].exports = class extends Original { constructor(o) { super(o); opciones = o } }
+  respuestaIA = () => ({ nivel: 'parcial', puntaje: 0.5, conceptos: [], errores: [], evidencia: 'x' })
+  try { await evaluar(await sembrarRespuesta()) } finally { require.cache[rutaSdk].exports = Original }
+  assert.strictEqual(opciones.maxRetries, 0)
+  assert.ok(opciones.timeout > 0 && opciones.timeout <= 30000, 'tiempo por llamada acotado')
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
 grupo('E. Endpoints de participantes (api/_lib/vivo.js)')
 
 const KEY_A = 'a'.repeat(24)

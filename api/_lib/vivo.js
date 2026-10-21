@@ -161,6 +161,7 @@ export async function handleVivoResponder(req, res) {
     if (count >= VIVO_CFG.MAX_ABIERTAS_SESION) return res.status(409).json({ error: 'Esta participación alcanzó el máximo de respuestas.' })
     dato.estadoIA = sesion.analisisActivo !== true ? ESTADO_IA.SIN_ANALISIS
       : count >= VIVO_CFG.TOPE_ANALISIS ? ESTADO_IA.OMITIDA_TOPE : ESTADO_IA.RECIBIDA
+    if (dato.estadoIA === ESTADO_IA.RECIBIDA) dato.encoladaEn = FieldValue.serverTimestamp() // la recuperación de atascadas mide desde aquí
   }
   try {
     await respRef.create(dato)

@@ -157,7 +157,7 @@ export default function ParticipanteVivo({ codigo = null, actividadId = null, co
   }
 
   return (
-    <div className="min-h-dvh bg-surface">
+    <div className="min-h-dvh bg-surface" data-vivo-participante>
       {error && !error.definitivo && (
         <output className="block text-center text-xs text-hint py-1 bg-surface-container">Sin conexión; reintentando…</output>
       )}
