@@ -38,6 +38,7 @@ export default function ConfirmacionCreditosModal({
   avisoEjecutando = null,
   onCancelar,
   onContinuar,
+  z = 50, // sobre una pantalla que ya está a z-60 (p. ej. la proyección de Participación en vivo)
 }) {
   const c = useCreditosIA()
   const [comprarAbierto, setComprarAbierto] = useState(false)
@@ -60,7 +61,7 @@ export default function ConfirmacionCreditosModal({
         ariaLabel={titulo}
         variant="sheet"
         size="sm"
-        z={50}
+        z={z}
         padding="p-5"
       >
         <div className="flex items-center gap-2 mb-3">

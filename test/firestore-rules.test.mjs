@@ -4356,6 +4356,32 @@ ok('F-05 · admin CAN read publicProfiles')
   await assertFails(getDoc(doc(asJuan, 'activities', 'AVIVO', 'clave', 'p1')))
   await assertFails(getDoc(doc(asT2, 'activities', 'AVIVO', 'clave', 'p1')))
   ok('VIVO · la clave (respuesta correcta y criterios) solo la lee y escribe el docente dueño')
+
+  // Diagnósticos pedagógicos (vivoInformes): solo el servidor escribe y borra; el docente dueño y el admin leen.
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'vivoInformes', 'ABCDEFGHJK_p1'), { sesionId: 'ABCDEFGHJK', actividadId: 'AVIVO', docenteId: T1, preguntaId: 'p1', estado: 'listo', informe: { diagnostico: 'x' } })
+  })
+  await assertSucceeds(getDoc(doc(asT1, 'vivoInformes', 'ABCDEFGHJK_p1')))
+  await assertSucceeds(getDocs(query(collection(asT1, 'vivoInformes'), where('docenteId', '==', T1), where('sesionId', '==', 'ABCDEFGHJK'))))
+  await assertSucceeds(getDoc(doc(asAdmin, 'vivoInformes', 'ABCDEFGHJK_p1')))
+  await assertFails(getDoc(doc(asT2, 'vivoInformes', 'ABCDEFGHJK_p1')))
+  await assertFails(getDoc(doc(asJuan, 'vivoInformes', 'ABCDEFGHJK_p1')))
+  await assertFails(getDocs(query(collection(asT1, 'vivoInformes'), where('sesionId', '==', 'ABCDEFGHJK'))))
+  await assertFails(getDocs(query(collection(asJuan, 'vivoInformes'), where('sesionId', '==', 'ABCDEFGHJK'))))
+  ok('VIVO · el informe lo lee solo el docente dueño (y el admin); otro docente o un estudiante no, ni por consulta')
+
+  await assertFails(setDoc(doc(asT1, 'vivoInformes', 'ABCDEFGHJK_p2'), { sesionId: 'ABCDEFGHJK', actividadId: 'AVIVO', docenteId: T1, preguntaId: 'p2', estado: 'listo' }))
+  await assertFails(updateDoc(doc(asT1, 'vivoInformes', 'ABCDEFGHJK_p1'), { estado: 'insuficiente' }))
+  await assertFails(updateDoc(doc(asT1, 'vivoInformes', 'ABCDEFGHJK_p1'), { informe: { diagnostico: 'inventado' } }))
+  await assertFails(setDoc(doc(asAdmin, 'vivoInformes', 'ABCDEFGHJK_p3'), { sesionId: 'ABCDEFGHJK', docenteId: T1, estado: 'listo' }))
+  await assertFails(setDoc(doc(asJuan, 'vivoInformes', 'ABCDEFGHJK_p4'), { sesionId: 'ABCDEFGHJK', docenteId: T1, estado: 'listo' }))
+  ok('VIVO · ningún cliente (ni el dueño ni el admin) puede crear ni modificar un informe')
+
+  await assertFails(deleteDoc(doc(asT1, 'vivoInformes', 'ABCDEFGHJK_p1')))
+  await assertFails(deleteDoc(doc(asT2, 'vivoInformes', 'ABCDEFGHJK_p1')))
+  await assertFails(deleteDoc(doc(asAdmin, 'vivoInformes', 'ABCDEFGHJK_p1')))
+  assert((await getDoc(doc(asT1, 'vivoInformes', 'ABCDEFGHJK_p1'))).exists(), 'el informe sigue ahí tras los intentos de borrado')
+  ok('VIVO · el informe solo lo borra el servidor (al borrar la actividad o la cuenta)')
 }
 
 await testEnv.cleanup()

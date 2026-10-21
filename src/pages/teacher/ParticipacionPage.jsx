@@ -29,13 +29,13 @@ function aModeloEdicion(p, clave = {}) {
   return {
     id: p.id, tipo: p.tipo, enunciado: p.enunciado, puntos: p.puntos ?? 1,
     opciones: p.opciones || [], correcta: clave.correcta ?? null,
-    criterios: clave.criterios || '', esperada: clave.esperada || '', conceptosTexto: (clave.conceptos || []).join(', '),
+    criterios: clave.criterios || '', esperada: clave.esperada || '', conceptosTexto: (clave.conceptos || []).join(', '), confusiones: clave.confusiones || {},
   }
 }
 function deModeloEdicion(m) {
   return {
     id: m.id, tipo: m.tipo, enunciado: m.enunciado, puntos: m.puntos, opciones: m.opciones, correcta: m.correcta,
-    criterios: m.criterios, esperada: m.esperada, conceptos: m.conceptosTexto.split(',').map((c) => c.trim()).filter(Boolean),
+    criterios: m.criterios, esperada: m.esperada, conceptos: m.conceptosTexto.split(',').map((c) => c.trim()).filter(Boolean), confusiones: m.confusiones,
   }
 }
 
@@ -63,6 +63,15 @@ function EditorPregunta({ m, indice, total, bloqueado, onCambio, onMover, onQuit
               <Input aria-label={`Opción ${i + 1}`} wrapperClassName="flex-1" value={o.texto} maxLength={VIVO_CFG.MAX_OPCION} onChange={(e) => setOpcion(i, e.target.value)} />
             </div>
           ))}
+          {m.opciones.some((o) => o.id !== m.correcta) && (
+            <div className="pt-2 space-y-2">
+              <p className="text-sm font-medium text-on-surface">Confusión que revela cada opción incorrecta <span className="font-normal text-hint">(opcional; mejora el diagnóstico)</span></p>
+              {m.opciones.map((o, i) => o.id !== m.correcta && (
+                <Input key={o.id} label={`Si alguien elige la opción ${String.fromCharCode(65 + i)}, cree que…`} maxLength={160}
+                  value={m.confusiones?.[o.id] || ''} onChange={(e) => set('confusiones', { ...m.confusiones, [o.id]: e.target.value })} />
+              ))}
+            </div>
+          )}
         </fieldset>
       ) : (
         <>

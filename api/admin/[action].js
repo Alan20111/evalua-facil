@@ -13,7 +13,7 @@ const LIMITE_LOTE = 400
 const POR_DOCENTE = ['subjects', 'activities', 'attendance', 'events', 'horarioBloques',
   'horario', 'asuetos', 'vacaciones', 'bancoReactivos', 'bancoRubricas',
   'avisos', 'avisoPlantillas', 'academicEvents', 'subscriptions', 'payments',
-  'observacionesAsistencia', 'vivoSesiones', 'vivoRespuestas']
+  'observacionesAsistencia', 'vivoSesiones', 'vivoRespuestas', 'vivoInformes']
 
 const CON_SUBCOLECCIONES = { activities: 'preguntas', submissions: 'respuestas' }
 

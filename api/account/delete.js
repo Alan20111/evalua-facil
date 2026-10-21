@@ -34,7 +34,7 @@ const LIMITE_LOTE = 400 // el tope duro de Firestore es 500 operaciones
 const POR_DOCENTE = ['subjects', 'activities', 'attendance', 'events', 'horarioBloques',
   'horario', 'asuetos', 'vacaciones', 'bancoReactivos', 'bancoRubricas',
   'avisos', 'avisoPlantillas', 'academicEvents', 'subscriptions', 'payments',
-  'observacionesAsistencia', 'vivoSesiones', 'vivoRespuestas']
+  'observacionesAsistencia', 'vivoSesiones', 'vivoRespuestas', 'vivoInformes']
 
 // Colecciones cuyos documentos tienen subcolecciones. Borrar un documento en
 // Firestore NO borra lo que cuelga de él: los hijos quedan huérfanos,

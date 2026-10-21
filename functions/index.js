@@ -60,12 +60,16 @@ exports.ejecutarOperacionIA = ia.ejecutarOperacionIA
 exports.ejecutarPlaneacionIA = ia.ejecutarPlaneacionIA
 exports.mantenimientoCreditosIA = ia.mantenimientoCreditosIA
 exports.onRespuestaVivoEscrita = ia.onRespuestaVivoEscrita
+exports.onSesionVivoActualizada = ia.onSesionVivoActualizada
+exports.actualizarInformeVivo = ia.actualizarInformeVivo
 // Participación en vivo: una respuesta que se quedó en «analizando» (la función murió) o en «recibida» (el
 // disparador nunca corrió) se reintenta un máximo de 2 veces y después se marca «error». No toca créditos ni notas.
 exports.recuperarAnalisisVivo = onSchedule({ schedule: 'every 5 minutes', timeoutSeconds: 120 }, async () => {
   try {
-    const r = await require('./participacionVivo').recuperarAnalisisAtascado()
-    if (r.reencoladas || r.tocadas || r.fallidas) logger.info(`recuperarAnalisisVivo: ${JSON.stringify(r)}`)
+    const pv = require('./participacionVivo')
+    const r = await pv.recuperarAnalisisAtascado()
+    const i = await pv.recuperarInformesAtascados()
+    if (r.reencoladas || r.tocadas || r.fallidas || i.informesAtascados) logger.info(`recuperarAnalisisVivo: ${JSON.stringify({ ...r, ...i })}`)
   } catch (e) {
     logger.error('recuperarAnalisisVivo:', e)
   }

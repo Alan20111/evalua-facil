@@ -127,7 +127,10 @@ export function sanearPreguntasVivo(entrada, { exigirCorrecta = false } = {}) {
       const correcta = idsOp.has(p?.correcta) ? p.correcta : null
       if (exigirCorrecta && !correcta) { errores.push(`Pregunta ${n}: marca la opción correcta (la actividad es calificable).`); return }
       publicas.push({ id, tipo, enunciado, opciones, puntos })
-      claves[id] = { correcta }
+      // «Confusión que revela»: para cada opción INCORRECTA, la idea equivocada detrás. Alimenta el diagnóstico pedagógico.
+      const confusiones = {}
+      for (const o of opciones) { const t = limpiar(p?.confusiones?.[o.id], 160); if (t && o.id !== correcta) confusiones[o.id] = t }
+      claves[id] = { correcta, confusiones }
       return
     }
 
@@ -193,13 +196,13 @@ export function normalizarTermino(t) {
 
 // Frecuencia REAL: cuántas respuestas contienen cada término (un término repetido dentro
 // de la misma respuesta cuenta una vez). Se conserva la forma escrita más frecuente.
-export function frecuenciasNube(textos) {
+export function frecuenciasNube(textos, { incluirVacias = false } = {}) {
   const mapa = new Map()
   for (const texto of textos || []) {
     const vistos = new Set()
     for (const crudo of String(texto ?? '').split(/\s+/)) {
       const clave = normalizarTermino(crudo)
-      if (clave.length < 3 || STOP.has(clave) || vistos.has(clave)) continue
+      if (clave.length < 3 || (!incluirVacias && STOP.has(clave)) || vistos.has(clave)) continue
       vistos.add(clave)
       const forma = crudo.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '').toLowerCase()
       const e = mapa.get(clave) || { clave, n: 0, formas: new Map() }
@@ -211,44 +214,6 @@ export function frecuenciasNube(textos) {
   return [...mapa.values()]
     .map((e) => ({ clave: e.clave, n: e.n, texto: [...e.formas.entries()].sort((a, b) => b[1] - a[1])[0][0] }))
     .sort((a, b) => b.n - a.n || a.clave.localeCompare(b.clave))
-}
-
-// Distribuye las palabras en una espiral desde el centro sin que se encimen.
-// Tamaño proporcional a la frecuencia. Determinista (misma entrada, mismo dibujo).
-// Devuelve { colocadas: [{clave,texto,n,x,y,w,h,tamano}], omitidas }.
-export function disponerNube(items, ancho, alto, { tamanoMin = 18, tamanoMax = 72, maximo = 60 } = {}) {
-  const lista = (items || []).slice(0, maximo)
-  if (!lista.length || !(ancho > 0) || !(alto > 0)) return { colocadas: [], omitidas: 0 }
-  const nMax = lista[0].n
-  const nMin = lista[lista.length - 1].n
-  const colocadas = []
-  let omitidas = 0
-  const choca = (a) => colocadas.some((b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y)
-
-  for (const it of lista) {
-    let factor = nMax === nMin ? 1 : (it.n - nMin) / (nMax - nMin)
-    let tamano = Math.round(tamanoMin + (tamanoMax - tamanoMin) * Math.sqrt(factor))
-    let puesta = null
-    for (let intento = 0; intento < 4 && !puesta; intento++) {
-      const w = Math.ceil(it.texto.length * tamano * 0.58) + 12
-      const h = Math.ceil(tamano * 1.2) + 6
-      for (let k = 0; k < 900; k++) {
-        const ang = k * 0.35
-        const r = 2 + k * 0.9
-        const cx = ancho / 2 + Math.cos(ang) * r * 1.6
-        const cy = alto / 2 + Math.sin(ang) * r
-        const caja = { x: cx - w / 2, y: cy - h / 2, w, h }
-        if (caja.x < 0 || caja.y < 0 || caja.x + w > ancho || caja.y + h > alto) continue
-        if (choca(caja)) continue
-        puesta = { clave: it.clave, texto: it.texto, n: it.n, tamano, ...caja }
-        break
-      }
-      if (!puesta) tamano = Math.max(12, Math.round(tamano * 0.8))
-    }
-    if (puesta) colocadas.push(puesta)
-    else omitidas += 1
-  }
-  return { colocadas, omitidas }
 }
 
 // ── Resultados ─────────────────────────────────────────────────────────────
@@ -325,6 +290,128 @@ export function calificacionPropuestaVivo({ preguntas, claves, respuestas, maxCa
   if (!(posibles > 0)) return { calificacion: null, completa: false, sinEvaluar }
   const crudo = (obtenidos / posibles) * maxCalif
   return { calificacion: Math.round(crudo * 10) / 10, completa: sinEvaluar === 0, sinEvaluar }
+}
+
+// ── Diagnóstico pedagógico (informes) ──────────────────────────────────────
+// El diagnóstico NO es otra visualización de los resultados: interpreta (confusiones, ideas, qué reforzar, siguiente
+// paso). Se genera por pregunta y al final, con umbrales mínimos de datos, límites de llamadas e idempotencia por
+// huella. NO pasa por el libro de créditos: la cuota de 10 créditos se paga una sola vez al activar el análisis.
+export const UMBRALES_DIAGNOSTICO = { opcion_unica: 5, abierta_breve: 8, abierta_extensa: 8, terminosBreve: 4 }
+// Máximo de generaciones por documento: 1 al cerrar + 1 al finalizar (solo si llegaron datos nuevos) + 1 manual.
+export const LIMITES_INFORME = { POR_PREGUNTA: 3, FINAL: 2 }
+export const TIPOS_SIGUIENTE_PASO = ['reexplicar', 'aclarar', 'actividad']
+
+export function confianzaDe(n) {
+  return n >= 25 ? 'alta' : n >= 10 ? 'media' : 'baja'
+}
+
+function fnv(texto) {
+  let h = 2166136261
+  for (let i = 0; i < texto.length; i++) { h ^= texto.charCodeAt(i); h = Math.imul(h, 16777619) }
+  return (h >>> 0).toString(16)
+}
+
+/** Huella de lo que se usó para un diagnóstico: igual huella = nada nuevo = no se vuelve a llamar al modelo. */
+export function huellaDe(respuestas) {
+  return fnv((respuestas || []).map((r) => `${r.id}:${r.estadoIA ?? ''}:${r.opcion ?? ''}`).sort().join('|'))
+}
+
+/** Respuestas de una pregunta que cuentan para su diagnóstico (abiertas: solo las ya evaluadas). */
+export function respuestasDiagnosticables(pregunta, respuestas) {
+  const propias = (respuestas || []).filter((r) => r.preguntaId === pregunta?.id)
+  if (pregunta?.tipo === 'opcion_unica') return propias.filter((r) => (pregunta.opciones || []).some((o) => o.id === r.opcion))
+  return propias.filter((r) => r.estadoIA === ESTADO_IA.ANALIZADA)
+}
+
+/** ¿Hay datos para diagnosticar al grupo en esta pregunta? Nunca con una muestra que no lo permita. */
+export function puedeDiagnosticar(pregunta, respuestas) {
+  const usables = respuestasDiagnosticables(pregunta, respuestas)
+  const n = usables.length
+  const minimo = UMBRALES_DIAGNOSTICO[pregunta?.tipo] ?? 8
+  if (n < minimo) {
+    return { ok: false, n, minimo, confianza: confianzaDe(n), motivo: `Con ${n} ${n === 1 ? 'respuesta' : 'respuestas'} no alcanza para diagnosticar al grupo (mínimo ${minimo}).` }
+  }
+  if (pregunta.tipo === 'abierta_breve') {
+    const terminos = frecuenciasNube(usables.map((r) => r.texto)).length
+    if (terminos < UMBRALES_DIAGNOSTICO.terminosBreve) {
+      return { ok: false, n, minimo, confianza: confianzaDe(n), motivo: `Las respuestas repiten muy pocas palabras distintas (${terminos}): no hay familias de ideas que interpretar.` }
+    }
+  }
+  return { ok: true, n, minimo, confianza: confianzaDe(n), motivo: '' }
+}
+
+/** Cobertura de los conceptos esperados en palabras breves: se calcula con código (gratis), sin IA. */
+export function coberturaConceptos(textos, conceptos) {
+  const palabras = (textos || []).map((t) => new Set(String(t ?? '').split(/\s+/).map(normalizarTermino).filter(Boolean)))
+  return (conceptos || []).map((concepto) => {
+    const partes = String(concepto).split(/\s+/).map(normalizarTermino).filter(Boolean)
+    const n = partes.length ? palabras.filter((set) => partes.every((p) => set.has(p))).length : 0
+    return { concepto, n, aparece: n > 0 }
+  })
+}
+
+const recorta = (v, max) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max)
+const lista = (v, max) => (Array.isArray(v) ? v : []).slice(0, max)
+
+function idsCitados(v, validos) {
+  const out = []
+  for (const id of lista(v, 60)) if (typeof id === 'string' && validos.has(id) && !out.includes(id)) out.push(id)
+  return out
+}
+
+function pasoSiguiente(v) {
+  const texto = recorta(v?.texto, 240)
+  return texto ? { tipo: TIPOS_SIGUIENTE_PASO.includes(v?.tipo) ? v.tipo : 'aclarar', texto } : null
+}
+
+/**
+ * Valida lo que devuelve el modelo para UNA pregunta. Las afirmaciones sobre respuestas deben citar ids que existen
+ * (si no, se descartan) y los conteos los pone el código, no el modelo. Devuelve null si no hay diagnóstico utilizable.
+ * ctx: { tipo, idsValidos:Set, opcionesValidas:Set, conteoOpciones:{id:n}, n }
+ */
+export function sanearInforme(crudo, ctx) {
+  if (!crudo || typeof crudo !== 'object') return null
+  const diagnostico = recorta(crudo.diagnostico, 400)
+  const siguientePaso = pasoSiguiente(crudo.siguientePaso)
+  if (!diagnostico || !siguientePaso) return null
+  const conIds = (items) => lista(items, 4).map((i) => {
+    const ids = idsCitados(i?.ids, ctx.idsValidos || new Set())
+    return { texto: recorta(i?.texto, 140), ids, n: ids.length }
+  }).filter((i) => i.texto && i.ids.length)
+  const informe = {
+    tipo: ctx.tipo,
+    diagnostico,
+    refuerzo: lista(crudo.refuerzo, 4).map((x) => recorta(x, 100)).filter(Boolean),
+    siguientePaso,
+    limitaciones: recorta(crudo.limitaciones, 200),
+    confianza: confianzaDe(ctx.n || 0),
+  }
+  if (ctx.tipo === 'opcion_unica') {
+    informe.confusiones = lista(crudo.confusiones, 4)
+      .filter((c) => (ctx.opcionesValidas || new Set()).has(c?.opcion) && (ctx.conteoOpciones?.[c.opcion] || 0) > 0)
+      .map((c) => ({ opcion: c.opcion, texto: recorta(c.texto, 160), n: ctx.conteoOpciones[c.opcion] }))
+      .filter((c) => c.texto)
+  } else {
+    informe.ideas = conIds(crudo.ideas)
+    informe.confusiones = conIds(crudo.confusiones)
+  }
+  return informe
+}
+
+/** Valida el informe FINAL de la sesión (síntesis de los informes por pregunta). */
+export function sanearInformeFinal(crudo) {
+  if (!crudo || typeof crudo !== 'object') return null
+  const sintesis = recorta(crudo.sintesis, 500)
+  const siguientePaso = pasoSiguiente(crudo.siguientePaso)
+  if (!sintesis || !siguientePaso) return null
+  return {
+    sintesis,
+    comprende: lista(crudo.comprende, 3).map((x) => recorta(x, 120)).filter(Boolean),
+    noComprende: lista(crudo.noComprende, 3).map((x) => recorta(x, 120)).filter(Boolean),
+    siguientePaso,
+    actividadBreve: recorta(crudo.actividadBreve, 240),
+    limitaciones: recorta(crudo.limitaciones, 200),
+  }
 }
 
 // ── Validación de la evaluación que devuelve la IA ─────────────────────────
