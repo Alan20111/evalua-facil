@@ -126,11 +126,8 @@ export function sanearPreguntasVivo(entrada, { exigirCorrecta = false } = {}) {
       }
       const correcta = idsOp.has(p?.correcta) ? p.correcta : null
       if (exigirCorrecta && !correcta) { errores.push(`Pregunta ${n}: marca la opción correcta (la actividad es calificable).`); return }
-      publicas.push({ id, tipo, enunciado, opciones, puntos })
-      // «Confusión que revela»: para cada opción INCORRECTA, la idea equivocada detrás. Alimenta el diagnóstico pedagógico.
-      const confusiones = {}
-      for (const o of opciones) { const t = limpiar(p?.confusiones?.[o.id], 160); if (t && o.id !== correcta) confusiones[o.id] = t }
-      claves[id] = { correcta, confusiones }
+      publicas.push({ id, tipo, enunciado, opciones, puntos, visualizacion: visualizacionDe({ tipo, visualizacion: p?.visualizacion, opciones }) })
+      claves[id] = { correcta }
       return
     }
 
@@ -173,13 +170,36 @@ export function idRespuestaVivo(codigo, preguntaId, participanteKey) {
   return `${codigo}_${preguntaId}_${participanteKey}`
 }
 
+// ── Visualización de resultados ─────────────────────────────────────────
+// Solo la opción única admite elegir: barras (por omisión) o nube (solo con opciones de una o dos palabras). En la nube cada OPCIÓN completa es una unidad (nunca se
+// separan sus palabras) y su tamaño sigue la cantidad de elecciones. Las respuestas escritas (breves o extensas) SIEMPRE
+// se presentan como tarjetas con el texto original: jamás nube ni barras.
+export const VISUALIZACIONES_OPCION = { barras: 'Barras', nube: 'Nube de palabras' }
+
+// La nube se permite SOLO si TODAS las opciones tienen una o dos palabras (cada opción es una unidad que no se separa).
+const NUBE_MAX_PALABRAS_OPCION = 2
+export function nubePermitida(opciones) {
+  const lista = Array.isArray(opciones) ? opciones : []
+  return lista.length >= 2 && lista.every((o) => {
+    const palabras = String(o?.texto ?? '').trim().split(/\s+/).filter(Boolean).length
+    return palabras >= 1 && palabras <= NUBE_MAX_PALABRAS_OPCION
+  })
+}
+
+// Visualización EFECTIVA. Una configuración guardada que pida nube con opciones incompatibles se trata como barras: nunca
+// se habilita una nube que no corresponde, ni al crear, ni al editar, ni al proyectar preguntas ya existentes.
+export function visualizacionDe(pregunta) {
+  if (pregunta?.tipo !== 'opcion_unica') return 'tarjetas'
+  return pregunta.visualizacion === 'nube' && nubePermitida(pregunta.opciones) ? 'nube' : 'barras'
+}
+
 // ── Texto de la respuesta ──────────────────────────────────────────────────
 export function sanearTextoRespuesta(texto, tipo) {
   const max = tipo === 'abierta_breve' ? VIVO_CFG.MAX_RESPUESTA_BREVE : VIVO_CFG.MAX_RESPUESTA_EXTENSA
   return String(texto ?? '').replace(/\s+/g, ' ').trim().slice(0, max)
 }
 
-// ── Nube de palabras ───────────────────────────────────────────────────────
+// ── Palabras vacías (solo para medir variedad) ───────────────────────────────────────────────────────
 const STOP = new Set((
   'a al algo ante con como cual cuando de del desde donde e el ella ellas ello ellos en entre era eran es esa esas ese eso esos esta estan estas este esto estos fue ha han hay la las le les lo los mas me mi muy ni no nos o os para pero por porque que se si sin sobre son su sus te tiene tu un una uno unas unos y ya yo'
 ).split(' '))
@@ -194,26 +214,17 @@ export function normalizarTermino(t) {
     .replace(/[^a-z0-9ñ]/g, '')
 }
 
-// Frecuencia REAL: cuántas respuestas contienen cada término (un término repetido dentro
-// de la misma respuesta cuenta una vez). Se conserva la forma escrita más frecuente.
-export function frecuenciasNube(textos, { incluirVacias = false } = {}) {
-  const mapa = new Map()
+// Cantidad de términos distintos (palabras sueltas, sin vacías) que aparecen en las respuestas. NO se dibuja: solo mide
+// si las respuestas breves tienen suficiente variedad para interpretarlas (umbral del diagnóstico).
+export function terminosDistintos(textos) {
+  const vistos = new Set()
   for (const texto of textos || []) {
-    const vistos = new Set()
     for (const crudo of String(texto ?? '').split(/\s+/)) {
       const clave = normalizarTermino(crudo)
-      if (clave.length < 3 || (!incluirVacias && STOP.has(clave)) || vistos.has(clave)) continue
-      vistos.add(clave)
-      const forma = crudo.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '').toLowerCase()
-      const e = mapa.get(clave) || { clave, n: 0, formas: new Map() }
-      e.n += 1
-      e.formas.set(forma, (e.formas.get(forma) || 0) + 1)
-      mapa.set(clave, e)
+      if (clave.length >= 3 && !STOP.has(clave)) vistos.add(clave)
     }
   }
-  return [...mapa.values()]
-    .map((e) => ({ clave: e.clave, n: e.n, texto: [...e.formas.entries()].sort((a, b) => b[1] - a[1])[0][0] }))
-    .sort((a, b) => b.n - a.n || a.clave.localeCompare(b.clave))
+  return vistos.size
 }
 
 // ── Resultados ─────────────────────────────────────────────────────────────
@@ -332,7 +343,7 @@ export function puedeDiagnosticar(pregunta, respuestas) {
     return { ok: false, n, minimo, confianza: confianzaDe(n), motivo: `Con ${n} ${n === 1 ? 'respuesta' : 'respuestas'} no alcanza para diagnosticar al grupo (mínimo ${minimo}).` }
   }
   if (pregunta.tipo === 'abierta_breve') {
-    const terminos = frecuenciasNube(usables.map((r) => r.texto)).length
+    const terminos = terminosDistintos(usables.map((r) => r.texto))
     if (terminos < UMBRALES_DIAGNOSTICO.terminosBreve) {
       return { ok: false, n, minimo, confianza: confianzaDe(n), motivo: `Las respuestas repiten muy pocas palabras distintas (${terminos}): no hay familias de ideas que interpretar.` }
     }

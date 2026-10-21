@@ -108,21 +108,17 @@ await caso('contexto: el nombre de un tema no basta; una descripción amplia o u
   assert.strictEqual(V.contextoSuficiente({ texto: '', cantidadArchivos: 1 }).ok, true)
 })
 
-await caso('nube: la frecuencia es el número REAL de respuestas que contienen la palabra; normaliza acentos y mayúsculas', () => {
-  const f = V.frecuenciasNube(['Luz', 'la LUZ solar', 'luz luz luz', 'Árbol', 'arbol', '  ', '', 'de la y'])
-  const por = Object.fromEntries(f.map((x) => [x.clave, x.n]))
-  assert.strictEqual(por.luz, 3, 'repetida dentro de una respuesta cuenta una vez')
-  assert.strictEqual(por.arbol, 2, 'Árbol y arbol son la misma palabra')
-  assert.strictEqual(por.solar, 1)
-  assert.ok(!('de' in por) && !('la' in por) && !('y' in por), 'se excluyen las palabras vacías')
-  assert.deepStrictEqual(V.frecuenciasNube([]), [])
+await caso('terminosDistintos: mide variedad (palabras sueltas sin vacías) y NO es una visualización', () => {
+  assert.strictEqual(V.terminosDistintos(['Luz', 'la LUZ solar', 'Árbol', 'arbol', '  ', '', 'de la y']), 3, 'luz, solar, árbol/arbol; sin vacías')
+  assert.strictEqual(V.terminosDistintos([]), 0)
+  assert.strictEqual(V.frecuenciasNube, undefined, 'ya no existe una nube construida con palabras de respuestas escritas')
 })
 
 const PALABRAS = (n) => Array.from({ length: n }, (_, i) => ({ clave: 'palabra' + i, texto: 'palabra' + i, n: Math.max(1, Math.round(30 / (i + 1))) }))
 const sinChoques = (ps) => ps.every((a, i) => ps.slice(i + 1).every((b) => a.x >= b.x + b.w || b.x >= a.x + a.w || a.y >= b.y + b.h || b.y >= a.y + a.h))
 
 await caso('nube editorial: caben, no se encimen, mezclan horizontal y vertical y el tamaño sigue a la frecuencia real', () => {
-  const items = V.frecuenciasNube([...Array(9).fill('energía'), ...Array(4).fill('luz solar'), 'agua', 'clorofila', 'glucosa', 'oxígeno'])
+  const items = [{ clave: 'energia', texto: 'energía', n: 9 }, { clave: 'luz', texto: 'luz solar', n: 4 }, ...['agua', 'clorofila', 'glucosa', 'oxígeno'].map((t) => ({ clave: t, texto: t, n: 1 }))]
   const r = N.componerNube(items, 1600, 760)
   assert.strictEqual(r.paginas.length, 1)
   const ps = r.paginas[0].palabras
@@ -161,10 +157,47 @@ await caso('nube editorial: la paleta cumple contraste ≥ 7:1 sobre el fondo cl
   for (const c of N.PALETA_NUBE) assert.ok(N.contraste(c, '#ffffff') >= 7, c + ' contraste')
 })
 
-await caso('nube: «mostrar todas» conserva las palabras vacías; por omisión se filtran', () => {
-  const t = ['la casa de la luz', 'la casa']
-  assert.ok(!V.frecuenciasNube(t).some((x) => x.clave === 'casa' && false) && !V.frecuenciasNube(t).some((x) => x.clave === 'las'))
-  assert.ok(V.frecuenciasNube(t, { incluirVacias: true }).length >= V.frecuenciasNube(t).length)
+const OP = (...textos) => textos.map((texto, i) => ({ id: 'abcdefgh'[i], texto }))
+const PREG_OP = (opciones, extra = {}) => ({ id: 'p1', tipo: 'opcion_unica', enunciado: '¿Dónde?', opciones, correcta: 'a', ...extra })
+
+await caso('visualización: la nube solo existe con opciones de UNA o DOS palabras; si no, barras', () => {
+  assert.strictEqual(V.nubePermitida(OP('Parte atrás', 'Frente', 'Lateral')), true)
+  assert.strictEqual(V.nubePermitida(OP('Parte atrás', 'En la parte trasera')), false, 'una opción de tres palabras la inhabilita')
+  assert.strictEqual(V.nubePermitida(OP('Solo una')), false, 'con una opción no hay nube')
+  assert.strictEqual(V.nubePermitida(OP('  Parte   atrás  ', 'Frente')), true, 'espacios de más no cuentan como palabras')
+  assert.strictEqual(V.visualizacionDe({ tipo: 'opcion_unica', visualizacion: 'nube', opciones: OP('Sí', 'No') }), 'nube')
+  assert.strictEqual(V.visualizacionDe({ tipo: 'opcion_unica', visualizacion: 'barras', opciones: OP('Sí', 'No') }), 'barras')
+  assert.strictEqual(V.visualizacionDe({ tipo: 'opcion_unica', opciones: OP('Sí', 'No') }), 'barras', 'sin configuración (preguntas existentes): barras')
+  assert.strictEqual(V.visualizacionDe({ tipo: 'opcion_unica', visualizacion: 'nube', opciones: OP('Sí', 'No es posible saberlo') }), 'barras', 'una configuración guardada con nube incompatible se trata como barras')
+  assert.strictEqual(V.visualizacionDe({ tipo: 'opcion_unica', visualizacion: 'otra', opciones: OP('Sí', 'No') }), 'barras', 'valor desconocido')
+})
+
+await caso('visualización: las respuestas escritas (breves o extensas) SIEMPRE son tarjetas, aunque la configuración pida otra cosa', () => {
+  for (const tipo of ['abierta_breve', 'abierta_extensa']) {
+    for (const visualizacion of [undefined, 'nube', 'barras', 'tarjetas']) assert.strictEqual(V.visualizacionDe({ tipo, visualizacion }), 'tarjetas', tipo + ' ' + visualizacion)
+  }
+})
+
+await caso('saneo: al crear o editar, una nube incompatible se corrige a barras; la compatible se conserva; las abiertas no guardan visualización', () => {
+  const ok = V.sanearPreguntasVivo([PREG_OP(OP('Parte atrás', 'Frente'), { visualizacion: 'nube' })])
+  assert.strictEqual(ok.publicas[0].visualizacion, 'nube')
+  const editada = V.sanearPreguntasVivo([PREG_OP(OP('Parte atrás', 'Por la parte de atrás'), { visualizacion: 'nube' })])
+  assert.strictEqual(editada.publicas[0].visualizacion, 'barras', 'la opción editada supera dos palabras: ya no hay nube')
+  assert.strictEqual(V.sanearPreguntasVivo([PREG_OP(OP('Sí', 'No'))]).publicas[0].visualizacion, 'barras', 'predeterminado: barras')
+  const abiertas = V.sanearPreguntasVivo([{ id: 'p1', tipo: 'abierta_breve', enunciado: 'x', visualizacion: 'nube' }, { id: 'p2', tipo: 'abierta_extensa', enunciado: 'y', visualizacion: 'barras' }])
+  assert.ok(abiertas.publicas.every((q) => !('visualizacion' in q)), 'las abiertas no guardan ni ofrecen visualización')
+})
+
+await caso('ya no se guardan «confusiones» declaradas por el docente (la IA las infiere)', () => {
+  const r = V.sanearPreguntasVivo([PREG_OP(OP('Oxígeno', 'Metano'), { confusiones: { b: 'cree que…' } })])
+  assert.deepStrictEqual(r.claves.p1, { correcta: 'a' })
+  const prompt = PV._pruebas.promptInforme({ pregunta: r.publicas[0], clave: r.claves.p1, resumen: '', proposito: 'previos', usables: [], alias: new Map(), n: 6, conteoOpciones: { a: 3, b: 3 }, cobertura: [] })
+  assert.ok(/infiere/.test(prompt) && !/idea equivocada que revela/.test(prompt))
+})
+
+await caso('la generación con IA ya no pide «confusiones» y presenta las breves como tarjetas', () => {
+  const g = PV._pruebas.promptGenerar({ cantidad: 3, proposito: 'previos', bloqueFuentes: '', fuentesBloques: [] }, 'Biología')
+  assert.ok(!/confusiones/.test(g) && !/nube/.test(g) && /tarjetas/.test(g))
 })
 
 await caso('preguntas: separa lo público de la clave y exige la correcta solo si es calificable', () => {
@@ -955,7 +988,7 @@ const SEMILLA_INFORME = { analisisActivo: true, calificable: false }
 const INFORME_OP = { diagnostico: 'Una parte del grupo confunde el gas.', confusiones: [{ opcion: 'b', texto: 'Cree que el metano se libera' }], refuerzo: ['Productos de la fotosíntesis'], siguientePaso: { tipo: 'aclarar', texto: 'Aclarar con un ejemplo.' }, limitaciones: 'Muestra pequeña' }
 async function prepararInformes({ opciones = ['a', 'a', 'a', 'b', 'b', 'b'], extra = {} } = {}) {
   await reiniciar(); await sembrarActividad(); await sembrarClaves()
-  await db.doc('activities/act_vivo/clave/p1').set({ correcta: 'a', confusiones: { b: 'Confunde el metano con el producto' } })
+  await db.doc('activities/act_vivo/clave/p1').set({ correcta: 'a' })
   await sembrarSesion({ extra: { ...SEMILLA_INFORME, ...extra } })
   await sembrarOpciones(opciones)
   respuestaIA = () => INFORME_OP
@@ -994,7 +1027,7 @@ await caso('informe de opción única: lo genera una vez, el código pone los co
   assert.strictEqual(pedidosIA.length, 1)
   await sinCobro()
   const prompt = textoDelPedido(pedidosIA[0])
-  assert.ok(prompt.includes('Confunde el metano') && prompt.includes('[CORRECTA]'), 'usa la confusión que el docente declaró')
+  assert.ok(prompt.includes('[CORRECTA]') && /infiere/.test(prompt), 'la IA infiere la confusión de cada distractor a partir de las elecciones')
 })
 
 await caso('informe idempotente: misma huella = sin nueva llamada; datos nuevos regeneran hasta el límite de 3', async () => {

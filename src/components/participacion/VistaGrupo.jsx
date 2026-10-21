@@ -5,11 +5,11 @@ import SalaQr, { QrSuperpuesto } from './QrAcceso'
 import VistaPregunta from './VistaPregunta'
 import { tamanosProyeccion } from '../../utils/proyeccionVivo'
 
-export default function VistaGrupo({ sesion, respuestas, claves, area, verCorrecta = false, mostrarQr = false, onOcultarQr, momento = 'resultados', incluirVacias = false, fijada = null }) {
-  const t = tamanosProyeccion(area.ancho, area.alto)
+export default function VistaGrupo({ sesion, respuestas, claves, area, verCorrecta = false, mostrarQr = false, onOcultarQr, momento = 'resultados', fijada = null, tamBase = null }) {
+  const t = tamBase || tamanosProyeccion(area.ancho, area.alto)
   if (sesion.preguntaIndex < 0) {
     return sesion.acceso === 'externo'
-      ? <SalaQr sesion={sesion} area={area} />
+      ? <SalaQr sesion={sesion} area={area} tam={t} />
       : (
         <div className="h-full flex flex-col items-center justify-center text-center gap-[3vmin] px-[6vmin] text-slate-900">
           <h1 className="font-bold" style={{ fontSize: Math.round(t.pregunta * 1.2) }}>{sesion.titulo || 'Participación en vivo'}</h1>
@@ -23,9 +23,9 @@ export default function VistaGrupo({ sesion, respuestas, claves, area, verCorrec
   return (
     <div className="relative h-full w-full">
       <VistaPregunta pregunta={pregunta} respuestas={respuestas} area={area} correcta={correcta} revelar={verCorrecta} momento={momento}
-        incluirVacias={incluirVacias} fijada={fijada} autoPaginar
+        fijada={fijada} autoPaginar tamBase={t}
         encabezado={`Pregunta ${sesion.preguntaIndex + 1} de ${sesion.preguntas.length} · ${total} ${total === 1 ? 'respuesta' : 'respuestas'}`} />
-      {mostrarQr && sesion.acceso === 'externo' && <QrSuperpuesto sesion={sesion} area={area} onCerrar={onOcultarQr} />}
+      {mostrarQr && sesion.acceso === 'externo' && <QrSuperpuesto sesion={sesion} area={area} tam={t} onCerrar={onOcultarQr} />}
     </div>
   )
 }
