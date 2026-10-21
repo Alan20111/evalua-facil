@@ -1301,6 +1301,8 @@ service cloud.firestore {
         codigo.matches('^[A-HJ-KM-NP-Z2-9]{10}$') &&
         request.resource.data.docenteId == request.auth.uid &&
         ownsActivity(request.resource.data.actividadId) &&
+        // La asignatura de la sesión es la de su actividad: de ahí sale quién puede participar en modalidad «grupo».
+        get(/databases/$(database)/documents/activities/$(request.resource.data.actividadId)).data.asignaturaId == request.resource.data.asignaturaId &&
         request.resource.data.estado == 'activa' &&
         request.resource.data.acceso in ['grupo', 'externo'] &&
         request.resource.data.get('analisisActivo', false) == false;

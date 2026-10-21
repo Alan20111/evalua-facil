@@ -16,7 +16,7 @@
 import { getDb, admin, verifyRequest } from './firebaseAdmin.js'
 import { aplicarCors } from './cors.js'
 import {
-  ESTADO_IA, codigoVivoValido, claveParticipanteValida, idRespuestaVivo, sanearTextoRespuesta,
+  VIVO_CFG, ESTADO_IA, codigoVivoValido, claveParticipanteValida, idRespuestaVivo, sanearTextoRespuesta,
 } from '../../src/utils/participacionVivo.js'
 
 const { FieldValue } = admin.firestore
@@ -146,13 +146,21 @@ export async function handleVivoResponder(req, res) {
     const opcion = String(body.opcion || '')
     if (!(pregunta.opciones || []).some((o) => o.id === opcion)) return res.status(400).json({ error: 'Elige una de las opciones.' })
     dato.opcion = opcion
+    dato.abierta = false
     dato.estadoIA = null // opción única: se resuelve contra la clave, sin IA
   } else {
     const texto = sanearTextoRespuesta(body.texto, pregunta.tipo)
     if (!texto) return res.status(400).json({ error: 'Escribe tu respuesta.' })
     dato.texto = texto
-    // Con el análisis activo entra en cola; la cuota (tope) la aplica la evaluación, por orden de llegada.
-    dato.estadoIA = sesion.analisisActivo === true ? ESTADO_IA.RECIBIDA : ESTADO_IA.SIN_ANALISIS
+    dato.abierta = true
+    // Cuántas abiertas lleva ya la sesión (agregación: no lee los documentos). Solo para acotar costos:
+    //   · pasado el tope duro la sesión no admite más (inundación);
+    //   · pasada la cuota de análisis la respuesta entra ya como «omitida» y no despierta al evaluador.
+    // La decisión EXACTA (las primeras 40 por orden de llegada) la sigue tomando la evaluación.
+    const { count } = (await db.collection('vivoRespuestas').where('sesionId', '==', codigo).where('abierta', '==', true).count().get()).data()
+    if (count >= VIVO_CFG.MAX_ABIERTAS_SESION) return res.status(409).json({ error: 'Esta participación alcanzó el máximo de respuestas.' })
+    dato.estadoIA = sesion.analisisActivo !== true ? ESTADO_IA.SIN_ANALISIS
+      : count >= VIVO_CFG.TOPE_ANALISIS ? ESTADO_IA.OMITIDA_TOPE : ESTADO_IA.RECIBIDA
   }
   try {
     await respRef.create(dato)

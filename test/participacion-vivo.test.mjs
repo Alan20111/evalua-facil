@@ -170,6 +170,21 @@ await caso('códigos de sesión: 10 caracteres sin ambiguos; clave de participan
   assert.ok(V.claveParticipanteValida('a'.repeat(24))); assert.ok(!V.claveParticipanteValida('corta')); assert.ok(!V.claveParticipanteValida('A'.repeat(24)))
 })
 
+grupo('A2. Tarifas y tope autorizados (sin sembrar nada)')
+
+await caso('el seed y el script dirigido traen exactamente 6 (generar) y 10 (análisis por sesión); el tope es 40', async () => {
+  const seed = require('../seeds-db/seed-ia-tarifas.js').TARIFAS
+  assert.strictEqual(seed.tarifas.generar_dinamica_vivo, 6)
+  assert.strictEqual(seed.tarifas.activar_analisis_vivo, 10)
+  assert.strictEqual(seed.modeloPorOperacion.generar_dinamica_vivo, 'claude-haiku-4-5')
+  assert.strictEqual(seed.modeloPorOperacion.activar_analisis_vivo, 'claude-haiku-4-5')
+  const { readFileSync } = await import('node:fs')
+  const script = readFileSync(new URL('../seeds-db/agregar-tarifas-participacion-vivo.js', import.meta.url), 'utf8')
+  assert.ok(script.includes('generar_dinamica_vivo: { tarifa: 6,') && script.includes('activar_analisis_vivo: { tarifa: 10,'))
+  assert.ok(script.includes("const aplicar = process.argv.includes('--aplicar')"), 'por omisión solo simula')
+  assert.strictEqual(V.VIVO_CFG.TOPE_ANALISIS, 40)
+})
+
 // ═════════════════════════════════════════════════════════════════════════════
 grupo('B. generar_dinamica_vivo — cobro fijo y sin cobro si no hay material')
 
@@ -552,7 +567,24 @@ await caso('50 respuestas SIMULTÁNEAS: ninguna se pierde ni falla (sin cuello d
   assert.ok(rs.every((r) => r.statusCode === 200), 'todas respondieron 200')
   const docs = (await db.collection('vivoRespuestas').get()).docs.map((d) => d.data())
   assert.strictEqual(docs.length, total)
-  assert.ok(docs.every((d) => d.estadoIA === 'recibida'))
+  assert.ok(docs.every((d) => d.estadoIA === 'recibida' || d.estadoIA === 'omitida_tope'), 'ninguna queda sin estado')
+  assert.ok(docs.filter((d) => d.estadoIA === 'recibida').length >= V.VIVO_CFG.TOPE_ANALISIS, 'al menos la cuota entra a la cola')
+})
+
+await caso('pasada la cuota las nuevas entran «omitida_tope» sin despertar al evaluador; el tope duro frena una inundación', async () => {
+  await reiniciar(); await sembrarSesion({ extra: { preguntaIndex: 1, analisisActivo: true } })
+  const base = V.VIVO_CFG.TOPE_ANALISIS
+  for (let i = 0; i < base; i++) await db.doc(`vivoRespuestas/${CODIGO}_p2_${String(i).padStart(24, 'g')}`).set({ sesionId: CODIGO, abierta: true, preguntaTipo: 'abierta_breve', estadoIA: 'recibida' })
+  const r = await responder({ codigo: CODIGO, preguntaId: 'p2', texto: 'luz', participanteKey: 'n'.repeat(24) })
+  assert.strictEqual(r.statusCode, 200)
+  assert.strictEqual((await db.doc(`vivoRespuestas/${CODIGO}_p2_${'n'.repeat(24)}`).get()).data().estadoIA, 'omitida_tope')
+  // tope duro: simulado bajándolo, para no sembrar miles de documentos
+  const antes = V.VIVO_CFG.MAX_ABIERTAS_SESION
+  V.VIVO_CFG.MAX_ABIERTAS_SESION = base + 1
+  const llena = await responder({ codigo: CODIGO, preguntaId: 'p2', texto: 'agua', participanteKey: 'm'.repeat(24) })
+  V.VIVO_CFG.MAX_ABIERTAS_SESION = antes
+  assert.strictEqual(llena.statusCode, 409)
+  assert.strictEqual((await db.doc(`vivoRespuestas/${CODIGO}_p2_${'m'.repeat(24)}`).get()).exists, false)
 })
 
 await caso('TOPE: pasada la cuota de 40 las respuestas se conservan «omitida_tope» sin llamar al modelo (orden de llegada, también con eventos repetidos)', async () => {
@@ -565,7 +597,7 @@ await caso('TOPE: pasada la cuota de 40 las respuestas se conservan «omitida_to
     ids.push(id)
     await db.doc(`vivoRespuestas/${id}`).set({
       sesionId: CODIGO, actividadId: 'act_vivo', asignaturaId: 'sub_vivo', docenteId: DOCENTE, preguntaId: 'p2', preguntaTipo: 'abierta_breve',
-      participante: 'externo', participanteKey: String(i).padStart(24, 'f'), texto: `luz ${i}`, estadoIA: 'recibida', creadaEn: new Date(2026, 9, 1, 12, 0, i),
+      participante: 'externo', abierta: true, participanteKey: String(i).padStart(24, 'f'), texto: `luz ${i}`, estadoIA: 'recibida', creadaEn: new Date(2026, 9, 1, 12, 0, i),
     })
   }
   // las evaluaciones llegan DESORDENADAS y cada una dos veces (evento repetido)

@@ -21,6 +21,8 @@ export const VIVO_CFG = {
   OP_ANALISIS: 'activar_analisis_vivo',
   // Tope de respuestas abiertas que la IA analiza por sesión (cuota fija pagada al activar).
   TOPE_ANALISIS: 40,
+  // Tope DURO de respuestas abiertas guardadas por sesión: frena a un script que inunde un enlace externo.
+  MAX_ABIERTAS_SESION: 3000,
   MIN_CONTEXTO_CARACTERES: 200,
   MIN_PREGUNTAS: 1,
   MAX_PREGUNTAS: 8,
