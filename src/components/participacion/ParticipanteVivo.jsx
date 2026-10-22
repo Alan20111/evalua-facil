@@ -6,12 +6,18 @@
 //
 // El estado se consulta cada pocos segundos (no hay conexión permanente: el participante no tiene
 // acceso a Firestore). Lo que se proyecta al aula sí se actualiza en tiempo real en la pantalla del docente.
+//
+// Tiempo: cada consulta trae la hora del servidor, con la que se corrige el reloj local; el contador avanza solo (cada 100 ms)
+// con la apertura/límite que fijó el servidor, así que es el mismo que ve el aula y no se reinicia al recargar. El servidor
+// rechaza lo que llegue antes de abrir o después del límite, aunque el celular tenga el reloj mal.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Check, Hourglass, Send } from 'lucide-react'
 import { Button } from '../ui'
 import Spinner from '../Spinner'
 import { claveParticipanteLocal, llamarVivo } from '../../utils/participacionVivoDb'
-import { VIVO_CFG } from '../../utils/participacionVivo'
+import { VIVO_CFG, muestraDeDesfase } from '../../utils/participacionVivo'
+import { useCuentaRegresiva, useRelojServidor } from '../../hooks/useTemporizadorVivo'
+import Temporizador from './Temporizador'
 
 const INTERVALO_MS = 3000
 const COLORES = ['#2563eb', '#16a34a', '#d97706', '#9333ea', '#dc2626']
@@ -40,10 +46,13 @@ export default function ParticipanteVivo({ codigo = null, actividadId = null, co
   const [enviadas, setEnviadas] = useState(() => new Set()) // `${codigo}:${preguntaId}` ya enviadas desde aquí
   const participanteKey = useRef(conSesion ? null : claveParticipanteLocal())
   const preguntaActual = useRef(null)
+  const { ahora, registrar } = useRelojServidor()
 
   const consultar = useCallback(async () => {
     try {
+      const t0 = Date.now()
       const r = await llamarVivo('vivo-estado', { codigo, actividadId, participanteKey: participanteKey.current }, { conSesion })
+      if (r?.sesion?.ahora) registrar(muestraDeDesfase(t0, Date.now(), r.sesion.ahora))
       setEstado(r)
       setError(null)
     } catch (e) {
@@ -52,7 +61,7 @@ export default function ParticipanteVivo({ codigo = null, actividadId = null, co
     } finally {
       setCargando(false)
     }
-  }, [codigo, actividadId, conSesion])
+  }, [codigo, actividadId, conSesion, registrar])
 
   useEffect(() => {
     let vivo = true
@@ -77,6 +86,26 @@ export default function ParticipanteVivo({ codigo = null, actividadId = null, co
 
   const sesion = estado?.sesion
   const pregunta = estado?.pregunta
+  const cuenta = useCuentaRegresiva(sesion || null, ahora)
+  const estadoLocal = cuenta.estado
+  const abreMs = sesion?.abreMs ?? null
+  const cierraMs = sesion?.cierraMs ?? null
+  // Sin esperar el siguiente ciclo de 3 s: se consulta justo cuando abre (llega la pregunta) y al vencer (se confirma el cierre).
+  useEffect(() => {
+    if (estadoLocal !== 'preparando' || abreMs == null) return undefined
+    const id = setTimeout(consultar, Math.max(150, abreMs - ahora() + 30))
+    return () => clearTimeout(id)
+  }, [estadoLocal, abreMs, ahora, consultar])
+  useEffect(() => {
+    if (estadoLocal !== 'abierta' || pregunta) return undefined // abrió pero aún no llegó su contenido: reintento corto
+    const id = setTimeout(consultar, 250)
+    return () => clearTimeout(id)
+  }, [estadoLocal, pregunta, estado, consultar])
+  useEffect(() => {
+    if (estadoLocal !== 'abierta' || cierraMs == null) return undefined
+    const id = setTimeout(consultar, Math.max(100, cierraMs - ahora() + 80))
+    return () => clearTimeout(id)
+  }, [estadoLocal, cierraMs, ahora, consultar])
   const clave = sesion && pregunta ? `${sesion.codigo}:${pregunta.id}` : null
   const yaRespondio = !!estado?.yaRespondio || (clave && enviadas.has(clave))
 
@@ -102,22 +131,52 @@ export default function ParticipanteVivo({ codigo = null, actividadId = null, co
     return <div className="min-h-dvh bg-surface"><Aviso icono={Hourglass} titulo="No pudimos abrir esta participación" texto={error.mensaje} /></div>
   }
 
+  // Contador fijo arriba, bien visible: el mismo tiempo que muestra el proyector.
+  const barraTiempo = sesion && pregunta && (estadoLocal === 'abierta' || estadoLocal === 'cerrada') ? (
+    <div className="sticky top-0 z-contenido bg-surface-card border-b border-outline-variant px-4 py-2 flex items-center justify-between gap-3" data-vivo-tiempo>
+      <span className="text-sm font-semibold text-muted">{estadoLocal === 'abierta' ? 'Tiempo' : 'Estado'}</span>
+      <Temporizador estado={estadoLocal} restanteMs={cuenta.restanteMs} sesion={sesion} tam={22} />
+    </div>
+  ) : null
+
   let cuerpo
   if (!sesion) {
     cuerpo = <Aviso icono={Hourglass} titulo="Aún no hay una participación activa" texto="Cuando tu docente la inicie, aparecerá aquí sola." />
   } else if (sesion.estado === 'finalizada') {
     cuerpo = <Aviso icono={Check} titulo="La participación terminó" texto="¡Gracias por participar!" />
+  } else if (estadoLocal === 'preparando') {
+    cuerpo = (
+      <Aviso icono={Hourglass} titulo={`Pregunta ${sesion.preguntaIndex + 1} de ${sesion.total}`} texto="La pregunta comienza en">
+        <output aria-live="off" className="block mt-2 text-7xl font-bold tabular-nums text-on-surface">{Math.max(1, Math.ceil((cuenta.faltaMs ?? 0) / 1000))}</output>
+      </Aviso>
+    )
+  } else if (!pregunta && estadoLocal === 'abierta') {
+    cuerpo = <div className="min-h-dvh flex items-center justify-center"><Spinner /></div>
   } else if (!pregunta) {
     cuerpo = <Aviso icono={Hourglass} titulo="Listo, ya estás dentro" texto="Espera: tu docente mostrará la primera pregunta en un momento." />
   } else if (yaRespondio) {
-    cuerpo = <Aviso icono={Check} titulo="¡Respuesta enviada!" texto="Espera la siguiente pregunta; aparecerá sola." />
-  } else if (!sesion.aceptando) {
-    cuerpo = <Aviso icono={Hourglass} titulo="Respuestas cerradas" texto="Tu docente cerró las respuestas de esta pregunta. Espera la siguiente." />
+    cuerpo = (
+      <>
+        {barraTiempo}
+        <Aviso icono={Check} titulo="¡Respuesta enviada!" texto="Espera la siguiente pregunta; aparecerá sola." />
+      </>
+    )
+  } else if (estadoLocal === 'cerrada') {
+    const agotado = sesion.cerradaMs == null && sesion.cierraMs != null
+    cuerpo = (
+      <>
+        {barraTiempo}
+        <Aviso icono={Hourglass} titulo={agotado ? 'Se terminó el tiempo' : 'Pregunta cerrada'}
+          texto={agotado ? 'Ya no se reciben respuestas de esta pregunta. Espera la siguiente.' : 'Tu docente cerró las respuestas de esta pregunta. Espera la siguiente.'} />
+      </>
+    )
   } else {
     const abierta = pregunta.tipo !== 'opcion_unica'
     const max = pregunta.tipo === 'abierta_breve' ? VIVO_CFG.MAX_RESPUESTA_BREVE : VIVO_CFG.MAX_RESPUESTA_EXTENSA
-    const puedeEnviar = abierta ? texto.trim().length > 0 : opcion != null
+    const puedeEnviar = (abierta ? texto.trim().length > 0 : opcion != null) && estadoLocal === 'abierta'
     cuerpo = (
+      <>
+      {barraTiempo}
       <div className="max-w-xl mx-auto px-4 py-6">
         <p className="text-xs font-semibold uppercase tracking-wide text-accent mb-2">
           Pregunta {sesion.preguntaIndex + 1} de {sesion.total}
@@ -153,6 +212,7 @@ export default function ParticipanteVivo({ codigo = null, actividadId = null, co
           {enviando ? 'Enviando…' : 'Enviar respuesta'}
         </Button>
       </div>
+      </>
     )
   }
 

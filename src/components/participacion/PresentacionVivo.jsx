@@ -8,7 +8,7 @@
 // BroadcastChannel; no escribe nada). Etapas: sala de espera (QR protagonista) → preguntas → resultados finales,
 // pregunta por pregunta y sin desplazamiento.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, ArrowRight, Check, Eye, Lock, LockOpen, Maximize2, MonitorUp, Play, QrCode, Sparkles, Square, Users, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Eye, Lock, Maximize2, MonitorUp, Play, QrCode, Sparkles, Square, Users, X } from 'lucide-react'
 import { useToast } from '../Toast'
 import { Button, Modal } from '../ui'
 import Spinner from '../Spinner'
@@ -16,9 +16,11 @@ import ConfirmacionCreditosModal from '../ConfirmacionCreditosModal'
 import useCreditosIA from '../../hooks/useCreditosIA'
 import { useAreaMedida, useAutoOcultar, useEstadoProyeccion } from '../../hooks/useProyeccion'
 import {
-  alternarRespuestasVivo, escucharInformesVivo, escucharRespuestasVivo, escucharSesionVivo, finalizarSesionVivo, irAPreguntaVivo,
+  ampliarTiempoVivo, cerrarPreguntaVivo, escucharInformesVivo, escucharRespuestasVivo, escucharSesionVivo, finalizarSesionVivo, irAPreguntaVivo, medirRelojServidor,
+  sellarPreguntaVivo,
 } from '../../utils/participacionVivoDb'
-import { UMBRALES_DIAGNOSTICO, VIVO_CFG, esTipoAbierto, puedeDiagnosticar } from '../../utils/participacionVivo'
+import { useCuentaRegresiva, useRelojServidor } from '../../hooks/useTemporizadorVivo'
+import { UMBRALES_DIAGNOSTICO, VIVO_CFG, esEncuesta, esTipoAbierto, puedeDiagnosticar } from '../../utils/participacionVivo'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { planOpciones, rutaProyeccion, tamanosProyeccion } from '../../utils/proyeccionVivo'
 import VistaGrupo from './VistaGrupo'
@@ -39,7 +41,7 @@ function Pantalla({ children, onCerrar, autonoma }) {
   )
 }
 
-function Escenario({ sesion, respuestas, informes, claves, vista, estado, reservaInferior = 0, onOcultarQr }) {
+function Escenario({ sesion, respuestas, informes, claves, vista, estado, ahora, reservaInferior = 0, onOcultarQr }) {
   const [ref, area] = useAreaMedida()
   const finalizada = sesion.estado === 'finalizada'
   // La barra de controles flota sobre el escenario: se RESERVA su altura al pie para que ni las flechas ni nada quede
@@ -49,12 +51,12 @@ function Escenario({ sesion, respuestas, informes, claves, vista, estado, reserv
   return (
     <div ref={ref} className="flex-1 min-h-0 relative overflow-hidden bg-white" style={{ paddingBottom: reservaInferior }}>
       {area.ancho > 0 && vista === 'docente' && (
-        <VistaDocente sesion={sesion} respuestas={respuestas} informes={informes} claves={claves} indice={sesion.preguntaIndex}
+        <VistaDocente sesion={sesion} respuestas={respuestas} informes={informes} claves={claves} indice={sesion.preguntaIndex} ahora={ahora}
           verCorrecta={estado.verCorrecta} momento={estado.momento} />
       )}
       {area.ancho > 0 && vista === 'grupo' && (finalizada
         ? <RecorridoResultados sesion={sesion} respuestas={respuestas} claves={claves} area={areaUtil} tamBase={tamBase} />
-        : <VistaGrupo sesion={sesion} respuestas={respuestas} claves={claves} area={areaUtil} tamBase={tamBase} verCorrecta={estado.verCorrecta} mostrarQr={estado.mostrarQr} onOcultarQr={onOcultarQr}
+        : <VistaGrupo sesion={sesion} respuestas={respuestas} claves={claves} area={areaUtil} tamBase={tamBase} ahora={ahora} verCorrecta={estado.verCorrecta} mostrarQr={estado.mostrarQr} onOcultarQr={onOcultarQr}
           momento={estado.momento} />)}
     </div>
   )
@@ -72,6 +74,11 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
   const [confirmandoAnalisis, setConfirmandoAnalisis] = useState(false)
   const [activandoAnalisis, setActivandoAnalisis] = useState(false)
   const [confirmandoFin, setConfirmandoFin] = useState(false)
+  const [accionando, setAccionando] = useState(false)
+  const [reintentoSello, setReintentoSello] = useState(0)
+  const sellado = useRef(null)
+  // Reloj del servidor: el contador del proyector sale de la MISMA hora que valida las respuestas.
+  const { ahora } = useRelojServidor({ muestrear: medirRelojServidor })
   // Altura real de la barra de controles (cambia si se parte en dos filas en una ventana estrecha).
   const [alturaBarra, setAlturaBarra] = useState(72)
   const observador = useRef(null)
@@ -91,14 +98,33 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
   const indice = sesion?.preguntaIndex
   useEffect(() => { cambiar({ momento: 'opciones', verCorrecta: false }) }, [indice, cambiar])
 
+  const cuenta = useCuentaRegresiva(sesion || null, ahora)
+  const idVigente = sesion?.preguntas?.[sesion?.preguntaIndex]?.id
+  // Al vencer el tiempo, esta ventana pide al servidor que «selle» la pregunta (registra quiénes no respondieron). Si el docente
+  // estaba desconectado, se sella al volver o con la siguiente acción: el estado de la pregunta no depende de este paso.
+  useEffect(() => {
+    if (cuenta.estado !== 'cerrada' || !idVigente || sesion?.estado !== 'activa') return
+    if (sesion.ventanas?.[idVigente]?.sellada || sellado.current === idVigente) return
+    sellado.current = idVigente
+    sellarPreguntaVivo(codigo).catch(() => {
+      sellado.current = null
+      setTimeout(() => setReintentoSello((n) => n + 1), 1500)
+    })
+  }, [cuenta.estado, idVigente, sesion, codigo, reintentoSello])
+
   const costoAnalisis = creditosIA.estimar(VIVO_CFG.OP_ANALISIS)
-  const tieneAbiertas = (sesion?.preguntas || []).some((p) => esTipoAbierto(p.tipo))
-  const ir = useCallback((i) => irAPreguntaVivo(codigo, i).catch(() => toast('No se pudo cambiar de pregunta', 'error')), [codigo, toast])
+  // En una encuesta el análisis también resume las preguntas de opción: no depende de que haya abiertas.
+  const tieneAbiertas = (sesion?.preguntas || []).some((p) => esTipoAbierto(p.tipo)) || esEncuesta(sesion?.proposito)
+  const ir = useCallback((i) => irAPreguntaVivo(codigo, i).catch((e) => toast(e.message || 'No se pudo cambiar de pregunta', 'error')), [codigo, toast])
+  async function accion(fn, falla) {
+    setAccionando(true)
+    try { await fn() } catch (e) { toast(e.message || falla, 'error') } finally { setAccionando(false) }
+  }
 
   // Una sesión NO calificable solo puede activar el análisis si ya hay una pregunta que alcance su umbral de datos:
   // se valida ANTES de cobrar (el servidor lo vuelve a comprobar y rechaza sin cobrar).
   const hayDatosSuficientes = useMemo(
-    () => (sesion?.preguntas || []).some((p) => puedeDiagnosticar(p, respuestas).ok),
+    () => (sesion?.preguntas || []).some((p) => puedeDiagnosticar(p, respuestas, { encuesta: esEncuesta(sesion?.proposito) }).ok),
     [sesion, respuestas]
   )
   const puedeActivar = sesion?.calificable === true || hayDatosSuficientes
@@ -147,7 +173,7 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
   return (
     <>
       <Pantalla onCerrar={onCerrar}>
-        <Escenario sesion={sesion} respuestas={respuestas} informes={informes} claves={claves} vista={vista} estado={estado} reservaInferior={alturaBarra}
+        <Escenario sesion={sesion} respuestas={respuestas} informes={informes} claves={claves} vista={vista} estado={estado} ahora={ahora} reservaInferior={alturaBarra}
           onOcultarQr={() => cambiar({ mostrarQr: false })} />
 
         {/* Controles: se ocultan solos a los 3 s en la vista del grupo; el contenido nunca se encoge por ellos. */}
@@ -164,10 +190,16 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
           ) : (
             <>
               <Button variant="quiet" size="sm" icon={ArrowLeft} className={barra} disabled={sesion.preguntaIndex <= 0} onClick={() => ir(sesion.preguntaIndex - 1)}>Anterior</Button>
-              <Button variant="quiet" size="sm" icon={sesion.aceptando ? Lock : LockOpen} className={barra}
-                onClick={() => alternarRespuestasVivo(codigo, !sesion.aceptando).catch(() => toast('No se pudo cambiar', 'error'))}>
-                {sesion.aceptando ? 'Cerrar respuestas' : 'Abrir respuestas'}
-              </Button>
+              {(cuenta.estado === 'abierta' || cuenta.estado === 'preparando') && (
+                <>
+                  <Button variant="quiet" size="sm" icon={Lock} className={barra} disabled={accionando}
+                    onClick={() => accion(() => cerrarPreguntaVivo(codigo), 'No se pudo cerrar la pregunta')}>Cerrar pregunta</Button>
+                  {sesion.cierraMs != null && [15, 30].map((seg) => (
+                    <Button key={seg} variant="quiet" size="sm" className={barra} disabled={accionando}
+                      onClick={() => accion(() => ampliarTiempoVivo(codigo, seg), 'No se pudo ampliar el tiempo')}>+{seg} s</Button>
+                  ))}
+                </>
+              )}
               {pregunta?.tipo === 'opcion_unica' && claves?.[pregunta.id]?.correcta && (
                 <Button variant="quiet" size="sm" icon={Check} className={barra} onClick={() => cambiar({ verCorrecta: !estado.verCorrecta })}>
                   {estado.verCorrecta ? 'Ocultar la correcta' : 'Mostrar la correcta'}
@@ -206,7 +238,7 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
       {confirmandoAnalisis && costoAnalisis != null && (
         <ConfirmacionCreditosModal
           titulo="Analizar con IA"
-          descripcion={`Un solo cargo cubre: la evaluación de cada respuesta abierta conforme llega (hasta ${VIVO_CFG.TOPE_ANALISIS}; las siguientes se conservan sin analizar), el diagnóstico pedagógico de cada pregunta y el informe final, sin cargos adicionales por pregunta, informe ni actualización. ${sesion.calificable ? 'Esta sesión es calificable, así que puedes activarlo aunque lleguen pocas respuestas: se cobra al activar y, si la muestra no alcanza, el diagnóstico dirá «muestra insuficiente» sin devolver el cargo.' : 'Se activa porque ya hay datos suficientes en al menos una pregunta.'}`}
+          descripcion={esEncuesta(sesion.proposito) ? 'Un solo cargo cubre el análisis de esta encuesta: el resumen de las tendencias de opinión de cada pregunta y un informe final. No evalúa respuestas ni marca aciertos o errores, y no hay cargos adicionales por pregunta, informe ni actualización.' : `Un solo cargo cubre: la evaluación de cada respuesta abierta conforme llega (hasta ${VIVO_CFG.TOPE_ANALISIS}; las siguientes se conservan sin analizar), el diagnóstico pedagógico de cada pregunta y el informe final, sin cargos adicionales por pregunta, informe ni actualización. ${sesion.calificable ? 'Esta sesión es calificable, así que puedes activarlo aunque lleguen pocas respuestas: se cobra al activar y, si la muestra no alcanza, el diagnóstico dirá «muestra insuficiente» sin devolver el cargo.' : 'Se activa porque ya hay datos suficientes en al menos una pregunta.'}`}
           costoMin={costoAnalisis}
           ejecutando={activandoAnalisis}
           z={70}
@@ -217,7 +249,7 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
       {confirmandoFin && (
         <ConfirmFin onCancelar={() => setConfirmandoFin(false)} onConfirmar={async () => {
           setConfirmandoFin(false)
-          try { await finalizarSesionVivo(codigo) } catch { toast('No se pudo finalizar la sesión', 'error') }
+          try { await finalizarSesionVivo(codigo) } catch (e) { toast(e.message || 'No se pudo finalizar la sesión', 'error') }
         }} />
       )}
     </>
@@ -229,11 +261,12 @@ export function ProyeccionSolaVista({ codigo, claves, docenteId }) {
   const [sesion, setSesion] = useState(undefined)
   const [respuestas, setRespuestas] = useState([])
   const [estado] = useEstadoProyeccion(codigo, { emisor: false })
+  const { ahora } = useRelojServidor({ muestrear: medirRelojServidor })
   useEffect(() => escucharSesionVivo(codigo, setSesion, () => setSesion(null)), [codigo])
   useEffect(() => escucharRespuestasVivo(codigo, docenteId, setRespuestas, () => {}), [codigo, docenteId])
   if (sesion === undefined) return <Pantalla autonoma><div className="flex-1 flex items-center justify-center"><Spinner /></div></Pantalla>
   if (sesion === null) return <Pantalla autonoma><div className="flex-1 flex items-center justify-center text-xl">No se encontró esta sesión.</div></Pantalla>
-  return <Pantalla autonoma><Escenario sesion={sesion} respuestas={respuestas} informes={[]} claves={claves} vista="grupo" estado={estado} /></Pantalla>
+  return <Pantalla autonoma><Escenario sesion={sesion} respuestas={respuestas} informes={[]} claves={claves} vista="grupo" estado={estado} ahora={ahora} /></Pantalla>
 }
 
 // Confirmación propia: este componente vive sobre la pantalla de proyección.

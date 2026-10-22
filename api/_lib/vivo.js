@@ -16,7 +16,7 @@
 import { getDb, admin, verifyRequest } from './firebaseAdmin.js'
 import { aplicarCors } from './cors.js'
 import {
-  VIVO_CFG, ESTADO_IA, codigoVivoValido, claveParticipanteValida, idRespuestaVivo, sanearTextoRespuesta,
+  VIVO_CFG, ESTADO_IA, codigoVivoValido, claveParticipanteValida, idRespuestaVivo, sanearTextoRespuesta, estadoPreguntaVivo, esEncuesta,
 } from '../../src/utils/participacionVivo.js'
 
 const { FieldValue } = admin.firestore
@@ -83,7 +83,11 @@ export async function handleVivoEstado(req, res) {
     participanteKey = claveParticipanteValida(body.participanteKey) ? body.participanteKey : null
   }
 
-  const pregunta = sesion.estado === 'activa' && sesion.preguntaIndex >= 0 ? vistaPregunta(sesion) : null
+  // Hora del servidor: base común de todos los contadores (el celular corrige su reloj con ella). Hasta que la pregunta
+  // ABRE no se envía su contenido: así nadie la lee antes que el resto ni empieza antes.
+  const ahora = Date.now()
+  const estadoPregunta = estadoPreguntaVivo(sesion, ahora)
+  const pregunta = sesion.estado === 'activa' && sesion.preguntaIndex >= 0 && estadoPregunta !== 'preparando' ? vistaPregunta(sesion) : null
   let yaRespondio = false
   if (pregunta && participanteKey) {
     yaRespondio = (await db.doc(`vivoRespuestas/${idRespuestaVivo(codigo, pregunta.id, participanteKey)}`).get()).exists
@@ -92,7 +96,9 @@ export async function handleVivoEstado(req, res) {
     ok: true,
     sesion: {
       codigo, estado: sesion.estado, titulo: sesion.titulo || '', acceso: sesion.acceso,
-      aceptando: sesion.aceptando === true, total: (sesion.preguntas || []).length, preguntaIndex: sesion.preguntaIndex,
+      aceptando: estadoPregunta === 'abierta', estadoPregunta, ahora,
+      abreMs: sesion.abreMs ?? null, cierraMs: sesion.cierraMs ?? null, cerradaMs: sesion.cerradaMs ?? null,
+      total: (sesion.preguntas || []).length, preguntaIndex: sesion.preguntaIndex,
     },
     pregunta,
     yaRespondio,
@@ -129,14 +135,14 @@ export async function handleVivoResponder(req, res) {
   const preguntaId = String(body.preguntaId || '')
   const respRef = db.doc(`vivoRespuestas/${idRespuestaVivo(codigo, preguntaId, participanteKey)}`)
 
-  // Sin transacción sobre la sesión: ahí todos los participantes de un grupo escriben a la vez, y un documento
-  // compartido se vuelve cuello de botella. Cada respuesta es un documento propio con id determinista:
-  // `create` falla si ya existe, y eso es justo el «una sola respuesta por persona y pregunta».
-  // Lo único que se lee de la sesión es su estado (ya leído arriba).
+  // Chequeo rápido con la sesión ya leída (rechaza lo evidente sin gastar una transacción). El veredicto DEFINITIVO sobre el
+  // tiempo se toma más abajo, dentro de una transacción que lee la sesión con el reloj del servidor.
   if (sesion.estado !== 'activa') return res.status(409).json({ error: 'Esta participación ya terminó.' })
-  const pregunta = (sesion.preguntas || [])[sesion.preguntaIndex]
-  if (!pregunta || pregunta.id !== preguntaId) return res.status(409).json({ error: 'Esa pregunta ya no está activa.' })
-  if (sesion.aceptando !== true) return res.status(409).json({ error: 'El docente cerró las respuestas de esta pregunta.' })
+  const pregunta = (sesion.preguntas || []).find((p) => p.id === preguntaId)
+  if (!pregunta || (sesion.preguntas || [])[sesion.preguntaIndex]?.id !== preguntaId) return res.status(409).json({ error: 'Esa pregunta ya no está activa.' })
+  const estadoRapido = estadoPreguntaVivo(sesion, Date.now())
+  if (estadoRapido === 'preparando') return res.status(409).json({ error: 'La pregunta todavía no se abre.' })
+  if (estadoRapido !== 'abierta') return res.status(409).json({ error: 'Se terminó el tiempo de esta pregunta.' })
 
   const dato = {
     sesionId: codigo, actividadId: sesion.actividadId, asignaturaId: sesion.asignaturaId, docenteId: sesion.docenteId, preguntaId, preguntaTipo: pregunta.tipo,
@@ -159,13 +165,27 @@ export async function handleVivoResponder(req, res) {
     // La decisión EXACTA (las primeras 40 por orden de llegada) la sigue tomando la evaluación.
     const { count } = (await db.collection('vivoRespuestas').where('sesionId', '==', codigo).where('abierta', '==', true).count().get()).data()
     if (count >= VIVO_CFG.MAX_ABIERTAS_SESION) return res.status(409).json({ error: 'Esta participación alcanzó el máximo de respuestas.' })
-    dato.estadoIA = sesion.analisisActivo !== true ? ESTADO_IA.SIN_ANALISIS
+    dato.estadoIA = sesion.analisisActivo !== true || esEncuesta(sesion.proposito) ? ESTADO_IA.SIN_ANALISIS // encuesta: no hay respuestas correctas que evaluar
       : count >= VIVO_CFG.TOPE_ANALISIS ? ESTADO_IA.OMITIDA_TOPE : ESTADO_IA.RECIBIDA
     if (dato.estadoIA === ESTADO_IA.RECIBIDA) dato.encoladaEn = FieldValue.serverTimestamp() // la recuperación de atascadas mide desde aquí
   }
+  // Transacción: LEE la sesión (lectura compartida: los participantes no se bloquean entre sí) y crea la respuesta. Si el
+  // docente cierra o amplía en ese instante, las dos operaciones se ordenan: o la respuesta entra antes del cierre o se
+  // rechaza. Se guarda `recibidaMs` (hora del servidor al validar) para poder comprobar que ninguna entró tarde.
   try {
-    await respRef.create(dato)
+    await db.runTransaction(async (tx) => {
+      const ses = (await tx.get(sesRef)).data()
+      const ahora = Date.now()
+      if (!ses || ses.estado !== 'activa') throw Object.assign(new Error('Esta participación ya terminó.'), { status: 409 })
+      if ((ses.preguntas || [])[ses.preguntaIndex]?.id !== preguntaId) throw Object.assign(new Error('Esa pregunta ya no está activa.'), { status: 409 })
+      const estado = estadoPreguntaVivo(ses, ahora)
+      if (estado === 'preparando') throw Object.assign(new Error('La pregunta todavía no se abre.'), { status: 409 })
+      if (estado !== 'abierta') throw Object.assign(new Error('Se terminó el tiempo de esta pregunta.'), { status: 409 })
+      dato.recibidaMs = ahora
+      tx.create(respRef, dato)
+    })
   } catch (e) {
+    if (e?.status === 409) return res.status(409).json({ error: e.message })
     if (e?.code === 6 || /ALREADY_EXISTS/.test(String(e?.message))) return res.status(200).json({ ok: true, yaRespondio: true }) // doble toque o reintento
     throw e
   }

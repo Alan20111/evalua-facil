@@ -52,8 +52,8 @@ export default function PanelCalificacionVivo({ sesion, actividad, claves, respu
     return estudiantes
       .map((e) => {
         const propias = respuestas.filter((r) => r.alumnoId === e.id)
-        if (!propias.length) return null
-        const p = calificacionPropuestaVivo({ preguntas, claves, respuestas: propias, maxCalif })
+        if (!propias.length && !sesion.ventanas) return null
+        const p = calificacionPropuestaVivo({ preguntas, claves, respuestas: propias, maxCalif, ventanas: sesion.ventanas || null })
         return { estudiante: e, respondidas: propias.length, ...p, entrega: entregas[e.id] || null }
       })
       .filter(Boolean)
@@ -62,9 +62,9 @@ export default function PanelCalificacionVivo({ sesion, actividad, claves, respu
 
   if (!esGrupo) {
     return (
-      <section className="rounded-card bg-white/10 border border-white/10 p-4 text-white">
+      <section className="rounded-card bg-surface-card border border-outline-variant p-4 text-on-surface">
         <h2 className="text-lg font-semibold mb-1">Calificación</h2>
-        <p className="text-sm text-white/80">
+        <p className="text-sm text-muted">
           Esta sesión fue <strong>externa</strong>: los resultados son colectivos y no se asigna calificación a ningún estudiante,
           porque los participantes no se identificaron con su cuenta. Para calificar, inicia la sesión con acceso «Grupo inscrito».
         </p>
@@ -110,23 +110,23 @@ export default function PanelCalificacionVivo({ sesion, actividad, claves, respu
   }
 
   return (
-    <section className="rounded-card bg-white/10 border border-white/10 p-4 text-white" aria-label="Calificación propuesta">
+    <section className="rounded-card bg-surface-card border border-outline-variant p-4 text-on-surface" aria-label="Calificación propuesta">
       <h2 className="text-lg font-semibold">Calificación propuesta</h2>
-      <p className="text-sm text-white/80 mb-3">
-        Suma de los puntos de cada respuesta sobre {maxCalif}. La IA solo propone: revisa, edita y confirma. Quien no participó queda sin nota.
+      <p className="text-sm text-muted mb-3">
+        Suma de los puntos de cada respuesta sobre {maxCalif}. La IA solo propone: revisa, edita y confirma. Quien no participó queda sin nota. Las preguntas que alguien no respondió (sin respuesta) NO se califican como incorrectas: revisa esos casos y decide la nota.
       </p>
       {pendientesIA > 0 && (
-        <output className="block text-sm text-amber-200 mb-3">
+        <output className="block text-sm text-amber-800 mb-3">
           {pendientesIA} {pendientesIA === 1 ? 'respuesta abierta aún no tiene' : 'respuestas abiertas aún no tienen'} análisis de la IA: esa parte cuenta 0 en la propuesta.
         </output>
       )}
       {!filas.length ? (
-        <p className="text-sm text-white/80">Ningún estudiante inscrito respondió en esta sesión.</p>
+        <p className="text-sm text-muted">Ningún estudiante inscrito respondió en esta sesión.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-white/80">
+              <tr className="text-left text-muted">
                 <th className="py-1 pr-3 font-medium">Estudiante</th>
                 <th className="py-1 pr-3 font-medium">Respondió</th>
                 <th className="py-1 pr-3 font-medium">Propuesta</th>
@@ -136,16 +136,16 @@ export default function PanelCalificacionVivo({ sesion, actividad, claves, respu
             </thead>
             <tbody>
               {filas.map((f) => (
-                <tr key={f.estudiante.id} className="border-t border-white/10">
+                <tr key={f.estudiante.id} className="border-t border-outline-variant">
                   <td className="py-1.5 pr-3">{studentFullName(f.estudiante)}</td>
-                  <td className="py-1.5 pr-3 tabular-nums">{f.respondidas}/{sesion.preguntas.length}</td>
-                  <td className="py-1.5 pr-3 tabular-nums">{f.calificacion ?? '—'}{!f.completa && <span title="Hay respuestas sin analizar" className="text-amber-300"> *</span>}</td>
+                  <td className="py-1.5 pr-3 tabular-nums">{f.respondidas}/{sesion.preguntas.length}{f.sinRespuesta > 0 && <span className="block text-xs text-muted">{f.sinRespuesta} sin respuesta</span>}</td>
+                  <td className="py-1.5 pr-3 tabular-nums">{f.calificacion ?? '—'}{!f.completa && <span title="Hay respuestas sin analizar o preguntas sin respuesta" className="text-amber-700"> *</span>}</td>
                   <td className="py-1.5 pr-3">
                     <Input size="sm" type="number" min={0} max={maxCalif} step="0.1" inputMode="decimal" aria-label={`Nota de ${studentFullName(f.estudiante)}`}
                       wrapperClassName="w-24" disabled={bloqueadaPorNota(f)} value={valorDe(f)}
                       onChange={(e) => setValores((v) => ({ ...v, [f.estudiante.id]: e.target.value }))} />
                   </td>
-                  <td className="py-1.5 text-white/80">{f.entrega?.calificacion != null ? `Ya calificada (${f.entrega.calificacion})` : 'Sin nota'}</td>
+                  <td className="py-1.5 text-muted">{f.entrega?.calificacion != null ? `Ya calificada (${f.entrega.calificacion})` : 'Sin nota'}</td>
                 </tr>
               ))}
             </tbody>

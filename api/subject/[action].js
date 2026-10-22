@@ -14,6 +14,7 @@ import { aplicarCors } from '../_lib/cors.js'
 import { ocultarPesosNoPublicados } from '../../src/utils/ponderacion.js'
 import { exigirAppCheck } from '../_lib/appCheck.js'
 import { handleVivoEstado, handleVivoResponder } from '../_lib/vivo.js'
+import { handleVivoControl, handleVivoReloj } from '../_lib/vivoControl.js'
 
 // ── /api/subject/info ──────────────────────────────────────────────────────
 // F-11 (2026-09-07): endpoint público para el flujo de activación QR.
@@ -514,6 +515,8 @@ export default async function handler(req, res) {
     if (action === 'delete-resources')          return await handleDeleteResources(req, res)
     if (action === 'vivo-estado')               return await handleVivoEstado(req, res)
     if (action === 'vivo-responder')            return await handleVivoResponder(req, res)
+    if (action === 'vivo-control')              return await handleVivoControl(req, res)
+    if (action === 'vivo-reloj')                return await handleVivoReloj(req, res)
     return res.status(404).json({ error: 'Acción no encontrada.' })
   } catch (err) {
     return res.status(err.status || 500).json({ error: err.message || 'Error interno.' })

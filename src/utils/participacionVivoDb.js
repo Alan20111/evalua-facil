@@ -3,11 +3,11 @@
 //   · El DOCENTE maneja la sesión por Firestore (reglas: solo avance; el análisis de IA y su contador
 //     los escribe el servidor al cobrar `activar_analisis_vivo`).
 //   · Los PARTICIPANTES jamás tocan Firestore: usan /api/subject/vivo-estado y vivo-responder.
-import { doc, setDoc, updateDoc, collection, query, where, getDocs, serverTimestamp, onSnapshot } from 'firebase/firestore'
+import { doc, setDoc, collection, query, where, getDocs, serverTimestamp, onSnapshot } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { auth, db, functions } from '../firebase'
 import { fetchApi } from './apiBase'
-import { generarCodigoVivo } from './participacionVivo'
+import { generarCodigoVivo, muestraDeDesfase } from './participacionVivo'
 
 // ── Docente ────────────────────────────────────────────────────────────────
 
@@ -33,16 +33,22 @@ export async function crearSesionVivo({ actividadId, asignaturaId, docenteId, ti
   return codigo
 }
 
-export function irAPreguntaVivo(codigo, preguntaIndex) {
-  return updateDoc(doc(db, 'vivoSesiones', codigo), { preguntaIndex, aceptando: true })
+// El reloj de la sesión es del servidor: abrir una pregunta, ampliar su tiempo, cerrarla y finalizar pasan por
+// /api/subject/vivo-control (con tu sesión de docente). Las reglas de Firestore no dejan escribirlos desde el navegador.
+export function controlarVivo(codigo, accion, extra = {}) {
+  return llamarVivo('vivo-control', { codigo, accion, ...extra }, { conSesion: true })
 }
+export const irAPreguntaVivo = (codigo, indice) => controlarVivo(codigo, 'abrir', { indice })
+export const cerrarPreguntaVivo = (codigo) => controlarVivo(codigo, 'cerrar')
+export const ampliarTiempoVivo = (codigo, segundos) => controlarVivo(codigo, 'ampliar', { segundos })
+export const sellarPreguntaVivo = (codigo) => controlarVivo(codigo, 'sellar')
+export const finalizarSesionVivo = (codigo) => controlarVivo(codigo, 'finalizar')
 
-export function alternarRespuestasVivo(codigo, aceptando) {
-  return updateDoc(doc(db, 'vivoSesiones', codigo), { aceptando })
-}
-
-export function finalizarSesionVivo(codigo) {
-  return updateDoc(doc(db, 'vivoSesiones', codigo), { estado: 'finalizada', aceptando: false, finalizadaEn: serverTimestamp() })
+/** Una medición del desfase entre este reloj y el del servidor (para el proyector). */
+export async function medirRelojServidor() {
+  const t0 = Date.now()
+  const r = await llamarVivo('vivo-reloj', {})
+  return muestraDeDesfase(t0, Date.now(), r.ahora)
 }
 
 /** Sesiones de una actividad (la más reciente primero). Dos igualdades: no necesita índice compuesto. */

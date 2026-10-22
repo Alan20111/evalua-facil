@@ -36,13 +36,19 @@ export const VIVO_CFG = {
   MAX_CONCEPTO: 60,
   MAX_RESUMEN_CONTENIDO: 2500,
   MAX_RESPUESTA_BREVE: 60,
+  TOTAL_PUNTOS: 10, // las ponderaciones de una dinámica suman EXACTAMENTE esto
   MAX_RESPUESTA_EXTENSA: 500,
   LARGO_CODIGO: 10,
+  PREPARACION_MS: 4000, // «La pregunta comienza en…»: todos la reciben antes de que abra, y abre para todos a la vez
+  TIEMPO_MIN: 5,
+  TIEMPO_MAX: 600,
+  AMPLIAR_MAX_SEG: 300,
 }
 
 export const PROPOSITOS_VIVO = {
-  previos: 'Comprobar conocimientos previos',
-  comprension: 'Comprensión durante la clase',
+  diagnostico: 'Diagnóstico de conocimientos',
+  evaluacion: 'Evaluaciones rápidas',
+  encuesta: 'Encuestas',
 }
 
 export const TIPOS_PREGUNTA_VIVO = {
@@ -92,7 +98,7 @@ export function contextoSuficiente({ texto, cantidadArchivos = 0 }) {
 // Separa una lista de preguntas «completas» (como las propone la IA o las edita el docente)
 // en la parte PÚBLICA (va en la actividad) y la parte PRIVADA (va en `clave/{id}`).
 // Devuelve { ok, publicas, claves, errores }.
-export function sanearPreguntasVivo(entrada, { exigirCorrecta = false } = {}) {
+export function sanearPreguntasVivo(entrada, { exigirCorrecta = false, exigirTotal = false, encuesta = false } = {}) {
   const errores = []
   const lista = Array.isArray(entrada) ? entrada : []
   if (lista.length < VIVO_CFG.MIN_PREGUNTAS) errores.push('Agrega al menos una pregunta.')
@@ -112,7 +118,7 @@ export function sanearPreguntasVivo(entrada, { exigirCorrecta = false } = {}) {
     const enunciado = limpiar(p?.enunciado, VIVO_CFG.MAX_ENUNCIADO)
     if (!enunciado) { errores.push(`Pregunta ${n}: escribe el enunciado.`); return }
     const puntosCrudos = Number(p?.puntos)
-    const puntos = Number.isFinite(puntosCrudos) && puntosCrudos > 0 ? Math.round(Math.min(puntosCrudos, 100) * 100) / 100 : 1
+    const puntos = Number.isFinite(puntosCrudos) && puntosCrudos >= 0.01 ? Math.round(Math.min(puntosCrudos, VIVO_CFG.TOTAL_PUNTOS) * 100) / 100 : 1
 
     if (tipo === 'opcion_unica') {
       const opciones = (Array.isArray(p?.opciones) ? p.opciones : [])
@@ -125,9 +131,10 @@ export function sanearPreguntasVivo(entrada, { exigirCorrecta = false } = {}) {
         return
       }
       const correcta = idsOp.has(p?.correcta) ? p.correcta : null
-      if (exigirCorrecta && !correcta) { errores.push(`Pregunta ${n}: marca la opción correcta (la actividad es calificable).`); return }
-      publicas.push({ id, tipo, enunciado, opciones, puntos, visualizacion: visualizacionDe({ tipo, visualizacion: p?.visualizacion, opciones }) })
-      claves[id] = { correcta }
+      if (exigirCorrecta && !encuesta && !correcta) { errores.push(`Pregunta ${n}: marca la opción correcta (la actividad es calificable).`); return }
+      const formato = formatoDe({ tipo, formato: p?.formato, opciones })
+      publicas.push({ id, tipo, formato, enunciado, opciones, ...(encuesta ? {} : { puntos }), visualizacion: visualizacionDe({ tipo, formato, visualizacion: p?.visualizacion, opciones }), tiempo: tiempoDe(p?.tiempo) })
+      claves[id] = encuesta ? {} : { correcta } // una encuesta no tiene respuestas correctas
       return
     }
 
@@ -135,13 +142,17 @@ export function sanearPreguntasVivo(entrada, { exigirCorrecta = false } = {}) {
       .map((c) => limpiar(c, VIVO_CFG.MAX_CONCEPTO)).filter(Boolean).slice(0, VIVO_CFG.MAX_CONCEPTOS)
     const criterios = limpiar(p?.criterios, VIVO_CFG.MAX_CRITERIOS)
     const esperada = limpiar(p?.esperada, VIVO_CFG.MAX_ESPERADA)
-    if (exigirCorrecta && !criterios && !esperada) {
+    if (exigirCorrecta && !encuesta && !criterios && !esperada) {
       errores.push(`Pregunta ${n}: escribe los criterios o la respuesta esperada (la actividad es calificable).`)
       return
     }
-    publicas.push({ id, tipo, enunciado, puntos })
-    claves[id] = { criterios, esperada, conceptos }
+    publicas.push({ id, tipo, formato: 'abierta', enunciado, ...(encuesta ? {} : { puntos }), tiempo: tiempoDe(p?.tiempo) })
+    claves[id] = encuesta ? {} : { criterios, esperada, conceptos }
   })
+  if (exigirTotal && !encuesta && publicas.length && !sumaPuntosExacta(publicas.map((q) => q.puntos))) {
+    const suma = publicas.reduce((a, q) => a + Math.round(q.puntos * 100), 0) / 100
+    errores.push('Las ponderaciones deben sumar exactamente ' + VIVO_CFG.TOTAL_PUNTOS + ' puntos (ahora suman ' + suma + ').')
+  }
   return { ok: errores.length === 0, publicas, claves, errores }
 }
 
@@ -186,11 +197,209 @@ export function nubePermitida(opciones) {
   })
 }
 
-// Visualización EFECTIVA. Una configuración guardada que pida nube con opciones incompatibles se trata como barras: nunca
-// se habilita una nube que no corresponde, ni al crear, ni al editar, ni al proyectar preguntas ya existentes.
+// ── Formatos de pregunta (lo que elige el docente al configurar la dinámica) ──
+// Son una capa sobre los tipos guardados: opcion/opcion_breve/cierto_falso → tipo opcion_unica; abierta → abierta_extensa
+// (abierta_breve solo existe en lo ya guardado). Participantes, reglas y calificación siguen usando el tipo.
+export const FORMATOS_VIVO = {
+  opcion: 'Opción múltiple',
+  opcion_breve: 'Opción múltiple breve',
+  cierto_falso: 'Cierto/Falso',
+  abierta: 'Respuesta abierta',
+}
+
+export function esCiertoFalso(opciones) {
+  const t = (Array.isArray(opciones) ? opciones : []).map((o) => normalizarTermino(o?.texto)).sort()
+  return t.length === 2 && t[0] === 'cierto' && t[1] === 'falso'
+}
+
+// Formato EFECTIVO: el guardado si es compatible con las opciones; si no (o si falta, como en lo ya existente), se infiere.
+export function formatoDe(pregunta) {
+  if (pregunta?.tipo !== 'opcion_unica') return 'abierta'
+  const f = pregunta.formato
+  const opciones = pregunta.opciones
+  if (f === 'opcion') return 'opcion'
+  if (f === 'cierto_falso' && esCiertoFalso(opciones)) return 'cierto_falso'
+  if (f === 'opcion_breve' && nubePermitida(opciones)) return 'opcion_breve'
+  if (esCiertoFalso(opciones)) return 'cierto_falso'
+  return nubePermitida(opciones) ? 'opcion_breve' : 'opcion'
+}
+
+// Cuántas preguntas de cada formato. Debe sumar exactamente el total pedido.
+export function validarDistribucion(distribucion, total) {
+  const d = distribucion && typeof distribucion === 'object' ? distribucion : {}
+  const claves = Object.keys(FORMATOS_VIVO)
+  if (Object.keys(d).some((k) => !claves.includes(k))) return { ok: false, suma: 0, error: 'La distribución tiene un tipo de pregunta no válido.' }
+  let suma = 0
+  for (const k of claves) {
+    const n = d[k] ?? 0
+    if (!Number.isInteger(n) || n < 0) return { ok: false, suma: 0, error: 'Las cantidades por tipo deben ser números enteros, de 0 en adelante.' }
+    suma += n
+  }
+  if (suma !== total) {
+    const error = suma < total
+      ? 'Faltan ' + (total - suma) + ' por asignar: los tipos suman ' + suma + ' de ' + total + ' preguntas.'
+      : 'Sobran ' + (suma - total) + ': los tipos suman ' + suma + ' y pediste ' + total + ' preguntas.'
+    return { ok: false, suma, error }
+  }
+  return { ok: true, suma, error: '' }
+}
+
+// Distribución inicial razonable para n preguntas (el docente la ajusta).
+export function distribucionInicial(n) {
+  const abierta = n >= 4 ? 1 : 0
+  const cierto_falso = n >= 3 ? 1 : 0
+  return { opcion: n - abierta - cierto_falso, opcion_breve: 0, cierto_falso, abierta }
+}
+
+// Reparto parejo entre los cuatro formatos.
+export function distribucionEquilibrada(n) {
+  const claves = Object.keys(FORMATOS_VIVO)
+  const base = Math.floor(n / claves.length)
+  const resto = n - base * claves.length
+  return Object.fromEntries(claves.map((k, i) => [k, base + (i < resto ? 1 : 0)]))
+}
+
+// Visualización EFECTIVA. Solo el formato «opción múltiple breve» admite nube (y solo con opciones de una o dos palabras);
+// una configuración guardada incompatible —o de otro formato— se trata como barras. Las respuestas escritas son tarjetas.
 export function visualizacionDe(pregunta) {
   if (pregunta?.tipo !== 'opcion_unica') return 'tarjetas'
-  return pregunta.visualizacion === 'nube' && nubePermitida(pregunta.opciones) ? 'nube' : 'barras'
+  return pregunta.visualizacion === 'nube' && formatoDe(pregunta) === 'opcion_breve' && nubePermitida(pregunta.opciones) ? 'nube' : 'barras'
+}
+
+// ── Ponderaciones: SIEMPRE suman exactamente VIVO_CFG.TOTAL_PUNTOS ─────────────────
+// Todo se calcula en centésimas (enteros): nunca hay error de decimales y la suma es exacta.
+const aCentesimas = (x) => Math.round(Number(x) * 100)
+const deCentesimas = (c) => c / 100
+
+export function sumaPuntosExacta(puntos) {
+  const suma = (puntos || []).reduce((a, p) => a + aCentesimas(p), 0)
+  return suma === VIVO_CFG.TOTAL_PUNTOS * 100
+}
+
+/** Reparte el total entre n preguntas de la forma más pareja: 3 → 3.34, 3.33, 3.33. */
+export function repartirPuntos(n) {
+  if (!(n > 0)) return []
+  const total = VIVO_CFG.TOTAL_PUNTOS * 100
+  const base = Math.floor(total / n)
+  const resto = total - base * n
+  return Array.from({ length: n }, (_, i) => deCentesimas(base + (i < resto ? 1 : 0)))
+}
+
+/**
+ * Cambia la ponderación de una pregunta y ajusta las demás para conservar el total. Las preguntas «fijadas» (que el
+ * docente ya editó a mano) no se mueven; las libres se reparten el resto en proporción a lo que valían.
+ * indice = null → solo reequilibra (p. ej. al quitar una pregunta).
+ * Devuelve { puntos, limitado, sinMargen }: limitado = el valor se acotó al máximo posible; sinMargen = no hay otra
+ * pregunta libre que absorba el cambio (no se aplica).
+ */
+export function redistribuirPuntos(puntos, indice, nuevo, fijadas = []) {
+  const total = VIVO_CFG.TOTAL_PUNTOS * 100
+  const actual = (puntos || []).map(aCentesimas)
+  const fija = new Set(fijadas)
+  const libres = actual.map((_, i) => i).filter((i) => i !== indice && !fija.has(i))
+  const sumaFijas = actual.reduce((a, c, i) => (i !== indice && fija.has(i) ? a + c : a), 0)
+  let valor = indice == null ? 0 : aCentesimas(nuevo)
+  let limitado = false
+  if (indice != null) {
+    if (!libres.length) return { puntos: (puntos || []).map(Number), limitado: false, sinMargen: true }
+    const maximo = total - sumaFijas - libres.length
+    if (!(valor >= 1)) { valor = 1; limitado = true }
+    if (valor > maximo) { valor = maximo; limitado = true }
+  }
+  const resto = total - sumaFijas - (indice == null ? 0 : valor)
+  if (!libres.length) return { puntos: actual.map(deCentesimas), limitado, sinMargen: false }
+  // Cada libre recibe al menos 0.01; lo demás se reparte proporcionalmente (mayor resto fraccionario primero).
+  const extra = resto - libres.length
+  const pesos = libres.map((i) => Math.max(1, actual[i]))
+  const sumaPesos = pesos.reduce((a, b) => a + b, 0)
+  const partes = pesos.map((w) => (extra * w) / sumaPesos)
+  const piso = partes.map(Math.floor)
+  let falta = extra - piso.reduce((a, b) => a + b, 0)
+  const orden = partes.map((p, k) => [p - Math.floor(p), k]).sort((a, b) => b[0] - a[0] || a[1] - b[1])
+  for (const [, k] of orden) { if (falta <= 0) break; piso[k] += 1; falta -= 1 }
+  const salida = [...actual]
+  if (indice != null) salida[indice] = valor
+  libres.forEach((i, k) => { salida[i] = 1 + piso[k] })
+  return { puntos: salida.map(deCentesimas), limitado, sinMargen: false }
+}
+
+// ── Propósitos de la participación ──────────────────────────────────────────
+// diagnostico → identificar saberes y dificultades, sin exigir calificación.
+// evaluacion  → respuestas correctas y evaluación del desempeño (comportamiento original de «comprensión»).
+// encuesta    → opiniones y preferencias: sin respuestas correctas, sin ponderaciones ni calificaciones.
+// Lo guardado antes de existir los tres sigue funcionando: previos → diagnostico, comprension → evaluacion.
+export const PROPOSITOS_ANTIGUOS = { previos: 'diagnostico', comprension: 'evaluacion' }
+
+export function propositoDe(proposito) {
+  if (proposito in PROPOSITOS_VIVO) return proposito
+  return PROPOSITOS_ANTIGUOS[proposito] || 'diagnostico'
+}
+
+export const esEncuesta = (proposito) => propositoDe(proposito) === 'encuesta'
+
+// ── Tiempo por pregunta ─────────────────────────────────────────────────────
+// Cada pregunta guarda `tiempo`: segundos para responder, o null = modo manual (sin límite; el docente la cierra).
+export const TIEMPOS_PREDETERMINADOS = { opcion_breve: 15, opcion: 30, cierto_falso: 15, abierta: 60 }
+
+export function tiempoDe(valor) {
+  if (valor === null || valor === undefined || valor === '') return null
+  const n = Number(valor)
+  return Number.isInteger(n) && n >= VIVO_CFG.TIEMPO_MIN && n <= VIVO_CFG.TIEMPO_MAX ? n : null
+}
+
+// Tiempos por formato pedidos al generar: cada valor es un entero de segundos o null (manual).
+export function validarTiempos(tiempos) {
+  if (tiempos === undefined || tiempos === null) return { ok: true, valor: null, error: '' }
+  if (typeof tiempos !== 'object') return { ok: false, valor: null, error: 'La configuración de tiempos no es válida.' }
+  const valor = {}
+  for (const formato of Object.keys(FORMATOS_VIVO)) {
+    const t = tiempos[formato]
+    if (t === undefined || t === null) { valor[formato] = null; continue }
+    if (!Number.isInteger(t) || t < VIVO_CFG.TIEMPO_MIN || t > VIVO_CFG.TIEMPO_MAX) {
+      return { ok: false, valor: null, error: 'El tiempo de «' + FORMATOS_VIVO[formato] + '» debe estar entre ' + VIVO_CFG.TIEMPO_MIN + ' y ' + VIVO_CFG.TIEMPO_MAX + ' segundos, o en modo manual.' }
+    }
+    valor[formato] = t
+  }
+  return { ok: true, valor, error: '' }
+}
+
+// ── Ventana de respuesta (la decide SIEMPRE el servidor) ─────────────────────
+// La sesión guarda, para la pregunta en curso: abreMs (inicio), cierraMs (límite; null = manual) y cerradaMs (cierre
+// anticipado: manual o al avanzar). Todo en milisegundos de RELOJ DEL SERVIDOR. Proyector, celulares y servidor aplican
+// esta misma función; los clientes solo corrigen su reloj con el desfase medido contra el servidor.
+// Sesiones anteriores (sin abreMs): manda el booleano `aceptando`, como antes.
+export function estadoPreguntaVivo(sesion, ahoraMs) {
+  if (!sesion) return 'espera'
+  if (sesion.estado === 'finalizada') return 'finalizada'
+  if (!(sesion.preguntaIndex >= 0)) return 'espera'
+  if (sesion.abreMs == null) return sesion.aceptando === true ? 'abierta' : 'cerrada'
+  if (sesion.cerradaMs != null && ahoraMs >= sesion.cerradaMs) return 'cerrada'
+  if (ahoraMs < sesion.abreMs) return 'preparando'
+  if (sesion.cierraMs != null && ahoraMs >= sesion.cierraMs) return 'cerrada'
+  return 'abierta'
+}
+
+/** Milisegundos que le quedan a una pregunta abierta con tiempo; null si es manual o no está abierta. */
+export function restanteVivoMs(sesion, ahoraMs) {
+  if (estadoPreguntaVivo(sesion, ahoraMs) !== 'abierta' || sesion.cierraMs == null) return null
+  return Math.max(0, sesion.cierraMs - ahoraMs)
+}
+
+/** Milisegundos que faltan para que abra la pregunta (solo en «preparando»). */
+export function faltaParaAbrirVivoMs(sesion, ahoraMs) {
+  return estadoPreguntaVivo(sesion, ahoraMs) === 'preparando' ? Math.max(0, sesion.abreMs - ahoraMs) : null
+}
+
+/** Desfase del reloj local respecto al del servidor: la muestra de menor viaje (RTT) es la más fiel. */
+export function mejorDesfase(muestras) {
+  const validas = (muestras || []).filter((m) => Number.isFinite(m?.desfase) && Number.isFinite(m?.rtt) && m.rtt >= 0)
+  if (!validas.length) return 0
+  return validas.reduce((a, b) => (b.rtt < a.rtt ? b : a)).desfase
+}
+
+/** Una muestra: el servidor contestó `ahoraServidor` en algún punto entre t0 y t1 (hora local). */
+export function muestraDeDesfase(t0, t1, ahoraServidor) {
+  return { desfase: ahoraServidor - (t0 + t1) / 2, rtt: t1 - t0 }
 }
 
 // ── Texto de la respuesta ──────────────────────────────────────────────────
@@ -286,21 +495,25 @@ export function puntosDeRespuesta(respuesta, pregunta, clave) {
 // Propuesta para un estudiante: suma de puntos / puntos posibles × maxCalif. Una pregunta sin
 // responder vale 0. Si alguna respuesta aún no se puede puntuar, `completa` es false y se
 // cuenta en `sinEvaluar`: la propuesta se muestra, pero la pantalla lo avisa antes de aplicar.
-export function calificacionPropuestaVivo({ preguntas, claves, respuestas, maxCalif = 10 }) {
+export function calificacionPropuestaVivo({ preguntas, claves, respuestas, maxCalif = 10, ventanas = null }) {
   let posibles = 0
   let obtenidos = 0
   let sinEvaluar = 0
+  let sinRespuesta = 0
   for (const p of preguntas || []) {
-    posibles += p.puntos
     const r = (respuestas || []).find((x) => x.preguntaId === p.id)
+    // Pregunta con ventana de tiempo registrada y sin respuesta de este estudiante: «sin respuesta». NO se califica como
+    // incorrecta (no entra a lo posible); queda señalada para que el docente decida.
+    if (!r && ventanas?.[p.id]) { sinRespuesta += 1; continue }
+    posibles += p.puntos
     if (!r) continue
     const pts = puntosDeRespuesta(r, p, claves?.[p.id])
     if (pts == null) sinEvaluar += 1
     else obtenidos += pts
   }
-  if (!(posibles > 0)) return { calificacion: null, completa: false, sinEvaluar }
+  if (!(posibles > 0)) return { calificacion: null, completa: false, sinEvaluar, sinRespuesta }
   const crudo = (obtenidos / posibles) * maxCalif
-  return { calificacion: Math.round(crudo * 10) / 10, completa: sinEvaluar === 0, sinEvaluar }
+  return { calificacion: Math.round(crudo * 10) / 10, completa: sinEvaluar === 0 && sinRespuesta === 0, sinEvaluar, sinRespuesta }
 }
 
 // ── Diagnóstico pedagógico (informes) ──────────────────────────────────────
@@ -328,15 +541,16 @@ export function huellaDe(respuestas) {
 }
 
 /** Respuestas de una pregunta que cuentan para su diagnóstico (abiertas: solo las ya evaluadas). */
-export function respuestasDiagnosticables(pregunta, respuestas) {
+export function respuestasDiagnosticables(pregunta, respuestas, { encuesta = false } = {}) {
   const propias = (respuestas || []).filter((r) => r.preguntaId === pregunta?.id)
   if (pregunta?.tipo === 'opcion_unica') return propias.filter((r) => (pregunta.opciones || []).some((o) => o.id === r.opcion))
+  if (encuesta) return propias.filter((r) => typeof r.texto === 'string' && r.texto.trim()) // sin evaluación: cuenta lo recibido
   return propias.filter((r) => r.estadoIA === ESTADO_IA.ANALIZADA)
 }
 
 /** ¿Hay datos para diagnosticar al grupo en esta pregunta? Nunca con una muestra que no lo permita. */
-export function puedeDiagnosticar(pregunta, respuestas) {
-  const usables = respuestasDiagnosticables(pregunta, respuestas)
+export function puedeDiagnosticar(pregunta, respuestas, opciones = {}) {
+  const usables = respuestasDiagnosticables(pregunta, respuestas, opciones)
   const n = usables.length
   const minimo = UMBRALES_DIAGNOSTICO[pregunta?.tipo] ?? 8
   if (n < minimo) {

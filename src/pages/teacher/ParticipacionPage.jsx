@@ -18,7 +18,10 @@ import Spinner from '../../components/Spinner'
 import ConfirmModal from '../../components/ConfirmModal'
 import PresentacionVivo from '../../components/participacion/PresentacionVivo'
 import { TEACHER_CONTAINER } from '../../config/layout'
-import { ACCESOS_VIVO, PROPOSITOS_VIVO, TIPOS_PREGUNTA_VIVO, VISUALIZACIONES_OPCION, VIVO_CFG, nubePermitida, sanearPreguntasVivo, visualizacionDe } from '../../utils/participacionVivo'
+import {
+  ACCESOS_VIVO, FORMATOS_VIVO, PROPOSITOS_VIVO, TIEMPOS_PREDETERMINADOS, VIVO_CFG, esEncuesta, formatoDe, propositoDe, redistribuirPuntos, repartirPuntos,
+  sanearPreguntasVivo, sumaPuntosExacta, tiempoDe, visualizacionDe,
+} from '../../utils/participacionVivo'
 import { crearSesionVivo, sesionesDeActividad } from '../../utils/participacionVivoDb'
 import { deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { subjectDisplayName } from '../../utils/subjectName'
@@ -30,28 +33,75 @@ function aModeloEdicion(p, clave = {}) {
     id: p.id, tipo: p.tipo, enunciado: p.enunciado, puntos: p.puntos ?? 1,
     opciones: p.opciones || [], correcta: clave.correcta ?? null,
     criterios: clave.criterios || '', esperada: clave.esperada || '', conceptosTexto: (clave.conceptos || []).join(', '),
-    visualizacion: visualizacionDe(p),
+    formato: formatoDe(p), visualizacion: visualizacionDe(p), tiempo: tiempoDe(p.tiempo), // null = manual (también lo anterior sin tiempo)
   }
 }
 function deModeloEdicion(m) {
   return {
     id: m.id, tipo: m.tipo, enunciado: m.enunciado, puntos: m.puntos, opciones: m.opciones, correcta: m.correcta,
     criterios: m.criterios, esperada: m.esperada, conceptos: m.conceptosTexto.split(',').map((c) => c.trim()).filter(Boolean),
-    visualizacion: m.visualizacion,
+    formato: m.formato, visualizacion: m.visualizacion, tiempo: m.tiempo,
   }
 }
 
-function EditorPregunta({ m, indice, total, bloqueado, onCambio, onMover, onQuitar }) {
+// «Puntos» de una pregunta. Se escribe con libertad y se confirma al salir del campo (o con Enter): cada confirmación
+// reparte la diferencia entre las demás preguntas para que el total siga siendo exactamente 10.
+function CampoPuntos({ valor, fijada, onConfirmar, onSoltar }) {
+  const [borrador, setBorrador] = useState(null)
+  const texto = borrador ?? String(Number(Number(valor).toFixed(2)))
+  const confirmar = () => {
+    if (borrador == null) return
+    const n = Number(String(borrador).replace(',', '.'))
+    setBorrador(null)
+    if (Number.isFinite(n)) onConfirmar(n)
+  }
+  return (
+    <div className="flex items-end gap-3">
+      <Input label="Puntos" type="number" inputMode="decimal" min={0.01} max={VIVO_CFG.TOTAL_PUNTOS} step="0.01" wrapperClassName="max-w-[8rem]" value={texto}
+        onChange={(e) => setBorrador(e.target.value)} onBlur={confirmar} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmar() } }}
+        hint={fijada ? 'Fijada por ti: no cambia al ajustar las demás.' : 'Se ajusta sola cuando editas otra pregunta.'} />
+      {fijada && <Button variant="quiet" size="sm" onClick={onSoltar}>Soltar</Button>}
+    </div>
+  )
+}
+
+// «Tiempo para responder»: segundos, o manual (sin límite: tú cierras la pregunta). Corre igual en el proyector y en los celulares.
+function CampoTiempo({ valor, formato, onCambio }) {
+  const [borrador, setBorrador] = useState(null)
+  const [error, setError] = useState('')
+  const manual = valor == null
+  const confirmar = () => {
+    if (borrador == null) return
+    const n = Number(String(borrador).replace(',', '.'))
+    setBorrador(null)
+    if (tiempoDe(n) == null) { setError(`Escribe de ${VIVO_CFG.TIEMPO_MIN} a ${VIVO_CFG.TIEMPO_MAX} segundos, o usa el modo manual.`); return }
+    setError(''); onCambio(n)
+  }
+  return (
+    <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+      <Switch label="Manual (sin límite de tiempo)" checked={manual} onChange={(v) => { setError(''); setBorrador(null); onCambio(v ? null : (TIEMPOS_PREDETERMINADOS[formato] ?? 30)) }}
+        hint={manual ? 'La pregunta sigue abierta hasta que tú la cierres.' : undefined} />
+      {!manual && (
+        <Input label="Segundos para responder" type="number" inputMode="numeric" min={VIVO_CFG.TIEMPO_MIN} max={VIVO_CFG.TIEMPO_MAX} step="1" wrapperClassName="w-44"
+          value={borrador ?? valor} onChange={(e) => setBorrador(e.target.value)} onBlur={confirmar}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirmar() } }} error={error || undefined}
+          hint="El tiempo no se puede pausar; puedes ampliarlo o cerrar la pregunta mientras corre." />
+      )}
+    </div>
+  )
+}
+
+function EditorPregunta({ m, indice, total, bloqueado, fijada, encuesta, onCambio, onMover, onQuitar, onPuntos, onSoltar }) {
   const set = (campo, valor) => onCambio({ ...m, [campo]: valor })
   const setOpcion = (i, texto) => {
     const opciones = m.opciones.map((o, j) => (j === i ? { ...o, texto } : o))
     onCambio({ ...m, opciones, visualizacion: visualizacionDe({ ...m, opciones }) }) // si la edición hace inválida la nube, vuelve a barras
   }
-  const permiteNube = nubePermitida(m.opciones)
+  const formato = formatoDe(m)
   return (
     <Card as="section" aria-label={`Pregunta ${indice + 1}`} className="space-y-3">
       <div className="flex items-center gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-accent">Pregunta {indice + 1} · {TIPOS_PREGUNTA_VIVO[m.tipo]}</span>
+        <span className="text-xs font-semibold uppercase tracking-wide text-accent">Pregunta {indice + 1} · {FORMATOS_VIVO[formato] || FORMATOS_VIVO.abierta}</span>
         <span className="ml-auto flex items-center">
           <IconButton size="sm" icon={ArrowUp} label="Subir" disabled={indice === 0} onClick={() => onMover(-1)} />
           <IconButton size="sm" icon={ArrowDown} label="Bajar" disabled={indice === total - 1} onClick={() => onMover(1)} />
@@ -62,19 +112,19 @@ function EditorPregunta({ m, indice, total, bloqueado, onCambio, onMover, onQuit
 
       {m.tipo === 'opcion_unica' ? (
         <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-on-surface mb-1">Opciones <span className="font-normal text-hint">(marca la correcta{bloqueado ? '' : ' si quieres mostrarla o calificar'})</span></legend>
+          <legend className="text-sm font-medium text-on-surface mb-1">Opciones {!encuesta && <span className="font-normal text-hint">(marca la correcta{bloqueado ? '' : ' si quieres mostrarla o calificar'})</span>}</legend>
           {m.opciones.map((o, i) => (
             <div key={o.id} className="flex items-center gap-2">
-              <Radio name={`correcta-${m.id}`} checked={m.correcta === o.id} onChange={() => set('correcta', o.id)} aria-label={`Opción ${i + 1} es la correcta`} />
-              <Input aria-label={`Opción ${i + 1}`} wrapperClassName="flex-1" value={o.texto} maxLength={VIVO_CFG.MAX_OPCION} onChange={(e) => setOpcion(i, e.target.value)} />
+              {!encuesta && <Radio name={`correcta-${m.id}`} checked={m.correcta === o.id} onChange={() => set('correcta', o.id)} aria-label={`Opción ${i + 1} es la correcta`} />}
+              <Input aria-label={`Opción ${i + 1}`} wrapperClassName="flex-1" value={o.texto} maxLength={VIVO_CFG.MAX_OPCION} disabled={formato === 'cierto_falso'} onChange={(e) => setOpcion(i, e.target.value)} />
             </div>
           ))}
-          <Select label="Cómo mostrar los resultados" value={visualizacionDe(m)} onChange={(v) => set('visualizacion', v)}
-            options={Object.entries(VISUALIZACIONES_OPCION).filter(([value]) => value !== 'nube' || permiteNube).map(([value, label]) => ({ value, label }))}
-            hint={permiteNube
-              ? 'Barras compara las opciones. La nube escribe cada opción completa con un tamaño proporcional a cuántas veces se eligió.'
-              : 'La nube de palabras solo está disponible cuando todas las opciones tienen una o dos palabras.'} />
+          {encuesta && <p className="text-xs text-muted">Es una encuesta: las opciones son opiniones, no hay respuesta correcta.</p>}
+          {formato === 'cierto_falso' && <p className="text-xs text-muted">Las opciones «Cierto» y «Falso» son fijas: marca cuál es la correcta.</p>}
+          {formato === 'opcion_breve' && <p className="text-xs text-muted">Los resultados se muestran como elegiste al generar la dinámica. Si una opción pasa de dos palabras, se mostrarán en barras.</p>}
         </fieldset>
+      ) : encuesta ? (
+        <p className="text-xs text-muted">Es una encuesta: las respuestas escritas se conservan íntegras y se muestran en tarjetas. No se evalúan ni se califican.</p>
       ) : (
         <>
           <Textarea label="Criterios para evaluar las respuestas" rows={2} autoResize maxLength={VIVO_CFG.MAX_CRITERIOS} value={m.criterios} onChange={(e) => set('criterios', e.target.value)}
@@ -83,8 +133,8 @@ function EditorPregunta({ m, indice, total, bloqueado, onCambio, onMover, onQuit
           <Input label="Conceptos a identificar" value={m.conceptosTexto} onChange={(e) => set('conceptosTexto', e.target.value)} hint="Separados por comas. La IA solo clasifica las respuestas con estos conceptos." />
         </>
       )}
-      <Input label="Puntos" type="number" min={0.5} max={100} step="0.5" wrapperClassName="max-w-[8rem]" value={m.puntos} onChange={(e) => set('puntos', e.target.value)}
-        hint="Solo cuentan si la actividad es calificable." />
+      <CampoTiempo valor={m.tiempo} formato={formato} onCambio={(t) => set('tiempo', t)} />
+      {!encuesta && <CampoPuntos valor={m.puntos} fijada={fijada} onConfirmar={onPuntos} onSoltar={onSoltar} />}
     </Card>
   )
 }
@@ -102,6 +152,7 @@ export default function TeacherParticipacionPage() {
   const [sesiones, setSesiones] = useState([])
   const [nombre, setNombre] = useState('')
   const [modelo, setModelo] = useState([])
+  const [fijadas, setFijadas] = useState([]) // ids de preguntas cuya ponderación editó el docente a mano
   const [acceso, setAcceso] = useState('grupo')
   const [calificable, setCalificable] = useState(false)
   const [guardando, setGuardando] = useState(false)
@@ -125,8 +176,9 @@ export default function TeacherParticipacionPage() {
     setAsignatura(subjSnap.exists() ? { id: subjSnap.id, ...subjSnap.data() } : null)
     setNombre(act.nombre || '')
     setModelo((act.participacion?.preguntas || []).map((p) => aModeloEdicion(p, mapa[p.id])))
+    setFijadas([])
     setAcceso(act.participacion?.acceso || 'grupo')
-    setCalificable(act.participacion?.calificable === true)
+    setCalificable(act.participacion?.calificable === true && !esEncuesta(act.participacion?.proposito))
   }, [activityId, uid, navigate])
 
   useEffect(() => {
@@ -141,6 +193,35 @@ export default function TeacherParticipacionPage() {
   const hayActiva = sesiones.find((s) => s.estado === 'activa')
   const yaHuboSesion = sesiones.length > 0
   const sinPreguntas = !modelo.length
+  const proposito = propositoDe(actividad?.participacion?.proposito)
+  const encuesta = esEncuesta(proposito) // sin respuestas correctas, ponderaciones ni calificación
+  const puntosModelo = modelo.map((m) => Number(m.puntos))
+  const totalPuntos = Math.round(puntosModelo.reduce((a, p) => a + Math.round(p * 100), 0)) / 100
+  const puntosOk = encuesta || sumaPuntosExacta(puntosModelo)
+  const indicesFijados = (ids, lista) => ids.map((id) => lista.findIndex((m) => m.id === id)).filter((k) => k >= 0)
+
+  function cambiarPuntos(i, valor) {
+    const r = redistribuirPuntos(puntosModelo, i, valor, indicesFijados(fijadas, modelo))
+    if (r.sinMargen) { toast('Las demás ponderaciones están fijadas: suelta alguna o usa «Equilibrar a 10».', 'error'); return }
+    if (r.limitado) toast('Se ajustó al máximo posible para dejar al menos 0.01 a cada pregunta.')
+    setModelo((ms) => ms.map((m, j) => ({ ...m, puntos: r.puntos[j] })))
+    setFijadas((f) => (f.includes(modelo[i].id) ? f : [...f, modelo[i].id]))
+  }
+  function equilibrar() {
+    const p = repartirPuntos(modelo.length)
+    setModelo((ms) => ms.map((m, j) => ({ ...m, puntos: p[j] })))
+    setFijadas([])
+  }
+  function quitar(i) {
+    const resto = modelo.filter((_, j) => j !== i)
+    const ids = fijadas.filter((id) => id !== modelo[i].id)
+    const r = redistribuirPuntos(resto.map((m) => Number(m.puntos)), null, 0, indicesFijados(ids, resto))
+    // Si ya no queda ninguna pregunta libre para absorber lo que valía la quitada, se reparte parejo.
+    const libres = resto.filter((m) => !ids.includes(m.id)).length
+    const puntos = libres ? r.puntos : repartirPuntos(resto.length)
+    setModelo(resto.map((m, j) => ({ ...m, puntos: puntos[j] })))
+    setFijadas(libres ? ids : [])
+  }
 
   const original = useMemo(() => JSON.stringify({
     n: actividad?.nombre || '', a: actividad?.participacion?.acceso || 'grupo', c: actividad?.participacion?.calificable === true,
@@ -149,7 +230,7 @@ export default function TeacherParticipacionPage() {
   const sucio = actividad && JSON.stringify({ n: nombre, a: acceso, c: calificable, p: modelo }) !== original
 
   async function guardar() {
-    const norm = sanearPreguntasVivo(modelo.map(deModeloEdicion), { exigirCorrecta: calificable })
+    const norm = sanearPreguntasVivo(modelo.map(deModeloEdicion), { exigirCorrecta: calificable && !encuesta, exigirTotal: true, encuesta })
     if (!nombre.trim()) { toast('Escribe el nombre de la actividad', 'error'); return false }
     if (!norm.ok) { toast(norm.errores[0], 'error'); return false }
     setGuardando(true)
@@ -159,9 +240,9 @@ export default function TeacherParticipacionPage() {
         nombre: nombre.trim(),
         'participacion.preguntas': norm.publicas,
         'participacion.acceso': acceso,
-        'participacion.calificable': calificable,
+        'participacion.calificable': calificable && !encuesta,
         // No calificable = sin número, fuera del promedio y del acta. Calificable = entra a la numeración normal.
-        sinCalificacion: !calificable,
+        sinCalificacion: !calificable || encuesta,
       })
       Object.entries(norm.claves).forEach(([id, c]) => batch.set(doc(db, 'activities', activityId, 'clave', id), c))
       Object.keys(claves).filter((id) => !norm.claves[id]).forEach((id) => batch.delete(doc(db, 'activities', activityId, 'clave', id)))
@@ -179,6 +260,7 @@ export default function TeacherParticipacionPage() {
 
   async function iniciar() {
     if (sinPreguntas) return
+    if (!puntosOk) { toast(`Las ponderaciones deben sumar exactamente ${VIVO_CFG.TOTAL_PUNTOS} puntos (ahora suman ${totalPuntos}).`, 'error'); return }
     setIniciando(true)
     try {
       if (sucio && !(await guardar())) return
@@ -190,7 +272,7 @@ export default function TeacherParticipacionPage() {
       const act = (await getDoc(doc(db, 'activities', activityId))).data()
       const codigo = await crearSesionVivo({
         actividadId: activityId, asignaturaId: act.asignaturaId, docenteId: currentUser.uid, titulo: act.nombre,
-        proposito: act.participacion.proposito, acceso, calificable, preguntas: act.participacion.preguntas,
+        proposito: propositoDe(act.participacion.proposito), acceso, calificable: calificable && !encuesta, preguntas: act.participacion.preguntas,
       })
       await cargar()
       setPresentando(codigo)
@@ -227,7 +309,7 @@ export default function TeacherParticipacionPage() {
 
       <div>
         <h1 className="text-xl font-semibold text-on-surface">Participación en vivo</h1>
-        <p className="text-sm text-muted">{PROPOSITOS_VIVO[actividad.participacion?.proposito] || ''} · Generada con IA · Revisa y ajusta antes de iniciar</p>
+        <p className="text-sm text-muted">{PROPOSITOS_VIVO[proposito] || ''} · Generada con IA · Revisa y ajusta antes de iniciar</p>
       </div>
 
       {hayActiva && (
@@ -246,10 +328,18 @@ export default function TeacherParticipacionPage() {
       ) : (
         <div className="space-y-3">
           {modelo.map((m, i) => (
-            <EditorPregunta key={m.id} m={m} indice={i} total={modelo.length} bloqueado={calificable}
+            <EditorPregunta key={m.id} m={m} indice={i} total={modelo.length} bloqueado={calificable} fijada={fijadas.includes(m.id)} encuesta={encuesta}
               onCambio={(nuevo) => setModelo((ms) => ms.map((x, j) => (j === i ? nuevo : x)))}
-              onMover={(d) => mover(i, d)} onQuitar={() => setModelo((ms) => ms.filter((_, j) => j !== i))} />
+              onMover={(d) => mover(i, d)} onQuitar={() => quitar(i)}
+              onPuntos={(v) => cambiarPuntos(i, v)} onSoltar={() => setFijadas((f) => f.filter((id) => id !== m.id))} />
           ))}
+          {!encuesta && <Card className="flex flex-wrap items-center gap-3">
+            <output className={`text-sm font-semibold ${puntosOk ? 'text-emerald-800' : 'text-red-700'}`}>
+              Total de ponderaciones: {totalPuntos} / {VIVO_CFG.TOTAL_PUNTOS}
+              {!puntosOk && <span className="font-normal"> · deben sumar exactamente {VIVO_CFG.TOTAL_PUNTOS} para guardar o iniciar</span>}
+            </output>
+            <Button variant="secondary" size="sm" className="ml-auto" onClick={equilibrar}>Equilibrar a {VIVO_CFG.TOTAL_PUNTOS}</Button>
+          </Card>}
         </div>
       )}
 
@@ -258,11 +348,12 @@ export default function TeacherParticipacionPage() {
           hint={acceso === 'grupo'
             ? 'Tus estudiantes inscritos entran con su cuenta desde su asignatura. Las respuestas quedan ligadas a cada estudiante.'
             : 'Cualquier persona entra con un QR o enlace, sin cuenta (incluidos tus estudiantes, pero sin asociarse a su cuenta). Los resultados son anónimos.'} />
-        <Switch label="Calificable" checked={calificable} disabled={yaHuboSesion || guardando} onChange={setCalificable}
+        {!encuesta && <Switch label="Calificable" checked={calificable} disabled={yaHuboSesion || guardando} onChange={setCalificable}
           hint={yaHuboSesion
             ? 'Ya hubo una sesión: este ajuste quedó fijo para que todas las respuestas se evalúen con el mismo criterio.'
-            : 'Desactivado: solo participación, sin nota ni número. Activado: se registra como actividad evaluable de la asignatura y la nota la confirmas tú.'} />
-        {calificable && acceso === 'externo' && (
+            : 'Desactivado: solo participación, sin nota ni número. Activado: se registra como actividad evaluable de la asignatura y la nota la confirmas tú.'} />}
+        {encuesta && <p className="text-sm text-muted">Es una encuesta: no se califica ni lleva ponderaciones.</p>}
+        {calificable && !encuesta && acceso === 'externo' && (
           <p role="note" className="text-sm text-amber-800 bg-amber-50 rounded p-3">
             En modalidad externa los participantes no se identifican con su cuenta, así que <strong>no se asignan notas a estudiantes</strong>: solo tendrás resultados colectivos.
             No cambiamos la modalidad por ti; para calificar elige «Grupo inscrito».
@@ -271,8 +362,8 @@ export default function TeacherParticipacionPage() {
       </Card>
 
       <div className="flex flex-wrap items-center justify-end gap-2 pb-6">
-        <Button variant="secondary" icon={Save} disabled={!sucio || guardando || sinPreguntas} busy={guardando} onClick={guardar}>Guardar cambios</Button>
-        <Button icon={Play} busy={iniciando} disabled={sinPreguntas || iniciando || !!hayActiva} onClick={iniciar}>Iniciar participación</Button>
+        <Button variant="secondary" icon={Save} disabled={!sucio || guardando || sinPreguntas || !puntosOk} busy={guardando} onClick={guardar}>Guardar cambios</Button>
+        <Button icon={Play} busy={iniciando} disabled={sinPreguntas || iniciando || !!hayActiva || !puntosOk} onClick={iniciar}>Iniciar participación</Button>
       </div>
 
       {yaHuboSesion && (

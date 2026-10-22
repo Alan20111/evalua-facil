@@ -17,6 +17,7 @@ import { createRequire } from 'node:module'
 import crypto from 'node:crypto'
 import { db, dbFn, limpiar, caso, grupo, resumen, assert, llamar, sesion } from './helpers/entorno.mjs'
 import { handleVivoEstado, handleVivoResponder } from '../api/_lib/vivo.js'
+import { ejecutarControl } from '../api/_lib/vivoControl.js'
 import * as V from '../src/utils/participacionVivo.js'
 import * as N from '../src/utils/nubeVivo.js'
 import * as P from '../src/utils/proyeccionVivo.js'
@@ -218,7 +219,7 @@ await caso('calificación propuesta: opción única contra la clave + puntaje de
   const claves = { p1: { correcta: 'a' } }
   const buena = { preguntaId: 'p1', opcion: 'a' }
   const abierta = { preguntaId: 'p2', estadoIA: 'analizada', evaluacion: { nivel: 'parcial', puntaje: 0.5 } }
-  assert.deepStrictEqual(V.calificacionPropuestaVivo({ preguntas, claves, respuestas: [buena, abierta], maxCalif: 10 }), { calificacion: 6.3, completa: true, sinEvaluar: 0 })
+  assert.deepStrictEqual(V.calificacionPropuestaVivo({ preguntas, claves, respuestas: [buena, abierta], maxCalif: 10 }), { calificacion: 6.3, completa: true, sinEvaluar: 0, sinRespuesta: 0 })
   const pendiente = V.calificacionPropuestaVivo({ preguntas, claves, respuestas: [buena, { preguntaId: 'p2', estadoIA: 'recibida' }], maxCalif: 10 })
   assert.strictEqual(pendiente.calificacion, 2.5); assert.strictEqual(pendiente.completa, false); assert.strictEqual(pendiente.sinEvaluar, 1)
   assert.strictEqual(V.calificacionPropuestaVivo({ preguntas, claves, respuestas: [], maxCalif: 10 }).calificacion, 0)
@@ -274,13 +275,13 @@ await caso('genera la dinámica: cobra 6 créditos UNA vez, guarda las preguntas
   assert.strictEqual(clv.correcta, 'a')
   assert.deepStrictEqual((await db.doc('activities/act_vivo/clave/p3').get()).data().conceptos, ['glucosa', 'energía'])
   assert.ok((await db.doc('activities/act_vivo/clave/contexto').get()).data().resumen.includes('fotosíntesis'))
-  assert.ok(textoDelPedido(pedidosIA[0]).includes('CONOCIMIENTOS PREVIOS'), 'el prompt sigue el propósito elegido')
+  assert.ok(textoDelPedido(pedidosIA[0]).includes('DIAGNÓSTICO de conocimientos'), 'el prompt sigue el propósito elegido')
 })
 
 await caso('el propósito «comprensión» cambia el enfoque del prompt', async () => {
   await reiniciar(); await sembrarActividad()
   await generar({ proposito: 'comprension' })
-  assert.ok(textoDelPedido(pedidosIA[0]).includes('COMPRENSIÓN DURANTE LA CLASE'))
+  assert.ok(textoDelPedido(pedidosIA[0]).includes('EVALUACIÓN RÁPIDA'))
 })
 
 await caso('reintento con la MISMA clave: no cobra de nuevo ni vuelve a llamar a la IA', async () => {
@@ -1152,6 +1153,602 @@ await caso('guarda estática: toda lista de colecciones de limpieza incluye vivo
     const txt = readFileSync(new URL('../' + ruta, import.meta.url), 'utf8')
     if (txt.includes('vivoRespuestas')) assert.ok(txt.includes('vivoInformes'), ruta + ': si limpia respuestas en vivo, también informes')
   }
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('I. Distribución por formato y ponderaciones (suman exactamente 10)')
+
+const cents = (xs) => xs.reduce((a, x) => a + Math.round(x * 100), 0)
+
+await caso('repartirPuntos: para 1 a 20 preguntas suma EXACTAMENTE 10, parejo (diferencia ≤ 0.01) y sin valores ≤ 0', () => {
+  for (let n = 1; n <= 20; n++) {
+    const r = V.repartirPuntos(n)
+    assert.strictEqual(r.length, n)
+    assert.strictEqual(cents(r), 1000, n + ' preguntas suman 10.00')
+    assert.ok(V.sumaPuntosExacta(r))
+    assert.ok(Math.max(...r) - Math.min(...r) <= 0.0100001, n + ': reparto parejo')
+    assert.ok(r.every((x) => x >= 0.01))
+  }
+  assert.deepStrictEqual(V.repartirPuntos(3), [3.34, 3.33, 3.33])
+  assert.deepStrictEqual(V.repartirPuntos(4), [2.5, 2.5, 2.5, 2.5])
+  assert.deepStrictEqual(V.repartirPuntos(0), [])
+})
+
+await caso('redistribuirPuntos: al cambiar una ponderación las demás se ajustan y el total sigue siendo 10; respeta las fijadas', () => {
+  let r = V.redistribuirPuntos([2.5, 2.5, 2.5, 2.5], 0, 4)
+  assert.strictEqual(cents(r.puntos), 1000)
+  assert.strictEqual(r.puntos[0], 4)
+  assert.deepStrictEqual(r.puntos.slice(1), [2, 2, 2])
+  r = V.redistribuirPuntos(r.puntos, 1, 3, [0])
+  assert.strictEqual(r.puntos[0], 4, 'la fijada no se mueve')
+  assert.strictEqual(r.puntos[1], 3)
+  assert.strictEqual(cents(r.puntos), 1000)
+  r = V.redistribuirPuntos(r.puntos, 2, 9.99, [0, 1])
+  assert.strictEqual(r.limitado, true, 'se acota para dejar al menos 0.01 a la última libre')
+  assert.deepStrictEqual(r.puntos, [4, 3, 2.99, 0.01])
+  const sinMargen = V.redistribuirPuntos([5, 5], 0, 6, [1])
+  assert.strictEqual(sinMargen.sinMargen, true, 'si todas las demás están fijadas no se aplica')
+  assert.deepStrictEqual(sinMargen.puntos, [5, 5])
+  assert.deepStrictEqual(V.redistribuirPuntos([3, 3, 4], null, 0, [2]).puntos.reduce((a, x) => a + Math.round(x * 100), 0), 1000, 'reequilibrar sin cambio')
+})
+
+await caso('redistribuirPuntos: 500 ediciones aleatorias nunca rompen el total ni dejan valores ≤ 0', () => {
+  let seed = 7
+  const azar = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296 }
+  for (let vuelta = 0; vuelta < 500; vuelta++) {
+    const n = 2 + Math.floor(azar() * 9)
+    let puntos = V.repartirPuntos(n)
+    const fijadas = []
+    for (let paso = 0; paso < 6; paso++) {
+      const i = Math.floor(azar() * n)
+      const r = V.redistribuirPuntos(puntos, i, azar() * 12 - 1, fijadas)
+      assert.strictEqual(cents(r.puntos), 1000, 'total exacto')
+      assert.ok(r.puntos.every((x) => x >= 0.01), 'ninguna ≤ 0')
+      fijadas.forEach((f) => { if (f !== i) assert.strictEqual(r.puntos[f], puntos[f], 'fijada intacta') })
+      if (!r.sinMargen) { puntos = r.puntos; if (!fijadas.includes(i)) fijadas.push(i) }
+    }
+  }
+})
+
+await caso('saneo con exigirTotal: rechaza una suma distinta de 10 y acepta 10.00; el rango de cada pregunta es 0.01 a 10', () => {
+  const preg = (puntos) => ({ id: 'p' + puntos, tipo: 'abierta_extensa', enunciado: 'x', puntos })
+  assert.strictEqual(V.sanearPreguntasVivo([preg(5), preg(4)], { exigirTotal: true }).ok, false)
+  assert.ok(/exactamente 10/.test(V.sanearPreguntasVivo([preg(5), preg(4)], { exigirTotal: true }).errores[0]))
+  assert.strictEqual(V.sanearPreguntasVivo([preg(3.34), { ...preg(3.33), id: 'b' }, { ...preg(3.33), id: 'c' }], { exigirTotal: true }).ok, true)
+  assert.strictEqual(V.sanearPreguntasVivo([preg(5), preg(4)]).ok, true, 'sin exigirTotal (validación individual) no pide la suma')
+  assert.strictEqual(V.sanearPreguntasVivo([preg(99)]).publicas[0].puntos, 10, 'tope de 10')
+})
+
+await caso('validarDistribucion: la suma debe coincidir EXACTAMENTE con el total; tipos y cantidades válidos', () => {
+  assert.strictEqual(V.validarDistribucion({ opcion: 2, opcion_breve: 1, cierto_falso: 1, abierta: 0 }, 4).ok, true)
+  assert.ok(/Faltan 1/.test(V.validarDistribucion({ opcion: 2, cierto_falso: 1 }, 4).error))
+  assert.ok(/Sobran 1/.test(V.validarDistribucion({ opcion: 3, abierta: 2 }, 4).error))
+  assert.strictEqual(V.validarDistribucion({ opcion: -1, abierta: 5 }, 4).ok, false)
+  assert.strictEqual(V.validarDistribucion({ opcion: 1.5, abierta: 2.5 }, 4).ok, false, 'solo enteros')
+  assert.strictEqual(V.validarDistribucion({ opcion: 4, inventado: 0 }, 4).ok, false, 'tipo desconocido')
+  for (let n = 2; n <= V.VIVO_CFG.MAX_PREGUNTAS; n++) {
+    assert.strictEqual(V.validarDistribucion(V.distribucionInicial(n), n).ok, true, 'inicial ' + n)
+    assert.strictEqual(V.validarDistribucion(V.distribucionEquilibrada(n), n).ok, true, 'equilibrada ' + n)
+  }
+})
+
+await caso('formato: lo ya guardado se infiere (cierto/falso, breve, opción, abierta) y un formato incompatible se corrige', () => {
+  assert.strictEqual(V.formatoDe({ tipo: 'abierta_breve' }), 'abierta')
+  assert.strictEqual(V.formatoDe({ tipo: 'abierta_extensa', formato: 'opcion' }), 'abierta')
+  assert.strictEqual(V.formatoDe({ tipo: 'opcion_unica', opciones: OP('Cierto', 'Falso') }), 'cierto_falso')
+  assert.strictEqual(V.formatoDe({ tipo: 'opcion_unica', opciones: OP('Parte atrás', 'Frente') }), 'opcion_breve')
+  assert.strictEqual(V.formatoDe({ tipo: 'opcion_unica', opciones: OP('Parte de atrás del equipo', 'Frente') }), 'opcion')
+  assert.strictEqual(V.formatoDe({ tipo: 'opcion_unica', formato: 'opcion_breve', opciones: OP('Una frase muy larga aquí', 'No') }), 'opcion', 'breve con más de 2 palabras → opción múltiple')
+  assert.strictEqual(V.formatoDe({ tipo: 'opcion_unica', formato: 'cierto_falso', opciones: OP('Sí', 'No') }), 'opcion_breve', 'cierto/falso sin sus opciones fijas')
+  assert.strictEqual(V.formatoDe({ tipo: 'opcion_unica', formato: 'opcion', opciones: OP('Sí', 'No') }), 'opcion', 'lo explícito se respeta')
+})
+
+await caso('visualización: Cierto/Falso y «opción múltiple» usan barras aunque guarden «nube»; solo la breve admite nube', () => {
+  assert.strictEqual(V.visualizacionDe({ tipo: 'opcion_unica', formato: 'cierto_falso', visualizacion: 'nube', opciones: OP('Cierto', 'Falso') }), 'barras')
+  assert.strictEqual(V.visualizacionDe({ tipo: 'opcion_unica', formato: 'opcion', visualizacion: 'nube', opciones: OP('Sí', 'No') }), 'barras')
+  assert.strictEqual(V.visualizacionDe({ tipo: 'opcion_unica', formato: 'opcion_breve', visualizacion: 'nube', opciones: OP('Parte atrás', 'Frente') }), 'nube')
+  assert.strictEqual(V.visualizacionDe({ tipo: 'opcion_unica', formato: 'opcion_breve', visualizacion: 'nube', opciones: OP('Parte de atrás', 'Frente') }), 'barras')
+  const r = V.sanearPreguntasVivo([PREG_OP(OP('Cierto', 'Falso'), { formato: 'cierto_falso', visualizacion: 'nube' })])
+  assert.deepStrictEqual([r.publicas[0].formato, r.publicas[0].visualizacion], ['cierto_falso', 'barras'])
+})
+
+const IA_4 = (extraBreve = {}) => ({
+  resumenContenido: 'La fotosíntesis convierte luz, agua y CO2 en glucosa y oxígeno.',
+  preguntas: [
+    { formato: 'opcion', enunciado: '¿Qué ocurre durante la fase luminosa?', opciones: ['Se absorbe la luz y se produce ATP', 'Se fija el carbono en el ciclo de Calvin', 'Se libera dióxido de carbono'], correcta: 0 },
+    { formato: 'opcion_breve', enunciado: '¿Qué gas liberan las plantas?', opciones: ['Oxígeno', 'Carbono', 'Metano'], correcta: 0, ...extraBreve },
+    { formato: 'cierto_falso', enunciado: 'La clorofila absorbe luz verde.', opciones: ['Verdadero', 'Falso'], correcta: 1 },
+    { formato: 'abierta', enunciado: 'Explica con tus palabras qué hace la clorofila.', criterios: 'Menciona la absorción de luz', esperada: 'Absorbe luz', conceptos: ['luz', 'glucosa'], puntos: 99 },
+  ],
+})
+const DIST_4 = { opcion: 1, opcion_breve: 1, cierto_falso: 1, abierta: 1 }
+const preguntasGuardadas = async () => (await db.doc('activities/act_vivo').get()).data().participacion.preguntas
+
+await caso('generar con distribución: respeta cada formato, el cierto/falso lleva opciones fijas, 10 puntos exactos y el cobro sigue siendo 6', async () => {
+  await reiniciar(); await sembrarActividad()
+  respuestaIA = () => IA_4()
+  await generar({ extra: { cantidadPreguntas: 4, distribucion: DIST_4, visualizacionBreve: 'nube' } })
+  const ps = await preguntasGuardadas()
+  assert.deepStrictEqual(ps.map((q) => q.formato), ['opcion', 'opcion_breve', 'cierto_falso', 'abierta'])
+  assert.deepStrictEqual(ps.map((q) => q.tipo), ['opcion_unica', 'opcion_unica', 'opcion_unica', 'abierta_extensa'])
+  assert.deepStrictEqual(ps[2].opciones.map((x) => x.texto), ['Cierto', 'Falso'], 'opciones fijas aunque la IA diga «Verdadero»')
+  assert.strictEqual(ps[1].visualizacion, 'nube', 'la visualización elegida en la ventana inicial se guarda en la pregunta')
+  assert.strictEqual(ps[0].visualizacion, 'barras')
+  assert.strictEqual(ps[2].visualizacion, 'barras')
+  assert.deepStrictEqual(ps.map((q) => q.puntos), [2.5, 2.5, 2.5, 2.5], 'los puntos que proponga la IA (99) se ignoran')
+  assert.strictEqual(cents(ps.map((q) => q.puntos)), 1000)
+  assert.strictEqual((await creditosDe()).saldo, 94, 'tarifa fija de 6, sin cambios')
+  const prompt = textoDelPedido(pedidosIA[0])
+  assert.ok(/1 de formato "opcion_breve"/.test(prompt) && /1 de formato "cierto_falso"/.test(prompt), 'el prompt pide la distribución exacta')
+})
+
+await caso('generar: con barras elegidas, las breves se guardan en barras; las abiertas son tarjetas (sin visualización)', async () => {
+  await reiniciar(); await sembrarActividad()
+  respuestaIA = () => IA_4()
+  await generar({ extra: { cantidadPreguntas: 4, distribucion: DIST_4, visualizacionBreve: 'barras' } })
+  const ps = await preguntasGuardadas()
+  assert.strictEqual(ps[1].visualizacion, 'barras')
+  assert.ok(!('visualizacion' in ps[3]))
+})
+
+await caso('generar: una «opción breve» con más de dos palabras se degrada a opción múltiple con barras (no se descarta)', async () => {
+  await reiniciar(); await sembrarActividad()
+  respuestaIA = () => IA_4({ opciones: ['Oxígeno puro', 'Dióxido de carbono', 'Metano'] })
+  await generar({ extra: { cantidadPreguntas: 4, distribucion: DIST_4, visualizacionBreve: 'nube' } })
+  const ps = await preguntasGuardadas()
+  assert.strictEqual(ps.length, 4, 'no se pierde ninguna pregunta')
+  assert.deepStrictEqual([ps[1].formato, ps[1].visualizacion], ['opcion', 'barras'])
+  assert.strictEqual(cents(ps.map((q) => q.puntos)), 1000)
+})
+
+await caso('generar: una distribución que no suma el total se rechaza ANTES de cobrar', async () => {
+  await reiniciar(); await sembrarActividad()
+  await assert.rejects(() => generar({ extra: { cantidadPreguntas: 4, distribucion: { opcion: 2, cierto_falso: 1 } } }), /Faltan 1/)
+  await assert.rejects(() => generar({ extra: { cantidadPreguntas: 3, distribucion: { opcion: 3, abierta: 1 } } }), /Sobran 1/)
+  await assert.rejects(() => generar({ extra: { cantidadPreguntas: 2, distribucion: { opcion: 2, raro: 0 } } }), /no válido/)
+  await sinCobro()
+  assert.strictEqual(pedidosIA.length, 0, 'ni siquiera se llamó al modelo')
+})
+
+await caso('generar con 3 preguntas reparte 3.34 / 3.33 / 3.33; sin distribución (cliente viejo) sigue funcionando y también suma 10', async () => {
+  await reiniciar(); await sembrarActividad()
+  respuestaIA = () => DINAMICA_IA
+  await generar({})
+  const ps = await preguntasGuardadas()
+  assert.deepStrictEqual(ps.map((q) => q.puntos), [3.34, 3.33, 3.33])
+  assert.deepStrictEqual(ps.map((q) => q.formato), ['opcion_breve', 'abierta', 'abierta'].map((f, i) => (i === 0 ? V.formatoDe({ tipo: 'opcion_unica', opciones: ps[0].opciones }) : f)))
+  assert.strictEqual((await creditosDe()).saldo, 94)
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('J. Tiempo por pregunta: ventana de respuesta, sincronización y cierre (servidor)')
+
+await caso('estadoPreguntaVivo: preparando → abierta → cerrada, con límites exactos y cierre anticipado', () => {
+  const s = { estado: 'activa', preguntaIndex: 0, abreMs: 1000, cierraMs: 5000, cerradaMs: null }
+  assert.deepStrictEqual([0, 999, 1000, 4999, 5000, 9000].map((t) => V.estadoPreguntaVivo(s, t)), ['preparando', 'preparando', 'abierta', 'abierta', 'cerrada', 'cerrada'])
+  assert.strictEqual(V.restanteVivoMs(s, 2000), 3000)
+  assert.strictEqual(V.restanteVivoMs(s, 5000), null, 'cerrada: no hay tiempo restante')
+  assert.strictEqual(V.faltaParaAbrirVivoMs(s, 400), 600)
+  assert.strictEqual(V.estadoPreguntaVivo({ ...s, cerradaMs: 2500 }, 2400), 'abierta')
+  assert.strictEqual(V.estadoPreguntaVivo({ ...s, cerradaMs: 2500 }, 2500), 'cerrada', 'el cierre manual cierra en ese instante')
+  assert.strictEqual(V.estadoPreguntaVivo({ ...s, cierraMs: null }, 99999999), 'abierta', 'modo manual: sin límite')
+  assert.strictEqual(V.restanteVivoMs({ ...s, cierraMs: null }, 2000), null)
+  assert.strictEqual(V.estadoPreguntaVivo({ ...s, estado: 'finalizada' }, 2000), 'finalizada')
+  assert.strictEqual(V.estadoPreguntaVivo({ ...s, preguntaIndex: -1 }, 2000), 'espera')
+  assert.strictEqual(V.estadoPreguntaVivo({ estado: 'activa', preguntaIndex: 1, aceptando: true }, 5), 'abierta', 'sesión anterior (sin reloj): manda «aceptando»')
+  assert.strictEqual(V.estadoPreguntaVivo({ estado: 'activa', preguntaIndex: 1, aceptando: false }, 5), 'cerrada')
+})
+
+await caso('desfase del reloj: se queda con la medición de menor viaje; el contador no depende del reloj local', () => {
+  assert.strictEqual(V.mejorDesfase([{ desfase: 50, rtt: 300 }, { desfase: 12, rtt: 40 }, { desfase: 80, rtt: 500 }]), 12)
+  assert.strictEqual(V.mejorDesfase([]), 0)
+  const m = V.muestraDeDesfase(1000, 1100, 5050) // el servidor contestó a la mitad del viaje
+  assert.deepStrictEqual(m, { desfase: 4000, rtt: 100 })
+  // un celular con el reloj 4 s ADELANTADO calcula el mismo tiempo restante que el servidor
+  const s = { estado: 'activa', preguntaIndex: 0, abreMs: 10000, cierraMs: 20000, cerradaMs: null }
+  const ahoraServidor = 15000
+  const relojLocal = ahoraServidor + 4000
+  const desfase = V.mejorDesfase([{ desfase: -4000, rtt: 50 }])
+  assert.strictEqual(V.restanteVivoMs(s, relojLocal + desfase), V.restanteVivoMs(s, ahoraServidor))
+})
+
+await caso('tiempos: valores válidos, manual (null) y predeterminados', () => {
+  assert.deepStrictEqual(V.TIEMPOS_PREDETERMINADOS, { opcion_breve: 15, opcion: 30, cierto_falso: 15, abierta: 60 })
+  assert.deepStrictEqual([5, 600, '15', 4, 601, 1.5, 'x', null, ''].map(V.tiempoDe), [5, 600, 15, null, null, null, null, null, null])
+  assert.strictEqual(V.validarTiempos(undefined).ok, true)
+  assert.strictEqual(V.validarTiempos({ opcion: 30, abierta: null }).ok, true)
+  assert.strictEqual(V.validarTiempos({ opcion: 3 }).ok, false)
+  assert.strictEqual(V.validarTiempos({ opcion: 30.5 }).ok, false)
+  assert.strictEqual(V.validarTiempos({ opcion: Number.NaN }).ok, false)
+  assert.strictEqual(V.validarTiempos('rápido').ok, false)
+})
+
+const PREG_T = [
+  { id: 'p1', tipo: 'opcion_unica', formato: 'opcion', enunciado: '¿Gas?', puntos: 4, tiempo: 10, opciones: [{ id: 'a', texto: 'Oxígeno' }, { id: 'b', texto: 'Metano' }] },
+  { id: 'p2', tipo: 'abierta_breve', formato: 'abierta', enunciado: 'Una palabra', puntos: 3, tiempo: null },
+  { id: 'p3', tipo: 'abierta_extensa', formato: 'abierta', enunciado: 'Explica', puntos: 3, tiempo: 20 },
+]
+const T0 = 1_800_000_000_000
+const control = (accion, body = {}, ahora = T0, uid = DOCENTE) => ejecutarControl(db, CODIGO, uid, accion, body, ahora)
+const sesionActual = async () => (await db.doc(`vivoSesiones/${CODIGO}`).get()).data()
+const claveBrowser = (n) => 'participante' + String(n).padStart(8, '0')
+
+await caso('abrir: la apertura y el límite los fija el SERVIDOR (apertura = ahora + preparación; límite = apertura + tiempo)', async () => {
+  await reiniciar(); await sembrarSesion({ extra: { preguntaIndex: -1, aceptando: false, preguntas: PREG_T } })
+  const r = await control('abrir', { indice: 0 })
+  const s = await sesionActual()
+  assert.strictEqual(s.abreMs, T0 + V.VIVO_CFG.PREPARACION_MS)
+  assert.strictEqual(s.cierraMs, s.abreMs + 10000, 'tiempo exacto de la pregunta: 10 s')
+  assert.strictEqual(s.preguntaIndex, 0)
+  assert.strictEqual(r.estadoPregunta, 'preparando')
+  assert.deepStrictEqual([s.ventanas.p1.abreMs, s.ventanas.p1.cierraMs], [s.abreMs, s.cierraMs], 'la ventana de la pregunta queda registrada')
+  assert.strictEqual(V.estadoPreguntaVivo(s, T0 + 2999), 'preparando')
+  assert.strictEqual(V.estadoPreguntaVivo(s, s.abreMs), 'abierta')
+  assert.strictEqual(V.estadoPreguntaVivo(s, s.cierraMs - 1), 'abierta')
+  assert.strictEqual(V.estadoPreguntaVivo(s, s.cierraMs), 'cerrada', 'a la hora límite el servidor ya no acepta')
+})
+
+await caso('abrir una pregunta manual (sin tiempo): queda abierta hasta que el docente la cierre', async () => {
+  await reiniciar(); await sembrarSesion({ extra: { preguntaIndex: -1, aceptando: false, preguntas: PREG_T } })
+  await control('abrir', { indice: 1 })
+  const s = await sesionActual()
+  assert.strictEqual(s.cierraMs, null)
+  assert.strictEqual(V.estadoPreguntaVivo(s, T0 + 10 * 3600 * 1000), 'abierta', 'horas después sigue abierta')
+  await assert.rejects(() => control('ampliar', { segundos: 15 }, T0 + 5000), /manual/)
+})
+
+await caso('abrir de nuevo la MISMA pregunta (recarga, reconexión, doble clic) no reinicia el tiempo', async () => {
+  await reiniciar(); await sembrarSesion({ extra: { preguntaIndex: -1, aceptando: false, preguntas: PREG_T } })
+  await control('abrir', { indice: 0 })
+  const antes = await sesionActual()
+  await control('abrir', { indice: 0 }, T0 + 6000)
+  await control('abrir', { indice: 0 }, T0 + 7000)
+  const despues = await sesionActual()
+  assert.deepStrictEqual([despues.abreMs, despues.cierraMs], [antes.abreMs, antes.cierraMs])
+})
+
+await caso('ampliar: mueve el límite para todos; solo antes del cierre y con valores válidos', async () => {
+  await reiniciar(); await sembrarSesion({ extra: { preguntaIndex: -1, aceptando: false, preguntas: PREG_T } })
+  await control('abrir', { indice: 0 })
+  const base = await sesionActual()
+  await control('ampliar', { segundos: 15 }, T0 + 8000)
+  const s = await sesionActual()
+  assert.strictEqual(s.cierraMs, base.cierraMs + 15000)
+  assert.strictEqual(s.ventanas.p1.cierraMs, s.cierraMs)
+  assert.strictEqual(V.estadoPreguntaVivo(s, base.cierraMs + 1000), 'abierta', 'con la ampliación aún está abierta donde antes ya habría cerrado')
+  assert.strictEqual(V.restanteVivoMs(s, base.cierraMs), 15000)
+  await assert.rejects(() => control('ampliar', { segundos: 15 }, s.cierraMs + 1), /ya terminó/)
+  await assert.rejects(() => control('ampliar', { segundos: 1 }, T0 + 9000), /entre/)
+  await assert.rejects(() => control('ampliar', { segundos: 99999 }, T0 + 9000), /entre/)
+  assert.strictEqual((await sesionActual()).cierraMs, s.cierraMs, 'los intentos rechazados no cambian nada')
+})
+
+await caso('cerrar: cierra la recepción para todos al instante y conserva lo recibido', async () => {
+  await reiniciar(); await sembrarSesion({ extra: { preguntaIndex: -1, aceptando: false, preguntas: PREG_T } })
+  await control('abrir', { indice: 0 })
+  const abre = (await sesionActual()).abreMs
+  await control('cerrar', {}, abre + 4000)
+  const s = await sesionActual()
+  assert.strictEqual(s.cerradaMs, abre + 4000)
+  assert.strictEqual(s.aceptando, false)
+  assert.strictEqual(V.estadoPreguntaVivo(s, abre + 3999), 'abierta')
+  assert.strictEqual(V.estadoPreguntaVivo(s, abre + 4000), 'cerrada')
+  const otra = await control('cerrar', {}, abre + 6000)
+  assert.strictEqual(otra.estadoPregunta, 'cerrada')
+  assert.strictEqual((await sesionActual()).cerradaMs, abre + 4000, 'cerrar otra vez no mueve el cierre')
+})
+
+await caso('avanzar cierra la pregunta anterior; volver a ella solo muestra sus resultados (no se reabre)', async () => {
+  await reiniciar(); await sembrarSesion({ extra: { preguntaIndex: -1, aceptando: false, preguntas: PREG_T } })
+  await control('abrir', { indice: 0 })
+  const p1 = (await sesionActual()).ventanas.p1
+  await control('abrir', { indice: 1 }, T0 + 5000) // p1 sigue abierta (límite = T0+13000): al avanzar se cierra
+  let s = await sesionActual()
+  assert.strictEqual(s.ventanas.p1.cerradaMs, T0 + 5000)
+  assert.strictEqual(s.ventanas.p1.motivo, 'avance')
+  assert.strictEqual(s.preguntaIndex, 1)
+  await control('abrir', { indice: 0 }, T0 + 6000) // volver
+  s = await sesionActual()
+  assert.deepStrictEqual([s.abreMs, s.cierraMs, s.cerradaMs], [p1.abreMs, p1.cierraMs, T0 + 5000], 'misma ventana, ya cerrada')
+  assert.strictEqual(V.estadoPreguntaVivo(s, T0 + 7000), 'cerrada')
+  assert.strictEqual(s.aceptando, false)
+})
+
+await caso('solo el docente dueño controla la sesión; acciones y preguntas inválidas se rechazan', async () => {
+  await reiniciar(); await sembrarSesion({ extra: { preguntaIndex: -1, aceptando: false, preguntas: PREG_T } })
+  await assert.rejects(() => control('abrir', { indice: 0 }, T0, OTRO), (e) => e.status === 403)
+  await assert.rejects(() => ejecutarControl(db, 'ZZZZZZZZZZ', DOCENTE, 'abrir', { indice: 0 }, T0), (e) => e.status === 404)
+  await assert.rejects(() => control('abrir', { indice: 9 }), (e) => e.status === 400)
+  await assert.rejects(() => control('abrir', { indice: -1 }), (e) => e.status === 400)
+  await assert.rejects(() => control('inventada'), (e) => e.status === 400)
+  assert.strictEqual((await sesionActual()).abreMs, undefined, 'nada se escribió')
+})
+
+// Ventanas reales (reloj del servidor): se siembra la sesión ya con sus fechas, relativas a la hora actual.
+const ventana = (abreDesdeAhora, cierraDesdeAhora, extra = {}) => {
+  const ahora = Date.now()
+  return { preguntaIndex: 0, aceptando: true, preguntas: PREG_T, abreMs: ahora + abreDesdeAhora, cierraMs: cierraDesdeAhora == null ? null : ahora + cierraDesdeAhora, cerradaMs: null, ...extra }
+}
+
+await caso('participantes: antes de abrir no ven la pregunta ni pueden responder; al abrir sí; después del límite se rechaza', async () => {
+  await reiniciar(); await sembrarSesion({ extra: ventana(60000, 70000) })
+  let e = await estado({ codigo: CODIGO })
+  assert.strictEqual(e.cuerpo.sesion.estadoPregunta, 'preparando')
+  assert.strictEqual(e.cuerpo.pregunta, null, 'el contenido NO se envía hasta que abre')
+  assert.ok(Math.abs(e.cuerpo.sesion.ahora - Date.now()) < 3000, 'la respuesta trae la hora del servidor')
+  let r = await responder({ codigo: CODIGO, preguntaId: 'p1', opcion: 'a', participanteKey: claveBrowser(1) })
+  assert.strictEqual(r.statusCode, 409); assert.ok(/todavía no se abre/.test(r.cuerpo.error))
+  assert.strictEqual((await db.collection('vivoRespuestas').get()).size, 0, 'nada se guardó antes de abrir')
+  await sembrarSesion({ extra: ventana(-1000, 60000) })
+  e = await estado({ codigo: CODIGO })
+  assert.strictEqual(e.cuerpo.sesion.estadoPregunta, 'abierta'); assert.strictEqual(e.cuerpo.pregunta.id, 'p1')
+  assert.strictEqual(e.cuerpo.sesion.cierraMs - e.cuerpo.sesion.abreMs, 61000, 'proyector y celulares leen la misma ventana')
+  r = await responder({ codigo: CODIGO, preguntaId: 'p1', opcion: 'a', participanteKey: claveBrowser(1) })
+  assert.strictEqual(r.statusCode, 200)
+  const doc = (await db.collection('vivoRespuestas').get()).docs[0].data()
+  assert.ok(doc.recibidaMs >= (await sesionActual()).abreMs && doc.recibidaMs < (await sesionActual()).cierraMs, 'recibida dentro de la ventana')
+  await sembrarSesion({ extra: ventana(-60000, -1) })
+  r = await responder({ codigo: CODIGO, preguntaId: 'p1', opcion: 'b', participanteKey: claveBrowser(2) })
+  assert.strictEqual(r.statusCode, 409); assert.ok(/terminó el tiempo/.test(r.cuerpo.error))
+  assert.strictEqual((await db.collection('vivoRespuestas').get()).size, 1, 'la tardía no entró y la anterior se conservó')
+})
+
+await caso('cierre manual y modo manual: manual cierra para todos; sin límite sigue aceptando', async () => {
+  await reiniciar(); await sembrarSesion({ extra: ventana(-5000, 60000, { cerradaMs: Date.now() - 100 }) })
+  const r = await responder({ codigo: CODIGO, preguntaId: 'p1', opcion: 'a', participanteKey: claveBrowser(3) })
+  assert.strictEqual(r.statusCode, 409)
+  assert.strictEqual((await estado({ codigo: CODIGO })).cuerpo.sesion.estadoPregunta, 'cerrada')
+  await sembrarSesion({ extra: ventana(-3_600_000, null, { preguntaIndex: 1 }) }) // hace una hora, sin límite
+  const ok = await responder({ codigo: CODIGO, preguntaId: 'p2', texto: 'luz', participanteKey: claveBrowser(3) })
+  assert.strictEqual(ok.statusCode, 200)
+})
+
+await caso('SOLICITUDES SIMULTÁNEAS al vencer: ninguna respuesta aceptada entra después del límite y ninguna aceptada se pierde', async () => {
+  await reiniciar(); await sembrarSesion({ extra: ventana(-1000, 350) })
+  const limite = (await sesionActual()).cierraMs
+  const resultados = await Promise.all(Array.from({ length: 30 }, (_, i) => new Promise((resolve) => setTimeout(() => {
+    responder({ codigo: CODIGO, preguntaId: 'p1', opcion: i % 2 ? 'a' : 'b', participanteKey: claveBrowser(100 + i) }).then((r) => resolve({ i, status: r.statusCode }))
+  }, i * 25))))
+  const docs = (await db.collection('vivoRespuestas').get()).docs.map((d) => d.data())
+  const aceptadas = resultados.filter((r) => r.status === 200)
+  const rechazadas = resultados.filter((r) => r.status === 409)
+  assert.strictEqual(aceptadas.length + rechazadas.length, 30, 'todas obtuvieron veredicto limpio (200 o 409)')
+  assert.strictEqual(docs.length, aceptadas.length, 'lo aceptado quedó guardado: nada se perdió')
+  assert.ok(docs.every((d) => d.recibidaMs < limite), 'NINGUNA respuesta entró después del límite')
+  assert.ok(aceptadas.length > 0 && rechazadas.length > 0, 'la prueba cruzó el límite (' + aceptadas.length + ' dentro, ' + rechazadas.length + ' fuera)')
+})
+
+await caso('cerrar y responder al mismo tiempo: cada respuesta o entra antes del cierre o se rechaza, sin estados intermedios', async () => {
+  await reiniciar(); await sembrarSesion({ extra: { preguntaIndex: -1, aceptando: false, preguntas: PREG_T } })
+  await control('abrir', { indice: 0 }, Date.now() - V.VIVO_CFG.PREPARACION_MS - 500) // abre ya, con 10 s
+  const envios = Array.from({ length: 20 }, (_, i) => responder({ codigo: CODIGO, preguntaId: 'p1', opcion: 'a', participanteKey: claveBrowser(200 + i) }))
+  const cierre = ejecutarControl(db, CODIGO, DOCENTE, 'cerrar', {}) // reloj real del servidor
+  const [res, cerrada] = [await Promise.all(envios), await cierre]
+  const cuandoCerro = Date.now()
+  const docs = (await db.collection('vivoRespuestas').get()).docs.map((d) => d.data())
+  assert.strictEqual(cerrada.estadoPregunta, 'cerrada')
+  assert.strictEqual(docs.length, res.filter((r) => r.statusCode === 200).length, 'lo aceptado quedó guardado y lo rechazado no')
+  assert.ok(docs.every((d) => d.recibidaMs <= cuandoCerro), 'nada se aceptó después de que el cierre terminó')
+  const tarde = await responder({ codigo: CODIGO, preguntaId: 'p1', opcion: 'a', participanteKey: claveBrowser(299) })
+  assert.strictEqual(tarde.statusCode, 409, 'una vez cerrada, toda respuesta nueva se rechaza')
+})
+
+await caso('sellar: registra quiénes NO respondieron (grupo), conserva lo recibido y es idempotente; no inventa respuestas', async () => {
+  await reiniciar(); await sembrarSesion({ acceso: 'grupo', extra: { preguntaIndex: -1, aceptando: false, preguntas: PREG_T } })
+  for (const [id, uid] of [['est_a', 'uid_a'], ['est_b', 'uid_b'], ['est_c', 'uid_c']]) await db.doc(`students/${id}`).set({ uid, asignaturaId: 'sub_vivo', nombre: id })
+  await control('abrir', { indice: 0 }, Date.now() - V.VIVO_CFG.PREPARACION_MS - 500)
+  const tokens = { a: await sesion('uid_a', { email: 'a.e1@evalua.local' }), b: await sesion('uid_b', { email: 'b.e1@evalua.local' }) }
+  assert.strictEqual((await responder({ codigo: CODIGO, preguntaId: 'p1', opcion: 'a' }, tokens.a)).statusCode, 200)
+  assert.strictEqual((await responder({ codigo: CODIGO, preguntaId: 'p1', opcion: 'b' }, tokens.b)).statusCode, 200)
+  await assert.rejects(() => control('sellar', {}, Date.now()), /sigue abierta/)
+  const venc = (await sesionActual()).cierraMs + 1
+  await control('sellar', {}, venc)
+  let s = await sesionActual()
+  const v = s.ventanas.p1
+  assert.strictEqual(v.sellada, true); assert.strictEqual(v.motivo, 'tiempo'); assert.strictEqual(v.respondieron, 2); assert.strictEqual(v.esperados, 3)
+  assert.deepStrictEqual(v.sinRespuesta, ['est_c'], 'quien no respondió queda registrado como «sin respuesta»')
+  assert.strictEqual(s.aceptando, false, 'sellar apaga «aceptando» (despierta el diagnóstico de la pregunta)')
+  assert.strictEqual((await db.collection('vivoRespuestas').get()).size, 2, 'no se crea ninguna respuesta falsa (ni incorrecta) para quien no contestó')
+  await control('sellar', {}, venc + 5000)
+  s = await sesionActual()
+  assert.strictEqual(s.ventanas.p1.selladaMs, venc, 'sellar otra vez no cambia nada')
+})
+
+await caso('externo: se sella con el conteo, sin lista de personas (no hay identidad)', async () => {
+  await reiniciar(); await sembrarSesion({ acceso: 'externo', extra: { preguntaIndex: -1, aceptando: false, preguntas: PREG_T } })
+  await control('abrir', { indice: 0 }, Date.now() - V.VIVO_CFG.PREPARACION_MS - 500)
+  await responder({ codigo: CODIGO, preguntaId: 'p1', opcion: 'a', participanteKey: claveBrowser(7) })
+  await control('sellar', {}, (await sesionActual()).cierraMs + 1)
+  const v = (await sesionActual()).ventanas.p1
+  assert.deepStrictEqual([v.respondieron, v.esperados, v.sinRespuesta], [1, null, null])
+})
+
+await caso('finalizar: cierra la pregunta abierta, sella y la sesión ya no acepta respuestas', async () => {
+  await reiniciar(); await sembrarSesion({ acceso: 'externo', extra: { preguntaIndex: -1, aceptando: false, preguntas: PREG_T } })
+  await control('abrir', { indice: 1 }, Date.now() - V.VIVO_CFG.PREPARACION_MS - 500) // manual
+  await responder({ codigo: CODIGO, preguntaId: 'p2', texto: 'luz', participanteKey: claveBrowser(8) })
+  await control('finalizar', {}, Date.now())
+  const s = await sesionActual()
+  assert.strictEqual(s.estado, 'finalizada'); assert.strictEqual(s.aceptando, false)
+  assert.strictEqual(s.ventanas.p2.sellada, true); assert.strictEqual(s.ventanas.p2.motivo, 'finalizar')
+  const r = await responder({ codigo: CODIGO, preguntaId: 'p2', texto: 'tarde', participanteKey: claveBrowser(9) })
+  assert.strictEqual(r.statusCode, 409)
+  assert.strictEqual((await db.collection('vivoRespuestas').get()).size, 1)
+})
+
+await caso('calificación propuesta: «sin respuesta» no se califica como incorrecta; sin ventanas (sesiones anteriores) se comporta como siempre', () => {
+  const preguntas = [{ id: 'p1', tipo: 'opcion_unica', puntos: 5 }, { id: 'p2', tipo: 'opcion_unica', puntos: 5 }]
+  const claves = { p1: { correcta: 'a' }, p2: { correcta: 'a' } }
+  const solo1 = [{ preguntaId: 'p1', opcion: 'a' }]
+  const antigua = V.calificacionPropuestaVivo({ preguntas, claves, respuestas: solo1, maxCalif: 10 })
+  assert.deepStrictEqual([antigua.calificacion, antigua.sinRespuesta], [5, 0], 'sin ventanas: lo no respondido cuenta 0, como siempre')
+  const nueva = V.calificacionPropuestaVivo({ preguntas, claves, respuestas: solo1, maxCalif: 10, ventanas: { p1: {}, p2: {} } })
+  assert.strictEqual(nueva.sinRespuesta, 1)
+  assert.strictEqual(nueva.completa, false, 'queda señalada para que el docente decida')
+  assert.strictEqual(nueva.calificacion, 10, 'no se penaliza con un cero automático')
+  const nada = V.calificacionPropuestaVivo({ preguntas, claves, respuestas: [], maxCalif: 10, ventanas: { p1: {}, p2: {} } })
+  assert.deepStrictEqual([nada.calificacion, nada.sinRespuesta], [null, 2], 'si no respondió nada no hay nota propuesta')
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('K. Propósitos: diagnóstico, evaluación rápida y encuesta')
+
+await caso('propósitos: los tres vigentes y los anteriores se leen como diagnóstico / evaluación', () => {
+  assert.deepStrictEqual(Object.keys(V.PROPOSITOS_VIVO), ['diagnostico', 'evaluacion', 'encuesta'])
+  assert.deepStrictEqual(['previos', 'comprension', 'diagnostico', 'evaluacion', 'encuesta', undefined, 'raro'].map(V.propositoDe), ['diagnostico', 'evaluacion', 'diagnostico', 'evaluacion', 'encuesta', 'diagnostico', 'diagnostico'])
+  assert.deepStrictEqual(['previos', 'comprension', 'encuesta', 'diagnostico'].map(V.esEncuesta), [false, false, true, false])
+})
+
+await caso('saneo de encuesta: sin puntos, sin clave, sin ponderaciones; evaluación conserva todo; el tiempo se guarda en ambos', () => {
+  const entrada = [PREG_OP(OP('Mucho', 'Poco'), { tiempo: 15, puntos: 3 }), { id: 'p2', tipo: 'abierta_extensa', enunciado: '¿Por qué?', criterios: 'x', esperada: 'y', conceptos: ['z'], tiempo: 60, puntos: 7 }]
+  const enc = V.sanearPreguntasVivo(entrada, { encuesta: true, exigirCorrecta: true, exigirTotal: true })
+  assert.strictEqual(enc.ok, true, 'una encuesta no exige correcta, criterios ni suma de puntos')
+  assert.ok(enc.publicas.every((q) => !('puntos' in q)), 'sin ponderaciones')
+  assert.deepStrictEqual(enc.claves, { p1: {}, p2: {} }, 'sin respuestas correctas ni criterios')
+  assert.deepStrictEqual(enc.publicas.map((q) => q.tiempo), [15, 60])
+  const ev = V.sanearPreguntasVivo(entrada.map((q) => ({ ...q, puntos: 5 })), { exigirTotal: true })
+  assert.strictEqual(ev.ok, true); assert.strictEqual(ev.claves.p1.correcta, 'a'); assert.deepStrictEqual(ev.claves.p2.conceptos, ['z'])
+  assert.deepStrictEqual(ev.publicas.map((q) => q.puntos), [5, 5])
+  assert.strictEqual(V.sanearPreguntasVivo([PREG_OP(OP('Mucho', 'Poco'), { tiempo: 3 })]).publicas[0].tiempo, null, 'un tiempo fuera de rango pasa a manual')
+  assert.strictEqual(V.sanearPreguntasVivo([PREG_OP(OP('Mucho', 'Poco'))]).publicas[0].tiempo, null, 'sin tiempo = manual (lo anterior)')
+})
+
+await caso('generar con tiempos por formato: cada pregunta guarda el tiempo de su formato; manual = null; el cobro sigue siendo 6', async () => {
+  await reiniciar(); await sembrarActividad()
+  respuestaIA = () => IA_4()
+  await generar({ extra: { cantidadPreguntas: 4, distribucion: DIST_4, tiempos: { opcion: 30, opcion_breve: 15, cierto_falso: 15, abierta: null } } })
+  const ps = await preguntasGuardadas()
+  assert.deepStrictEqual(ps.map((q) => q.tiempo), [30, 15, 15, null])
+  assert.strictEqual((await creditosDe()).saldo, 94)
+})
+
+await caso('generar sin «tiempos» (cliente anterior): preguntas manuales; tiempos inválidos se rechazan ANTES de cobrar', async () => {
+  await reiniciar(); await sembrarActividad()
+  respuestaIA = () => IA_4()
+  await generar({ extra: { cantidadPreguntas: 4, distribucion: DIST_4 } })
+  assert.ok((await preguntasGuardadas()).every((q) => q.tiempo === null))
+  await reiniciar(); await sembrarActividad()
+  await assert.rejects(() => generar({ extra: { cantidadPreguntas: 4, distribucion: DIST_4, tiempos: { opcion: 2 } } }), /entre 5 y 600/)
+  await assert.rejects(() => generar({ extra: { cantidadPreguntas: 4, distribucion: DIST_4, tiempos: { abierta: 1000 } } }), /entre 5 y 600/)
+  await sinCobro()
+  assert.strictEqual(pedidosIA.length, 0)
+})
+
+await caso('generar una ENCUESTA: sin puntos ni clave, Cierto/Falso no aplica (rechazo sin cobro) y el prompt pide opiniones', async () => {
+  await reiniciar(); await sembrarActividad()
+  await assert.rejects(() => generar({ proposito: 'encuesta', extra: { cantidadPreguntas: 4, distribucion: DIST_4 } }), /Cierto\/Falso no aplica/)
+  await sinCobro()
+  respuestaIA = () => ({
+    resumenContenido: 'Opiniones sobre el uso del celular en clase.',
+    preguntas: [
+      { formato: 'opcion', enunciado: '¿Cómo valoras usar el celular en clase?', opciones: ['Me ayuda a concentrarme', 'Me distrae a veces', 'Me distrae casi siempre'], correcta: 0 },
+      { formato: 'opcion_breve', enunciado: '¿Qué prefieres?', opciones: ['Más práctica', 'Más teoría'], correcta: 1 },
+      { formato: 'abierta', enunciado: '¿Qué cambiarías de la clase?', criterios: 'x', esperada: 'y', conceptos: ['z'] },
+    ],
+  })
+  await generar({ proposito: 'encuesta', extra: { cantidadPreguntas: 3, distribucion: { opcion: 1, opcion_breve: 1, cierto_falso: 0, abierta: 1 }, tiempos: { opcion: 20, opcion_breve: 15, abierta: 90 } } })
+  const act = (await db.doc('activities/act_vivo').get()).data().participacion
+  assert.strictEqual(act.proposito, 'encuesta')
+  assert.ok(act.preguntas.every((q) => !('puntos' in q)), 'una encuesta no lleva ponderaciones')
+  assert.deepStrictEqual(act.preguntas.map((q) => q.tiempo), [20, 15, 90])
+  for (const id of ['p1', 'p2', 'p3']) assert.deepStrictEqual((await db.doc(`activities/act_vivo/clave/${id}`).get()).data(), {}, 'sin respuesta correcta ni criterios')
+  const prompt = textoDelPedido(pedidosIA[0])
+  assert.ok(/ENCUESTA/.test(prompt) && /NO existen respuestas|NO hay respuestas|no evalúes/i.test(prompt) && /NO incluyas "correcta"/.test(prompt))
+  assert.ok(!/puntos/.test(prompt), 'ni siquiera se piden puntos')
+  assert.strictEqual((await creditosDe()).saldo, 94, 'misma tarifa')
+})
+
+await caso('propósitos anteriores: «previos» se guarda como diagnóstico y «comprension» como evaluación; uno inventado se rechaza sin cobrar', async () => {
+  await reiniciar(); await sembrarActividad()
+  respuestaIA = () => DINAMICA_IA
+  await generar({ proposito: 'previos' })
+  assert.strictEqual((await db.doc('activities/act_vivo').get()).data().participacion.proposito, 'diagnostico')
+  await reiniciar(); await sembrarActividad()
+  await generar({ proposito: 'comprension' })
+  assert.strictEqual((await db.doc('activities/act_vivo').get()).data().participacion.proposito, 'evaluacion')
+  await reiniciar(); await sembrarActividad()
+  await assert.rejects(() => generar({ proposito: 'inventado' }), /propósito/i)
+  await sinCobro()
+})
+
+await caso('los tres propósitos orientan distinto la generación (diagnóstico, evaluación, encuesta)', async () => {
+  const guion = {}
+  for (const proposito of ['diagnostico', 'evaluacion', 'encuesta']) {
+    await reiniciar(); await sembrarActividad()
+    respuestaIA = () => DINAMICA_IA
+    await generar({ proposito })
+    guion[proposito] = textoDelPedido(pedidosIA[0])
+  }
+  assert.ok(/DIAGNÓSTICO de conocimientos/.test(guion.diagnostico) && /NO es una calificación/.test(guion.diagnostico))
+  assert.ok(/EVALUACIÓN RÁPIDA/.test(guion.evaluacion) && /respuesta correcta/.test(guion.evaluacion))
+  assert.ok(/ENCUESTA/.test(guion.encuesta) && /no marques una opción «correcta»/.test(guion.encuesta))
+  assert.ok(!/ENCUESTA/.test(guion.evaluacion) && !/ENCUESTA/.test(guion.diagnostico))
+})
+
+const sembrarEncuesta = async () => {
+  await reiniciar(); await sembrarActividad(); await sembrarClaves()
+  await sembrarSesion({ extra: { proposito: 'encuesta', analisisActivo: true, preguntaIndex: 0, aceptando: true, preguntas: [PREGUNTAS_SESION[0], PREGUNTAS_SESION[2]] } })
+}
+
+await caso('encuesta: las respuestas abiertas NO se evalúan (no hay respuesta correcta) y se conservan íntegras', async () => {
+  await sembrarEncuesta()
+  await sembrarSesion({ extra: { proposito: 'encuesta', analisisActivo: true, preguntaIndex: 1, aceptando: true, preguntas: [PREGUNTAS_SESION[0], PREGUNTAS_SESION[2]] } })
+  const r = await responder({ codigo: CODIGO, preguntaId: 'p3', texto: 'Me gustaría más práctica y menos tarea', participanteKey: claveBrowser(11) })
+  assert.strictEqual(r.statusCode, 200)
+  const d = (await db.collection('vivoRespuestas').get()).docs[0].data()
+  assert.strictEqual(d.estadoIA, 'sin_analisis', 'no entra a la cola de evaluación aunque el análisis esté activo')
+  assert.strictEqual(d.texto, 'Me gustaría más práctica y menos tarea')
+  // y si llegara al evaluador, no llama al modelo
+  const id = `${CODIGO}_p3_${claveBrowser(11)}`
+  await db.doc(`vivoRespuestas/${id}`).update({ estadoIA: 'recibida' })
+  pedidosIA.length = 0
+  const ev = await PV.procesarRespuestaVivo({ ref: dbFn.doc(`vivoRespuestas/${id}`), deps: DEPS })
+  assert.strictEqual(ev.encuesta, true)
+  assert.strictEqual(pedidosIA.length, 0, 'ninguna llamada al modelo')
+  assert.strictEqual((await dato(id)).estadoIA, 'sin_analisis')
+})
+
+await caso('encuesta: el informe describe TENDENCIAS DE OPINIÓN (sin aciertos ni errores) y cuenta las abiertas sin evaluarlas', async () => {
+  await sembrarEncuesta()
+  await db.doc('activities/act_vivo/clave/p1').set({ correcta: 'a' }) // aunque hubiera una clave vieja, la encuesta no la usa
+  await sembrarOpciones(['a', 'a', 'a', 'b', 'b', 'b'])
+  respuestaIA = () => ({ diagnostico: 'El grupo está dividido entre ambas posturas.', confusiones: [], refuerzo: ['Reglas de uso'], siguientePaso: { tipo: 'aclarar', texto: 'Conversar las posturas con el grupo.' }, limitaciones: 'Muestra pequeña' })
+  assert.strictEqual((await informe('p1')).listo, true)
+  const prompt = textoDelPedido(pedidosIA[0])
+  assert.ok(!/\[CORRECTA\]/.test(prompt), 'la encuesta no marca una opción correcta')
+  assert.ok(/tendencia de opinión/i.test(prompt))
+  assert.ok(/NO existen respuestas correctas/.test(String(pedidosIA[0].system)), 'el sistema fija el enfoque de opinión')
+  const d = await docInforme('p1')
+  assert.strictEqual(d.estado, 'listo'); assert.deepStrictEqual(d.informe.confusiones, [])
+  // abiertas: 8 respuestas SIN evaluación bastan para el umbral
+  for (let i = 0; i < 8; i++) {
+    await db.doc(`vivoRespuestas/${CODIGO}_p3_${String(i).padStart(20, 'e')}`).set({ sesionId: CODIGO, actividadId: 'act_vivo', docenteId: DOCENTE, preguntaId: 'p3', preguntaTipo: 'abierta_extensa', texto: `opinión número ${i} sobre la clase`, estadoIA: 'sin_analisis', creadaEn: new Date(2026, 9, 1, 12, 0, i) })
+  }
+  respuestaIA = () => ({ diagnostico: 'Piden más práctica.', ideas: [{ texto: 'Más práctica', ids: ['r1', 'r2'] }], confusiones: [], refuerzo: ['Práctica'], siguientePaso: { tipo: 'actividad', texto: 'Proponer una práctica breve.' }, limitaciones: '' })
+  assert.strictEqual((await informe('p3')).listo, true)
+  const p3 = textoDelPedido(pedidosIA[pedidosIA.length - 1])
+  assert.ok(!/nivel:/.test(p3), 'no se muestran niveles de evaluación en una encuesta')
+})
+
+await caso('evaluación rápida conserva el comportamiento de evaluar: marca la correcta y exige evaluación por respuesta en las abiertas', async () => {
+  await reiniciar(); await sembrarActividad(); await sembrarClaves()
+  await sembrarSesion({ extra: { proposito: 'evaluacion', analisisActivo: true, preguntaIndex: 0, preguntas: [PREGUNTAS_SESION[0], PREGUNTAS_SESION[2]] } })
+  await db.doc('activities/act_vivo/clave/p1').set({ correcta: 'a' })
+  await sembrarOpciones(['a', 'a', 'a', 'b', 'b', 'b'])
+  respuestaIA = () => INFORME_OP
+  assert.strictEqual((await informe('p1')).listo, true)
+  assert.ok(/\[CORRECTA\]/.test(textoDelPedido(pedidosIA[0])))
+  for (let i = 0; i < 8; i++) await db.doc(`vivoRespuestas/${CODIGO}_p3_${String(i).padStart(20, 'f')}`).set({ sesionId: CODIGO, actividadId: 'act_vivo', docenteId: DOCENTE, preguntaId: 'p3', preguntaTipo: 'abierta_extensa', texto: `respuesta ${i}`, estadoIA: 'recibida' })
+  assert.strictEqual((await informe('p3')).omitido, 'insuficiente', 'sin evaluar no cuentan: la evaluación por respuesta sigue siendo necesaria')
+})
+
+await caso('activar el análisis de una encuesta no pone en cola evaluaciones por respuesta', async () => {
+  await reiniciar(); await sembrarActividad(); await sembrarClaves()
+  await sembrarSesion({ extra: { proposito: 'encuesta', calificable: true } })
+  for (let i = 0; i < 10; i++) await db.doc(`vivoRespuestas/${CODIGO}_p3_${String(i).padStart(20, 'g')}`).set({ sesionId: CODIGO, actividadId: 'act_vivo', docenteId: DOCENTE, preguntaId: 'p3', preguntaTipo: 'abierta_extensa', texto: `opinión ${i}`, estadoIA: 'sin_analisis', abierta: true })
+  const r = await activar()
+  assert.strictEqual(r.creditosReales, 10, 'la tarifa de 10 no cambia')
+  assert.strictEqual((await db.collection('vivoRespuestas').where('estadoIA', '==', 'recibida').get()).size, 0, 'ninguna respuesta de encuesta se encola para evaluarse')
 })
 
 require.cache[rutaSdk].exports = SDK_REAL
