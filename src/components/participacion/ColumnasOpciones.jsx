@@ -6,8 +6,9 @@
 // Presentación según el largo de las opciones (planOpciones), SIN tocar el texto:
 //   · directo   → el texto va sobre cada columna;
 //   · lista     → lista de opciones (letra + texto completo) a la izquierda y columnas con letras a la derecha;
-//   · momentos  → 'opciones': pregunta + opciones completas; 'resultados': columnas con letras.
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+//   · momentos  → 'opciones': pregunta + opciones completas; 'resultados': lista de opciones (paginada si no cabe) junto a las
+//                 columnas con letras: los resultados SIEMPRE llevan el texto de cada opción, nunca solo letras y barras.
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { contarOpciones } from '../../utils/participacionVivo'
 import { PISOS_PROYECCION, paginarOpciones, tamanosProyeccion } from '../../utils/proyeccionVivo'
@@ -34,7 +35,7 @@ export function ListaOpciones({ pregunta, area, tam = null, correcta = null, des
 
 // Opciones largas: primer momento. Si ni siquiera solas caben en una pantalla se reparten en páginas (texto completo,
 // letra del mismo tamaño) con botones grandes para pasar de una a otra.
-function OpcionesPaginadas({ pregunta, area, tam, correcta }) {
+function OpcionesPaginadas({ pregunta, area, tam, correcta, auto = false }) {
   const [pagina, setPagina] = useState(0)
   // La estimación de líneas es aproximada: se MIDE la página real y, si no cabe, se baja el número de opciones por página
   // (nunca se encoge la letra ni se recorta el texto).
@@ -48,6 +49,11 @@ function OpcionesPaginadas({ pregunta, area, tam, correcta }) {
     return trozos
   }), [pregunta.opciones, area.ancho, area.alto, maxPorPagina])
   const actual = Math.min(pagina, paginas.length - 1)
+  useEffect(() => {
+    if (!auto || paginas.length < 2) return undefined
+    const id = setInterval(() => setPagina((p) => (p + 1) % paginas.length), 12000)
+    return () => clearInterval(id)
+  }, [auto, paginas.length])
   const [desde, hasta] = paginas[actual] || [0, pregunta.opciones.length]
   useLayoutEffect(() => {
     const el = lista.current
@@ -106,10 +112,15 @@ export default function ColumnasOpciones({ pregunta, respuestas, area, tam = nul
     </figure>
   )
 
-  if (plan === 'lista') {
+  if (plan === 'lista' || plan === 'momentos') {
+    const correctaLista = conCorrecta ? correcta : null
     return (
       <div className="flex h-full w-full gap-[4vmin]">
-        <div className="w-[46%] flex-shrink-0 overflow-hidden"><ListaOpciones pregunta={pregunta} area={area} tam={t} correcta={conCorrecta ? correcta : null} /></div>
+        <div className="w-[46%] flex-shrink-0 overflow-hidden">
+          {plan === 'lista'
+            ? <ListaOpciones pregunta={pregunta} area={area} tam={t} correcta={correctaLista} />
+            : <OpcionesPaginadas pregunta={pregunta} area={{ ancho: Math.round(area.ancho * 0.46), alto: area.alto }} tam={t} correcta={correctaLista} auto />}
+        </div>
         <div className="flex-1 min-w-0">{columnas}</div>
       </div>
     )

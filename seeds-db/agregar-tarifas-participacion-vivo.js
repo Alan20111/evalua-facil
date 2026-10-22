@@ -1,14 +1,13 @@
 #!/usr/bin/env node
 
 /**
- * Da de alta en `config/iaTarifas` las dos operaciones de Participación en vivo
- * SIN tocar nada más del documento:
+ * Deja en `config/iaTarifas` las dos operaciones de Participación en vivo SIN tocar nada más del documento:
  *
- *   · generar_dinamica_vivo  — 6 créditos fijos por generar la dinámica.
- *   · activar_analisis_vivo  — 10 créditos fijos por sesión con análisis en vivo
- *                              (cubre hasta VIVO_CFG.TOPE_ANALISIS = 40 respuestas abiertas).
+ *   · generar_dinamica_vivo  — 3 créditos POR PREGUNTA entregada (antes 6 fijos por dinámica).
+ *   · activar_analisis_vivo  — 0: activar el análisis ya es GRATIS (el costo lo absorbe la tarifa por pregunta).
+ *                              La llave se conserva solo porque el servidor la usa para hallar el modelo del análisis.
  *
- * Montos autorizados por Kike. Ambas usan claude-haiku-4-5 (el modelo vigente).
+ * Ambas usan claude-haiku-4-5 (el modelo vigente).
  *
  * Por qué no `seed-ia-tarifas.js`: hace `set()` sin merge y sustituye el documento
  * completo; si el documento vivo difiere del archivo, esa diferencia se pierde (a la fecha
@@ -35,8 +34,8 @@ try {
 const db = admin.firestore()
 
 const NUEVAS = {
-  generar_dinamica_vivo: { tarifa: 6, categoria: 'Actividades', modelo: 'claude-haiku-4-5' },
-  activar_analisis_vivo: { tarifa: 10, categoria: 'Actividades', modelo: 'claude-haiku-4-5' },
+  generar_dinamica_vivo: { tarifa: 3, categoria: 'Actividades', modelo: 'claude-haiku-4-5' },
+  activar_analisis_vivo: { tarifa: 0, categoria: 'Actividades', modelo: 'claude-haiku-4-5' },
 }
 const aplicar = process.argv.includes('--aplicar')
 const ref = db.doc('config/iaTarifas')
@@ -69,7 +68,7 @@ async function main() {
   if (!mapaCategorias) console.log('AVISO: el documento no tiene `categorias`; no se escribe categoría.')
 
   if (Object.entries(NUEVAS).every(([op, n]) => antes.tarifas[op] === n.tarifa && antes.modeloPorOperacion[op] === n.modelo)) {
-    console.log('\nYa están dadas de alta. Nada que hacer.')
+    console.log('\nYa están con la tarifa vigente. Nada que hacer.')
     return
   }
   if (!aplicar) {

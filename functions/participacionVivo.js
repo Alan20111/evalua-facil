@@ -3,11 +3,11 @@
 // Tres piezas, todas sin importar ia.js (sus dependencias llegan por parámetro, igual que
 // videoInteractivoIA.js):
 //
-//   1. `generar_dinamica_vivo`  (tarifa fija por ejecución, pasa por ejecutarOperacionIA)
+//   1. `generar_dinamica_vivo`  (tarifa POR PREGUNTA entregada, pasa por ejecutarOperacionIA)
 //        precheck sin cobro (contexto suficiente, archivos legibles) → la IA propone las
 //        preguntas → se guardan en la actividad (públicas) y en `clave/` (privadas).
 //        Si el material no alcanza, la IA lo dice y NO se cobra.
-//   2. `activar_analisis_vivo`  (cuota fija por sesión, pasa por ejecutarOperacionIA)
+//   2. activar el análisis        (GRATIS: callable propio, sin libro de créditos)
 //        no llama al modelo: marca la sesión con análisis activo y pone en cola las
 //        respuestas abiertas que ya hubieran llegado. Es el único cobro del análisis.
 //   3. `procesarRespuestaVivo`  (disparador por respuesta, NO pasa por el ledger)
@@ -141,8 +141,9 @@ async function precheckGenerarDinamicaVivo({ uid, params, tarifas, deps, idempot
   const tiempos = V.validarTiempos(params?.tiempos)
   if (!tiempos.ok) throw errorSinCobro('TIEMPOS_INVALIDOS', tiempos.error + ' No se descontaron créditos.', 'invalid-argument')
   const visualizacionBreve = params?.visualizacionBreve === 'nube' ? 'nube' : 'barras'
+  // TARIFA POR PREGUNTA: se reserva por las preguntas solicitadas (ya validadas); al liquidar se cobran las ENTREGADAS.
   return {
-    unidadesMinimas: 1,
+    unidadesMinimas: cantidad,
     proposito,
     tiempos: tiempos.valor,
     cantidad,
@@ -157,7 +158,7 @@ async function precheckGenerarDinamicaVivo({ uid, params, tarifas, deps, idempot
 // Instrucciones de formato: con distribución, la IA recibe EXACTAMENTE cuántas de cada formato; sin ella, elige la mezcla.
 const DESCRIPCION_FORMATO = {
   opcion: 'preguntas de OPCIÓN MÚLTIPLE: de 3 a 4 opciones con textos descriptivos (pueden ser frases completas) y UNA sola correcta ("correcta" = índice de 0 a n-1).',
-  opcion_breve: 'preguntas de OPCIÓN MÚLTIPLE BREVE: de 3 a 4 opciones de UNA o DOS palabras cada una (NUNCA más de dos palabras) y UNA sola correcta ("correcta" = índice de 0 a n-1).',
+  opcion_breve: 'preguntas de OPCIÓN MÚLTIPLE BREVE: de 3 a 4 opciones de UNA o DOS palabras cada una y UNA sola correcta ("correcta" = índice de 0 a n-1). REGLA DURA: cuenta TODAS las palabras, también «y», «de», «la»; nunca más de dos. Válidas: «Oxígeno», «Parte atrás», «Muy de acuerdo». NO válidas: «Tóner y tambor» (3 palabras), «La parte de atrás» (4), cualquier frase.',
   cierto_falso: 'preguntas de CIERTO/FALSO: un enunciado afirmativo; "opciones" = ["Cierto", "Falso"] exactamente; "correcta" = 0 si la afirmación es cierta o 1 si es falsa.',
   abierta: 'preguntas de RESPUESTA ABIERTA: se contestan con una o dos oraciones.',
 }
@@ -221,6 +222,43 @@ function aPreguntaCompleta(p, i, ctx = {}) {
   return { id: `p${i + 1}`, tipo, ...(formato ? { formato } : {}), enunciado: p?.enunciado, criterios: p?.criterios, esperada: p?.esperada, conceptos: p?.conceptos }
 }
 
+// Opciones «breves» pedidas como NUBE que la IA entregó con más de dos palabras («Tóner y tambor» son tres). UN solo reintento
+// acotado, solo para esas preguntas y dentro de la misma operación (sin cobro adicional): se piden las mismas opciones reescritas
+// a una o dos palabras. Si el reintento falla o no cumple, la pregunta se conserva tal cual (con la nube SOLICITADA): la
+// presentación mostrará barras y el editor avisará hasta que el docente acorte las opciones.
+async function repararOpcionesBreves({ validas, ctx, modelo, client, pedirJSON }) {
+  if (ctx.visualizacionBreve !== 'nube') return { validas, interno: null }
+  const malas = validas.map((p, i) => [p, i]).filter(([p]) => p.formato === 'opcion_breve' && !V.nubePermitida(p.opciones))
+  if (!malas.length) return { validas, interno: null }
+  const lista = malas.map(([p, i]) => {
+    const correcta = p.opciones.findIndex((o) => o.id === p.correcta)
+    return '#' + i + ': "' + limpiar(p.enunciado, 250) + '" — opciones actuales: ' + p.opciones.map((o, j) => '[' + j + '] ' + o.texto).join(' | ') + ' — correcta: ' + (correcta >= 0 ? '[' + correcta + ']' : 'ninguna')
+  }).join('\n')
+  const prompt = 'Estas preguntas de opción múltiple BREVE tienen opciones demasiado largas. Reescribe CADA opción con UNA o DOS palabras ' +
+    '(cuenta todas las palabras, también «y», «de», «la»…; nunca más de dos), conservando el sentido, el orden y cuál es la correcta. ' +
+    'Válidas: «Oxígeno», «Parte atrás», «Muy de acuerdo». No válidas: «Tóner y tambor», «La parte de atrás».\n\n' + lista + '\n\n' +
+    'Responde SOLO con este JSON: {"preguntas": [{"indice": <número después de #>, "opciones": ["...", "..."], "correcta": <índice de la correcta o null>}]}'
+  try {
+    const { datos, interno } = await pedirJSON({ client, modelo, maxTokens: 700, system: SISTEMA_GENERAR, prompt })
+    const nuevas = [...validas]
+    for (const r of Array.isArray(datos?.preguntas) ? datos.preguntas : []) {
+      const par = malas.find(([, i]) => i === r?.indice)
+      if (!par) continue
+      const [p, i] = par
+      const textos = Array.isArray(r.opciones) ? r.opciones.map((t) => limpiar(typeof t === 'string' ? t : '', V.VIVO_CFG.MAX_OPCION)) : []
+      if (textos.length !== p.opciones.length || !V.nubePermitida(textos.map((texto) => ({ texto })))) continue
+      const idxOriginal = p.opciones.findIndex((o) => o.id === p.correcta)
+      const idx = Number.isInteger(r.correcta) && r.correcta >= 0 && r.correcta < textos.length ? r.correcta : idxOriginal
+      const opciones = textos.map((texto, j) => ({ id: String.fromCharCode(97 + j), texto }))
+      nuevas[i] = { ...p, opciones, correcta: idxOriginal >= 0 && idx >= 0 ? opciones[idx].id : null }
+    }
+    return { validas: nuevas, interno }
+  } catch (e) {
+    logger.warn('vivo: el reintento de opciones breves no se pudo completar', e?.message)
+    return { validas, interno: null }
+  }
+}
+
 async function ejecutarGenerarDinamicaVivo({ params, modelo, apiKey, pedirJSON }) {
   const Anthropic = require('@anthropic-ai/sdk')
   const client = new Anthropic({ apiKey })
@@ -228,7 +266,7 @@ async function ejecutarGenerarDinamicaVivo({ params, modelo, apiKey, pedirJSON }
   const actividadId = String(params.actividadId)
   const asignatura = limpiar(params.asignaturaNombre, 120)
 
-  const { datos, interno } = await pedirJSON({
+  const { datos, interno: internoGen } = await pedirJSON({
     client, modelo, maxTokens: 3500, system: SISTEMA_GENERAR,
     prompt: promptGenerar(ctx, asignatura),
     bloquesPrefijo: ctx.fuentesBloques || [],
@@ -243,13 +281,17 @@ async function ejecutarGenerarDinamicaVivo({ params, modelo, apiKey, pedirJSON }
 
   const completas = (Array.isArray(datos?.preguntas) ? datos.preguntas : []).slice(0, ctx.cantidad).map((p, i) => aPreguntaCompleta(p, i, ctx))
   // Una pregunta mal formada se descarta; no se rellena ni se inventa en su lugar.
-  const validas = completas.filter((p) => V.sanearPreguntasVivo([p]).ok)
+  const validas0 = completas.filter((p) => V.sanearPreguntasVivo([p]).ok)
+  const { validas, interno: internoRep } = await repararOpcionesBreves({ validas: validas0, ctx, modelo, client, pedirJSON })
+  const interno = internoRep
+    ? { ...internoGen, tokensEntrada: (internoGen.tokensEntrada || 0) + (internoRep.tokensEntrada || 0), tokensSalida: (internoGen.tokensSalida || 0) + (internoRep.tokensSalida || 0), ms: (internoGen.ms || 0) + (internoRep.ms || 0) }
+    : internoGen
   // Ponderaciones: se reparten los 10 puntos de forma pareja entre las preguntas que quedaron (lo que proponga la IA se ignora).
   // Encuesta: sin puntos ni clave. Tiempo: el pedido para el formato de cada pregunta (null = manual).
   const encuesta = V.esEncuesta(ctx.proposito)
   const reparto = V.repartirPuntos(validas.length)
   const saneado = V.sanearPreguntasVivo(
-    validas.map((p, i) => ({ ...p, puntos: reparto[i], tiempo: ctx.tiempos ? ctx.tiempos[V.formatoDe(p)] ?? null : null })),
+    validas.map((p, i) => ({ ...p, puntos: reparto[i], tiempo: ctx.tiempos ? ctx.tiempos[V.formatoGuardado(p)] ?? null : null })),
     encuesta ? { encuesta: true } : { exigirTotal: true }
   )
   if (!saneado.ok || !saneado.publicas.length) {
@@ -276,42 +318,39 @@ async function ejecutarGenerarDinamicaVivo({ params, modelo, apiKey, pedirJSON }
 
   return {
     resultado: { preguntas: saneado.publicas.length, descartadas: completas.length - saneado.publicas.length },
-    unidadesReales: 1,
+    // Se cobran las preguntas ENTREGADAS: si la IA entregó menos que las solicitadas, el libro reembolsa la diferencia.
+    unidadesReales: saneado.publicas.length,
     interno,
   }
 }
 
-// ── 2. Activar el análisis de la sesión ────────────────────────────────────
-
-async function precheckActivarAnalisisVivo({ uid, params, tarifas, idempotencyKey }) {
-  if (await operacionYaEjecutada(uid, idempotencyKey, V.VIVO_CFG.OP_ANALISIS)) return { unidadesMinimas: 1, reintentoDeOperacionEjecutada: true }
-  const codigo = String(params?.sesionId || '')
+// ── 2. Activar el análisis de la sesión (GRATIS) ───────────────────────────
+// El análisis ya NO se cobra aparte: su costo queda absorbido por la tarifa de generación por pregunta. No pasa por el libro de
+// créditos (ni reserva, ni consumo, ni saldo). Conserva los límites: cuota de TOPE_ANALISIS respuestas abiertas evaluadas e
+// informes acotados (V.LIMITES_INFORME). Es un callable propio (activarAnalisisVivo), idempotente: activar dos veces no repite nada.
+async function activarAnalisisGratis({ uid, sesionId }) {
+  const codigo = String(sesionId || '')
   if (!V.codigoVivoValido(codigo)) throw new HttpsError('invalid-argument', 'Sesión no válida')
   const snap = await getFirestore().doc(`vivoSesiones/${codigo}`).get()
   if (!snap.exists) throw new HttpsError('not-found', 'La sesión no existe')
   const s = snap.data()
   if (s.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta sesión no es tuya')
-  if (s.estado !== 'activa') throw errorSinCobro('SESION_FINALIZADA', 'La sesión ya terminó.')
-  if (s.analisisActivo === true) throw errorSinCobro('ANALISIS_YA_ACTIVO', 'El análisis de esta sesión ya está activo.')
-  if (tarifas?.tarifas?.[V.VIVO_CFG.OP_ANALISIS] == null || !tarifas?.modeloPorOperacion?.[V.VIVO_CFG.OP_ANALISIS]) {
-    logger.error(`${V.VIVO_CFG.OP_ANALISIS}: sin tarifa o modelo configurados`)
-    throw errorSinCobro('TARIFA_NO_CONFIGURADA', 'El análisis en vivo no está configurado en el servidor.')
-  }
-  if (!(s.preguntas || []).length) throw errorSinCobro('SIN_PREGUNTAS', 'Esta dinámica no tiene preguntas que analizar.')
-  // El diagnóstico del grupo necesita una muestra mínima por pregunta (V.UMBRALES_DIAGNOSTICO). Para no cobrar los 10
-  // créditos sin que el análisis pueda aportar nada, la activación exige que ALGUNA pregunta ya la tenga. Excepción: una
-  // sesión CALIFICABLE puede activarse siempre (la evaluación por respuesta sirve para proponer notas aunque el grupo
-  // sea chico); ahí el cobro es el mismo y el diagnóstico simplemente avisa «muestra insuficiente». Esto es una
-  // validación previa al cobro: no cambia tarifas ni el flujo de créditos.
+  if (s.estado !== 'activa') throw new HttpsError('failed-precondition', 'La sesión ya terminó.')
+  if (!(s.preguntas || []).length) throw new HttpsError('failed-precondition', 'Esta dinámica no tiene preguntas que analizar.')
+  if (s.analisisActivo === true) return { yaActivo: true }
+  // El diagnóstico del grupo necesita una muestra mínima por pregunta (V.UMBRALES_DIAGNOSTICO). Aunque activar ya no cuesta,
+  // se exige que ALGUNA pregunta la tenga para no producir diagnósticos vacíos o engañosos. Excepción: una sesión CALIFICABLE
+  // puede activarse siempre (la evaluación por respuesta sirve para proponer notas aunque el grupo sea chico).
   if (s.calificable !== true) {
     const rs = (await getFirestore().collection('vivoRespuestas').where('sesionId', '==', codigo).get()).docs.map((d) => ({ id: d.id, ...d.data() }))
     // Antes de activar nada está «analizado»: se cuentan las RECIBIDAS como si fueran diagnosticables.
     const comoUsables = rs.map((r) => ({ ...r, estadoIA: V.ESTADO_IA.ANALIZADA }))
     if (!(s.preguntas || []).some((p) => V.puedeDiagnosticar(p, comoUsables, { encuesta: V.esEncuesta(s.proposito) }).ok)) {
-      throw errorSinCobro('DATOS_INSUFICIENTES', 'Todavía no hay respuestas suficientes para un diagnóstico del grupo (hacen falta 5 de opción única u 8 abiertas en una pregunta).')
+      throw new HttpsError('failed-precondition', 'Todavía no hay respuestas suficientes para un diagnóstico del grupo (hacen falta 5 de opción única u 8 abiertas en una pregunta).')
     }
   }
-  return { unidadesMinimas: 1, sesion: s }
+  const r = await ejecutarActivarAnalisisVivo({ params: { sesionId: codigo } })
+  return { yaActivo: false, ...r.resultado }
 }
 
 // No llama al modelo. Marca la sesión y pone en cola las abiertas que llegaron ANTES de activar: cambiar su
@@ -802,7 +841,7 @@ module.exports = {
   limpiarVivoDeActividad, recuperarAnalisisAtascado, recuperarInformesAtascados, sellarSesionesVencidas,
   generarInformePregunta, generarInformeFinal, alCambiarSesionVivo,
   precheckGenerarDinamicaVivo, ejecutarGenerarDinamicaVivo,
-  precheckActivarAnalisisVivo, ejecutarActivarAnalisisVivo,
+  activarAnalisisGratis,
   procesarRespuestaVivo,
   _pruebas: { configurarEsperas: (a) => { esperasReintentoMs = a }, promptGenerar, promptEvaluar, aPreguntaCompleta, reclamarRespuesta, escribirSiToken, promptInforme, promptInformeEncuesta, SISTEMA_INFORME, SISTEMA_INFORME_ENCUESTA, SISTEMA_GENERAR, SISTEMA_EVALUAR },
 }

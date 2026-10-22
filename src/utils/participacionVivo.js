@@ -17,7 +17,8 @@
 
 export const VIVO_CFG = {
   CATEGORIA: 'participacion',
-  OP_GENERAR: 'generar_dinamica_vivo',
+  OP_GENERAR: 'generar_dinamica_vivo', // se cobra POR PREGUNTA entregada
+  // Ya NO se cobra: solo es la llave con la que el servidor busca el modelo del análisis en config/iaTarifas.
   OP_ANALISIS: 'activar_analisis_vivo',
   // Tope de respuestas abiertas que la IA analiza por sesión (cuota fija pagada al activar).
   TOPE_ANALISIS: 40,
@@ -132,8 +133,10 @@ export function sanearPreguntasVivo(entrada, { exigirCorrecta = false, exigirTot
       }
       const correcta = idsOp.has(p?.correcta) ? p.correcta : null
       if (exigirCorrecta && !encuesta && !correcta) { errores.push(`Pregunta ${n}: marca la opción correcta (la actividad es calificable).`); return }
-      const formato = formatoDe({ tipo, formato: p?.formato, opciones })
-      publicas.push({ id, tipo, formato, enunciado, opciones, ...(encuesta ? {} : { puntos }), visualizacion: visualizacionDe({ tipo, formato, visualizacion: p?.visualizacion, opciones }), tiempo: tiempoDe(p?.tiempo) })
+      // Se guarda lo SOLICITADO (formato breve y nube); la validez (≤ 2 palabras) se aplica al presentar (visualizacionDe).
+      const formato = formatoGuardado({ tipo, formato: p?.formato, opciones })
+      const visualizacion = formato === 'opcion_breve' && p?.visualizacion === 'nube' ? 'nube' : 'barras'
+      publicas.push({ id, tipo, formato, enunciado, opciones, ...(encuesta ? {} : { puntos }), visualizacion, tiempo: tiempoDe(p?.tiempo) })
       claves[id] = encuesta ? {} : { correcta } // una encuesta no tiene respuestas correctas
       return
     }
@@ -222,6 +225,13 @@ export function formatoDe(pregunta) {
   if (f === 'opcion_breve' && nubePermitida(opciones)) return 'opcion_breve'
   if (esCiertoFalso(opciones)) return 'cierto_falso'
   return nubePermitida(opciones) ? 'opcion_breve' : 'opcion'
+}
+
+// Formato GUARDADO: conserva lo solicitado. Una pregunta pedida como «opción múltiple breve» sigue siéndolo aunque hoy alguna opción
+// supere las dos palabras (la presentación la muestra en barras y el editor avisa); al acortarlas, la nube se activa sola.
+export function formatoGuardado(pregunta) {
+  if (pregunta?.tipo !== 'opcion_unica') return 'abierta'
+  return pregunta.formato === 'opcion_breve' ? 'opcion_breve' : formatoDe(pregunta)
 }
 
 // Cuántas preguntas de cada formato. Debe sumar exactamente el total pedido.
