@@ -93,6 +93,14 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
   // Cada pregunta empieza mostrando sus opciones (si son largas) y sin revelar la correcta.
   const indice = sesion?.preguntaIndex
   useEffect(() => { cambiar({ momento: 'opciones', verCorrecta: false }) }, [indice, cambiar])
+  // Al FINALIZAR (de activa a finalizada) la ventana pasa a la vista del grupo: ahí están los resultados pregunta por pregunta. El
+  // informe final y la calificación siguen en «Vista del docente». Una sesión que ya se abre finalizada arranca en 'grupo' (estado inicial).
+  const estadoSesion = sesion?.estado
+  const estadoPrevio = useRef(estadoSesion)
+  useEffect(() => {
+    if (estadoPrevio.current === 'activa' && estadoSesion === 'finalizada') setVista('grupo')
+    estadoPrevio.current = estadoSesion
+  }, [estadoSesion])
 
   const cuenta = useCuentaRegresiva(sesion || null, ahora)
   const idVigente = sesion?.preguntas?.[sesion?.preguntaIndex]?.id
