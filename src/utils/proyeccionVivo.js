@@ -19,6 +19,34 @@ export function tamanosProyeccion(ancho, alto) {
   }
 }
 
+/**
+ * Tamaños de letra (px) de la VISTA DEL DOCENTE: es su pantalla de trabajo, no el proyector, así que no usa los pisos de
+ * proyección. Misma forma que tamanosProyeccion; cada tamaño queda acotado entre un mínimo legible y un máximo.
+ */
+export function tamanosDocente(ancho, alto) {
+  const vmin = Math.min(ancho, alto)
+  const entre = (min, f, max) => Math.min(max, Math.max(min, Math.round(vmin * f)))
+  return {
+    pregunta: entre(20, 0.045, 28),
+    opcion: entre(16, 0.032, 20),
+    numero: entre(20, 0.04, 26),
+    respuesta: entre(16, 0.03, 18),
+    resto: entre(14, 0.024, 16),
+  }
+}
+
+/**
+ * Navegación MANUAL (consulta del docente): índice de la página que contiene la respuesta `id` que el docente estaba
+ * viendo. Si esa respuesta ya no existe, se queda en el índice previo, acotado al rango. Nunca salta a la más reciente.
+ */
+export function paginaAnclada(paginas, id, previo = 0) {
+  if (id != null) {
+    const k = paginas.findIndex((p) => p.some((r) => r.id === id))
+    if (k >= 0) return k
+  }
+  return Math.max(0, Math.min(previo, paginas.length - 1))
+}
+
 // Líneas que ocupa un texto a un tamaño dado en un ancho dado (estimación conservadora: 0.56 em por carácter y
 // 12 % extra por cortes de palabra).
 export function lineasDe(texto, tamano, anchoDisponible) {
@@ -32,8 +60,7 @@ export function lineasDe(texto, tamano, anchoDisponible) {
  *   · 'lista'    → opciones medianas: lista de opciones (letra + texto completo) junto a las columnas con letras;
  *   · 'momentos' → opciones largas: primero pregunta + opciones completas, después las columnas con letras.
  */
-export function planOpciones(enunciado, opciones, ancho, alto) {
-  const t = tamanosProyeccion(ancho, alto)
+export function planOpciones(enunciado, opciones, ancho, alto, t = tamanosProyeccion(ancho, alto)) {
   const n = (opciones || []).length
   const margen = Math.round(ancho * 0.05)
   const W = ancho - 2 * margen
@@ -58,8 +85,7 @@ export function ladoQr(ancho, alto) {
 }
 
 /** Alto (px) que ocupa el enunciado a su tamaño de proyección: lo que sobra es para los resultados. */
-export function altoEnunciado(enunciado, ancho, alto) {
-  const t = tamanosProyeccion(ancho, alto)
+export function altoEnunciado(enunciado, ancho, alto, t = tamanosProyeccion(ancho, alto)) {
   return Math.round(lineasDe(enunciado, t.pregunta, ancho * 0.9) * t.pregunta * 1.2 + t.pregunta * 0.4)
 }
 
@@ -86,8 +112,7 @@ export const rutaProyeccion = (codigo) => `/proyeccion-vivo/${codigo}`
  * Reparte las opciones (texto COMPLETO) en páginas que caben en el alto disponible, sin reducir la letra: devuelve
  * rangos [desde, hasta). Siempre al menos una opción por página; la última página lleva el resto.
  */
-export function paginarOpciones(opciones, ancho, alto) {
-  const t = tamanosProyeccion(ancho, alto)
+export function paginarOpciones(opciones, ancho, alto, t = tamanosProyeccion(ancho, alto)) {
   const disponible = (alto - Math.round(t.resto * 2.8) - 8) * 0.92 // margen: la estimación de líneas es aproximada
   const anchoTexto = ancho * 0.92 - t.opcion * 1.5 - 24
   const paginas = []

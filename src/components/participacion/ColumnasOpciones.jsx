@@ -8,6 +8,9 @@
 //   · lista     → lista de opciones (letra + texto completo) a la izquierda y columnas con letras a la derecha;
 //   · momentos  → 'opciones': pregunta + opciones completas; 'resultados': lista de opciones (paginada si no cabe) junto a las
 //                 columnas con letras: los resultados SIEMPRE llevan el texto de cada opción, nunca solo letras y barras.
+//
+// `manual` (consulta del docente): la lista de opciones no cambia de página sola. `docente`: los tamaños `tam` son los de la
+// vista del docente (tamanosDocente), así que también se usan para medir cuántas opciones caben por página.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { contarOpciones } from '../../utils/participacionVivo'
@@ -23,7 +26,7 @@ export function ListaOpciones({ pregunta, area, tam = null, correcta = null, des
       {pregunta.opciones.map((o, i) => (i < desde || i >= hasta ? null : (
         <li key={o.id} className="flex items-start gap-[2vmin]">
           <span className="flex-shrink-0 rounded-full text-white font-bold flex items-center justify-center" style={{ width: t.opcion * 1.5, height: t.opcion * 1.5, fontSize: t.opcion, backgroundColor: COLORES_COLUMNAS[i % COLORES_COLUMNAS.length] }}>{letra(i)}</span>
-          <span className="font-medium leading-snug" style={{ fontSize: t.opcion }}>
+          <span className="font-medium leading-snug break-words min-w-0" style={{ fontSize: t.opcion }}>
             {o.texto}
             {correcta != null && o.id === correcta && <Check className="inline ml-2 text-emerald-700" size={40} aria-label="Correcta" />}
           </span>
@@ -35,7 +38,7 @@ export function ListaOpciones({ pregunta, area, tam = null, correcta = null, des
 
 // Opciones largas: primer momento. Si ni siquiera solas caben en una pantalla se reparten en páginas (texto completo,
 // letra del mismo tamaño) con botones grandes para pasar de una a otra.
-function OpcionesPaginadas({ pregunta, area, tam, correcta, auto = false }) {
+function OpcionesPaginadas({ pregunta, area, tam, correcta, auto = false, docente = false }) {
   const [pagina, setPagina] = useState(0)
   // La estimación de líneas es aproximada: se MIDE la página real y, si no cabe, se baja el número de opciones por página
   // (nunca se encoge la letra ni se recorta el texto).
@@ -43,11 +46,11 @@ function OpcionesPaginadas({ pregunta, area, tam, correcta, auto = false }) {
   const [tope, setTope] = useState({ clave: '', n: Infinity })
   const maxPorPagina = tope.clave === clave ? tope.n : Infinity
   const lista = useRef(null)
-  const paginas = useMemo(() => paginarOpciones(pregunta.opciones, area.ancho, area.alto).flatMap(([a, b]) => {
+  const paginas = useMemo(() => paginarOpciones(pregunta.opciones, area.ancho, area.alto, docente ? tam : undefined).flatMap(([a, b]) => {
     const trozos = []
     for (let i = a; i < b; i += maxPorPagina) trozos.push([i, Math.min(b, i + maxPorPagina)])
     return trozos
-  }), [pregunta.opciones, area.ancho, area.alto, maxPorPagina])
+  }), [pregunta.opciones, area.ancho, area.alto, maxPorPagina, docente, tam])
   const actual = Math.min(pagina, paginas.length - 1)
   useEffect(() => {
     if (!auto || paginas.length < 2) return undefined
@@ -59,23 +62,26 @@ function OpcionesPaginadas({ pregunta, area, tam, correcta, auto = false }) {
     const el = lista.current
     if (el && el.scrollHeight > el.clientHeight + 2 && hasta - desde > 1) setTope({ clave, n: hasta - desde - 1 })
   }, [clave, desde, hasta])
-  const barra = Math.round(tam.resto * 2.8)
+  // Botones de al menos 44 px (táctiles). En proyección tam.resto ≥ 28, así que miden lo mismo que siempre.
+  const lado = Math.max(44, tam.resto * 2)
+  const icono = lado >= 56 ? 40 : 24
+  const barra = Math.max(Math.round(tam.resto * 2.8), lado + 8)
   const boton = 'rounded-full border-2 border-slate-900 text-slate-900 flex items-center justify-center disabled:opacity-40'
   return (
     <div className="h-full w-full flex flex-col">
       <div ref={lista} className="flex-1 min-h-0 overflow-hidden"><ListaOpciones pregunta={pregunta} area={area} tam={tam} correcta={correcta} desde={desde} hasta={hasta} /></div>
       {paginas.length > 1 && (
         <div className="flex items-center justify-center gap-[3vmin] text-slate-900" style={{ height: barra }}>
-          <button type="button" aria-label="Opciones anteriores" className={boton} style={{ width: tam.resto * 2, height: tam.resto * 2 }} disabled={actual === 0} onClick={() => setPagina(actual - 1)}><ChevronLeft size={40} aria-hidden="true" /></button>
+          <button type="button" aria-label="Opciones anteriores" className={boton} style={{ width: lado, height: lado }} disabled={actual === 0} onClick={() => setPagina(actual - 1)}><ChevronLeft size={icono} aria-hidden="true" /></button>
           <span className="font-semibold tabular-nums" style={{ fontSize: tam.resto }}>Opciones {actual + 1}/{paginas.length}</span>
-          <button type="button" aria-label="Opciones siguientes" className={boton} style={{ width: tam.resto * 2, height: tam.resto * 2 }} disabled={actual >= paginas.length - 1} onClick={() => setPagina(actual + 1)}><ChevronRight size={40} aria-hidden="true" /></button>
+          <button type="button" aria-label="Opciones siguientes" className={boton} style={{ width: lado, height: lado }} disabled={actual >= paginas.length - 1} onClick={() => setPagina(actual + 1)}><ChevronRight size={icono} aria-hidden="true" /></button>
         </div>
       )}
     </div>
   )
 }
 
-export default function ColumnasOpciones({ pregunta, respuestas, area, tam = null, plan, momento = 'resultados', correcta = null, revelar = false }) {
+export default function ColumnasOpciones({ pregunta, respuestas, area, tam = null, plan, momento = 'resultados', correcta = null, revelar = false, manual = false, docente = false }) {
   const t = tam || tamanosProyeccion(area.ancho, area.alto)
   const { cuentas, total } = contarOpciones(respuestas, pregunta)
   const max = Math.max(1, ...Object.values(cuentas))
@@ -83,7 +89,7 @@ export default function ColumnasOpciones({ pregunta, respuestas, area, tam = nul
   const hayLider = total > 0 && lider[1] > 0 && Object.values(cuentas).filter((n) => n === lider[1]).length === 1
   const conCorrecta = revelar && correcta != null
 
-  if (plan === 'momentos' && momento === 'opciones') return <OpcionesPaginadas pregunta={pregunta} area={area} tam={t} correcta={conCorrecta ? correcta : null} />
+  if (plan === 'momentos' && momento === 'opciones') return <OpcionesPaginadas pregunta={pregunta} area={area} tam={t} correcta={conCorrecta ? correcta : null} docente={docente} />
 
   const columnas = (
     <figure className="flex items-end justify-center gap-[2.4vmin] h-full w-full m-0" aria-label={`Resultados: ${pregunta.opciones.map((o, i) => `${letra(i)} ${cuentas[o.id] || 0}`).join(', ')}`}>
@@ -95,7 +101,7 @@ export default function ColumnasOpciones({ pregunta, respuestas, area, tam = nul
         return (
           <div key={o.id} className="flex flex-col items-center justify-end h-full flex-1 min-w-0" style={{ opacity: atenuada ? 0.35 : 1, transition: 'opacity 500ms' }}>
             <p className="font-bold tabular-nums leading-none text-slate-900 text-center" style={{ fontSize: t.numero }}>
-              {n}<span className="font-semibold text-slate-700" style={{ fontSize: Math.max(PISOS_PROYECCION.resto, Math.round(t.numero * 0.62)) }}> · {pct}%</span>
+              {n}<span className="font-semibold text-slate-700" style={{ fontSize: docente ? Math.round(t.numero * 0.62) : Math.max(PISOS_PROYECCION.resto, Math.round(t.numero * 0.62)) }}> · {pct}%</span>
             </p>
             <div className="w-full flex-1 flex items-end mt-[1.2vmin]" style={{ minHeight: 0 }}>
               <div className="w-full rounded-card transition-[height] duration-lenta motion-reduce:transition-none"
@@ -119,7 +125,7 @@ export default function ColumnasOpciones({ pregunta, respuestas, area, tam = nul
         <div className="w-[46%] flex-shrink-0 overflow-hidden">
           {plan === 'lista'
             ? <ListaOpciones pregunta={pregunta} area={area} tam={t} correcta={correctaLista} />
-            : <OpcionesPaginadas pregunta={pregunta} area={{ ancho: Math.round(area.ancho * 0.46), alto: area.alto }} tam={t} correcta={correctaLista} auto />}
+            : <OpcionesPaginadas pregunta={pregunta} area={{ ancho: Math.round(area.ancho * 0.46), alto: area.alto }} tam={t} correcta={correctaLista} auto={!manual} docente={docente} />}
         </div>
         <div className="flex-1 min-w-0">{columnas}</div>
       </div>

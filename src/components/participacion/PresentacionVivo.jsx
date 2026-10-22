@@ -24,7 +24,6 @@ import { planOpciones, rutaProyeccion, tamanosProyeccion } from '../../utils/pro
 import VistaGrupo from './VistaGrupo'
 import VistaDocente from './VistaDocente'
 import RecorridoResultados from './RecorridoResultados'
-import PanelCalificacionVivo from './PanelCalificacionVivo'
 
 
 // Pantalla de proyección: el diálogo de la app (ui/Modal) estirado a toda la ventana. Hereda el foco atrapado,
@@ -39,7 +38,9 @@ function Pantalla({ children, onCerrar, autonoma }) {
   )
 }
 
-function Escenario({ sesion, respuestas, informes, claves, vista, estado, ahora, reservaInferior = 0, onOcultarQr }) {
+// `indiceResultados`/`onIndiceResultados`: la pregunta que el docente consulta en los resultados finales, compartida por la vista
+// del grupo y la suya (así no vuelve a la primera al alternar). La ventana de proyección no los pasa: lleva su propio recorrido.
+function Escenario({ sesion, respuestas, informes, claves, vista, estado, ahora, reservaInferior = 0, onOcultarQr, actividad = null, indiceResultados = null, onIndiceResultados = null }) {
   const [ref, area] = useAreaMedida()
   const finalizada = sesion.estado === 'finalizada'
   // La barra de controles flota sobre el escenario: se RESERVA su altura al pie para que ni las flechas ni nada quede
@@ -50,10 +51,10 @@ function Escenario({ sesion, respuestas, informes, claves, vista, estado, ahora,
     <div ref={ref} className="flex-1 min-h-0 relative overflow-hidden bg-white" style={{ paddingBottom: reservaInferior }}>
       {area.ancho > 0 && vista === 'docente' && (
         <VistaDocente sesion={sesion} respuestas={respuestas} informes={informes} claves={claves} indice={sesion.preguntaIndex} ahora={ahora}
-          verCorrecta={estado.verCorrecta} momento={estado.momento} />
+          verCorrecta={estado.verCorrecta} actividad={actividad} indiceResultados={indiceResultados ?? 0} onIndiceResultados={onIndiceResultados} />
       )}
       {area.ancho > 0 && vista === 'grupo' && (finalizada
-        ? <RecorridoResultados sesion={sesion} respuestas={respuestas} claves={claves} area={areaUtil} tamBase={tamBase} />
+        ? <RecorridoResultados sesion={sesion} respuestas={respuestas} claves={claves} area={areaUtil} tamBase={tamBase} indice={indiceResultados} onIndice={onIndiceResultados} />
         : <VistaGrupo sesion={sesion} respuestas={respuestas} claves={claves} area={areaUtil} tamBase={tamBase} ahora={ahora} verCorrecta={estado.verCorrecta} mostrarQr={estado.mostrarQr} onOcultarQr={onOcultarQr}
           momento={estado.momento} />)}
     </div>
@@ -66,6 +67,7 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
   const [respuestas, setRespuestas] = useState([])
   const [informes, setInformes] = useState([])
   const [vista, setVista] = useState('grupo')
+  const [indiceResultados, setIndiceResultados] = useState(0) // pregunta consultada en los resultados finales
   const [estado, cambiar] = useEstadoProyeccion(codigo, { emisor: true })
   const [visibles] = useAutoOcultar(3000)
   const [activandoAnalisis, setActivandoAnalisis] = useState(false)
@@ -175,7 +177,7 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
     <>
       <Pantalla onCerrar={onCerrar}>
         <Escenario sesion={sesion} respuestas={respuestas} informes={informes} claves={claves} vista={vista} estado={estado} ahora={ahora} reservaInferior={alturaBarra}
-          onOcultarQr={() => cambiar({ mostrarQr: false })} />
+          onOcultarQr={() => cambiar({ mostrarQr: false })} actividad={actividad} indiceResultados={indiceResultados} onIndiceResultados={setIndiceResultados} />
 
         {/* Controles: se ocultan solos a los 3 s en la vista del grupo; el contenido nunca se encoge por ellos. */}
         <div ref={barraRef} role="toolbar" aria-label="Controles de la presentación"
@@ -228,12 +230,7 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
           {!finalizada && <Button variant="danger-outline" size="sm" icon={Square} onClick={() => setConfirmandoFin(true)}>{ultima || enEspera ? 'Finalizar' : 'Finalizar sesión'}</Button>}
         </div>
 
-        {/* Calificación propuesta de una sesión calificable: solo en la vista del docente. */}
-        {finalizada && sesion.calificable && vista === 'docente' && (
-          <div className="absolute inset-x-0 bottom-16 z-barra max-h-[40%] overflow-y-auto px-6 pb-4 bg-white border-t border-slate-300">
-            <PanelCalificacionVivo sesion={sesion} actividad={actividad} claves={claves} respuestas={respuestas} asignaturaId={sesion.asignaturaId} />
-          </div>
-        )}
+        {/* La calificación propuesta de una sesión calificable vive en la vista del docente, debajo de los resultados. */}
       </Pantalla>
 
       {confirmandoFin && (

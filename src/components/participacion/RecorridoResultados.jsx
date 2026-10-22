@@ -1,14 +1,19 @@
 // Resultados finales PREGUNTA POR PREGUNTA, sin desplazamiento: una pregunta por pantalla, a tamaño de proyección,
 // con «Anterior/Siguiente» grandes (o las flechas del teclado). Muestra los resultados de la clase; el diagnóstico
 // pedagógico es de la vista del docente.
+//
+// Es una CONSULTA: nada avanza solo (modo manual). La pregunta actual puede venir de afuera (`indice` + `onIndice`) para que
+// la ventana del docente la conserve al alternar entre la vista del grupo y la suya; sin ellos, la lleva este componente.
 import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import VistaPregunta from './VistaPregunta'
 import { tamanosProyeccion } from '../../utils/proyeccionVivo'
 
-export default function RecorridoResultados({ sesion, respuestas, claves, area, tamBase = null, indiceInicial = 0 }) {
-  const [i, setI] = useState(indiceInicial)
+export default function RecorridoResultados({ sesion, respuestas, claves, area, tamBase = null, indiceInicial = 0, indice = null, onIndice = null }) {
+  const [propio, setPropio] = useState(indiceInicial)
   const n = sesion.preguntas.length
+  const i = Math.max(0, Math.min(indice ?? propio, n - 1))
+  const setI = onIndice || setPropio
   const t = tamBase || tamanosProyeccion(area.ancho, area.alto)
   useEffect(() => {
     const tecla = (e) => {
@@ -17,15 +22,15 @@ export default function RecorridoResultados({ sesion, respuestas, claves, area, 
     }
     window.addEventListener('keydown', tecla)
     return () => window.removeEventListener('keydown', tecla)
-  }, [n])
+  }, [n, setI])
   const barra = Math.round(t.resto * 2.8)
-  const pregunta = sesion.preguntas[Math.min(i, n - 1)]
+  const pregunta = sesion.preguntas[i]
   const total = respuestas.filter((r) => r.preguntaId === pregunta.id).length
   const boton = 'rounded-full border-2 border-slate-900 text-slate-900 flex items-center justify-center disabled:opacity-40'
   return (
     <div className="h-full w-full flex flex-col">
       <div className="flex-1 min-h-0">
-        <VistaPregunta pregunta={pregunta} respuestas={respuestas} area={{ ancho: area.ancho, alto: area.alto - barra }} tamBase={t}
+        <VistaPregunta pregunta={pregunta} respuestas={respuestas} area={{ ancho: area.ancho, alto: area.alto - barra }} tamBase={t} manual
           correcta={sesion.calificable ? claves?.[pregunta.id]?.correcta ?? null : null} revelar={sesion.calificable}
           encabezado={`Resultados · pregunta ${i + 1} de ${n} · ${total} ${total === 1 ? 'respuesta' : 'respuestas'}`} />
       </div>
