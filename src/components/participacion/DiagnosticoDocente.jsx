@@ -4,10 +4,12 @@
 import { useState } from 'react'
 import { Loader2, RefreshCw, Sparkles } from 'lucide-react'
 import { Button } from '../ui'
-import { LIMITES_INFORME, coberturaConceptos, puedeDiagnosticar, respuestasDiagnosticables } from '../../utils/participacionVivo'
+import { LIMITES_INFORME, coberturaConceptos, esEncuesta, puedeDiagnosticar, respuestasDiagnosticables } from '../../utils/participacionVivo'
 import { actualizarInformeVivo } from '../../utils/participacionVivoDb'
 
 const PASO = { reexplicar: 'Volver a explicar', aclarar: 'Aclarar con un ejemplo', actividad: 'Hacer una actividad breve' }
+// Encuesta: no hay aciertos ni errores; se habla de opiniones.
+const PASO_ENCUESTA = { reexplicar: 'Retomar el tema', aclarar: 'Conversar con el grupo', actividad: 'Hacer una actividad breve' }
 const CONFIANZA = { alta: 'Confianza alta', media: 'Confianza media', baja: 'Confianza baja' }
 const letra = (i) => String.fromCharCode(65 + i)
 
@@ -21,7 +23,7 @@ function Lista({ titulo, items }) {
   )
 }
 
-function Cuerpo({ pregunta, informe, respuestas }) {
+function Cuerpo({ pregunta, informe, respuestas, encuesta }) {
   const citas = (ids) => ids.slice(0, 2).map((id) => respuestas.find((r) => r.id === id)?.texto).filter(Boolean)
   return (
     <div className="space-y-3">
@@ -37,9 +39,9 @@ function Cuerpo({ pregunta, informe, respuestas }) {
           <Lista titulo="Ideas que se repiten" items={(informe.ideas || []).map((x, k) => (
             <li key={k}>{x.texto} <span className="text-muted">({x.n})</span>{citas(x.ids).map((c, j) => <q key={j} className="block text-muted italic">{c}</q>)}</li>
           ))} />
-          <Lista titulo="Confusiones o vacíos" items={(informe.confusiones || []).map((x, k) => (
+          {!encuesta && <Lista titulo="Confusiones o vacíos" items={(informe.confusiones || []).map((x, k) => (
             <li key={k}>{x.texto} <span className="text-muted">({x.n})</span>{citas(x.ids).map((c, j) => <q key={j} className="block text-muted italic">{c}</q>)}</li>
-          ))} />
+          ))} />}
         </>
       )}
       {informe.cobertura?.length > 0 && (
@@ -47,9 +49,9 @@ function Cuerpo({ pregunta, informe, respuestas }) {
           <li key={c.concepto} className="list-none -ml-5">{c.aparece ? '✓' : '—'} {c.concepto}{c.aparece && <span className="text-muted"> ({c.n})</span>}</li>
         ))} />
       )}
-      <Lista titulo="Qué reforzar" items={(informe.refuerzo || []).map((x, k) => <li key={k}>{x}</li>)} />
+      <Lista titulo={encuesta ? 'Temas que conviene atender' : 'Qué reforzar'} items={(informe.refuerzo || []).map((x, k) => <li key={k}>{x}</li>)} />
       <div className="rounded-card bg-surface p-3">
-        <p className="text-sm font-semibold text-on-surface">{PASO[informe.siguientePaso?.tipo] || 'Siguiente paso'}</p>
+        <p className="text-sm font-semibold text-on-surface">{(encuesta ? PASO_ENCUESTA : PASO)[informe.siguientePaso?.tipo] || 'Siguiente paso'}</p>
         <p className="text-sm text-on-surface">{informe.siguientePaso?.texto}</p>
       </div>
       {informe.limitaciones && <p className="text-xs text-muted">Limitaciones: {informe.limitaciones}</p>}
@@ -61,8 +63,9 @@ export default function DiagnosticoDocente({ sesion, pregunta, respuestas, infor
   const [actualizando, setActualizando] = useState(false)
   const [error, setError] = useState('')
   const doc = informes.find((i) => i.preguntaId === pregunta.id)
-  const chequeo = puedeDiagnosticar(pregunta, respuestas)
-  const usables = respuestasDiagnosticables(pregunta, respuestas)
+  const encuesta = esEncuesta(sesion.proposito)
+  const chequeo = puedeDiagnosticar(pregunta, respuestas, { encuesta })
+  const usables = respuestasDiagnosticables(pregunta, respuestas, { encuesta })
   const generaciones = doc?.generaciones ?? 0
   const sinCupo = generaciones >= LIMITES_INFORME.POR_PREGUNTA
   async function actualizar() {
@@ -76,12 +79,12 @@ export default function DiagnosticoDocente({ sesion, pregunta, respuestas, infor
     <section aria-label="Diagnóstico pedagógico" className="rounded-card border border-outline-variant bg-surface-card p-4">
       <header className="flex items-center gap-2 mb-3">
         <Sparkles size={16} className="text-accent" aria-hidden="true" />
-        <h3 className="text-base font-semibold text-on-surface">{titulo || 'Diagnóstico pedagógico'}</h3>
+        <h3 className="text-base font-semibold text-on-surface">{titulo || (esEncuesta(sesion.proposito) ? 'Tendencias de opinión' : 'Diagnóstico pedagógico')}</h3>
         <span className="ml-auto text-xs text-muted">{CONFIANZA[chequeo.confianza]} · {chequeo.n} {chequeo.n === 1 ? 'respuesta' : 'respuestas'}</span>
       </header>
-      {!sesion.analisisActivo && <p className="text-sm text-muted">Activa «Analizar con IA» para obtener el diagnóstico de esta pregunta.</p>}
+      {!sesion.analisisActivo && <p className="text-sm text-muted">Activa «Analizar con IA» para obtener {encuesta ? 'las tendencias de opinión' : 'el diagnóstico'} de esta pregunta.</p>}
       {sesion.analisisActivo && doc?.estado === 'generando' && <p className="text-sm text-muted flex items-center gap-2"><Loader2 size={16} className="animate-spin" aria-hidden="true" />Preparando el diagnóstico…</p>}
-      {sesion.analisisActivo && doc?.estado === 'listo' && <Cuerpo pregunta={pregunta} informe={{ ...doc.informe, cobertura: doc.informe?.cobertura || cobertura }} respuestas={respuestas} />}
+      {sesion.analisisActivo && doc?.estado === 'listo' && <Cuerpo pregunta={pregunta} informe={{ ...doc.informe, cobertura: doc.informe?.cobertura || cobertura }} respuestas={respuestas} encuesta={encuesta} />}
       {sesion.analisisActivo && doc?.estado === 'error' && <p className="text-sm text-red-700">No se pudo preparar el diagnóstico. Puedes intentarlo de nuevo.</p>}
       {sesion.analisisActivo && (!doc || doc.estado === 'insuficiente') && (
         <div className="space-y-2">
@@ -102,6 +105,7 @@ export default function DiagnosticoDocente({ sesion, pregunta, respuestas, infor
 
 /** Informe FINAL de la sesión: síntesis de los diagnósticos por pregunta. */
 export function InformeFinalDocente({ sesion, informes }) {
+  const encuesta = esEncuesta(sesion.proposito)
   const [actualizando, setActualizando] = useState(false)
   const [error, setError] = useState('')
   const doc = informes.find((i) => !i.preguntaId)
@@ -121,10 +125,10 @@ export function InformeFinalDocente({ sesion, informes }) {
       {doc?.estado === 'listo' && inf && (
         <>
           <p className="text-base text-on-surface leading-snug">{inf.sintesis}</p>
-          <Lista titulo="Lo que el grupo comprende" items={(inf.comprende || []).map((x, k) => <li key={k}>{x}</li>)} />
-          <Lista titulo="Lo que aún no comprende" items={(inf.noComprende || []).map((x, k) => <li key={k}>{x}</li>)} />
+          <Lista titulo={encuesta ? 'Opiniones en las que coinciden' : 'Lo que el grupo comprende'} items={(inf.comprende || []).map((x, k) => <li key={k}>{x}</li>)} />
+          <Lista titulo={encuesta ? 'Temas con división o sin consenso' : 'Lo que aún no comprende'} items={(inf.noComprende || []).map((x, k) => <li key={k}>{x}</li>)} />
           <div className="rounded-card bg-surface p-3">
-            <p className="text-sm font-semibold text-on-surface">{PASO[inf.siguientePaso?.tipo] || 'Siguiente paso'}</p>
+            <p className="text-sm font-semibold text-on-surface">{(encuesta ? PASO_ENCUESTA : PASO)[inf.siguientePaso?.tipo] || 'Siguiente paso'}</p>
             <p className="text-sm text-on-surface">{inf.siguientePaso?.texto}</p>
             {inf.actividadBreve && <p className="text-sm text-on-surface mt-2"><strong>Actividad breve:</strong> {inf.actividadBreve}</p>}
           </div>

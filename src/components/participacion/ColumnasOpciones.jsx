@@ -7,7 +7,7 @@
 //   · directo   → el texto va sobre cada columna;
 //   · lista     → lista de opciones (letra + texto completo) a la izquierda y columnas con letras a la derecha;
 //   · momentos  → 'opciones': pregunta + opciones completas; 'resultados': columnas con letras.
-import { useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { contarOpciones } from '../../utils/participacionVivo'
 import { PISOS_PROYECCION, paginarOpciones, tamanosProyeccion } from '../../utils/proyeccionVivo'
@@ -36,14 +36,28 @@ export function ListaOpciones({ pregunta, area, tam = null, correcta = null, des
 // letra del mismo tamaño) con botones grandes para pasar de una a otra.
 function OpcionesPaginadas({ pregunta, area, tam, correcta }) {
   const [pagina, setPagina] = useState(0)
-  const paginas = useMemo(() => paginarOpciones(pregunta.opciones, area.ancho, area.alto), [pregunta.opciones, area.ancho, area.alto])
+  // La estimación de líneas es aproximada: se MIDE la página real y, si no cabe, se baja el número de opciones por página
+  // (nunca se encoge la letra ni se recorta el texto).
+  const clave = `${pregunta.id}|${area.ancho}|${area.alto}`
+  const [tope, setTope] = useState({ clave: '', n: Infinity })
+  const maxPorPagina = tope.clave === clave ? tope.n : Infinity
+  const lista = useRef(null)
+  const paginas = useMemo(() => paginarOpciones(pregunta.opciones, area.ancho, area.alto).flatMap(([a, b]) => {
+    const trozos = []
+    for (let i = a; i < b; i += maxPorPagina) trozos.push([i, Math.min(b, i + maxPorPagina)])
+    return trozos
+  }), [pregunta.opciones, area.ancho, area.alto, maxPorPagina])
   const actual = Math.min(pagina, paginas.length - 1)
   const [desde, hasta] = paginas[actual] || [0, pregunta.opciones.length]
+  useLayoutEffect(() => {
+    const el = lista.current
+    if (el && el.scrollHeight > el.clientHeight + 2 && hasta - desde > 1) setTope({ clave, n: hasta - desde - 1 })
+  }, [clave, desde, hasta])
   const barra = Math.round(tam.resto * 2.8)
   const boton = 'rounded-full border-2 border-slate-900 text-slate-900 flex items-center justify-center disabled:opacity-40'
   return (
     <div className="h-full w-full flex flex-col">
-      <div className="flex-1 min-h-0 overflow-hidden"><ListaOpciones pregunta={pregunta} area={area} tam={tam} correcta={correcta} desde={desde} hasta={hasta} /></div>
+      <div ref={lista} className="flex-1 min-h-0 overflow-hidden"><ListaOpciones pregunta={pregunta} area={area} tam={tam} correcta={correcta} desde={desde} hasta={hasta} /></div>
       {paginas.length > 1 && (
         <div className="flex items-center justify-center gap-[3vmin] text-slate-900" style={{ height: barra }}>
           <button type="button" aria-label="Opciones anteriores" className={boton} style={{ width: tam.resto * 2, height: tam.resto * 2 }} disabled={actual === 0} onClick={() => setPagina(actual - 1)}><ChevronLeft size={40} aria-hidden="true" /></button>

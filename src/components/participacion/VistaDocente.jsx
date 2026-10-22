@@ -5,14 +5,35 @@ import { useMemo } from 'react'
 import { Check } from 'lucide-react'
 import VistaPregunta from './VistaPregunta'
 import DiagnosticoDocente, { InformeFinalDocente } from './DiagnosticoDocente'
-import { resumenAbiertas } from '../../utils/participacionVivo'
+import { esEncuesta, resumenAbiertas } from '../../utils/participacionVivo'
+import Temporizador from './Temporizador'
+import { useCuentaRegresiva } from '../../hooks/useTemporizadorVivo'
 import { useAreaMedida } from '../../hooks/useProyeccion'
 
 const letra = (i) => String.fromCharCode(65 + i)
 
+function Tiempo({ sesion, ahora, pregunta }) {
+  const { estado, restanteMs, faltaMs } = useCuentaRegresiva(sesion, ahora)
+  const v = sesion.ventanas?.[pregunta.id]
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+      {estado === 'preparando'
+        ? <p className="text-sm font-semibold text-on-surface">Comienza en {Math.max(1, Math.ceil((faltaMs ?? 0) / 1000))} s</p>
+        : <Temporizador estado={estado} restanteMs={restanteMs} sesion={sesion} tam={20} />}
+      {v?.sellada && (
+        <p className="text-sm text-on-surface">
+          Respondieron {v.respondieron}{v.esperados != null ? ` de ${v.esperados}` : ''}
+          {Array.isArray(v.sinRespuesta) && <> · <strong>Sin respuesta: {v.sinRespuesta.length}</strong> <span className="text-muted">(no se califican como incorrectas)</span></>}
+        </p>
+      )}
+    </div>
+  )
+}
+
 function Estado({ pregunta, respuestas, sesion }) {
   const r = useMemo(() => resumenAbiertas(respuestas, pregunta), [respuestas, pregunta])
   if (pregunta.tipo === 'opcion_unica') return <p className="text-sm text-muted">{r.recibidas} {r.recibidas === 1 ? 'respuesta' : 'respuestas'}</p>
+  if (esEncuesta(sesion.proposito)) return <p className="text-sm text-muted">{r.recibidas} {r.recibidas === 1 ? 'respuesta' : 'respuestas'} (se conservan íntegras)</p>
   if (!sesion.analisisActivo) return <p className="text-sm text-muted">{r.recibidas} {r.recibidas === 1 ? 'respuesta' : 'respuestas'} · el análisis con IA no está activo</p>
   const pendientes = r.pendientes + r.analizando
   return (
@@ -32,7 +53,7 @@ function Clave({ pregunta, clave }) {
   return clave.esperada ? <p className="text-sm text-on-surface"><strong>Respuesta esperada:</strong> {clave.esperada}</p> : null
 }
 
-export default function VistaDocente({ sesion, respuestas, informes, claves, indice, verCorrecta, momento }) {
+export default function VistaDocente({ sesion, respuestas, informes, claves, indice, ahora, verCorrecta, momento }) {
   const [ref, area] = useAreaMedida()
   if (sesion.estado === 'finalizada') {
     return (
@@ -59,6 +80,7 @@ export default function VistaDocente({ sesion, respuestas, informes, claves, ind
         )}
       </div>
       <aside className="overflow-y-auto space-y-3 min-h-0">
+        <Tiempo sesion={sesion} ahora={ahora} pregunta={pregunta} />
         <Estado pregunta={pregunta} respuestas={respuestas} sesion={sesion} />
         <Clave pregunta={pregunta} clave={clave} />
         <DiagnosticoDocente sesion={sesion} pregunta={pregunta} respuestas={respuestas} informes={informes} claves={claves} />

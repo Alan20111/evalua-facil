@@ -103,6 +103,8 @@ const ARCHIVOS = [
   // Participación en vivo: validación de preguntas, tope de análisis, puntos por respuesta y
   // calificación propuesta — las mismas reglas en la pantalla del docente y en el servidor.
   'participacionVivo.js',
+  // Sellado de las preguntas cerradas (lo usan el control del docente y el barrido programado).
+  'vivoSellado.js',
 ]
 
 function fallar(mensaje) {

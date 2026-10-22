@@ -88,7 +88,7 @@ export const rutaProyeccion = (codigo) => `/proyeccion-vivo/${codigo}`
  */
 export function paginarOpciones(opciones, ancho, alto) {
   const t = tamanosProyeccion(ancho, alto)
-  const disponible = alto - Math.round(t.resto * 2.8) - 8
+  const disponible = (alto - Math.round(t.resto * 2.8) - 8) * 0.92 // margen: la estimación de líneas es aproximada
   const anchoTexto = ancho * 0.92 - t.opcion * 1.5 - 24
   const paginas = []
   let desde = 0
@@ -100,4 +100,10 @@ export function paginarOpciones(opciones, ancho, alto) {
   })
   if ((opciones || []).length > desde) paginas.push([desde, opciones.length])
   return paginas
+}
+
+/** Minutos:segundos de un tiempo en milisegundos (redondea hacia arriba: «0:01» hasta que llega a cero). */
+export const formatoTiempo = (ms) => {
+  const seg = Math.max(0, Math.ceil(ms / 1000))
+  return Math.floor(seg / 60) + ':' + String(seg % 60).padStart(2, '0')
 }

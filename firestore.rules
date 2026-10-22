@@ -1291,10 +1291,10 @@ service cloud.firestore {
     // /api/subject/vivo-estado y vivo-responder (Admin SDK), que verifican la modalidad de la sesión.
     // Las respuestas las escribe únicamente ese servidor, y la evaluación de la IA, la Cloud Function.
     //
-    // El docente maneja el avance (pregunta actual, abrir/cerrar respuestas, finalizar), pero NO puede
-    // tocar el análisis de IA: `analisisActivo` solo lo escribe el servidor al cobrar `activar_analisis_vivo`.
-    // Por eso la sesión nace con él en falso y el update solo admite los cuatro campos de avance. El código
-    // (id) es aleatorio, de 10 caracteres.
+    // La sesión NACE por el cliente del docente, pero desde ahí SOLO el servidor la modifica: la pregunta en curso, la
+    // hora de apertura, el límite de tiempo, el cierre y la finalización (api/_lib/vivoControl.js) y el análisis de IA
+    // (`analisisActivo`, al cobrar `activar_analisis_vivo`). Así ningún cliente puede mover el reloj de una pregunta.
+    // El código (id) es aleatorio, de 10 caracteres.
     match /vivoSesiones/{codigo} {
       allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
       allow create: if isDocente() &&
@@ -1305,11 +1305,12 @@ service cloud.firestore {
         get(/databases/$(database)/documents/activities/$(request.resource.data.actividadId)).data.asignaturaId == request.resource.data.asignaturaId &&
         request.resource.data.estado == 'activa' &&
         request.resource.data.acceso in ['grupo', 'externo'] &&
-        request.resource.data.get('analisisActivo', false) == false;
-      allow update: if isDocente() && resource.data.docenteId == request.auth.uid &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'preguntaIndex', 'aceptando', 'finalizadaEn']) &&
-        (request.resource.data.estado == resource.data.estado ||
-          (resource.data.estado == 'activa' && request.resource.data.estado == 'finalizada'));
+        request.resource.data.get('analisisActivo', false) == false &&
+        // Nace sin reloj: ningún cliente siembra fechas ni resultados de la ventana de respuesta.
+        request.resource.data.keys().hasOnly(['actividadId', 'asignaturaId', 'docenteId', 'titulo', 'proposito', 'acceso', 'calificable',
+          'estado', 'preguntaIndex', 'aceptando', 'preguntas', 'analisisActivo', 'creadaEn']) &&
+        request.resource.data.preguntaIndex == -1 && request.resource.data.aceptando == false;
+      allow update: if false;
       allow delete: if isDocente() && resource.data.docenteId == request.auth.uid;
     }
 

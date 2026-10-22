@@ -69,7 +69,8 @@ exports.recuperarAnalisisVivo = onSchedule({ schedule: 'every 5 minutes', timeou
     const pv = require('./participacionVivo')
     const r = await pv.recuperarAnalisisAtascado()
     const i = await pv.recuperarInformesAtascados()
-    if (r.reencoladas || r.tocadas || r.fallidas || i.informesAtascados) logger.info(`recuperarAnalisisVivo: ${JSON.stringify({ ...r, ...i })}`)
+    const s = await pv.sellarSesionesVencidas() // preguntas vencidas sin sellar (docente sin conexión)
+    if (r.reencoladas || r.tocadas || r.fallidas || i.informesAtascados || s.preguntasSelladas) logger.info(`recuperarAnalisisVivo: ${JSON.stringify({ ...r, ...i, ...s })}`)
   } catch (e) {
     logger.error('recuperarAnalisisVivo:', e)
   }

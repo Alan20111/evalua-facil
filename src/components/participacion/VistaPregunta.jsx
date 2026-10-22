@@ -7,7 +7,7 @@ import ColumnasOpciones from './ColumnasOpciones'
 import NubePalabras from './NubePalabras'
 import MuroIdeas from './MuroIdeas'
 
-export default function VistaPregunta({ pregunta, respuestas, area, correcta = null, revelar = false, momento = 'resultados', autoPaginar = false, fijada = null, encabezado = null, tamBase = null }) {
+export default function VistaPregunta({ pregunta, respuestas, area, correcta = null, revelar = false, momento = 'resultados', autoPaginar = false, fijada = null, encabezado = null, acento = null, tamBase = null }) {
   const t = tamBase || tamanosProyeccion(area.ancho, area.alto)
   const propias = useMemo(() => respuestas.filter((r) => r.preguntaId === pregunta.id), [respuestas, pregunta.id])
   // Nube de OPCIONES (opción única): cada opción completa y su cantidad de elecciones; nunca palabras sueltas de respuestas.
@@ -18,12 +18,17 @@ export default function VistaPregunta({ pregunta, respuestas, area, correcta = n
   }, [propias, pregunta])
   const plan = useMemo(() => (pregunta.tipo === 'opcion_unica' ? planOpciones(pregunta.enunciado, pregunta.opciones, area.ancho, area.alto) : null), [pregunta, area.ancho, area.alto])
   const altoTitulo = altoEnunciado(pregunta.enunciado, area.ancho, area.alto)
-  const altoEncabezado = encabezado ? Math.round(t.resto * 1.8) : 0
+  const altoEncabezado = encabezado ? (acento ? Math.round(t.pregunta * 1.9) : Math.round(t.resto * 1.8)) : 0
   const areaCuerpo = { ancho: Math.round(area.ancho * 0.92), alto: Math.max(120, area.alto - altoTitulo - altoEncabezado) }
   const nubeCabe = visualizacionDe(pregunta) === 'nube' // ya validada: solo con opciones de una o dos palabras
   return (
     <div className="h-full w-full flex flex-col text-slate-900 px-[4%]">
-      {encabezado && <p className="font-semibold text-slate-700 tabular-nums" style={{ fontSize: t.resto, height: altoEncabezado }}>{encabezado}</p>}
+      {encabezado && (
+        <div className="flex items-center justify-between gap-4" style={{ height: acento ? Math.round(t.pregunta * 1.9) : altoEncabezado }}>
+          <p className="font-semibold text-slate-700 tabular-nums" style={{ fontSize: t.resto }}>{encabezado}</p>
+          {acento}
+        </div>
+      )}
       <h1 className="font-bold leading-tight" style={{ fontSize: t.pregunta, minHeight: altoTitulo - Math.round(t.pregunta * 0.4) }}>{pregunta.enunciado}</h1>
       <div className="flex-1 min-h-0 mt-[1.5vmin] overflow-hidden" data-vivo-cuerpo>
         {pregunta.tipo === 'opcion_unica' && nubeCabe && (

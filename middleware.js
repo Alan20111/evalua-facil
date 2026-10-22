@@ -39,6 +39,8 @@ const RULES = [
   { pattern: '/api/subject/vivo-estado',      limit: 2400, windowSec: 60 },
   // Enviar respuesta: una por pregunta por participante; 40 alumnos contestando a la vez caben de sobra.
   { pattern: '/api/subject/vivo-responder',   limit: 400, windowSec: 60 },
+  // Hora del servidor: la usa el proyector (una consulta al abrir y una cada 30 s); sin sesión.
+  { pattern: '/api/subject/vivo-reloj',       limit: 120, windowSec: 60 },
 ]
 
 // Orígenes CORS permitidos (mismo conjunto que api/_lib/cors.js) — se incluyen
@@ -109,5 +111,6 @@ export const config = {
     '/api/subject/sign-upload',
     '/api/subject/vivo-estado',
     '/api/subject/vivo-responder',
+    '/api/subject/vivo-reloj',
   ],
 }
