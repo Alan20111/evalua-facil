@@ -56,7 +56,8 @@ export default function CrearParticipacionModal({
 
   if (!open) return null
 
-  const costo = creditosIA.estimar(VIVO_CFG.OP_GENERAR)
+  const tarifa = creditosIA.estimar(VIVO_CFG.OP_GENERAR) // créditos POR PREGUNTA entregada
+  const costo = tarifa == null ? null : tarifa * cantidad
   const validacion = contextoSuficiente({ texto: contexto, cantidadArchivos: archivos.length })
   const sinTarifa = creditosIA.listo && costo == null
   const validacionDistribucion = validarDistribucion(distribucion, cantidad)
@@ -103,7 +104,7 @@ export default function CrearParticipacionModal({
       await creditosIA.ejecutar(VIVO_CFG.OP_GENERAR, {
         actividadId: ref.id, asignaturaId, asignaturaNombre: asignaturaNombre || '', proposito, contexto, fuentes: urls, cantidadPreguntas: cantidad,
         distribucion, tiempos: tiemposPedidos, visualizacionBreve: distribucion.opcion_breve > 0 ? visualizacionBreve : 'barras',
-      }, 1)
+      }, cantidad)
       toast('Dinámica generada: revísala antes de iniciarla')
       onCreated?.(ref.id)
     } catch (err) {
@@ -219,7 +220,7 @@ export default function CrearParticipacionModal({
 
       <p className="text-sm text-on-surface mt-4">
         {costo != null
-          ? <>Generar la dinámica usa <strong>{costo}</strong> {costo === 1 ? 'crédito' : 'créditos'} de IA, sin importar cuántas preguntas pidas. Los participantes no pagan nada.</>
+          ? <>Generar la dinámica usa <strong>{costo}</strong> {costo === 1 ? 'crédito' : 'créditos'} de IA ({tarifa} por pregunta × {cantidad}). Solo se cobran las preguntas que se entreguen, y el análisis de la sesión no tiene costo adicional. Los participantes no pagan nada.</>
           : sinTarifa ? 'La generación con IA de Participación en vivo aún no está disponible.' : 'Calculando el costo…'}
       </p>
 

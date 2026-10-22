@@ -4,7 +4,7 @@
 import { useMemo } from 'react'
 import { Check } from 'lucide-react'
 import VistaPregunta from './VistaPregunta'
-import DiagnosticoDocente, { InformeFinalDocente } from './DiagnosticoDocente'
+import { InformeFinalDocente } from './DiagnosticoDocente'
 import { esEncuesta, resumenAbiertas } from '../../utils/participacionVivo'
 import Temporizador from './Temporizador'
 import { useCuentaRegresiva } from '../../hooks/useTemporizadorVivo'
@@ -59,12 +59,7 @@ export default function VistaDocente({ sesion, respuestas, informes, claves, ind
     return (
       <div className="h-full overflow-y-auto px-[4%] py-4 space-y-4 bg-surface">
         <InformeFinalDocente sesion={sesion} informes={informes} />
-        {sesion.preguntas.map((p, i) => (
-          <div key={p.id} className="space-y-1">
-            <h3 className="text-base font-semibold text-on-surface">Pregunta {i + 1}. {p.enunciado}</h3>
-            <DiagnosticoDocente sesion={sesion} pregunta={p} respuestas={respuestas} informes={informes} claves={claves} />
-          </div>
-        ))}
+        {!sesion.analisisActivo && <p className="text-sm text-muted">Sesión finalizada. Los resultados de cada pregunta están en la vista del grupo.</p>}
       </div>
     )
   }
@@ -83,7 +78,6 @@ export default function VistaDocente({ sesion, respuestas, informes, claves, ind
         <Tiempo sesion={sesion} ahora={ahora} pregunta={pregunta} />
         <Estado pregunta={pregunta} respuestas={respuestas} sesion={sesion} />
         <Clave pregunta={pregunta} clave={clave} />
-        <DiagnosticoDocente sesion={sesion} pregunta={pregunta} respuestas={respuestas} informes={informes} claves={claves} />
       </aside>
     </div>
   )

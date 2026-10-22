@@ -19,8 +19,8 @@ import ConfirmModal from '../../components/ConfirmModal'
 import PresentacionVivo from '../../components/participacion/PresentacionVivo'
 import { TEACHER_CONTAINER } from '../../config/layout'
 import {
-  ACCESOS_VIVO, FORMATOS_VIVO, PROPOSITOS_VIVO, TIEMPOS_PREDETERMINADOS, VIVO_CFG, esEncuesta, formatoDe, propositoDe, redistribuirPuntos, repartirPuntos,
-  sanearPreguntasVivo, sumaPuntosExacta, tiempoDe, visualizacionDe,
+  ACCESOS_VIVO, FORMATOS_VIVO, PROPOSITOS_VIVO, TIEMPOS_PREDETERMINADOS, VIVO_CFG, esEncuesta, formatoGuardado, nubePermitida, propositoDe, redistribuirPuntos, repartirPuntos,
+  sanearPreguntasVivo, sumaPuntosExacta, tiempoDe,
 } from '../../utils/participacionVivo'
 import { crearSesionVivo, sesionesDeActividad } from '../../utils/participacionVivoDb'
 import { deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
@@ -33,7 +33,7 @@ function aModeloEdicion(p, clave = {}) {
     id: p.id, tipo: p.tipo, enunciado: p.enunciado, puntos: p.puntos ?? 1,
     opciones: p.opciones || [], correcta: clave.correcta ?? null,
     criterios: clave.criterios || '', esperada: clave.esperada || '', conceptosTexto: (clave.conceptos || []).join(', '),
-    formato: formatoDe(p), visualizacion: visualizacionDe(p), tiempo: tiempoDe(p.tiempo), // null = manual (también lo anterior sin tiempo)
+    formato: formatoGuardado(p), visualizacion: p.visualizacion === 'nube' ? 'nube' : 'barras', tiempo: tiempoDe(p.tiempo), // null = manual (también lo anterior sin tiempo)
   }
 }
 function deModeloEdicion(m) {
@@ -95,9 +95,11 @@ function EditorPregunta({ m, indice, total, bloqueado, fijada, encuesta, onCambi
   const set = (campo, valor) => onCambio({ ...m, [campo]: valor })
   const setOpcion = (i, texto) => {
     const opciones = m.opciones.map((o, j) => (j === i ? { ...o, texto } : o))
-    onCambio({ ...m, opciones, visualizacion: visualizacionDe({ ...m, opciones }) }) // si la edición hace inválida la nube, vuelve a barras
+    onCambio({ ...m, opciones }) // se conserva lo solicitado (nube): se muestra al cumplir la regla y mientras no, el aviso lo explica
   }
-  const formato = formatoDe(m)
+  const formato = formatoGuardado(m)
+  const nubeSolicitada = formato === 'opcion_breve' && m.visualizacion === 'nube'
+  const nubeInvalida = nubeSolicitada && !nubePermitida(m.opciones)
   return (
     <Card as="section" aria-label={`Pregunta ${indice + 1}`} className="space-y-3">
       <div className="flex items-center gap-2">
@@ -121,7 +123,9 @@ function EditorPregunta({ m, indice, total, bloqueado, fijada, encuesta, onCambi
           ))}
           {encuesta && <p className="text-xs text-muted">Es una encuesta: las opciones son opiniones, no hay respuesta correcta.</p>}
           {formato === 'cierto_falso' && <p className="text-xs text-muted">Las opciones «Cierto» y «Falso» son fijas: marca cuál es la correcta.</p>}
-          {formato === 'opcion_breve' && <p className="text-xs text-muted">Los resultados se muestran como elegiste al generar la dinámica. Si una opción pasa de dos palabras, se mostrarán en barras.</p>}
+          {nubeInvalida
+            ? <p role="alert" className="text-xs font-medium text-amber-800">Pediste nube de palabras, pero alguna opción tiene más de dos palabras: por ahora se mostrará en barras. Acorta cada opción a una o dos palabras y guarda: la nube se activa sola.</p>
+            : formato === 'opcion_breve' && <p className="text-xs text-muted">{nubeSolicitada ? 'Los resultados se mostrarán como nube de palabras.' : 'Los resultados se muestran en barras.'} Cada opción debe tener una o dos palabras para poder usar la nube.</p>}
         </fieldset>
       ) : encuesta ? (
         <p className="text-xs text-muted">Es una encuesta: las respuestas escritas se conservan íntegras y se muestran en tarjetas. No se evalúan ni se califican.</p>

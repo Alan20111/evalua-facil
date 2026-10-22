@@ -360,7 +360,6 @@ const OPERACIONES = {
   // Participación en vivo (functions/participacionVivo.js): generar la dinámica (tarifa fija) y activar
   // el análisis de una sesión (cuota fija; no llama al modelo, lo hace el disparador por respuesta).
   generar_dinamica_vivo: (args) => participacionVivo.ejecutarGenerarDinamicaVivo({ ...args, pedirJSON }),
-  activar_analisis_vivo: (args) => participacionVivo.ejecutarActivarAnalisisVivo(args),
 }
 
 // Comprobaciones que corren ANTES de reservar créditos. Una operación con
@@ -386,7 +385,6 @@ const PRECHECKS = {
   // El contenido del video lo extrae Gemini AQUÍ, antes de reservar: sin contenido, sin cobro.
   generar_preguntas_video: (args) => videoInteractivoIA.precheckGenerarPreguntasVideo(args),
   generar_dinamica_vivo: (args) => participacionVivo.precheckGenerarDinamicaVivo({ ...args, deps: { fuentesIA, creditosDe } }),
-  activar_analisis_vivo: (args) => participacionVivo.precheckActivarAnalisisVivo(args),
 }
 
 // ── Piloto C-03 · Redactar aviso ────────────────────────────────────────────
@@ -7013,6 +7011,17 @@ exports.actualizarInformeVivo = require('firebase-functions/v2/https').onCall(
     return preguntaId
       ? participacionVivo.generarInformePregunta({ sesionId, preguntaId, deps, manual: true })
       : participacionVivo.generarInformeFinal({ sesionId, deps, manual: true })
+  }
+)
+
+// Participación en vivo · activar el análisis: GRATIS. No pasa por ejecutarOperacionIA ni por el libro de créditos (el costo queda
+// absorbido por la tarifa de generación por pregunta). Idempotente; conserva la cuota de respuestas evaluadas y los topes de informes.
+exports.activarAnalisisVivo = require('firebase-functions/v2/https').onCall(
+  { timeoutSeconds: 60 },
+  async (request) => {
+    const uid = request.auth?.uid
+    if (!uid) throw new HttpsError('unauthenticated', 'Inicia sesión para usar esta función')
+    return participacionVivo.activarAnalisisGratis({ uid, sesionId: String(request.data?.sesionId || '') })
   }
 )
 

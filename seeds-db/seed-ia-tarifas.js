@@ -44,9 +44,10 @@ const dryRun = process.argv.includes('--dry-run')
 const TARIFAS = {
   // v12 (16-oct-2026): SOLO planeacion_didactica_inicial 20 → 40. El resto de
   // la tabla es idéntico a la v11.
-  // v13: se agregan generar_dinamica_vivo (6) y activar_analisis_vivo (10). NO correr este seed para esto:
-  // usar seeds-db/agregar-tarifas-participacion-vivo.js, que solo agrega esas dos (ver su encabezado).
-  version: 13,
+  // v13: se agregan generar_dinamica_vivo (6) y activar_analisis_vivo (10).
+  // v14: generar_dinamica_vivo pasa a 3 POR PREGUNTA y activar_analisis_vivo a 0 (gratis). NO correr este seed para esto:
+  // usar seeds-db/agregar-tarifas-participacion-vivo.js, que solo toca esas dos (ver su encabezado).
+  version: 14,
   actualizadoEl: '2026-10-21',
   // Flag de sistema: false = endpoint rechaza ANTES de llamar a Anthropic.
   // true (o campo ausente) = activo. Cambia aquí y re-corre el seed.
@@ -118,10 +119,11 @@ const TARIFAS = {
     // de src/utils/videoInteractivo.js: el precheck rechaza la operación si no
     // coinciden, para que la pantalla nunca prometa un costo distinto al cobrado.
     generar_preguntas_video: 2,
-    // Participación en vivo (montos autorizados por Kike): generar la dinámica 6 créditos fijos;
-    // activar el análisis en vivo de una sesión 10 créditos fijos (cubre hasta 40 respuestas abiertas).
-    generar_dinamica_vivo: 6,
-    activar_analisis_vivo: 10,
+    // Participación en vivo (v14): generar la dinámica cuesta 3 créditos POR PREGUNTA realmente entregada.
+    // Activar el análisis ya es GRATIS (callable activarAnalisisVivo, sin libro de créditos): la llave
+    // activar_analisis_vivo queda en 0 solo para que el servidor siga encontrando el modelo del análisis.
+    generar_dinamica_vivo: 3,
+    activar_analisis_vivo: 0,
     // Crear entregable/observación completa con IA — incluye la actividad
     // de Observación con IA (no existe "guía de observación" aparte).
     crear_actividad_ia: 1,

@@ -62,6 +62,7 @@ exports.mantenimientoCreditosIA = ia.mantenimientoCreditosIA
 exports.onRespuestaVivoEscrita = ia.onRespuestaVivoEscrita
 exports.onSesionVivoActualizada = ia.onSesionVivoActualizada
 exports.actualizarInformeVivo = ia.actualizarInformeVivo
+exports.activarAnalisisVivo = ia.activarAnalisisVivo
 // Participación en vivo: una respuesta que se quedó en «analizando» (la función murió) o en «recibida» (el
 // disparador nunca corrió) se reintenta un máximo de 2 veces y después se marca «error». No toca créditos ni notas.
 exports.recuperarAnalisisVivo = onSchedule({ schedule: 'every 5 minutes', timeoutSeconds: 120 }, async () => {

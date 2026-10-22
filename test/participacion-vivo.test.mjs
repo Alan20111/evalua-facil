@@ -6,9 +6,9 @@
 // Mismo criterio que test/ia-creditos.test.mjs: se llama la LÓGICA directamente (sin emulador de
 // Functions) con un Anthropic falso. Cubre:
 //   A. reglas puras (nube de palabras, contexto, preguntas, calificación propuesta);
-//   B. generar_dinamica_vivo: cobro fijo, sin cobro si no hay contexto o el material no alcanza,
+//   B. generar_dinamica_vivo: 3 créditos POR PREGUNTA entregada, sin cobro si no hay contexto o el material no alcanza,
 //      reintento sin doble cobro;
-//   C. activar_analisis_vivo: cuota fija una sola vez, cola de respuestas previas, tope;
+//   C. activar el análisis (activarAnalisisVivo): GRATIS, sin libro de créditos, cola de respuestas previas, tope;
 //   D. evaluación de UNA respuesta: estados, evento duplicado, error, lista cerrada de conceptos;
 //   E. endpoints de participantes: modalidad externa vs grupo, identidad, duplicados, tope, secreto;
 //   F. limpieza al borrar la actividad.
@@ -31,7 +31,7 @@ const OTRO = 'docente_otro'
 const clave = () => crypto.randomUUID()
 const TARIFAS = {
   version: 99,
-  tarifas: { generar_dinamica_vivo: 6, activar_analisis_vivo: 10 },
+  tarifas: { generar_dinamica_vivo: 3, activar_analisis_vivo: 0 },
   categorias: { generar_dinamica_vivo: 'Actividades', activar_analisis_vivo: 'Actividades' },
   modeloPorOperacion: { generar_dinamica_vivo: 'claude-haiku-4-5', activar_analisis_vivo: 'claude-haiku-4-5' },
 }
@@ -243,28 +243,28 @@ await caso('códigos de sesión: 10 caracteres sin ambiguos; clave de participan
 
 grupo('A2. Tarifas y tope autorizados (sin sembrar nada)')
 
-await caso('el seed y el script dirigido traen exactamente 6 (generar) y 10 (análisis por sesión); el tope es 40', async () => {
+await caso('el seed y el script dirigido traen 3 créditos POR PREGUNTA (generar) y 0 (el análisis es gratis); el tope es 40', async () => {
   const seed = require('../seeds-db/seed-ia-tarifas.js').TARIFAS
-  assert.strictEqual(seed.tarifas.generar_dinamica_vivo, 6)
-  assert.strictEqual(seed.tarifas.activar_analisis_vivo, 10)
+  assert.strictEqual(seed.tarifas.generar_dinamica_vivo, 3)
+  assert.strictEqual(seed.tarifas.activar_analisis_vivo, 0)
   assert.strictEqual(seed.modeloPorOperacion.generar_dinamica_vivo, 'claude-haiku-4-5')
   assert.strictEqual(seed.modeloPorOperacion.activar_analisis_vivo, 'claude-haiku-4-5')
   const { readFileSync } = await import('node:fs')
   const script = readFileSync(new URL('../seeds-db/agregar-tarifas-participacion-vivo.js', import.meta.url), 'utf8')
-  assert.ok(script.includes('generar_dinamica_vivo: { tarifa: 6,') && script.includes('activar_analisis_vivo: { tarifa: 10,'))
+  assert.ok(script.includes('generar_dinamica_vivo: { tarifa: 3,') && script.includes('activar_analisis_vivo: { tarifa: 0,'))
   assert.ok(script.includes("const aplicar = process.argv.includes('--aplicar')"), 'por omisión solo simula')
   assert.strictEqual(V.VIVO_CFG.TOPE_ANALISIS, 40)
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
-grupo('B. generar_dinamica_vivo — cobro fijo y sin cobro si no hay material')
+grupo('B. generar_dinamica_vivo — 3 créditos por pregunta entregada y sin cobro si no hay material')
 
-await caso('genera la dinámica: cobra 6 créditos UNA vez, guarda las preguntas, la clave privada y el resumen', async () => {
+await caso('genera la dinámica: cobra 3 créditos POR PREGUNTA (3 → 9) UNA vez, guarda las preguntas, la clave privada y el resumen', async () => {
   await reiniciar(); await sembrarActividad()
   const k = clave()
   const r = await generar({ k })
-  assert.strictEqual(r.creditosReales, 6)
-  assert.strictEqual((await creditosDe()).saldo, 94)
+  assert.strictEqual(r.creditosReales, 9)
+  assert.strictEqual((await creditosDe()).saldo, 91)
   assert.strictEqual((await consumoDe(k)).estado, 'ejecutado')
   const act = (await db.doc('activities/act_vivo').get()).data()
   assert.strictEqual(act.participacion.preguntas.length, 3)
@@ -290,7 +290,7 @@ await caso('reintento con la MISMA clave: no cobra de nuevo ni vuelve a llamar a
   await generar({ k })
   const r2 = await generar({ k })
   assert.strictEqual(r2.repetida, true)
-  assert.strictEqual((await creditosDe()).saldo, 94)
+  assert.strictEqual((await creditosDe()).saldo, 91)
   assert.strictEqual(pedidosIA.length, 1)
 })
 
@@ -349,7 +349,7 @@ await caso('si ya tiene preguntas no vuelve a generar ni cobra (editar es gratis
   await reiniciar(); await sembrarActividad()
   await generar()
   await assert.rejects(() => generar(), /ya tiene preguntas/)
-  assert.strictEqual((await creditosDe()).saldo, 94)
+  assert.strictEqual((await creditosDe()).saldo, 91)
 })
 
 await caso('sin saldo suficiente: SALDO_INSUFICIENTE y la IA no se llama', async () => {
@@ -364,11 +364,58 @@ await caso('sin tarifa configurada la operación no se ejecuta ni cobra', async 
   await sinCobro()
 })
 
-await caso('el cobro no depende del número de preguntas pedidas (tarifa fija)', async () => {
+await caso('el cobro es 3 por pregunta pedida y entregada: 8 preguntas = 24', async () => {
   await reiniciar(); await sembrarActividad()
   respuestaIA = () => ({ resumenContenido: 'r', preguntas: Array.from({ length: 8 }, (_, i) => ({ tipo: 'abierta_breve', enunciado: `Pregunta ${i}`, criterios: 'c', esperada: 'e', conceptos: ['a'] })) })
   await generar({ extra: { cantidadPreguntas: 8 } })
-  assert.strictEqual((await creditosDe()).saldo, 94)
+  assert.strictEqual((await creditosDe()).saldo, 76)
+})
+
+const IA_N = (n) => () => ({ resumenContenido: 'r', preguntas: Array.from({ length: n }, (_, i) => ({ tipo: 'abierta_breve', enunciado: 'Pregunta ' + i, criterios: 'c', esperada: 'e', conceptos: ['a'] })) })
+
+await caso('tarifa por pregunta: 1, 2 y 5 preguntas cuestan 3, 6 y 15 créditos (precheck y cobro final)', async () => {
+  for (const [n, costo] of [[1, 3], [2, 6], [5, 15]]) {
+    await reiniciar(); await sembrarActividad()
+    respuestaIA = IA_N(n)
+    const k = clave()
+    const r = await generar({ k, extra: { cantidadPreguntas: n } })
+    assert.strictEqual(r.creditosReales, costo, n + ' preguntas')
+    assert.strictEqual((await creditosDe()).saldo, 100 - costo)
+    assert.strictEqual((await consumoDe(k)).creditosReales, costo)
+    assert.strictEqual((await db.doc('activities/act_vivo').get()).data().participacion.preguntas.length, n)
+  }
+})
+
+await caso('el precheck reserva 3 por pregunta SOLICITADA: con saldo menor al total no se llama a la IA ni se cobra', async () => {
+  await reiniciar({ saldo: 14 }); await sembrarActividad()
+  respuestaIA = IA_N(5)
+  await assert.rejects(() => generar({ extra: { cantidadPreguntas: 5 } }), (e) => e.details?.codigo === 'SALDO_INSUFICIENTE')
+  assert.strictEqual(pedidosIA.length, 0)
+  assert.strictEqual((await creditosDe()).saldo, 14)
+  await reiniciar({ saldo: 15 }); await sembrarActividad()
+  respuestaIA = IA_N(5)
+  await generar({ extra: { cantidadPreguntas: 5 } })
+  assert.strictEqual((await creditosDe()).saldo, 0, 'con exactamente 15 alcanza')
+})
+
+await caso('si se entregan MENOS preguntas que las solicitadas, se cobran solo las entregadas y se reembolsa la diferencia', async () => {
+  await reiniciar(); await sembrarActividad()
+  respuestaIA = IA_N(3)
+  const k = clave()
+  const r = await generar({ k, extra: { cantidadPreguntas: 5 } })
+  assert.strictEqual(r.creditosReales, 9, '3 entregadas × 3')
+  assert.strictEqual((await creditosDe()).saldo, 91, 'las 2 no entregadas (6 créditos) se reembolsan')
+  assert.strictEqual((await consumoDe(k)).estado, 'ejecutado')
+  const r2 = await generar({ k, extra: { cantidadPreguntas: 5 } })
+  assert.strictEqual(r2.repetida, true, 'idempotente: repetir la clave no cobra ni reembolsa otra vez')
+  assert.strictEqual((await creditosDe()).saldo, 91)
+})
+
+await caso('si no se entrega ninguna pregunta válida: se reembolsa todo (0 créditos)', async () => {
+  await reiniciar(); await sembrarActividad()
+  respuestaIA = () => ({ preguntas: [{ tipo: 'opcion_unica', enunciado: '', opciones: [] }] })
+  await assert.rejects(() => generar({ extra: { cantidadPreguntas: 5 } }), /No se descontaron/)
+  assert.strictEqual((await creditosDe()).saldo, 100)
 })
 
 await caso('el prompt trata el contenido del docente como dato, no como instrucciones', async () => {
@@ -397,44 +444,58 @@ async function sembrarClaves() {
   await db.doc('activities/act_vivo/clave/p3').set({ criterios: 'Conversión en glucosa', esperada: 'Convierten luz en glucosa', conceptos: ['glucosa', 'energía'] })
   await db.doc('activities/act_vivo/clave/contexto').set({ resumen: 'Resumen del material.' })
 }
-const activar = ({ sesionId = CODIGO, k = clave(), uid = DOCENTE } = {}) =>
-  IA_FN.ejecutarOperacionIA.run({ auth: { uid }, data: { operacion: 'activar_analisis_vivo', idempotencyKey: k, params: { sesionId, asignaturaId: 'sub_vivo' } } })
+const activar = ({ sesionId = CODIGO, uid = DOCENTE } = {}) =>
+  IA_FN.activarAnalisisVivo.run({ auth: { uid }, data: { sesionId } })
+const ledger = async () => ({
+  creditos: (await db.doc('iaCreditos/' + DOCENTE).get()).data(),
+  consumos: (await db.collection('iaConsumos').get()).size,
+  internos: (await db.collection('iaConsumosInterno').get()).size,
+})
 
-await caso('activar: cobra 10 créditos UNA vez, marca la sesión y NO llama al modelo', async () => {
+await caso('activar es GRATIS: marca la sesión, NO llama al modelo y no cambia saldo ni libro de créditos', async () => {
   await reiniciar(); await sembrarActividad(); await sembrarSesion({ extra: { calificable: true } })
-  const k = clave()
-  const r = await activar({ k })
-  assert.strictEqual(r.creditosReales, 10)
-  assert.strictEqual((await creditosDe()).saldo, 90)
-  const s = (await db.doc(`vivoSesiones/${CODIGO}`).get()).data()
-  assert.strictEqual(s.analisisActivo, true)
+  const antes = await ledger()
+  const r = await activar()
+  assert.strictEqual(r.yaActivo, false)
+  assert.deepStrictEqual(await ledger(), antes, 'ni saldo, ni consumo, ni reserva, ni movimiento')
+  assert.strictEqual((await creditosDe()).saldo, 100)
+  assert.strictEqual((await db.doc('vivoSesiones/' + CODIGO).get()).data().analisisActivo, true)
   assert.strictEqual(pedidosIA.length, 0, 'activar no llama a la IA: cada respuesta se evalúa aparte')
 })
 
-await caso('activar con la misma clave (doble clic / reintento) no cobra otra vez', async () => {
-  await reiniciar(); await sembrarActividad(); await sembrarSesion({ extra: { calificable: true } })
-  const k = clave()
-  await activar({ k }); const r2 = await activar({ k })
-  assert.strictEqual(r2.repetida, true)
-  assert.strictEqual((await creditosDe()).saldo, 90)
-})
-
-await caso('activar con OTRA clave cuando ya está activo: se rechaza sin cobrar', async () => {
-  await reiniciar(); await sembrarActividad(); await sembrarSesion({ extra: { calificable: true } })
+await caso('activar funciona incluso con saldo 0 (no pasa por el libro de créditos)', async () => {
+  await reiniciar({ saldo: 0 }); await sembrarActividad(); await sembrarSesion({ extra: { calificable: true } })
+  const antes = await ledger()
   await activar()
-  await assert.rejects(() => activar(), /ya está activo/)
-  assert.strictEqual((await creditosDe()).saldo, 90)
+  assert.deepStrictEqual(await ledger(), antes)
+  assert.strictEqual((await db.doc('vivoSesiones/' + CODIGO).get()).data().analisisActivo, true)
 })
 
-await caso('activar: sesión de otro docente, finalizada o sin preguntas abiertas → sin cobro', async () => {
+await caso('activar dos veces (doble clic / reintento) es idempotente: no repite nada ni toca el libro', async () => {
+  await reiniciar(); await sembrarActividad(); await sembrarSesion({ extra: { calificable: true } })
+  const antes = await ledger()
+  await activar(); const r2 = await activar()
+  assert.strictEqual(r2.yaActivo, true)
+  assert.deepStrictEqual(await ledger(), antes)
+})
+
+await caso('activar: sesión de otro docente, finalizada o sin preguntas → se rechaza y el libro queda intacto', async () => {
   await reiniciar(); await sembrarActividad()
+  const antes = await ledger()
   await sembrarSesion({ codigo: 'BCDEFGHJKM', extra: { docenteId: OTRO } })
   await assert.rejects(() => activar({ sesionId: 'BCDEFGHJKM' }), (e) => codigoDe(e).includes('permission-denied'))
   await sembrarSesion({ codigo: 'CDEFGHJKMN', extra: { estado: 'finalizada' } })
   await assert.rejects(() => activar({ sesionId: 'CDEFGHJKMN' }), /ya terminó/)
   await sembrarSesion({ codigo: 'DEFGHJKMNP', extra: { preguntas: [] } })
   await assert.rejects(() => activar({ sesionId: 'DEFGHJKMNP' }), /no tiene preguntas que analizar/)
-  await sinCobro()
+  await assert.rejects(() => activar({ sesionId: 'xx' }), (e) => codigoDe(e).includes('invalid-argument'))
+  assert.deepStrictEqual(await ledger(), antes)
+  assert.strictEqual((await db.doc('vivoSesiones/BCDEFGHJKM').get()).data().analisisActivo, false)
+})
+
+await caso('sin sesión iniciada de sesión: se rechaza como no autenticado', async () => {
+  await reiniciar(); await sembrarActividad(); await sembrarSesion()
+  await assert.rejects(() => IA_FN.activarAnalisisVivo.run({ data: { sesionId: CODIGO } }), (e) => codigoDe(e).includes('unauthenticated'))
 })
 
 await caso('activar pone en cola TODAS las abiertas que llegaron antes; el tope lo aplica la evaluación por orden de llegada', async () => {
@@ -455,6 +516,7 @@ await caso('activar pone en cola TODAS las abiertas que llegaron antes; el tope 
 
 // ═════════════════════════════════════════════════════════════════════════════
 
+const limpiarRespuestas = async () => { for (const d of (await db.collection('vivoRespuestas').get()).docs) await d.ref.delete() }
 const sembrarOpciones = async (pares, codigo = CODIGO) => {
   for (const [i, op] of pares.entries()) {
     await db.doc('vivoRespuestas/' + codigo + '_p1_' + String(i).padStart(20, 'o')).set({
@@ -464,29 +526,41 @@ const sembrarOpciones = async (pares, codigo = CODIGO) => {
   }
 }
 
-await caso('activar (NO calificable) con muestra insuficiente: se rechaza ANTES de cobrar, sin tocar nada', async () => {
+await caso('activar (NO calificable) sin datos suficientes: 0, 1 y 4 respuestas de opción única se rechazan, no activan nada y no tocan el libro', async () => {
   await reiniciar(); await sembrarActividad(); await sembrarSesion()
-  await sembrarOpciones(['a', 'b', 'a'])
-  await assert.rejects(() => activar(), /Todavía no hay respuestas suficientes/)
-  await sinCobro()
-  assert.strictEqual((await db.doc('vivoSesiones/' + CODIGO).get()).data().analisisActivo, false)
+  const antes = await ledger()
+  for (const pares of [[], ['a'], ['a', 'b', 'a', 'b']]) {
+    await limpiarRespuestas()
+    await sembrarOpciones(pares)
+    await assert.rejects(() => activar(), (e) => codigoDe(e).includes('failed-precondition') && /Todavía no hay respuestas suficientes/.test(e.message), pares.length + ' respuestas')
+    assert.strictEqual((await db.doc('vivoSesiones/' + CODIGO).get()).data().analisisActivo, false)
+  }
+  assert.deepStrictEqual(await ledger(), antes)
 })
 
-await caso('activar (NO calificable) con una pregunta que ya alcanza su umbral: cobra 10 una sola vez', async () => {
+await caso('activar (NO calificable) con 5 de opción única o 8 abiertas con variedad: se permite, gratis', async () => {
   await reiniciar(); await sembrarActividad(); await sembrarSesion()
+  const antes = await ledger()
   await sembrarOpciones(['a', 'b', 'a', 'b', 'a'])
-  const k = clave()
-  await activar({ k }); const r2 = await activar({ k })
-  assert.strictEqual(r2.repetida, true)
-  assert.strictEqual((await creditosDe()).saldo, 90)
+  assert.strictEqual((await activar()).yaActivo, false)
+  assert.strictEqual((await db.doc('vivoSesiones/' + CODIGO).get()).data().analisisActivo, true)
+  // abiertas: 7 no alcanzan; 8 con variedad sí
+  await db.doc('vivoSesiones/' + CODIGO).update({ analisisActivo: false })
+  await limpiarRespuestas()
+  const palabras = ['luz', 'agua', 'sol', 'planta', 'hoja', 'aire', 'raíz', 'tallo']
+  const sembrarAbiertas = async (n) => { for (let i = 0; i < n; i++) await db.doc('vivoRespuestas/' + CODIGO + '_p2_' + String(i).padStart(20, 'a')).set({ sesionId: CODIGO, actividadId: 'act_vivo', docenteId: DOCENTE, preguntaId: 'p2', preguntaTipo: 'abierta_breve', texto: palabras[i], estadoIA: 'sin_analisis', creadaEn: new Date(2026, 9, 1, 12, 0, i) }) }
+  await sembrarAbiertas(7)
+  await assert.rejects(() => activar(), /Todavía no hay respuestas suficientes/)
+  await sembrarAbiertas(8)
+  await activar()
+  assert.strictEqual((await db.doc('vivoSesiones/' + CODIGO).get()).data().analisisActivo, true)
+  assert.deepStrictEqual(await ledger(), antes, 'en ningún caso se tocó el libro de créditos')
 })
 
-await caso('activar (calificable) con poca muestra SÍ cobra los 10 al activar (sin reembolso); el diagnóstico dirá «muestra insuficiente»', async () => {
+await caso('activar (calificable) sin respuestas se permite: el diagnóstico dirá «muestra insuficiente»', async () => {
   await reiniciar(); await sembrarActividad(); await sembrarSesion({ extra: { calificable: true } })
-  await sembrarOpciones(['a'])
-  const r = await activar()
-  assert.strictEqual(r.creditosReales, 10)
-  assert.strictEqual((await creditosDe()).saldo, 90)
+  await activar()
+  assert.strictEqual((await db.doc('vivoSesiones/' + CODIGO).get()).data().analisisActivo, true)
 })
 
 grupo('D. Evaluación de UNA respuesta abierta')
@@ -1264,7 +1338,7 @@ const IA_4 = (extraBreve = {}) => ({
 const DIST_4 = { opcion: 1, opcion_breve: 1, cierto_falso: 1, abierta: 1 }
 const preguntasGuardadas = async () => (await db.doc('activities/act_vivo').get()).data().participacion.preguntas
 
-await caso('generar con distribución: respeta cada formato, el cierto/falso lleva opciones fijas, 10 puntos exactos y el cobro sigue siendo 6', async () => {
+await caso('generar con distribución: respeta cada formato, el cierto/falso lleva opciones fijas, 10 puntos exactos y el cobro es 3 por pregunta (4 → 12)', async () => {
   await reiniciar(); await sembrarActividad()
   respuestaIA = () => IA_4()
   await generar({ extra: { cantidadPreguntas: 4, distribucion: DIST_4, visualizacionBreve: 'nube' } })
@@ -1277,7 +1351,7 @@ await caso('generar con distribución: respeta cada formato, el cierto/falso lle
   assert.strictEqual(ps[2].visualizacion, 'barras')
   assert.deepStrictEqual(ps.map((q) => q.puntos), [2.5, 2.5, 2.5, 2.5], 'los puntos que proponga la IA (99) se ignoran')
   assert.strictEqual(cents(ps.map((q) => q.puntos)), 1000)
-  assert.strictEqual((await creditosDe()).saldo, 94, 'tarifa fija de 6, sin cambios')
+  assert.strictEqual((await creditosDe()).saldo, 88, '4 preguntas × 3')
   const prompt = textoDelPedido(pedidosIA[0])
   assert.ok(/1 de formato "opcion_breve"/.test(prompt) && /1 de formato "cierto_falso"/.test(prompt), 'el prompt pide la distribución exacta')
 })
@@ -1291,14 +1365,78 @@ await caso('generar: con barras elegidas, las breves se guardan en barras; las a
   assert.ok(!('visualizacion' in ps[3]))
 })
 
-await caso('generar: una «opción breve» con más de dos palabras se degrada a opción múltiple con barras (no se descarta)', async () => {
+const BREVE_LARGA = ['Oxígeno puro', 'Dióxido de carbono', 'Metano']
+const esReparo = (req) => /demasiado largas/.test(textoDelPedido(req))
+
+await caso('nube válida: una breve con opciones de 1-2 palabras se guarda en nube y se presenta en nube, sin reintento', async () => {
   await reiniciar(); await sembrarActividad()
-  respuestaIA = () => IA_4({ opciones: ['Oxígeno puro', 'Dióxido de carbono', 'Metano'] })
+  respuestaIA = () => IA_4()
+  await generar({ extra: { cantidadPreguntas: 4, distribucion: DIST_4, visualizacionBreve: 'nube' } })
+  const ps = await preguntasGuardadas()
+  assert.deepStrictEqual([ps[1].formato, ps[1].visualizacion], ['opcion_breve', 'nube'])
+  assert.strictEqual(V.visualizacionDe(ps[1]), 'nube')
+  assert.strictEqual(pedidosIA.length, 1, 'no hizo falta reintento')
+})
+
+await caso('nube inválida: la breve conserva formato y nube SOLICITADOS aunque alguna opción pase de dos palabras; se presenta en barras', async () => {
+  await reiniciar(); await sembrarActividad()
+  respuestaIA = (req) => (esReparo(req) ? 'no es json' : IA_4({ opciones: BREVE_LARGA }))
   await generar({ extra: { cantidadPreguntas: 4, distribucion: DIST_4, visualizacionBreve: 'nube' } })
   const ps = await preguntasGuardadas()
   assert.strictEqual(ps.length, 4, 'no se pierde ninguna pregunta')
-  assert.deepStrictEqual([ps[1].formato, ps[1].visualizacion], ['opcion', 'barras'])
+  assert.deepStrictEqual([ps[1].formato, ps[1].visualizacion], ['opcion_breve', 'nube'], 'se conserva lo solicitado')
+  assert.strictEqual(V.nubePermitida(ps[1].opciones), false)
+  assert.strictEqual(V.visualizacionDe(ps[1]), 'barras', 'mientras haya opciones largas se muestran barras')
+  assert.strictEqual(V.formatoDe(ps[1]), 'opcion', 'la regla de presentación sigue degradando el formato efectivo')
   assert.strictEqual(cents(ps.map((q) => q.puntos)), 1000)
+})
+
+await caso('conversión automática: al acortar las opciones y guardar, la nube se activa sola', () => {
+  const entrada = (opciones) => [PREG_OP(opciones, { formato: 'opcion_breve', visualizacion: 'nube' })]
+  const larga = V.sanearPreguntasVivo(entrada(OP('Oxígeno puro', 'Dióxido de carbono'))).publicas[0]
+  assert.deepStrictEqual([larga.formato, larga.visualizacion, V.visualizacionDe(larga)], ['opcion_breve', 'nube', 'barras'])
+  const corta = V.sanearPreguntasVivo(entrada(OP('Oxígeno', 'Dióxido carbono'))).publicas[0]
+  assert.deepStrictEqual([corta.formato, corta.visualizacion, V.visualizacionDe(corta)], ['opcion_breve', 'nube', 'nube'])
+  // pedida en barras NO se convierte a nube por tener opciones cortas
+  const barras = V.sanearPreguntasVivo([PREG_OP(OP('Sí', 'No'), { formato: 'opcion_breve', visualizacion: 'barras' })]).publicas[0]
+  assert.strictEqual(V.visualizacionDe(barras), 'barras')
+})
+
+await caso('reintento acotado: la IA reescribe las opciones largas UNA sola vez, dentro del mismo cobro', async () => {
+  await reiniciar(); await sembrarActividad()
+  respuestaIA = (req) => (esReparo(req)
+    ? { preguntas: [{ indice: 1, opciones: ['Oxígeno', 'Carbono', 'Metano'], correcta: 0 }] }
+    : IA_4({ opciones: BREVE_LARGA }))
+  const k = clave()
+  await generar({ k, extra: { cantidadPreguntas: 4, distribucion: DIST_4, visualizacionBreve: 'nube' } })
+  const ps = await preguntasGuardadas()
+  assert.deepStrictEqual(ps[1].opciones.map((x) => x.texto), ['Oxígeno', 'Carbono', 'Metano'])
+  assert.deepStrictEqual([ps[1].formato, ps[1].visualizacion, V.visualizacionDe(ps[1])], ['opcion_breve', 'nube', 'nube'])
+  assert.strictEqual((await db.doc('activities/act_vivo/clave/p2').get()).data().correcta, 'a', 'la correcta sigue siendo la misma')
+  assert.strictEqual(pedidosIA.length, 2, 'una generación y UN reintento')
+  assert.strictEqual((await creditosDe()).saldo, 88, 'el reintento no cobra créditos adicionales: 4 × 3')
+  assert.strictEqual((await consumoDe(k)).creditosReales, 12)
+})
+
+await caso('reintento acotado: si el reintento también falla NO se repite más y se conserva la pregunta', async () => {
+  await reiniciar(); await sembrarActividad()
+  respuestaIA = (req) => (esReparo(req)
+    ? { preguntas: [{ indice: 1, opciones: ['Aún muy largo', 'Otra frase larga', 'Más largo todavía'], correcta: 0 }] }
+    : IA_4({ opciones: BREVE_LARGA }))
+  await generar({ extra: { cantidadPreguntas: 4, distribucion: DIST_4, visualizacionBreve: 'nube' } })
+  assert.strictEqual(pedidosIA.length, 2, 'nunca más de un reintento')
+  const ps = await preguntasGuardadas()
+  assert.deepStrictEqual(ps[1].opciones.map((x) => x.texto), BREVE_LARGA, 'se conservan las opciones originales')
+  assert.deepStrictEqual([ps[1].formato, ps[1].visualizacion], ['opcion_breve', 'nube'])
+  assert.strictEqual((await creditosDe()).saldo, 88)
+})
+
+await caso('con barras solicitadas no hay reintento aunque las opciones sean largas', async () => {
+  await reiniciar(); await sembrarActividad()
+  respuestaIA = () => IA_4({ opciones: BREVE_LARGA })
+  await generar({ extra: { cantidadPreguntas: 4, distribucion: DIST_4, visualizacionBreve: 'barras' } })
+  assert.strictEqual(pedidosIA.length, 1)
+  assert.strictEqual((await preguntasGuardadas())[1].visualizacion, 'barras')
 })
 
 await caso('generar: una distribución que no suma el total se rechaza ANTES de cobrar', async () => {
@@ -1317,7 +1455,7 @@ await caso('generar con 3 preguntas reparte 3.34 / 3.33 / 3.33; sin distribució
   const ps = await preguntasGuardadas()
   assert.deepStrictEqual(ps.map((q) => q.puntos), [3.34, 3.33, 3.33])
   assert.deepStrictEqual(ps.map((q) => q.formato), ['opcion_breve', 'abierta', 'abierta'].map((f, i) => (i === 0 ? V.formatoDe({ tipo: 'opcion_unica', opciones: ps[0].opciones }) : f)))
-  assert.strictEqual((await creditosDe()).saldo, 94)
+  assert.strictEqual((await creditosDe()).saldo, 91)
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1613,13 +1751,13 @@ await caso('saneo de encuesta: sin puntos, sin clave, sin ponderaciones; evaluac
   assert.strictEqual(V.sanearPreguntasVivo([PREG_OP(OP('Mucho', 'Poco'))]).publicas[0].tiempo, null, 'sin tiempo = manual (lo anterior)')
 })
 
-await caso('generar con tiempos por formato: cada pregunta guarda el tiempo de su formato; manual = null; el cobro sigue siendo 6', async () => {
+await caso('generar con tiempos por formato: cada pregunta guarda el tiempo de su formato; manual = null; el cobro es 3 por pregunta', async () => {
   await reiniciar(); await sembrarActividad()
   respuestaIA = () => IA_4()
   await generar({ extra: { cantidadPreguntas: 4, distribucion: DIST_4, tiempos: { opcion: 30, opcion_breve: 15, cierto_falso: 15, abierta: null } } })
   const ps = await preguntasGuardadas()
   assert.deepStrictEqual(ps.map((q) => q.tiempo), [30, 15, 15, null])
-  assert.strictEqual((await creditosDe()).saldo, 94)
+  assert.strictEqual((await creditosDe()).saldo, 88)
 })
 
 await caso('generar sin «tiempos» (cliente anterior): preguntas manuales; tiempos inválidos se rechazan ANTES de cobrar', async () => {
@@ -1655,7 +1793,7 @@ await caso('generar una ENCUESTA: sin puntos ni clave, Cierto/Falso no aplica (r
   const prompt = textoDelPedido(pedidosIA[0])
   assert.ok(/ENCUESTA/.test(prompt) && /NO existen respuestas|NO hay respuestas|no evalúes/i.test(prompt) && /NO incluyas "correcta"/.test(prompt))
   assert.ok(!/puntos/.test(prompt), 'ni siquiera se piden puntos')
-  assert.strictEqual((await creditosDe()).saldo, 94, 'misma tarifa')
+  assert.strictEqual((await creditosDe()).saldo, 91, '3 preguntas × 3')
 })
 
 await caso('propósitos anteriores: «previos» se guarda como diagnóstico y «comprension» como evaluación; uno inventado se rechaza sin cobrar', async () => {
@@ -1746,8 +1884,9 @@ await caso('activar el análisis de una encuesta no pone en cola evaluaciones po
   await reiniciar(); await sembrarActividad(); await sembrarClaves()
   await sembrarSesion({ extra: { proposito: 'encuesta', calificable: true } })
   for (let i = 0; i < 10; i++) await db.doc(`vivoRespuestas/${CODIGO}_p3_${String(i).padStart(20, 'g')}`).set({ sesionId: CODIGO, actividadId: 'act_vivo', docenteId: DOCENTE, preguntaId: 'p3', preguntaTipo: 'abierta_extensa', texto: `opinión ${i}`, estadoIA: 'sin_analisis', abierta: true })
-  const r = await activar()
-  assert.strictEqual(r.creditosReales, 10, 'la tarifa de 10 no cambia')
+  const antes = await ledger()
+  await activar()
+  assert.deepStrictEqual(await ledger(), antes, 'activar una encuesta tampoco toca el libro')
   assert.strictEqual((await db.collection('vivoRespuestas').where('estadoIA', '==', 'recibida').get()).size, 0, 'ninguna respuesta de encuesta se encola para evaluarse')
 })
 

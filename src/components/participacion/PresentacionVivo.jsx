@@ -12,15 +12,13 @@ import { ArrowLeft, ArrowRight, Check, Eye, Lock, Maximize2, MonitorUp, Play, Qr
 import { useToast } from '../Toast'
 import { Button, Modal } from '../ui'
 import Spinner from '../Spinner'
-import ConfirmacionCreditosModal from '../ConfirmacionCreditosModal'
-import useCreditosIA from '../../hooks/useCreditosIA'
 import { useAreaMedida, useAutoOcultar, useEstadoProyeccion } from '../../hooks/useProyeccion'
 import {
   ampliarTiempoVivo, cerrarPreguntaVivo, escucharInformesVivo, escucharRespuestasVivo, escucharSesionVivo, finalizarSesionVivo, irAPreguntaVivo, medirRelojServidor,
-  sellarPreguntaVivo,
+  sellarPreguntaVivo, activarAnalisisVivo,
 } from '../../utils/participacionVivoDb'
 import { useCuentaRegresiva, useRelojServidor } from '../../hooks/useTemporizadorVivo'
-import { UMBRALES_DIAGNOSTICO, VIVO_CFG, esEncuesta, esTipoAbierto, puedeDiagnosticar } from '../../utils/participacionVivo'
+import { UMBRALES_DIAGNOSTICO, esEncuesta, esTipoAbierto, puedeDiagnosticar } from '../../utils/participacionVivo'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { planOpciones, rutaProyeccion, tamanosProyeccion } from '../../utils/proyeccionVivo'
 import VistaGrupo from './VistaGrupo'
@@ -64,14 +62,12 @@ function Escenario({ sesion, respuestas, informes, claves, vista, estado, ahora,
 
 export default function PresentacionVivo({ codigo, actividad, claves, docenteId, asignaturaNombre = '', onCerrar }) {
   const toast = useToast()
-  const creditosIA = useCreditosIA()
   const [sesion, setSesion] = useState(undefined) // undefined = cargando, null = no existe
   const [respuestas, setRespuestas] = useState([])
   const [informes, setInformes] = useState([])
   const [vista, setVista] = useState('grupo')
   const [estado, cambiar] = useEstadoProyeccion(codigo, { emisor: true })
   const [visibles] = useAutoOcultar(3000)
-  const [confirmandoAnalisis, setConfirmandoAnalisis] = useState(false)
   const [activandoAnalisis, setActivandoAnalisis] = useState(false)
   const [confirmandoFin, setConfirmandoFin] = useState(false)
   const [accionando, setAccionando] = useState(false)
@@ -112,7 +108,6 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
     })
   }, [cuenta.estado, idVigente, sesion, codigo, reintentoSello])
 
-  const costoAnalisis = creditosIA.estimar(VIVO_CFG.OP_ANALISIS)
   // En una encuesta el análisis también resume las preguntas de opción: no depende de que haya abiertas.
   const tieneAbiertas = (sesion?.preguntas || []).some((p) => esTipoAbierto(p.tipo)) || esEncuesta(sesion?.proposito)
   const ir = useCallback((i) => irAPreguntaVivo(codigo, i).catch((e) => toast(e.message || 'No se pudo cambiar de pregunta', 'error')), [codigo, toast])
@@ -121,23 +116,21 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
     try { await fn() } catch (e) { toast(e.message || falla, 'error') } finally { setAccionando(false) }
   }
 
-  // Una sesión NO calificable solo puede activar el análisis si ya hay una pregunta que alcance su umbral de datos:
-  // se valida ANTES de cobrar (el servidor lo vuelve a comprobar y rechaza sin cobrar).
+  // Una sesión NO calificable solo puede activar el análisis si ya hay una pregunta que alcance su umbral de datos (el servidor lo vuelve a comprobar).
   const hayDatosSuficientes = useMemo(
     () => (sesion?.preguntas || []).some((p) => puedeDiagnosticar(p, respuestas, { encuesta: esEncuesta(sesion?.proposito) }).ok),
     [sesion, respuestas]
   )
   const puedeActivar = sesion?.calificable === true || hayDatosSuficientes
 
+  // Activar el análisis es GRATIS (su costo lo absorbe la tarifa de generación por pregunta): no hay confirmación de créditos.
   async function activarAnalisis() {
     setActivandoAnalisis(true)
     try {
-      await creditosIA.ejecutar(VIVO_CFG.OP_ANALISIS, { sesionId: codigo, asignaturaId: sesion.asignaturaId })
+      await activarAnalisisVivo({ sesionId: codigo })
       toast('Análisis activado: las respuestas abiertas se evaluarán y cada pregunta tendrá su diagnóstico')
-      setConfirmandoAnalisis(false)
     } catch (e) {
       toast(e.message || 'No se pudo activar el análisis', 'error')
-      setConfirmandoAnalisis(false)
     } finally {
       setActivandoAnalisis(false)
     }
@@ -166,7 +159,7 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
   const ultima = sesion.preguntaIndex >= sesion.preguntas.length - 1
   const t = tamanosProyeccion(window.innerWidth, window.innerHeight)
   // En la vista del docente los controles no se ocultan: es su pantalla de trabajo.
-  const controlesVisibles = visibles || vista === 'docente' || confirmandoAnalisis || confirmandoFin
+  const controlesVisibles = visibles || vista === 'docente' || confirmandoFin
   const barra = 'hover:!bg-slate-100'
   // Opciones largas: se presentan en dos momentos (opciones completas → resultados); el docente alterna entre ellos.
   const enMomentos = pregunta?.tipo === 'opcion_unica' && planOpciones(pregunta.enunciado, pregunta.opciones, window.innerWidth, window.innerHeight) === 'momentos'
@@ -214,8 +207,8 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
             </>
           ))}
           {!finalizada && tieneAbiertas && !sesion.analisisActivo && (
-            <Button variant="quiet" size="sm" icon={Sparkles} className={barra} disabled={costoAnalisis == null || !puedeActivar} onClick={() => setConfirmandoAnalisis(true)}
-              title={costoAnalisis == null ? 'El análisis aún no está disponible' : !puedeActivar ? `Aún no hay respuestas suficientes (mínimo ${UMBRALES_DIAGNOSTICO.abierta_extensa} en una pregunta abierta, ${UMBRALES_DIAGNOSTICO.opcion_unica} en opción única)` : undefined}>
+            <Button variant="quiet" size="sm" icon={Sparkles} className={barra} disabled={activandoAnalisis || !puedeActivar} onClick={activarAnalisis}
+              title={!puedeActivar ? `Aún no hay respuestas suficientes (mínimo ${UMBRALES_DIAGNOSTICO.abierta_extensa} en una pregunta abierta, ${UMBRALES_DIAGNOSTICO.opcion_unica} en opción única)` : 'Sin costo: evalúa las respuestas abiertas y genera el diagnóstico de cada pregunta'}>
               Analizar con IA
             </Button>
           )}
@@ -235,17 +228,6 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
         )}
       </Pantalla>
 
-      {confirmandoAnalisis && costoAnalisis != null && (
-        <ConfirmacionCreditosModal
-          titulo="Analizar con IA"
-          descripcion={esEncuesta(sesion.proposito) ? 'Un solo cargo cubre el análisis de esta encuesta: el resumen de las tendencias de opinión de cada pregunta y un informe final. No evalúa respuestas ni marca aciertos o errores, y no hay cargos adicionales por pregunta, informe ni actualización.' : `Un solo cargo cubre: la evaluación de cada respuesta abierta conforme llega (hasta ${VIVO_CFG.TOPE_ANALISIS}; las siguientes se conservan sin analizar), el diagnóstico pedagógico de cada pregunta y el informe final, sin cargos adicionales por pregunta, informe ni actualización. ${sesion.calificable ? 'Esta sesión es calificable, así que puedes activarlo aunque lleguen pocas respuestas: se cobra al activar y, si la muestra no alcanza, el diagnóstico dirá «muestra insuficiente» sin devolver el cargo.' : 'Se activa porque ya hay datos suficientes en al menos una pregunta.'}`}
-          costoMin={costoAnalisis}
-          ejecutando={activandoAnalisis}
-          z={70}
-          onCancelar={() => setConfirmandoAnalisis(false)}
-          onContinuar={activarAnalisis}
-        />
-      )}
       {confirmandoFin && (
         <ConfirmFin onCancelar={() => setConfirmandoFin(false)} onConfirmar={async () => {
           setConfirmandoFin(false)
