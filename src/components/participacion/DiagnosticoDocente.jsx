@@ -26,7 +26,8 @@ export function InformeFinalDocente({ sesion, informes }) {
   const encuesta = esEncuesta(sesion.proposito)
   const [actualizando, setActualizando] = useState(false)
   const [error, setError] = useState('')
-  const doc = informes.find((i) => !i.preguntaId)
+  // El informe final (gratuito). El análisis global de pago (tipo 'global') es otro documento y se muestra aparte.
+  const doc = informes.find((i) => !i.preguntaId && i.tipo !== 'global')
   if (!sesion.analisisActivo) return null
   async function actualizar() {
     setActualizando(true); setError('')

@@ -17,12 +17,13 @@ import { Button, Card, IconButton, Input, Radio, Select, Switch, Textarea } from
 import Spinner from '../../components/Spinner'
 import ConfirmModal from '../../components/ConfirmModal'
 import PresentacionVivo from '../../components/participacion/PresentacionVivo'
+import AnalisisSesionVivo from '../../components/participacion/AnalisisSesionVivo'
 import { TEACHER_CONTAINER } from '../../config/layout'
 import {
   ACCESOS_VIVO, FORMATOS_VIVO, PROPOSITOS_VIVO, TIEMPOS_PREDETERMINADOS, VIVO_CFG, esEncuesta, formatoGuardado, nubePermitida, propositoDe, redistribuirPuntos, repartirPuntos,
   sanearPreguntasVivo, sumaPuntosExacta, tiempoDe,
 } from '../../utils/participacionVivo'
-import { crearSesionVivo, sesionesDeActividad } from '../../utils/participacionVivoDb'
+import { crearSesionVivo, escucharAnalisisDeActividad, sesionesDeActividad } from '../../utils/participacionVivoDb'
 import { deleteSubmissionsByActivity } from '../../utils/deleteSubjectCascade'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { nowIsoLocal } from '../../utils/nowIso'
@@ -163,6 +164,7 @@ export default function TeacherParticipacionPage() {
   const [iniciando, setIniciando] = useState(false)
   const [presentando, setPresentando] = useState(null)
   const [confirmandoBorrar, setConfirmandoBorrar] = useState(false)
+  const [analisisPorSesion, setAnalisisPorSesion] = useState({}) // { [sesionId]: { final, global } } — solo lectura
 
   const cargar = useCallback(async () => {
     const snap = await getDoc(doc(db, 'activities', activityId))
@@ -193,6 +195,12 @@ export default function TeacherParticipacionPage() {
       .finally(() => { if (vivo) setCargando(false) })
     return () => { vivo = false }
   }, [uid, cargar, toast])
+
+  // Informe final (incluido) y análisis global (de pago) de cada sesión, en tiempo real.
+  useEffect(() => {
+    if (!uid || !activityId) return undefined
+    return escucharAnalisisDeActividad(activityId, uid, setAnalisisPorSesion, () => {})
+  }, [activityId, uid])
 
   const hayActiva = sesiones.find((s) => s.estado === 'activa')
   const yaHuboSesion = sesiones.length > 0
@@ -374,11 +382,14 @@ export default function TeacherParticipacionPage() {
         <section aria-label="Sesiones anteriores" className="space-y-2 pb-8">
           <h2 className="text-base font-semibold text-on-surface">Sesiones</h2>
           {sesiones.map((s) => (
-            <Card key={s.codigo} padding="sm" className="flex items-center gap-3">
-              <span className="text-sm text-on-surface flex-1">
+            <Card key={s.codigo} padding="sm" className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <span className="text-sm text-on-surface flex-1 min-w-[12rem]">
                 {s.creadaEn?.toDate?.().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }) || '—'} · {ACCESOS_VIVO[s.acceso]} · {s.estado === 'activa' ? 'En curso' : 'Finalizada'}
               </span>
-              <Button size="sm" variant="secondary" onClick={() => setPresentando(s.codigo)}>{s.estado === 'activa' ? 'Proyectar' : 'Ver resultados'}</Button>
+              <span className="flex flex-wrap gap-2">
+                <Button size="sm" variant="secondary" onClick={() => setPresentando(s.codigo)}>{s.estado === 'activa' ? 'Proyectar' : 'Ver resultados'}</Button>
+                {s.estado === 'finalizada' && <AnalisisSesionVivo sesion={s} analisis={analisisPorSesion[s.codigo]} />}
+              </span>
             </Card>
           ))}
         </section>

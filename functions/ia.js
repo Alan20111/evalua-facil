@@ -324,7 +324,11 @@ const OPERACIONES = {
   calificar_entregable_ia: ejecutarCalificarEntregableIA,
   calificar_entregable_ia_lote: ejecutarCalificarEntregableIALote,
   reactivos: ejecutarReactivos,
-  analizar_resultados: ejecutarAnalisisResultados,
+  // Con `sesionVivoId` es el análisis GLOBAL de una sesión de Participación en vivo (misma operación y tarifa; su lógica
+  // vive en functions/participacionVivo.js). Sin él, el análisis de cuestionarios y exámenes de siempre.
+  analizar_resultados: (args) => (args.params?.sesionVivoId
+    ? participacionVivo.ejecutarAnalisisGlobalVivo({ ...args, pedirJSON })
+    : ejecutarAnalisisResultados(args)),
   crear_evaluacion_ia: ejecutarCrearEvaluacion,
   crear_actividad_ia: ejecutarCrearActividad,
   // Diagnóstico del grupo (FASE 2-BIS, 12-ago-2026, autorizado por Kike en
@@ -372,7 +376,8 @@ const PRECHECKS = {
   calificar_entregable_ia: precheckCalificarEntregable,
   calificar_entregable_ia_lote: precheckCalificarEntregableLote,
   reactivos: precheckReactivos,
-  analizar_resultados: precheckAnalisisResultados, crear_evaluacion_ia: precheckCrearEvaluacion,
+  analizar_resultados: (args) => (args.params?.sesionVivoId ? participacionVivo.precheckAnalisisGlobalVivo(args) : precheckAnalisisResultados(args)),
+  crear_evaluacion_ia: precheckCrearEvaluacion,
   crear_actividad_ia: precheckCrearActividad,
   diagnostico_contexto: precheckDiagnosticoContexto, diagnostico_conocimientos: precheckDiagnosticoConocimientos,
   planeacion_didactica_inicial: precheckPlaneacionInicial,

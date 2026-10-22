@@ -133,12 +133,13 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
   )
   const puedeActivar = sesion?.calificable === true || hayDatosSuficientes
 
-  // Activar el análisis es GRATIS (su costo lo absorbe la tarifa de generación por pregunta): no hay confirmación de créditos.
+  // Activar el diagnóstico por pregunta es GRATIS (su costo lo absorbe la tarifa de generación por pregunta): no hay confirmación
+  // de créditos. No confundir con el análisis GLOBAL de la sesión, de pago, que se pide desde la lista de sesiones.
   async function activarAnalisis() {
     setActivandoAnalisis(true)
     try {
       await activarAnalisisVivo({ sesionId: codigo })
-      toast('Análisis activado: las respuestas abiertas se evaluarán y cada pregunta tendrá su diagnóstico')
+      toast('Diagnóstico activado (incluido): las respuestas abiertas se evaluarán y cada pregunta tendrá su diagnóstico')
     } catch (e) {
       toast(e.message || 'No se pudo activar el análisis', 'error')
     } finally {
@@ -218,8 +219,8 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
           ))}
           {!finalizada && tieneAbiertas && !sesion.analisisActivo && (
             <Button variant="quiet" size="sm" icon={Sparkles} className={barra} disabled={activandoAnalisis || !puedeActivar} onClick={activarAnalisis}
-              title={!puedeActivar ? `Aún no hay respuestas suficientes (mínimo ${UMBRALES_DIAGNOSTICO.abierta_extensa} en una pregunta abierta, ${UMBRALES_DIAGNOSTICO.opcion_unica} en opción única)` : 'Sin costo: evalúa las respuestas abiertas y genera el diagnóstico de cada pregunta'}>
-              Analizar con IA
+              title={!puedeActivar ? `Aún no hay respuestas suficientes (mínimo ${UMBRALES_DIAGNOSTICO.abierta_extensa} en una pregunta abierta, ${UMBRALES_DIAGNOSTICO.opcion_unica} en opción única)` : 'Incluido, sin costo: evalúa las respuestas abiertas y genera el diagnóstico de cada pregunta. El análisis global de la sesión es aparte: se pide al terminar, desde la lista de sesiones.'}>
+              Activar diagnóstico
             </Button>
           )}
           {!finalizada && sesion.acceso === 'externo' && (

@@ -49,7 +49,7 @@ function Estado({ pregunta, respuestas, sesion }) {
   const r = useMemo(() => resumenAbiertas(respuestas, pregunta), [respuestas, pregunta])
   if (pregunta.tipo === 'opcion_unica') return <p className="text-sm text-muted">{r.recibidas} {r.recibidas === 1 ? 'respuesta' : 'respuestas'}</p>
   if (esEncuesta(sesion.proposito)) return <p className="text-sm text-muted">{r.recibidas} {r.recibidas === 1 ? 'respuesta' : 'respuestas'} (se conservan íntegras)</p>
-  if (!sesion.analisisActivo) return <p className="text-sm text-muted">{r.recibidas} {r.recibidas === 1 ? 'respuesta' : 'respuestas'} · el análisis con IA no está activo</p>
+  if (!sesion.analisisActivo) return <p className="text-sm text-muted">{r.recibidas} {r.recibidas === 1 ? 'respuesta' : 'respuestas'} · el diagnóstico por pregunta no está activo</p>
   const pendientes = r.pendientes + r.analizando
   return (
     <p className="text-sm text-muted">
@@ -148,7 +148,7 @@ function ResultadosFinales({ sesion, respuestas, informes, claves, actividad, in
             <Clave pregunta={pregunta} clave={clave} />
           </section>
           <InformeFinalDocente sesion={sesion} informes={informes} />
-          {!sesion.analisisActivo && <p className="text-sm text-muted px-1">En esta sesión no se activó el análisis con IA, así que no hay diagnóstico por pregunta.</p>}
+          {!sesion.analisisActivo && <p className="text-sm text-muted px-1">En esta sesión no se activó el diagnóstico por pregunta (incluido). El análisis global de la sesión con IA se pide aparte, desde la lista de sesiones.</p>}
         </>
       }
       debajo={sesion.calificable ? (

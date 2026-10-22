@@ -81,6 +81,27 @@ export function escucharInformesVivo(codigo, docenteId, cb, onError) {
   )
 }
 
+/**
+ * Informe final (gratuito) y análisis global (de pago) de cada sesión de una actividad, en tiempo real, para la lista
+ * de sesiones: { [sesionId]: { final, global } }. Solo cuentan los que están «listo». Dos igualdades: sin índice compuesto.
+ */
+export function escucharAnalisisDeActividad(actividadId, docenteId, cb, onError) {
+  return onSnapshot(
+    query(collection(db, 'vivoInformes'), where('docenteId', '==', docenteId), where('actividadId', '==', actividadId)),
+    (snap) => {
+      const porSesion = {}
+      for (const d of snap.docs) {
+        const i = { id: d.id, ...d.data() }
+        if (i.preguntaId || i.estado !== 'listo') continue
+        const tipo = i.tipo === 'global' ? 'global' : 'final'
+        porSesion[i.sesionId] = { ...porSesion[i.sesionId], [tipo]: i }
+      }
+      cb(porSesion)
+    },
+    onError
+  )
+}
+
 /** «Actualizar» manual de un diagnóstico (sin preguntaId = el informe final). Sin cargo: el servidor limita las llamadas. */
 export function actualizarInformeVivo({ sesionId, preguntaId = null }) {
   return httpsCallable(functions, 'actualizarInformeVivo')({ sesionId, preguntaId }).then((r) => r.data)

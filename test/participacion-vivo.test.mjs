@@ -1925,5 +1925,186 @@ await caso('activar el análisis de una encuesta no pone en cola evaluaciones po
   assert.strictEqual((await db.collection('vivoRespuestas').where('estadoIA', '==', 'recibida').get()).size, 0, 'ninguna respuesta de encuesta se encola para evaluarse')
 })
 
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('L. Análisis GLOBAL de una sesión finalizada (de pago, analizar_resultados)')
+
+const TARIFAS_GLOBAL = {
+  ...TARIFAS,
+  tarifas: { ...TARIFAS.tarifas, analizar_resultados: 5 },
+  categorias: { ...TARIFAS.categorias, analizar_resultados: 'Evaluaciones' },
+  modeloPorOperacion: { ...TARIFAS.modeloPorOperacion, analizar_resultados: 'claude-haiku-4-5' },
+}
+const GLOBAL_IA = {
+  desempeno: 'El grupo identifica el gas que liberan las plantas; el 90 % acertó y 12 de 30 dudaron.',
+  patrones: ['Una parte del grupo confunde el metano con el oxígeno (7 estudiantes).'],
+  preguntasDestacadas: [{ preguntaId: 'p1', motivo: 'Concentra la confusión principal.' }, { preguntaId: 'p99', motivo: 'Inventada' }],
+  dificultades: ['Distinguir productos y reactivos.'],
+  recomendaciones: ['Retomar la ecuación de la fotosíntesis con un ejemplo.'],
+  limitaciones: 'Solo una pregunta reunió datos suficientes.',
+}
+const docGlobal = async (codigo = CODIGO) => (await db.doc(`vivoInformes/${codigo}_global`).get()).data()
+const analizarGlobal = ({ k = clave(), uid = DOCENTE, codigo = CODIGO, extra = {} } = {}) => IA_FN.ejecutarOperacionIA.run({
+  auth: { uid },
+  data: { operacion: 'analizar_resultados', idempotencyKey: k, params: { sesionVivoId: codigo, asignaturaId: 'sub_vivo', generacionVista: 0, ...extra } },
+})
+async function prepararGlobal({ saldo = 100, opciones = ['a', 'a', 'a', 'b', 'b', 'b'], estado = 'finalizada' } = {}) {
+  await reiniciar({ saldo, tarifas: TARIFAS_GLOBAL }); await sembrarActividad(); await sembrarClaves()
+  await db.doc('activities/act_vivo/clave/p1').set({ correcta: 'a' })
+  await sembrarSesion({ extra: { estado } })
+  await sembrarOpciones(opciones)
+  respuestaIA = () => GLOBAL_IA
+}
+const esperarMs = (ms) => new Promise((r) => setTimeout(r, ms))
+// Valida el código de un error sin cobro; si no coincide, muestra qué llegó (para diagnosticar la prueba).
+const conCodigo = (codigo, extra = () => true) => (e) => {
+  const ok = e?.details?.codigo === codigo && extra(e)
+  if (!ok) console.log('    error recibido:', e?.code, '|', e?.message, '|', JSON.stringify(e?.details))
+  return ok
+}
+
+await caso('reglas puras: solo cuentan las respuestas con contenido de ESA sesión; las cifras salen del código', () => {
+  const sesion = { proposito: 'evaluacion', preguntas: PREGUNTAS_SESION, ventanas: { p1: { sellada: true, respondieron: 4, esperados: 6 } } }
+  const R = (preguntaId, extra) => ({ sesionId: CODIGO, preguntaId, ...extra })
+  const respuestas = [
+    ...['a', 'a', 'a', 'b'].map((opcion) => R('p1', { opcion })), R('p1', { opcion: null, texto: null }), // marca «sin respuesta»
+    { sesionId: 'OTRASESION', preguntaId: 'p1', opcion: 'b' }, R('p3', { texto: '  ' }), R('p3', { texto: 'Usan la luz' }),
+  ]
+  const d = V.datosAnalisisGlobal({ sesion, codigo: CODIGO, respuestas, claves: { p1: { correcta: 'a' } } })
+  const p1 = d.preguntas[0]
+  assert.strictEqual(p1.respuestas, 4, 'ni la marca sin respuesta ni la otra sesión cuentan')
+  assert.deepStrictEqual(p1.opciones.map((o) => [o.letra, o.n, o.porcentaje, o.correcta]), [['A', 3, 75, true], ['B', 1, 25, false]])
+  assert.strictEqual(p1.porcentajeAcierto, 75)
+  assert.deepStrictEqual([p1.respondieron, p1.esperados], [4, 6])
+  assert.strictEqual(d.preguntas[2].respuestas, 1, 'una abierta vacía no cuenta')
+  assert.strictEqual(d.totalRespuestas, 5)
+  assert.strictEqual(d.suficiente, false, '4 < mínimo de 5 en opción única')
+  const enc = V.datosAnalisisGlobal({ sesion: { ...sesion, proposito: 'encuesta' }, codigo: CODIGO, respuestas: [...respuestas, R('p1', { opcion: 'a' })], claves: { p1: { correcta: 'a' } } })
+  assert.strictEqual(enc.suficiente, true)
+  assert.ok(enc.preguntas[0].porcentajeAcierto == null && enc.preguntas[0].opciones.every((o) => !o.correcta), 'una encuesta no tiene aciertos')
+})
+
+await caso('saneo: la IA no puede meter cifras ni citar preguntas que no existen', () => {
+  assert.strictEqual(V.quitarCifras('El 90 % acertó y 12 de 30 dudaron; 7 estudiantes confunden (85%). La pregunta 2 destaca.'), 'El acertó y dudaron; confunden. La pregunta 2 destaca.')
+  const datos = { preguntas: [{ id: 'p1' }, { id: 'p2' }] }
+  const s = V.sanearAnalisisGlobal(GLOBAL_IA, datos)
+  assert.ok(!/\d/.test(s.desempeno) && !/\d/.test(s.patrones[0]), 'sin cifras en el texto de la IA')
+  assert.deepStrictEqual(s.preguntasDestacadas.map((x) => x.preguntaId), ['p1'], 'la pregunta inventada se descarta')
+  assert.strictEqual(V.sanearAnalisisGlobal({ patrones: ['x'] }, datos), null, 'sin desempeño no hay análisis (y no se cobra)')
+})
+
+await caso('cobra 5 créditos UNA vez, guarda el análisis aparte del informe final gratuito y no lo toca', async () => {
+  await prepararGlobal()
+  const FINAL = { sesionId: CODIGO, actividadId: 'act_vivo', docenteId: DOCENTE, preguntaId: null, tipo: 'final', estado: 'listo', generaciones: 1, informe: { sintesis: 'Informe gratuito' } }
+  await db.doc(`vivoInformes/${CODIGO}_final`).set(FINAL)
+  const r = await analizarGlobal()
+  assert.strictEqual(r.creditosReales, 5)
+  assert.strictEqual((await creditosDe()).saldo, 95)
+  assert.strictEqual((await db.collection('iaConsumos').get()).size, 1, 'un solo consumo')
+  const g = await docGlobal()
+  assert.strictEqual(g.estado, 'listo'); assert.strictEqual(g.tipo, 'global'); assert.strictEqual(g.generaciones, 1); assert.strictEqual(g.generando, undefined, 'el reclamo se liberó')
+  assert.strictEqual(g.datos.preguntas[0].porcentajeAcierto, 50, 'la cifra la calculó el código (3 de 6)')
+  assert.ok(!/\d/.test(g.informe.desempeno), 'el 90 % que escribió la IA no aparece')
+  assert.deepStrictEqual((await db.doc(`vivoInformes/${CODIGO}_final`).get()).data(), FINAL, 'el informe final gratuito queda intacto')
+  assert.strictEqual(pedidosIA.length, 1)
+  const prompt = textoDelPedido(pedidosIA[0])
+  assert.ok(prompt.includes('[p1]') && prompt.includes('[CORRECTA]') && prompt.includes('50 %'), 'la IA recibe los resultados de la sesión')
+})
+
+await caso('sin datos suficientes o con la sesión activa: no llama a la IA, no reserva ni descuenta', async () => {
+  await prepararGlobal({ opciones: ['a', 'b', 'a'] })
+  await assert.rejects(analizarGlobal(), (e) => codigoDe(e) === 'failed-precondition' && /suficientes/.test(e.message) && /No se descontaron/.test(e.message))
+  await sinCobro(); assert.strictEqual(pedidosIA.length, 0); assert.strictEqual(await docGlobal(), undefined, 'ni siquiera se reclama')
+  await prepararGlobal({ estado: 'activa' })
+  await assert.rejects(analizarGlobal(), conCodigo('SESION_ACTIVA'))
+  await sinCobro(); assert.strictEqual(pedidosIA.length, 0)
+})
+
+await caso('saldo insuficiente: el mismo error del libro de créditos, sin reserva y sin dejar la sesión reclamada', async () => {
+  await prepararGlobal({ saldo: 3 })
+  await assert.rejects(analizarGlobal(), conCodigo('SALDO_INSUFICIENTE', (e) => e.details?.costo === 5))
+  await sinCobro(3)
+  assert.strictEqual(await docGlobal(), undefined)
+  await db.doc(`iaCreditos/${DOCENTE}`).update({ saldo: 20 })
+  assert.strictEqual((await analizarGlobal()).creditosReales, 5, 'con saldo, el siguiente intento procede de inmediato')
+})
+
+await caso('error de la IA (o respuesta inútil): reembolso íntegro, reclamo liberado y el análisis anterior intacto', async () => {
+  await prepararGlobal()
+  respuestaIA = () => { throw new Error('Anthropic caído') }
+  await assert.rejects(analizarGlobal(), (e) => codigoDe(e) === 'unavailable' && /No se descontaron/.test(e.message))
+  assert.strictEqual((await creditosDe()).saldo, 100, 'reembolsado')
+  const consumos = (await db.collection('iaConsumos').get()).docs.map((d) => d.data().estado)
+  assert.deepStrictEqual(consumos, ['fallido'], 'estados: ' + consumos.join(','))
+  assert.strictEqual((await docGlobal()).generando, undefined, 'el reclamo se liberó')
+  respuestaIA = () => GLOBAL_IA
+  await analizarGlobal()
+  const antes = await docGlobal()
+  respuestaIA = () => ({ patrones: ['sin desempeño'] })
+  await assert.rejects(analizarGlobal({ extra: { generacionVista: 1, regenerar: true } }))
+  assert.strictEqual((await creditosDe()).saldo, 95, 'solo se cobró el análisis que sí salió')
+  const despues = await docGlobal()
+  assert.deepStrictEqual([despues.estado, despues.generaciones, despues.informe], [antes.estado, antes.generaciones, antes.informe], 'el análisis anterior sigue ahí')
+})
+
+await caso('doble clic / solicitudes simultáneas: una sola se ejecuta y cobra; la otra se rechaza sin descontar', async () => {
+  await prepararGlobal()
+  respuestaIA = async () => { await esperarMs(500); return GLOBAL_IA }
+  const resultados = await Promise.allSettled([analizarGlobal(), analizarGlobal(), analizarGlobal()])
+  const ok = resultados.filter((r) => r.status === 'fulfilled')
+  const rechazadas = resultados.filter((r) => r.status === 'rejected')
+  assert.strictEqual(ok.length, 1, 'exactamente una')
+  assert.ok(rechazadas.every((r) => ['EN_CURSO', 'YA_ACTUALIZADO'].includes(r.reason?.details?.codigo)), rechazadas.map((r) => r.reason?.message).join(' | '))
+  assert.strictEqual((await creditosDe()).saldo, 95, 'se cobró una vez')
+  assert.strictEqual((await db.collection('iaConsumos').get()).size, 1, 'las rechazadas nunca reservaron')
+  assert.strictEqual(pedidosIA.length, 1)
+})
+
+await caso('repetición: ya generado → «Ver análisis» sin cobro; «Volver a analizar» cobra otra vez; una versión vieja no cobra', async () => {
+  await prepararGlobal()
+  const k = clave()
+  await analizarGlobal({ k })
+  await assert.rejects(analizarGlobal({ extra: { generacionVista: 1 } }), conCodigo('YA_EXISTE'), 'sin regenerar no se vuelve a generar')
+  await assert.rejects(analizarGlobal(), conCodigo('YA_ACTUALIZADO'), 'quien vio la versión anterior (0) tampoco cobra')
+  await assert.rejects(analizarGlobal({ k }), conCodigo('YA_ACTUALIZADO'), 'reintento de la misma clave: no cobra de nuevo')
+  assert.strictEqual((await creditosDe()).saldo, 95)
+  const r = await analizarGlobal({ extra: { generacionVista: 1, regenerar: true } })
+  assert.strictEqual(r.resultado.generaciones, 2)
+  assert.strictEqual((await creditosDe()).saldo, 90, '«Volver a analizar» cobra 5 otra vez')
+  await assert.rejects(analizarGlobal({ extra: { generacionVista: 1, regenerar: true } }), conCodigo('YA_ACTUALIZADO'), 'otra pestaña con la versión vieja')
+  assert.strictEqual((await creditosDe()).saldo, 90)
+  assert.strictEqual((await db.collection('iaConsumos').get()).size, 2)
+})
+
+await caso('reclamos: uno abandonado (sin reserva o reembolsado) no bloquea; uno con reserva en curso sí, sin cobrar', async () => {
+  await prepararGlobal()
+  const viejo = new Date(Date.now() - PV._pruebas.RECLAMO_SIN_RESERVA_MS - 5000)
+  await db.doc(`vivoInformes/${CODIGO}_global`).set({ sesionId: CODIGO, docenteId: DOCENTE, tipo: 'global', preguntaId: null, generando: { clave: 'clave-abandonada-sin-reserva', desde: viejo } })
+  assert.strictEqual((await analizarGlobal()).creditosReales, 5, 'sin reserva y vencido: se toma')
+  await prepararGlobal()
+  await db.doc('iaConsumos/clave-en-curso-1234').set({ uid: DOCENTE, operacion: 'analizar_resultados', estado: 'reservado', creditosReservados: 5 })
+  await db.doc(`vivoInformes/${CODIGO}_global`).set({ sesionId: CODIGO, docenteId: DOCENTE, tipo: 'global', preguntaId: null, generando: { clave: 'clave-en-curso-1234', desde: new Date() } })
+  await assert.rejects(analizarGlobal(), conCodigo('EN_CURSO', (e) => codigoDe(e) === 'aborted'))
+  assert.strictEqual((await creditosDe()).saldo, 100, 'rechazada por estar generándose: no descuenta')
+  await db.doc('iaConsumos/clave-en-curso-1234').update({ estado: 'fallido' })
+  assert.strictEqual((await analizarGlobal()).creditosReales, 5, 'reembolsada: el reclamo ya no vale')
+})
+
+await caso('aislamiento: otra sesión y otro docente no se mezclan; el análisis de cuestionarios sigue su camino de siempre', async () => {
+  await prepararGlobal()
+  await sembrarSesion({ codigo: 'MNPQRSTUVW', extra: { estado: 'finalizada' } })
+  await sembrarOpciones(['b', 'b', 'b', 'b', 'b', 'b', 'b', 'b'], 'MNPQRSTUVW')
+  await analizarGlobal()
+  const g = await docGlobal()
+  assert.strictEqual(g.datos.totalRespuestas, 6, 'solo las 6 de la sesión elegida')
+  assert.strictEqual(await docGlobal('MNPQRSTUVW'), undefined)
+  assert.ok(!textoDelPedido(pedidosIA[0]).includes('→ 8'), 'la IA no ve la otra sesión')
+  await db.doc(`iaCreditos/${OTRO}`).set({ saldo: 100, consumidoTotal: 0, consumoPorCategoria: {} })
+  await assert.rejects(analizarGlobal({ uid: OTRO, codigo: 'MNPQRSTUVW' }), (e) => { const ok = codigoDe(e) === 'permission-denied'; if (!ok) console.log('    error recibido:', e?.code, e?.message); return ok })
+  assert.strictEqual((await creditosDe(OTRO)).saldo, 100)
+  // Sin sesionVivoId la operación es la de cuestionarios/exámenes (su precheck de siempre).
+  await assert.rejects(IA_FN.ejecutarOperacionIA.run({ auth: { uid: DOCENTE }, data: { operacion: 'analizar_resultados', idempotencyKey: clave(), params: { actividadId: 'act_vivo' } } }),
+    (e) => { const ok = /cuestionario o un examen/.test(e.message); if (!ok) console.log('    error recibido:', e?.code, e?.message); return ok })
+})
+
 require.cache[rutaSdk].exports = SDK_REAL
 resumen('participacion-vivo')

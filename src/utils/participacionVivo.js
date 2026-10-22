@@ -529,7 +529,8 @@ export function calificacionPropuestaVivo({ preguntas, claves, respuestas, maxCa
 // ── Diagnóstico pedagógico (informes) ──────────────────────────────────────
 // El diagnóstico NO es otra visualización de los resultados: interpreta (confusiones, ideas, qué reforzar, siguiente
 // paso). Se genera por pregunta y al final, con umbrales mínimos de datos, límites de llamadas e idempotencia por
-// huella. NO pasa por el libro de créditos: la cuota de 10 créditos se paga una sola vez al activar el análisis.
+// huella. NO pasa por el libro de créditos: activar el análisis es gratis (lo absorbe la tarifa de generación por
+// pregunta). El ANÁLISIS GLOBAL de la sesión, que se pide al terminar, es otra operación y sí se cobra (ver abajo).
 export const UMBRALES_DIAGNOSTICO = { opcion_unica: 5, abierta_breve: 8, abierta_extensa: 8, terminosBreve: 4 }
 // Máximo de generaciones por documento: 1 al cerrar + 1 al finalizar (solo si llegaron datos nuevos) + 1 manual.
 export const LIMITES_INFORME = { POR_PREGUNTA: 3, FINAL: 2 }
@@ -646,6 +647,102 @@ export function sanearInformeFinal(crudo) {
     siguientePaso,
     actividadBreve: recorta(crudo.actividadBreve, 240),
     limitaciones: recorta(crudo.limitaciones, 200),
+  }
+}
+
+// ── Análisis GLOBAL de una sesión finalizada (de pago) ─────────────────────
+// Operación distinta del diagnóstico por pregunta (incluido) y del informe final gratuito: el docente la pide desde la
+// lista de sesiones y se cobra con la tarifa de `analizar_resultados`. Se guarda aparte (vivoInformes/{sesión}_global).
+// Regla de integridad: TODAS las cifras las calcula este código con las respuestas de ESA sesión; la IA solo redacta
+// conclusiones cualitativas y su texto pasa por quitarCifras.
+export const OP_ANALISIS_GLOBAL = 'analizar_resultados'
+export const ANALISIS_GLOBAL_CFG = { MUESTRA_POR_PREGUNTA: 25, MAX_TEXTO_MUESTRA: 280, MAX_LISTA: 5 }
+const letraOpcion = (i) => String.fromCharCode(65 + i)
+const pct = (n, total) => (total > 0 ? Math.round((n / total) * 100) : 0)
+
+/** ¿La respuesta trae contenido? El sellado guarda marcas «sin respuesta» (sin opción ni texto) que no cuentan. */
+export function respuestaConContenido(r, pregunta) {
+  if (pregunta?.tipo === 'opcion_unica') return (pregunta.opciones || []).some((o) => o.id === r?.opcion)
+  return typeof r?.texto === 'string' && r.texto.trim().length > 0
+}
+
+/**
+ * Datos del análisis global, calculados con código a partir de la sesión y SUS respuestas (las de otra sesión se
+ * descartan aunque lleguen en la lista). `claves`: { [preguntaId]: { correcta, esperada } } de la actividad.
+ * `suficiente` aplica los mismos umbrales del diagnóstico (UMBRALES_DIAGNOSTICO) a las respuestas con contenido.
+ */
+export function datosAnalisisGlobal({ sesion, codigo, respuestas, claves = {} }) {
+  const encuesta = esEncuesta(sesion?.proposito)
+  const propias = (respuestas || []).filter((r) => r.sesionId === codigo)
+  const participantes = new Set()
+  let total = 0
+  const preguntas = (sesion?.preguntas || []).map((p, k) => {
+    const validas = propias.filter((r) => r.preguntaId === p.id && respuestaConContenido(r, p))
+    validas.forEach((r) => { const quien = r.alumnoId || r.participanteKey; if (quien) participantes.add(quien) })
+    total += validas.length
+    const v = sesion.ventanas?.[p.id]
+    const base = {
+      id: p.id, numero: k + 1, tipo: p.tipo, enunciado: recorta(p.enunciado, 400), respuestas: validas.length,
+      respondieron: v?.sellada ? v.respondieron ?? null : null, esperados: v?.sellada ? v.esperados ?? null : null,
+    }
+    if (p.tipo === 'opcion_unica') {
+      const correcta = encuesta ? null : claves[p.id]?.correcta ?? null
+      const opciones = (p.opciones || []).map((o, i) => {
+        const n = validas.filter((r) => r.opcion === o.id).length
+        return { id: o.id, letra: letraOpcion(i), texto: recorta(o.texto, 200), n, porcentaje: pct(n, validas.length), correcta: correcta != null && o.id === correcta }
+      })
+      const aciertos = correcta != null ? validas.filter((r) => r.opcion === correcta).length : null
+      return { ...base, opciones, aciertos, porcentajeAcierto: aciertos == null ? null : pct(aciertos, validas.length) }
+    }
+    const evaluadas = validas.filter((r) => r.estadoIA === ESTADO_IA.ANALIZADA && NIVELES_VIVO.includes(r.evaluacion?.nivel))
+    const niveles = evaluadas.length ? Object.fromEntries(NIVELES_VIVO.map((nv) => [nv, evaluadas.filter((r) => r.evaluacion.nivel === nv).length])) : null
+    const ordenadas = [...validas].sort((a, b) => (a.creadaEn?.toMillis?.() ?? 0) - (b.creadaEn?.toMillis?.() ?? 0))
+    return {
+      ...base, evaluadas: evaluadas.length, niveles, esperada: encuesta ? '' : recorta(claves[p.id]?.esperada, 300),
+      muestra: ordenadas.slice(0, ANALISIS_GLOBAL_CFG.MUESTRA_POR_PREGUNTA).map((r) => recorta(r.texto, ANALISIS_GLOBAL_CFG.MAX_TEXTO_MUESTRA)),
+    }
+  })
+  const conDatos = preguntas.filter((p) => p.respuestas >= (UMBRALES_DIAGNOSTICO[p.tipo] ?? 8))
+  return {
+    sesionId: codigo, encuesta, calificable: sesion?.calificable === true, totalPreguntas: preguntas.length, totalRespuestas: total,
+    participantes: participantes.size || null, preguntas,
+    suficiente: conDatos.length > 0,
+    motivo: conDatos.length ? '' : `Ninguna pregunta reunió respuestas suficientes para un análisis (mínimo ${UMBRALES_DIAGNOSTICO.opcion_unica} en opción única u ${UMBRALES_DIAGNOSTICO.abierta_extensa} en abiertas).`,
+  }
+}
+
+// Quita del texto de la IA porcentajes y conteos («85 %», «12 de 30», «7 estudiantes»): las cifras solo salen de datosAnalisisGlobal.
+export function quitarCifras(texto) {
+  return String(texto ?? '')
+    .replace(/\b\d+(?:[.,]\d+)?\s*(?:%|por\s*ciento)/gi, '')
+    .replace(/\b\d+(?:[.,]\d+)?\s+de\s+(?:cada\s+)?\d+(?:[.,]\d+)?\b/gi, '')
+    .replace(/\b\d+(?:[.,]\d+)?\s+(?:estudiantes?|alumn[oa]s?|participantes?|respuestas?|personas?|docentes?|veces)\b/gi, '')
+    .replace(/\(\s*\)/g, '')
+    .replace(/\s+([,.;:])/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/** Valida la salida de la IA del análisis global. Sin «desempeño» no hay análisis utilizable (null → no se cobra). */
+export function sanearAnalisisGlobal(crudo, datos) {
+  if (!crudo || typeof crudo !== 'object') return null
+  const t = (v, max) => quitarCifras(recorta(v, max))
+  const max = ANALISIS_GLOBAL_CFG.MAX_LISTA
+  const textos = (v, n) => lista(v, max).map((x) => t(x, n)).filter(Boolean)
+  const desempeno = t(crudo.desempeno, 700)
+  if (!desempeno) return null
+  const validas = new Set((datos?.preguntas || []).map((p) => p.id))
+  const vistas = new Set()
+  const preguntasDestacadas = lista(crudo.preguntasDestacadas, max)
+    .map((x) => ({ preguntaId: String(x?.preguntaId ?? ''), motivo: t(x?.motivo, 240) }))
+    .filter((x) => validas.has(x.preguntaId) && x.motivo && !vistas.has(x.preguntaId) && vistas.add(x.preguntaId))
+  return {
+    desempeno,
+    patrones: textos(crudo.patrones, 220),
+    preguntasDestacadas,
+    dificultades: textos(crudo.dificultades, 220),
+    recomendaciones: textos(crudo.recomendaciones, 260),
+    limitaciones: t(crudo.limitaciones, 300),
   }
 }
 
