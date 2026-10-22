@@ -1021,6 +1021,41 @@ await caso('muro de ideas: ninguna respuesta se trunca; las largas ocupan págin
   assert.ok(paginas.some((pg) => pg.length === 1 && pg[0].id === 'L'), 'la larga va sola')
 })
 
+await caso('vista del docente: tamaños de pantalla de trabajo, acotados y sin los pisos del proyector', () => {
+  for (const [w, h] of [[390, 600], [780, 560], [1100, 900], [3840, 2160]]) {
+    const t = P.tamanosDocente(w, h)
+    assert.deepStrictEqual(Object.keys(t).sort(), Object.keys(P.tamanosProyeccion(w, h)).sort(), 'misma forma que los de proyección')
+    assert.ok(t.pregunta >= 20 && t.pregunta <= 28, `pregunta ${t.pregunta} px en ${w}x${h}`)
+    assert.ok(t.respuesta >= 16 && t.respuesta <= 18 && t.resto >= 14 && t.resto <= 16 && t.opcion >= 16 && t.opcion <= 20)
+    assert.ok(t.pregunta < P.PISOS_PROYECCION.pregunta, 'nunca usa el piso de 48 px del proyector')
+  }
+})
+
+await caso('estimaciones de espacio: sin tamaños explícitos dan lo mismo que antes (proyección intacta)', () => {
+  const ops = [{ texto: 'Oxígeno molecular liberado a la atmósfera' }, { texto: 'Glucosa' }, { texto: 'Agua' }]
+  for (const [w, h] of [[1920, 1080], [1366, 768], [700, 500]]) {
+    const t = P.tamanosProyeccion(w, h)
+    assert.strictEqual(P.planOpciones('¿Qué produce?', ops, w, h), P.planOpciones('¿Qué produce?', ops, w, h, t))
+    assert.strictEqual(P.altoEnunciado('Una pregunta de prueba', w, h), P.altoEnunciado('Una pregunta de prueba', w, h, t))
+    assert.deepStrictEqual(P.paginarOpciones(ops, w, h), P.paginarOpciones(ops, w, h, t))
+  }
+  const td = P.tamanosDocente(700, 500)
+  assert.ok(P.altoEnunciado('Una pregunta de prueba', 700, 500, td) < P.altoEnunciado('Una pregunta de prueba', 700, 500), 'con los tamaños del docente el enunciado ocupa menos')
+})
+
+await caso('navegación manual: lo que el docente consulta queda anclado aunque lleguen o se borren respuestas', () => {
+  const R = (ids) => ids.map((id) => ({ id }))
+  const paginas = [R(['a', 'b']), R(['c', 'd']), R(['e'])]
+  assert.strictEqual(P.paginaAnclada(paginas, null, 0), 0, 'sin ancla empieza en la primera, no en la más reciente')
+  assert.strictEqual(P.paginaAnclada(paginas, 'c', 0), 1)
+  const conNuevas = [R(['a', 'b']), R(['c', 'd']), R(['e', 'f']), R(['g'])]
+  assert.strictEqual(P.paginaAnclada(conNuevas, 'c', 1), 1, 'llegan respuestas: sigue en la misma página')
+  const reacomodadas = [R(['x', 'a']), R(['b', 'c']), R(['d'])]
+  assert.strictEqual(P.paginaAnclada(reacomodadas, 'c', 1), 1, 'si el reparto cambia, sigue a la respuesta, no al número de página')
+  assert.strictEqual(P.paginaAnclada([R(['a']), R(['b'])], 'zz', 5), 1, 'si la respuesta desaparece: índice previo acotado al rango')
+  assert.strictEqual(P.paginaAnclada([], 'a', 3), 0, 'sin respuestas: 0')
+})
+
 await caso('umbrales del diagnóstico por tipo y confianza', () => {
   const op = PREGUNTAS_SESION[0], br = PREGUNTAS_SESION[1], ex = PREGUNTAS_SESION[2]
   const R = (n, extra) => Array.from({ length: n }, (_, i) => ({ id: 'r' + i, ...extra(i) }))

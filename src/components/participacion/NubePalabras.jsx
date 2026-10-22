@@ -28,11 +28,15 @@ export default function NubePalabras({ opciones, area, tam = null, correcta = nu
   const medir = useMemo(() => crearMedidor(familia), [familia])
   // La nube se recompone como máximo cada 1.5 s: cada respuesta nueva cambia las frecuencias, pero la pantalla no «baila».
   const items = useAmortiguado(opciones)
+  // Botones de al menos 44 px (táctiles). En proyección t.resto ≥ 28, así que miden lo mismo que siempre.
+  const lado = Math.max(44, t.resto * 2)
+  const icono = lado >= 56 ? 40 : 24
+  const barra = Math.max(Math.round(t.resto * 2.6), lado + 8)
   const compuesta = useMemo(
     () => (area.ancho > 0 && area.alto > 0
-      ? componerNube(items, area.ancho, Math.max(1, area.alto - Math.round(t.resto * 2.6)), { medir, tamanoMin: Math.max(TAMANO_MIN_NUBE, t.respuesta - 8) })
+      ? componerNube(items, area.ancho, Math.max(1, area.alto - barra), { medir, tamanoMin: Math.max(TAMANO_MIN_NUBE, t.respuesta - 8) })
       : { paginas: [], total: 0 }),
-    [items, area.ancho, area.alto, medir, t.resto, t.respuesta]
+    [items, area.ancho, area.alto, medir, barra, t.respuesta]
   )
   const paginas = compuesta.paginas
   const actual = Math.min(pagina, Math.max(0, paginas.length - 1))
@@ -52,7 +56,7 @@ export default function NubePalabras({ opciones, area, tam = null, correcta = nu
 
   const pag = paginas[actual]
   const correctaTexto = revelar && correcta != null ? items.find((o) => o.clave === correcta)?.texto ?? opciones.find((o) => o.clave === correcta)?.texto : null
-  const alturaNube = Math.max(1, area.alto - Math.round(t.resto * 2.6))
+  const alturaNube = Math.max(1, area.alto - barra)
   return (
     <div ref={ref} className="relative h-full w-full select-none">
       {!items.length && (
@@ -77,12 +81,12 @@ export default function NubePalabras({ opciones, area, tam = null, correcta = nu
         </div>
       )}
       {(paginas.length > 1 || correctaTexto) && (
-        <div className="absolute bottom-0 inset-x-0 flex items-center justify-center gap-[3vmin] text-slate-900" style={{ height: Math.round(t.resto * 2.6) }}>
+        <div className="absolute bottom-0 inset-x-0 flex items-center justify-center gap-[3vmin] text-slate-900" style={{ height: barra }}>
           {correctaTexto && <span className="font-bold text-emerald-800" style={{ fontSize: t.resto }}>✓ Correcta: {correctaTexto}</span>}
           {paginas.length > 1 && <>
-          <button type="button" aria-label="Palabras anteriores" onClick={() => setPagina(Math.max(0, actual - 1))} disabled={actual === 0} className="rounded-full border-2 border-slate-900 disabled:opacity-40 flex items-center justify-center" style={{ width: t.resto * 2, height: t.resto * 2 }}><ChevronLeft size={40} aria-hidden="true" /></button>
+          <button type="button" aria-label="Palabras anteriores" onClick={() => setPagina(Math.max(0, actual - 1))} disabled={actual === 0} className="rounded-full border-2 border-slate-900 disabled:opacity-40 flex items-center justify-center" style={{ width: lado, height: lado }}><ChevronLeft size={icono} aria-hidden="true" /></button>
           <span className="font-semibold tabular-nums" style={{ fontSize: t.resto }}>Más palabras · {actual + 1}/{paginas.length}</span>
-          <button type="button" aria-label="Palabras siguientes" onClick={() => setPagina(Math.min(paginas.length - 1, actual + 1))} disabled={actual === paginas.length - 1} className="rounded-full border-2 border-slate-900 disabled:opacity-40 flex items-center justify-center" style={{ width: t.resto * 2, height: t.resto * 2 }}><ChevronRight size={40} aria-hidden="true" /></button>
+          <button type="button" aria-label="Palabras siguientes" onClick={() => setPagina(Math.min(paginas.length - 1, actual + 1))} disabled={actual === paginas.length - 1} className="rounded-full border-2 border-slate-900 disabled:opacity-40 flex items-center justify-center" style={{ width: lado, height: lado }}><ChevronRight size={icono} aria-hidden="true" /></button>
           </>}
         </div>
       )}
