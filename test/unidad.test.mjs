@@ -481,6 +481,61 @@ caso('hoy en México, no en UTC: 18:30 del 14-sep en CDMX sigue siendo el 14', (
   assert.strictEqual(AR.fechaHoyMexico(new Date('2026-09-15T00:30:00Z')), '2026-09-14')
 })
 
+grupo('Parcial vigente (Asistencias y Calificaciones)')
+const { parcialVigente } = await import('../src/utils/parciales.js')
+const FECHAS_3P = [
+  { inicio: '2026-08-24', fin: '2026-09-30' },
+  { inicio: '2026-10-01', fin: '2026-11-15' },
+  { inicio: '2026-11-16', fin: '2027-01-10' },
+]
+
+caso('parcial vigente: hoy dentro del rango de un parcial', () => {
+  assert.strictEqual(parcialVigente(FECHAS_3P, '2026-09-10'), 1)
+  assert.strictEqual(parcialVigente(FECHAS_3P, '2026-10-23'), 2)
+  assert.strictEqual(parcialVigente(FECHAS_3P, '2026-12-01'), 3)
+})
+
+caso('parcial vigente: límites entre parciales consecutivos (inicio y fin cuentan)', () => {
+  assert.strictEqual(parcialVigente(FECHAS_3P, '2026-08-24'), 1)
+  assert.strictEqual(parcialVigente(FECHAS_3P, '2026-09-30'), 1)
+  assert.strictEqual(parcialVigente(FECHAS_3P, '2026-10-01'), 2)
+  assert.strictEqual(parcialVigente(FECHAS_3P, '2026-11-15'), 2)
+  assert.strictEqual(parcialVigente(FECHAS_3P, '2026-11-16'), 3)
+})
+
+caso('parcial vigente: antes de que empiece el curso es el Parcial 1', () => {
+  assert.strictEqual(parcialVigente(FECHAS_3P, '2026-08-01'), 1)
+  // Los datos de la pantalla no cambian la regla cuando hay fechas.
+  assert.strictEqual(parcialVigente(FECHAS_3P, '2026-08-01', [2, 3]), 1)
+})
+
+caso('parcial vigente: después del curso es el último parcial', () => {
+  assert.strictEqual(parcialVigente(FECHAS_3P, '2027-02-01'), 3)
+  assert.strictEqual(parcialVigente(FECHAS_3P, '2027-02-01', [1]), 3)
+})
+
+caso('parcial vigente: sin fechas, el último parcial con datos de cada pantalla', () => {
+  // Asistencias pasa los parciales con días; Calificaciones, los que tienen actividades.
+  assert.strictEqual(parcialVigente([], '2026-10-23', [1, 2]), 2)
+  assert.strictEqual(parcialVigente(undefined, '2026-10-23', [1, 3]), 3)
+  assert.strictEqual(parcialVigente(null, '2026-10-23', [3, 1]), 3)
+})
+
+caso('parcial vigente: sin fechas y sin datos es el Parcial 1', () => {
+  assert.strictEqual(parcialVigente([], '2026-10-23', []), 1)
+  assert.strictEqual(parcialVigente(undefined, '2026-10-23'), 1)
+})
+
+caso('parcial vigente: con hora de México no se adelanta el cambio de parcial', () => {
+  // 30-sep a las 19:30 en CDMX = 1-oct 01:30 UTC: sigue siendo el Parcial 1.
+  const noche = new Date('2026-10-01T01:30:00Z')
+  assert.strictEqual(noche.toISOString().slice(0, 10), '2026-10-01') // lo que hacía antes (UTC)
+  assert.strictEqual(AR.fechaHoyMexico(noche), '2026-09-30')
+  assert.strictEqual(parcialVigente(FECHAS_3P, AR.fechaHoyMexico(noche)), 1)
+  // Pasada la medianoche de México ya es el Parcial 2.
+  assert.strictEqual(parcialVigente(FECHAS_3P, AR.fechaHoyMexico(new Date('2026-10-01T06:30:00Z'))), 2)
+})
+
 caso('una actividad de un parcial oculto no es visible aunque no esté oculta', () => {
   assert.strictEqual(F.actividadVisible({ oculta: false }, true), false)
   assert.strictEqual(F.actividadVisible({ oculta: false }, false), true)
