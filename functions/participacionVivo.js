@@ -829,7 +829,7 @@ async function recuperarInformesAtascados({ ahora = Date.now() } = {}) {
 async function limpiarVivoDeActividad({ activityId }) {
   const db = getFirestore()
   const escritor = db.bulkWriter()
-  for (const coleccion of ['vivoRespuestas', 'vivoSesiones', 'vivoInformes']) {
+  for (const coleccion of ['vivoRespuestas', 'vivoSesiones', 'vivoInformes', 'vivoNotas']) {
     const snap = await db.collection(coleccion).where('actividadId', '==', activityId).get()
     snap.docs.forEach((d) => escritor.delete(d.ref))
   }
@@ -838,8 +838,8 @@ async function limpiarVivoDeActividad({ activityId }) {
 }
 
 // ── 5. Limpieza al borrar UNA sesión ───────────────────────────────────────
-// El docente borra solo `vivoSesiones/{codigo}` (las reglas no le dejan borrar diagnósticos). Aquí se van las respuestas y los
-// diagnósticos de ESA sesión y nada más: la actividad, sus claves, las otras sesiones y las calificaciones ya aplicadas
+// El docente borra solo `vivoSesiones/{codigo}` (las reglas no le dejan borrar diagnósticos). Aquí se van las respuestas, los
+// diagnósticos y las notas del docente (vivoNotas) de ESA sesión y nada más: la actividad, sus claves, las otras sesiones y las calificaciones ya aplicadas
 // (submissions, que son por actividad y no por sesión) quedan intactas. Idempotente: si ya no hay nada, no hace nada.
 async function limpiarVivoDeSesion({ sesionId }) {
   const codigo = String(sesionId || '')
@@ -847,7 +847,7 @@ async function limpiarVivoDeSesion({ sesionId }) {
   const db = getFirestore()
   const escritor = db.bulkWriter()
   let borrados = 0
-  for (const coleccion of ['vivoRespuestas', 'vivoInformes']) {
+  for (const coleccion of ['vivoRespuestas', 'vivoInformes', 'vivoNotas']) {
     const snap = await db.collection(coleccion).where('sesionId', '==', codigo).get()
     snap.docs.forEach((d) => { escritor.delete(d.ref); borrados += 1 })
   }

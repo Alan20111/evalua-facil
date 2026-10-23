@@ -13,6 +13,9 @@ import { Button } from '../ui'
 import VistaPregunta from './VistaPregunta'
 import { InformeFinalDocente } from './DiagnosticoDocente'
 import PanelCalificacionVivo from './PanelCalificacionVivo'
+import NotasDocenteVivo from './NotasDocenteVivo'
+import BotonInformeVivoPDF from './BotonInformeVivoPDF'
+import { useNotasVivo } from '../../hooks/useNotasVivo'
 import { esEncuesta, resumenAbiertas } from '../../utils/participacionVivo'
 import Temporizador from './Temporizador'
 import { useCuentaRegresiva } from '../../hooks/useTemporizadorVivo'
@@ -103,6 +106,8 @@ function ResultadosFinales({ sesion, respuestas, informes, claves, actividad, in
   const clave = claves?.[pregunta.id]
   const total = respuestas.filter((r) => r.preguntaId === pregunta.id).length
   const encuesta = esEncuesta(sesion.proposito)
+  // Notas del docente: el estado vive aquí para que el «Informe en PDF» lleve exactamente lo que está en pantalla.
+  const notas = useNotasVivo(sesion)
   // Flechas del teclado: misma navegación que la vista del grupo (salvo mientras se escribe en un campo).
   useEffect(() => {
     const tecla = (e) => {
@@ -147,8 +152,11 @@ function ResultadosFinales({ sesion, respuestas, informes, claves, actividad, in
             <Estado pregunta={pregunta} respuestas={respuestas} sesion={sesion} />
             <Clave pregunta={pregunta} clave={clave} />
           </section>
-          <InformeFinalDocente sesion={sesion} informes={informes} />
+          <InformeFinalDocente sesion={sesion} informes={informes} respuestas={respuestas} notas={notas.texto} />
           {!sesion.analisisActivo && <p className="text-sm text-muted px-1">En esta sesión no se activó el análisis con IA, así que no hay diagnóstico por pregunta.</p>}
+          {/* Sin análisis no hay tarjeta de informe: el PDF (datos de la sesión + notas) se ofrece junto a las notas. */}
+          <NotasDocenteVivo notas={notas}
+            pdf={sesion.analisisActivo ? null : <BotonInformeVivoPDF sesion={sesion} respuestas={respuestas} notas={notas.texto} />} />
         </>
       }
       debajo={sesion.calificable ? (
