@@ -34,8 +34,10 @@ export default function TabCalificaciones() {
     activeTab,
     activities,
     activityLabelById,
+    alcanceCalif,
     analisisAsignaturaAbierto,
     anyPonderacionOn,
+    califParcialActual,
     cambiarPesosVisibles,
     cambiarVisibilidadAlumno,
     colIndexByKey,
@@ -73,6 +75,7 @@ export default function TabCalificaciones() {
     savePeso,
     searchGrade,
     setActTip,
+    setAlcanceCalif,
     setAnalisisAsignaturaAbierto,
     setGradeSortMenuOpen,
     setGradeSortOn,
@@ -90,8 +93,14 @@ export default function TabCalificaciones() {
     toggleParcialPonderacion,
     togglePonderacion,
     totalStudents,
+    verParcialActual,
     visibleParcials,
   } = useAsignatura()
+  // «Parcial actual» con un parcial vigente que aún no tiene actividades: en
+  // vez de la tabla, un aviso que nombra el parcial y ofrece «Todo el curso».
+  const vistaVacia = verParcialActual && visibleParcials.length === 0
+  // Parcial por el que ordena «Ordenar de mayor a menor» (null = General).
+  const parcialOrden = verParcialActual ? califParcialActual : gradeSortParcial
   // ¿Hay algo oculto al estudiante? Activa las notas al pie de la tabla.
   const hayOcultas = tableParcials.some(({ p, acts }) =>
     calificacionOcultaAlAlumno(subject, p) || acts.some((a) => actividadOculta(subject, a.id))) || finalOculto(subject)
@@ -176,6 +185,19 @@ export default function TabCalificaciones() {
                 {/* Action bar above the table — ponderación toggle lives here now
                     (moved out of the crowded table header) */}
                 <div className="flex items-center gap-2 flex-wrap">
+                  {/* Alcance de la tabla — mismo control que Asistencias. Solo
+                      cambia lo que se pinta: las descargas siguen bajando todo. */}
+                  <div className="flex bg-surface-container p-1 rounded-full w-fit">
+                    <button type="button" onClick={() => setAlcanceCalif('parcial')} aria-pressed={alcanceCalif === 'parcial'}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors min-h-control-sm whitespace-nowrap ${alcanceCalif === 'parcial' ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
+                      Parcial actual · P{califParcialActual}
+                    </button>
+                    <button type="button" onClick={() => setAlcanceCalif('curso')} aria-pressed={alcanceCalif === 'curso'}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors min-h-control-sm whitespace-nowrap ${alcanceCalif === 'curso' ? 'bg-surface-card text-on-surface shadow-card' : 'text-muted hover:bg-[var(--accent-medium)]'}`}>
+                      Todo el curso
+                    </button>
+                  </div>
+                  {!vistaVacia && (<>
                   <button type="button" onClick={togglePonderacion}
                     data-tooltip={anyPonderacionOn ? 'Quitar la ponderación de todos los parciales' : 'Cada actividad vale un peso — se activa en todos los parciales; luego puedes apagarla por parcial'}
                     className={`px-3 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-colors min-h-control-sm ${anyPonderacionOn
@@ -222,18 +244,21 @@ export default function TabCalificaciones() {
                       <button type="button" onClick={() => setGradeSortOn((v) => !v)}
                         data-tooltip={gradeSortOn ? 'Ordenado de mayor a menor' : 'Ordenar por promedio, de mayor a menor'}
                         className={`px-3 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-colors min-h-control-sm ${gradeSortOn ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-surface-container text-muted hover:text-accent'}`}>
-                        Ordenar de mayor a menor{gradeSortOn ? ` · ${gradeSortParcial == null ? 'General' : `P${gradeSortParcial}`}` : ''}
+                        Ordenar de mayor a menor{gradeSortOn ? ` · ${parcialOrden == null ? 'General' : `P${parcialOrden}`}` : ''}
                       </button>
+                      {/* En «Parcial actual» no hay qué elegir: ordena por ese parcial. */}
+                      {!verParcialActual && (
                       <button type="button" onClick={() => setGradeSortMenuOpen((v) => !v)}
                         aria-label="Elegir parcial para ordenar" data-tooltip="Elegir parcial (o general)"
                         className={`px-1.5 py-1.5 ml-1 rounded-full transition-colors min-h-control-sm ${gradeSortOn ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-surface-container text-muted hover:text-accent'}`}>
                         <MoreVertical size={ICONO.sm} />
                       </button>
+                      )}
                       {gradeSortOn && (
                         <IconButton icon={X} label="Volver al orden normal" variant="danger" tooltip={false} onClick={() => { setGradeSortOn(false); setGradeSortMenuOpen(false) }}
                           data-tooltip="Volver al orden normal" />
                       )}
-                      {gradeSortMenuOpen && (
+                      {gradeSortMenuOpen && !verParcialActual && (
                         <div className="absolute right-0 top-full mt-1 z-30 bg-surface-card border border-outline-variant rounded-card shadow-lg py-1 min-w-[170px] animate-menu origin-top-right motion-reduce:animate-none">
                           <button type="button" onClick={() => { setGradeSortParcial(null); setGradeSortOn(true); setGradeSortMenuOpen(false) }}
                             className={`w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--accent-tint)] ${gradeSortParcial == null ? 'font-bold text-accent' : 'text-on-surface'}`}>
@@ -249,8 +274,15 @@ export default function TabCalificaciones() {
                       )}
                     </div>
                   </div>
+                  </>)}
                 </div>
 
+                {vistaVacia ? (
+                  <div data-nota="parcial-sin-actividades" className="text-center py-12 space-y-3">
+                    <p className="text-hint text-sm">Aún no hay actividades en el Parcial {califParcialActual}, el parcial actual.</p>
+                    <Button variant="outline-accent" onClick={() => setAlcanceCalif('curso')}>Ver todo el curso</Button>
+                  </div>
+                ) : (<>
                 {gradeSortOn && (
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-muted">
                     <span className="inline-flex items-center gap-1.5">
@@ -597,6 +629,7 @@ export default function TabCalificaciones() {
                 {filteredGradeStudents.length === 0 && searchGrade && (
                   <p className="text-center text-sm text-hint">Sin resultados para &ldquo;{searchGrade}&rdquo;</p>
                 )}
+                </>)}
               </>
             )}
             </>

@@ -16,3 +16,24 @@ export function parcialForDate(parcialesFechas, fecha) {
   }
   return null
 }
+
+// El parcial VIGENTE de una asignatura — una sola regla para Asistencias y
+// Calificaciones. `hoy` es 'YYYY-MM-DD' en hora de México (fechaHoyMexico);
+// en UTC, desde las 18:00 ya contaría el día siguiente.
+//
+//   1. Con fechas: el parcial cuyo rango contiene hoy; antes de que empiece
+//      el curso, el 1; en cualquier otro caso (ya terminó), el último.
+//   2. Sin fechas: el último parcial que tiene datos en la pantalla que
+//      pregunta. Cada pantalla pasa los suyos (`parcialesConDatos`):
+//      Asistencias, los parciales con días de asistencia; Calificaciones, los
+//      que tienen actividades que cuentan. Sin datos, el 1.
+export function parcialVigente(parcialesFechas, hoy, parcialesConDatos = []) {
+  if (Array.isArray(parcialesFechas) && parcialesFechas.length) {
+    const parcial = parcialForDate(parcialesFechas, hoy)
+    if (parcial) return parcial
+    if (parcialesFechas[0]?.inicio && hoy < parcialesFechas[0].inicio) return 1
+    return parcialesFechas.length
+  }
+  if (!parcialesConDatos.length) return 1
+  return Math.max(...parcialesConDatos)
+}
