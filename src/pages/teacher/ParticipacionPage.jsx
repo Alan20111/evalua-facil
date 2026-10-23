@@ -8,8 +8,8 @@
 //     califica, no lleva número ni cuenta en el promedio (sinCalificacion).
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { collection, deleteDoc, doc, getDoc, getDocs, updateDoc, writeBatch } from 'firebase/firestore'
-import { ArrowDown, ArrowLeft, ArrowUp, Play, Presentation, Save, Trash2 } from 'lucide-react'
+import { collection, deleteDoc, doc, getCountFromServer, getDoc, getDocs, query, updateDoc, where, writeBatch } from 'firebase/firestore'
+import { ArrowDown, ArrowLeft, ArrowUp, Play, Presentation, Save, Trash2, X } from 'lucide-react'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
@@ -163,6 +163,11 @@ export default function TeacherParticipacionPage() {
   const [iniciando, setIniciando] = useState(false)
   const [presentando, setPresentando] = useState(null)
   const [confirmandoBorrar, setConfirmandoBorrar] = useState(false)
+  // Borrar UNA sesión: { sesion, respuestas (null = contando) } mientras se confirma.
+  const [borrandoSesion, setBorrandoSesion] = useState(null)
+  const [eliminandoSesion, setEliminandoSesion] = useState(false)
+  // ¿La actividad ya tiene calificaciones aplicadas? Entonces «Calificable» sigue fijo aunque se borren todas sus sesiones.
+  const [tieneNotas, setTieneNotas] = useState(false)
 
   const cargar = useCallback(async () => {
     const snap = await getDoc(doc(db, 'activities', activityId))
@@ -170,13 +175,17 @@ export default function TeacherParticipacionPage() {
       navigate('/dashboard', { replace: true }); return
     }
     const act = { id: snap.id, ...snap.data() }
-    const [clavesSnap, subjSnap, ses] = await Promise.all([
+    const [clavesSnap, subjSnap, ses, notas] = await Promise.all([
       getDocs(collection(db, 'activities', activityId, 'clave')),
       getDoc(doc(db, 'subjects', act.asignaturaId)),
       sesionesDeActividad(activityId, uid),
+      // Si no se puede comprobar, se asume que sí hay notas: el interruptor queda fijo (falla cerrada).
+      getDocs(query(collection(db, 'submissions'), where('actividadId', '==', activityId)))
+        .then((s) => s.docs.some((d) => d.data().calificacion != null))
+        .catch(() => true),
     ])
     const mapa = Object.fromEntries(clavesSnap.docs.filter((d) => d.id !== 'contexto').map((d) => [d.id, d.data()]))
-    setActividad(act); setClaves(mapa); setSesiones(ses)
+    setActividad(act); setClaves(mapa); setSesiones(ses); setTieneNotas(notas)
     setAsignatura(subjSnap.exists() ? { id: subjSnap.id, ...subjSnap.data() } : null)
     setNombre(act.nombre || '')
     setModelo((act.participacion?.preguntas || []).map((p) => aModeloEdicion(p, mapa[p.id])))
@@ -196,6 +205,7 @@ export default function TeacherParticipacionPage() {
 
   const hayActiva = sesiones.find((s) => s.estado === 'activa')
   const yaHuboSesion = sesiones.length > 0
+  const calificableFijo = yaHuboSesion || tieneNotas
   const sinPreguntas = !modelo.length
   const proposito = propositoDe(actividad?.participacion?.proposito)
   const encuesta = esEncuesta(proposito) // sin respuestas correctas, ponderaciones ni calificación
@@ -287,6 +297,35 @@ export default function TeacherParticipacionPage() {
     }
   }
 
+  // Tachita de una sesión: abre la confirmación y cuenta sus respuestas para decir qué se pierde.
+  async function pedirBorrarSesion(s) {
+    setBorrandoSesion({ sesion: s, respuestas: null })
+    let n = null
+    try {
+      n = (await getCountFromServer(query(collection(db, 'vivoRespuestas'), where('docenteId', '==', uid), where('sesionId', '==', s.codigo)))).data().count
+    } catch { /* sin el conteo la confirmación sigue siendo válida */ }
+    setBorrandoSesion((b) => (b?.sesion.codigo === s.codigo ? { ...b, respuestas: n } : b))
+  }
+
+  // Borra SOLO el documento de la sesión; sus respuestas y diagnósticos los limpia el servidor (onSesionVivoBorrada).
+  async function borrarSesion() {
+    const s = borrandoSesion?.sesion
+    if (!s) return
+    setEliminandoSesion(true)
+    try {
+      await deleteDoc(doc(db, 'vivoSesiones', s.codigo))
+      setSesiones((lista) => lista.filter((x) => x.codigo !== s.codigo))
+      setBorrandoSesion(null)
+      toast('Sesión eliminada')
+    } catch (e) {
+      toast(e?.code === 'permission-denied'
+        ? 'No se pudo eliminar: si la sesión sigue en curso, finalízala primero.'
+        : 'No se pudo eliminar la sesión. Revisa tu conexión e intenta de nuevo.', 'error')
+    } finally {
+      setEliminandoSesion(false)
+    }
+  }
+
   async function borrar() {
     setConfirmandoBorrar(false)
     try {
@@ -353,9 +392,11 @@ export default function TeacherParticipacionPage() {
           hint={acceso === 'grupo'
             ? 'Tus estudiantes inscritos entran con su cuenta desde su asignatura. Las respuestas quedan ligadas a cada estudiante.'
             : 'Cualquier persona entra con un QR o enlace, sin cuenta (incluidos tus estudiantes, pero sin asociarse a su cuenta). Los resultados son anónimos.'} />
-        {!encuesta && <Switch label="Calificable" checked={calificable} disabled={yaHuboSesion || guardando} onChange={setCalificable}
+        {!encuesta && <Switch label="Calificable" checked={calificable} disabled={calificableFijo || guardando} onChange={setCalificable}
           hint={yaHuboSesion
             ? 'Ya hubo una sesión: este ajuste quedó fijo para que todas las respuestas se evalúen con el mismo criterio.'
+            : tieneNotas
+            ? 'Ya hay calificaciones aplicadas en esta actividad: este ajuste quedó fijo aunque se hayan eliminado sus sesiones.'
             : 'Desactivado: solo participación, sin nota ni número. Activado: se registra como actividad evaluable de la asignatura y la nota la confirmas tú.'} />}
         {encuesta && <p className="text-sm text-muted">Es una encuesta: no se califica ni lleva ponderaciones.</p>}
         {calificable && !encuesta && acceso === 'externo' && (
@@ -374,15 +415,31 @@ export default function TeacherParticipacionPage() {
       {yaHuboSesion && (
         <section aria-label="Sesiones anteriores" className="space-y-2 pb-8">
           <h2 className="text-base font-semibold text-on-surface">Sesiones</h2>
-          {sesiones.map((s) => (
-            <Card key={s.codigo} padding="sm" className="flex items-center gap-3">
-              <span className="text-sm text-on-surface flex-1">
-                {s.creadaEn?.toDate?.().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }) || '—'} · {ACCESOS_VIVO[s.acceso]} · {s.estado === 'activa' ? 'En curso' : 'Finalizada'}
-              </span>
-              <Button size="sm" variant="secondary" onClick={() => setPresentando(s.codigo)}>{s.estado === 'activa' ? 'Proyectar' : 'Ver resultados'}</Button>
-            </Card>
-          ))}
+          {sesiones.map((s) => {
+            const fecha = s.creadaEn?.toDate?.().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }) || '—'
+            return (
+              <Card key={s.codigo} padding="sm" className="flex items-center gap-3">
+                <span className="text-sm text-on-surface flex-1">
+                  {fecha} · {ACCESOS_VIVO[s.acceso]} · {s.estado === 'activa' ? 'En curso' : 'Finalizada'}
+                </span>
+                <Button size="sm" variant="secondary" onClick={() => setPresentando(s.codigo)}>{s.estado === 'activa' ? 'Proyectar' : 'Ver resultados'}</Button>
+                {/* Una sesión en curso no se elimina (las reglas tampoco lo permiten): se reserva el hueco para que las filas alineen. */}
+                {s.estado === 'activa'
+                  ? <span className="size-control-sm flex-shrink-0" aria-hidden="true" />
+                  : <IconButton size="sm" variant="danger" icon={X} label={`Eliminar la sesión del ${fecha}`} onClick={() => pedirBorrarSesion(s)} />}
+              </Card>
+            )
+          })}
         </section>
+      )}
+
+      {borrandoSesion && (
+        <ConfirmModal title="¿Eliminar esta sesión?"
+          message={`Sesión del ${borrandoSesion.sesion.creadaEn?.toDate?.().toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' }) || '—'}: `
+            + (borrandoSesion.respuestas == null ? 'se borrarán sus respuestas' : `se borrarán sus ${borrandoSesion.respuestas} ${borrandoSesion.respuestas === 1 ? 'respuesta' : 'respuestas'}`)
+            + ' y su diagnóstico. Las preguntas, las demás sesiones y las calificaciones ya aplicadas no cambian. No se puede deshacer.'}
+          confirmLabel="Eliminar sesión" confirmingLabel="Eliminando…" danger busy={eliminandoSesion}
+          onConfirm={borrarSesion} onCancel={() => setBorrandoSesion(null)} />
       )}
 
       {confirmandoBorrar && (

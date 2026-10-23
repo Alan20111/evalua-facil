@@ -4346,6 +4346,18 @@ ok('F-05 · admin CAN read publicProfiles')
   await assertSucceeds(setDoc(doc(asT1, 'vivoSesiones', 'MNPQRSTUVW'), sesionNueva({ proposito: 'encuesta' })))
   ok('VIVO · una sesión no puede nacer con fechas, ventanas ni una pregunta ya abierta; el propósito sí se guarda')
 
+  // Borrar UNA sesión (tachita de «Sesiones»): solo el dueño y solo si ya no está en curso.
+  await assertFails(deleteDoc(doc(asT1, 'vivoSesiones', 'MNPQRSTUVW')))
+  ok('VIVO · el dueño NO puede borrar una sesión en curso')
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'vivoSesiones', 'NPQRSTUVWX'), { ...sesionNueva(), estado: 'finalizada' })
+  })
+  await assertFails(deleteDoc(doc(asT2, 'vivoSesiones', 'NPQRSTUVWX')))
+  await assertFails(deleteDoc(doc(asJuan, 'vivoSesiones', 'NPQRSTUVWX')))
+  ok('VIVO · otro docente ni un estudiante borran una sesión ajena, aunque esté finalizada')
+  await assertSucceeds(deleteDoc(doc(asT1, 'vivoSesiones', 'NPQRSTUVWX')))
+  ok('VIVO · el dueño borra una sesión finalizada')
+
   await assertSucceeds(getDocs(query(collection(asT1, 'vivoRespuestas'), where('docenteId', '==', T1), where('sesionId', '==', 'ABCDEFGHJK'))))
   await assertSucceeds(getDoc(doc(asT1, 'vivoRespuestas', 'RVIVO_1')))
   ok('VIVO · el dueño lee las respuestas de su sesión en tiempo real (consulta por docente + sesión)')

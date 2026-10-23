@@ -837,8 +837,26 @@ async function limpiarVivoDeActividad({ activityId }) {
   await db.recursiveDelete(db.doc(`activities/${activityId}`)) // la subcolección clave/
 }
 
+// ── 5. Limpieza al borrar UNA sesión ───────────────────────────────────────
+// El docente borra solo `vivoSesiones/{codigo}` (las reglas no le dejan borrar diagnósticos). Aquí se van las respuestas y los
+// diagnósticos de ESA sesión y nada más: la actividad, sus claves, las otras sesiones y las calificaciones ya aplicadas
+// (submissions, que son por actividad y no por sesión) quedan intactas. Idempotente: si ya no hay nada, no hace nada.
+async function limpiarVivoDeSesion({ sesionId }) {
+  const codigo = String(sesionId || '')
+  if (!V.codigoVivoValido(codigo)) return { borrados: 0 }
+  const db = getFirestore()
+  const escritor = db.bulkWriter()
+  let borrados = 0
+  for (const coleccion of ['vivoRespuestas', 'vivoInformes']) {
+    const snap = await db.collection(coleccion).where('sesionId', '==', codigo).get()
+    snap.docs.forEach((d) => { escritor.delete(d.ref); borrados += 1 })
+  }
+  await escritor.close()
+  return { borrados }
+}
+
 module.exports = {
-  limpiarVivoDeActividad, recuperarAnalisisAtascado, recuperarInformesAtascados, sellarSesionesVencidas,
+  limpiarVivoDeActividad, limpiarVivoDeSesion,recuperarAnalisisAtascado, recuperarInformesAtascados, sellarSesionesVencidas,
   generarInformePregunta, generarInformeFinal, alCambiarSesionVivo,
   precheckGenerarDinamicaVivo, ejecutarGenerarDinamicaVivo,
   activarAnalisisGratis,

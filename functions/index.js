@@ -82,6 +82,11 @@ exports.onParticipacionBorrada = onDocumentDeleted('activities/{activityId}', as
   if (event.data?.data()?.categoria !== 'participacion') return
   await require('./participacionVivo').limpiarVivoDeActividad({ activityId: event.params.activityId })
 })
+// Borrar UNA sesión (la tachita de «Sesiones») limpia solo sus respuestas y diagnósticos. Los diagnósticos solo los puede
+// borrar el servidor; las preguntas, claves, otras sesiones y calificaciones no se tocan.
+exports.onSesionVivoBorrada = onDocumentDeleted('vivoSesiones/{codigo}', async (event) => {
+  await require('./participacionVivo').limpiarVivoDeSesion({ sesionId: event.params.codigo })
+})
 // Análisis integral de asignatura con IA (functions/analisisAcademico.js): la
 // preparación gratuita del diálogo (qué fuentes tienen datos y cuánto cuesta
 // la selección) y la limpieza del historial al borrar la asignatura. La
