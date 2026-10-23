@@ -7,12 +7,11 @@
 //        precheck sin cobro (contexto suficiente, archivos legibles) → la IA propone las
 //        preguntas → se guardan en la actividad (públicas) y en `clave/` (privadas).
 //        Si el material no alcanza, la IA lo dice y NO se cobra.
-//   2. activar el análisis        (GRATIS: callable propio, sin libro de créditos)
-//        no llama al modelo: marca la sesión con análisis activo y pone en cola las
-//        respuestas abiertas que ya hubieran llegado. Es el único cobro del análisis.
-//   3. `procesarRespuestaVivo`  (disparador por respuesta, NO pasa por el ledger)
-//        evalúa UNA respuesta abierta con el modelo configurado. El cobro ya se hizo al
-//        activar; el tope de la cuota (VIVO_CFG.TOPE_ANALISIS) lo aplica vivo-responder.
+//   2. `activar_analisis_vivo`  (tarifa FIJA por sesión, pasa por ejecutarOperacionIA; opcional)
+//        el docente lo pide desde «Informe final» con la sesión ya finalizada: evalúa las respuestas
+//        abiertas dentro del tope y genera los diagnósticos y el informe final. Sin resultado, no se cobra.
+//   3. `procesarRespuestaVivo`  (evalúa UNA respuesta abierta; NO pasa por el ledger)
+//        lo llama el análisis (y el disparador por respuesta); el cobro es el del análisis de la sesión.
 //
 // Idempotencia: la respuesta tiene id determinista y su estado `recibida → analizando →
 // analizada` se reclama en una transacción, así que un evento repetido no vuelve a llamar al modelo.
@@ -324,63 +323,127 @@ async function ejecutarGenerarDinamicaVivo({ params, modelo, apiKey, pedirJSON }
   }
 }
 
-// ── 2. Activar el análisis de la sesión (GRATIS) ───────────────────────────
-// El análisis ya NO se cobra aparte: su costo queda absorbido por la tarifa de generación por pregunta. No pasa por el libro de
-// créditos (ni reserva, ni consumo, ni saldo). Conserva los límites: cuota de TOPE_ANALISIS respuestas abiertas evaluadas e
-// informes acotados (V.LIMITES_INFORME). Es un callable propio (activarAnalisisVivo), idempotente: activar dos veces no repite nada.
-async function activarAnalisisGratis({ uid, sesionId }) {
-  const codigo = String(sesionId || '')
+// ── 2. Análisis de resultados con IA (de pago, por sesión) ─────────────────
+// Lo pide el DOCENTE desde «Informe final» cuando la sesión ya terminó. Pasa por ejecutarOperacionIA y el libro de
+// créditos: tarifa FIJA por sesión (`activar_analisis_vivo` en config/iaTarifas), sin importar cuántas preguntas tenga.
+//   · precheck (sin cobro): dueño, sesión finalizada, sin análisis previo, con preguntas, tarifa configurada y, si no es
+//     calificable, datos suficientes para un diagnóstico (V.UMBRALES_DIAGNOSTICO).
+//   · ejecutor: marca la sesión en una transacción (de dos pedidos a la vez solo uno pasa), evalúa las respuestas abiertas
+//     dentro del tope, genera el diagnóstico de cada pregunta y el informe final. Si no queda resultado, DESHACE la marca y
+//     lanza el error: el libro reembolsa la reserva íntegra.
+// «Actualizar informe» (actualizarInformeVivo) queda incluido en este pago, dentro de V.LIMITES_INFORME: no se vuelve a cobrar.
+const LOTE_EVALUACION = 8
+let esperaEvaluacionesMs = 150000 // lo que esperamos a las respuestas que tomó el disparador; las pruebas lo acortan
+
+async function precheckActivarAnalisisVivo({ uid, params, tarifas, idempotencyKey }) {
+  if (await operacionYaEjecutada(uid, idempotencyKey, V.VIVO_CFG.OP_ANALISIS)) return { unidadesMinimas: 1, reintentoDeOperacionEjecutada: true }
+  const codigo = String(params?.sesionId || '')
   if (!V.codigoVivoValido(codigo)) throw new HttpsError('invalid-argument', 'Sesión no válida')
-  const snap = await getFirestore().doc(`vivoSesiones/${codigo}`).get()
+  const db = getFirestore()
+  const snap = await db.doc(`vivoSesiones/${codigo}`).get()
   if (!snap.exists) throw new HttpsError('not-found', 'La sesión no existe')
   const s = snap.data()
   if (s.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta sesión no es tuya')
-  if (s.estado !== 'activa') throw new HttpsError('failed-precondition', 'La sesión ya terminó.')
-  if (!(s.preguntas || []).length) throw new HttpsError('failed-precondition', 'Esta dinámica no tiene preguntas que analizar.')
-  if (s.analisisActivo === true) return { yaActivo: true }
-  // El diagnóstico del grupo necesita una muestra mínima por pregunta (V.UMBRALES_DIAGNOSTICO). Aunque activar ya no cuesta,
-  // se exige que ALGUNA pregunta la tenga para no producir diagnósticos vacíos o engañosos. Excepción: una sesión CALIFICABLE
-  // puede activarse siempre (la evaluación por respuesta sirve para proponer notas aunque el grupo sea chico).
+  if (s.estado !== 'finalizada') throw errorSinCobro('SESION_EN_CURSO', 'Finaliza la sesión para solicitar el análisis de resultados.')
+  if (!(s.preguntas || []).length) throw errorSinCobro('SIN_PREGUNTAS', 'Esta dinámica no tiene preguntas que analizar.')
+  if (s.analisisActivo === true) throw errorSinCobro('YA_ANALIZADA', 'Esta sesión ya tiene su análisis de resultados.')
+  if (tarifas?.tarifas?.[V.VIVO_CFG.OP_ANALISIS] == null || !tarifas?.modeloPorOperacion?.[V.VIVO_CFG.OP_ANALISIS]) {
+    logger.error(`${V.VIVO_CFG.OP_ANALISIS}: sin tarifa o modelo configurados`)
+    throw errorSinCobro('TARIFA_NO_CONFIGURADA', 'El análisis de resultados no está configurado en el servidor.')
+  }
+  // Misma regla que el botón (V.datosSuficientesAnalisisVivo): una sesión CALIFICABLE puede pedirlo siempre.
   if (s.calificable !== true) {
-    const rs = (await getFirestore().collection('vivoRespuestas').where('sesionId', '==', codigo).get()).docs.map((d) => ({ id: d.id, ...d.data() }))
-    // Antes de activar nada está «analizado»: se cuentan las RECIBIDAS como si fueran diagnosticables.
-    const comoUsables = rs.map((r) => ({ ...r, estadoIA: V.ESTADO_IA.ANALIZADA }))
-    if (!(s.preguntas || []).some((p) => V.puedeDiagnosticar(p, comoUsables, { encuesta: V.esEncuesta(s.proposito) }).ok)) {
-      throw new HttpsError('failed-precondition', 'Todavía no hay respuestas suficientes para un diagnóstico del grupo (hacen falta 5 de opción única u 8 abiertas en una pregunta).')
+    const rs = (await db.collection('vivoRespuestas').where('sesionId', '==', codigo).get()).docs.map((d) => ({ id: d.id, ...d.data() }))
+    if (!V.datosSuficientesAnalisisVivo(s, rs)) {
+      throw errorSinCobro('DATOS_INSUFICIENTES', `Todavía no hay respuestas suficientes para un diagnóstico del grupo (hacen falta ${V.UMBRALES_DIAGNOSTICO.opcion_unica} de opción única u ${V.UMBRALES_DIAGNOSTICO.abierta_extensa} abiertas en una pregunta).`)
     }
   }
-  const r = await ejecutarActivarAnalisisVivo({ params: { sesionId: codigo } })
-  return { yaActivo: false, ...r.resultado }
+  return { unidadesMinimas: 1, sesionId: codigo }
 }
 
-// No llama al modelo. Marca la sesión y pone en cola las abiertas que llegaron ANTES de activar: cambiar su
-// `estadoIA` a 'recibida' dispara la evaluación de cada una. El TOPE de la cuota no se aplica aquí sino al
-// evaluar (dentroDelTope), con un criterio determinista por orden de llegada.
-async function ejecutarActivarAnalisisVivo({ params, modelo }) {
+const ordenLlegada = (a, b) => ((a.data().creadaEn?.toMillis?.() ?? 0) - (b.data().creadaEn?.toMillis?.() ?? 0)) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+
+// Espera (acotado) a que las respuestas que tomó el disparador terminen de evaluarse.
+async function esperarEvaluaciones(refs) {
+  const limite = Date.now() + esperaEvaluacionesMs
+  for (;;) {
+    const snaps = await Promise.all(refs.map((r) => r.get()))
+    const pendientes = snaps.filter((d) => [V.ESTADO_IA.RECIBIDA, V.ESTADO_IA.ANALIZANDO].includes(d.data()?.estadoIA)).length
+    if (!pendientes || Date.now() > limite) return snaps
+    await dormir(1500)
+  }
+}
+
+// `deps`: { pedirJSON, obtenerClave() } llegan desde ia.js.
+async function ejecutarActivarAnalisisVivo({ params, modelo, deps }) {
   const db = getFirestore()
   const codigo = String(params.sesionId)
   const ref = db.doc(`vivoSesiones/${codigo}`)
+  const marca = String(params.__idempotencyKey || require('crypto').randomUUID())
 
+  // 1. Marca atómica: si otro pedido ya la tomó, este no sigue (y el libro le reembolsa).
   await db.runTransaction(async (tx) => {
     const s = (await tx.get(ref)).data()
-    if (!s || s.analisisActivo === true) return // reintento: ya quedó activa
-    tx.update(ref, { analisisActivo: true, analisisActivadoEn: FieldValue.serverTimestamp() })
+    if (!s) throw errorSinCobro('SESION_NO_EXISTE', 'La sesión ya no existe.')
+    if (s.estado !== 'finalizada') throw errorSinCobro('SESION_EN_CURSO', 'Finaliza la sesión para solicitar el análisis de resultados.')
+    if (s.analisisActivo === true) throw errorSinCobro('YA_ANALIZADA', 'Esta sesión ya tiene su análisis de resultados.')
+    tx.update(ref, { analisisActivo: true, analisisActivadoEn: FieldValue.serverTimestamp(), analisisCobroKey: marca })
   })
-  // Se encolan después de marcar la sesión: el disparador solo evalúa respuestas de una sesión con análisis activo.
-  const previas = await db.collection('vivoRespuestas').where('sesionId', '==', codigo).get()
-  // Encuesta: no hay respuestas correctas que evaluar una por una; el análisis es el informe de tendencias.
-  const esEnc = V.esEncuesta((await ref.get()).data()?.proposito)
-  const pendientes = esEnc ? [] : previas.docs.filter((d) => d.data().estadoIA === V.ESTADO_IA.SIN_ANALISIS)
-  for (let i = 0; i < pendientes.length; i += 400) {
-    const lote = db.batch()
-    pendientes.slice(i, i + 400).forEach((d) => lote.update(d.ref, { estadoIA: V.ESTADO_IA.RECIBIDA, encoladaEn: FieldValue.serverTimestamp() }))
-    await lote.commit()
-  }
 
-  return {
-    resultado: { tope: V.VIVO_CFG.TOPE_ANALISIS, encoladas: pendientes.length },
-    unidadesReales: 1,
-    interno: { modelo, tokensEntrada: 0, tokensSalida: 0, cacheEscritura: 0, cacheLectura: 0, ms: 0 },
+  try {
+    const ses = (await ref.get()).data()
+    const encuesta = V.esEncuesta(ses.proposito)
+    let evaluadasSnaps = []
+    // 2. Respuestas abiertas (no en encuesta: ahí no hay respuestas correctas que evaluar una por una).
+    if (!encuesta) {
+      const abiertas = (await db.collection('vivoRespuestas').where('sesionId', '==', codigo).get()).docs
+        .filter((d) => V.esTipoAbierto(d.data().preguntaTipo)).sort(ordenLlegada)
+      const encolar = abiertas.filter((d) => d.data().estadoIA === V.ESTADO_IA.SIN_ANALISIS)
+      for (let i = 0; i < encolar.length; i += 400) {
+        const lote = db.batch()
+        encolar.slice(i, i + 400).forEach((d) => lote.update(d.ref, { estadoIA: V.ESTADO_IA.RECIBIDA, encoladaEn: FieldValue.serverTimestamp() }))
+        await lote.commit()
+      }
+      // Las primeras TOPE se evalúan aquí mismo (el reclamo con token impide evaluar dos veces si el disparador llega antes);
+      // las demás las marca el disparador como fuera del tope, sin cargo.
+      const dentro = abiertas.slice(0, V.VIVO_CFG.TOPE_ANALISIS).map((d) => d.ref)
+      for (let i = 0; i < dentro.length; i += LOTE_EVALUACION) {
+        await Promise.all(dentro.slice(i, i + LOTE_EVALUACION).map((r) => procesarRespuestaVivo({ ref: r, deps })))
+      }
+      evaluadasSnaps = (await esperarEvaluaciones(dentro)).filter((d) => d.data()?.estadoIA === V.ESTADO_IA.ANALIZADA)
+    }
+
+    // 3. Diagnóstico de cada pregunta y, al final, el informe de la sesión.
+    const ids = (ses.preguntas || []).map((p) => p.id)
+    for (let i = 0; i < ids.length; i += 4) {
+      await Promise.all(ids.slice(i, i + 4).map((preguntaId) => generarInformePregunta({ sesionId: codigo, preguntaId, deps })))
+    }
+    await generarInformeFinal({ sesionId: codigo, deps })
+
+    const informes = (await db.collection('vivoInformes').where('sesionId', '==', codigo).get()).docs.map((d) => d.data())
+    const final = informes.find((i) => !i.preguntaId)
+    // Hay resultado si quedó el informe final, o —en una sesión calificable— si quedaron evaluadas respuestas para proponer notas.
+    const conResultado = final?.estado === 'listo' || (ses.calificable === true && evaluadasSnaps.length > 0)
+    if (!conResultado) throw errorSinCobro('ANALISIS_SIN_RESULTADO', 'No se pudo preparar el informe con las respuestas de esta sesión.')
+
+    // Costo real (tokens) de este análisis: evaluaciones + informes, para iaConsumosInterno.
+    const metricas = [...evaluadasSnaps.map((d) => d.data().metricaIA), ...informes.map((i) => i.metricaIA)].filter(Boolean)
+    const suma = (k) => metricas.reduce((a, m) => a + (m[k] || 0), 0)
+    return {
+      resultado: { informeFinal: final?.estado || null, evaluadas: evaluadasSnaps.length, informes: informes.filter((i) => i.estado === 'listo').length },
+      unidadesReales: 1,
+      interno: { modelo, tokensEntrada: suma('tokensEntrada'), tokensSalida: suma('tokensSalida'), cacheEscritura: 0, cacheLectura: 0, ms: suma('ms') },
+    }
+  } catch (e) {
+    // Sin resultado: la sesión vuelve a quedar sin análisis (puede pedirse de nuevo) y sus informes se borran para que un nuevo
+    // intento empiece limpio. Solo deshace SU marca. Las respuestas ya evaluadas se conservan (no tienen costo para el docente).
+    await db.runTransaction(async (tx) => {
+      const s = (await tx.get(ref)).data()
+      if (s?.analisisCobroKey === marca) tx.update(ref, { analisisActivo: false, analisisActivadoEn: FieldValue.delete(), analisisCobroKey: FieldValue.delete() })
+    }).catch((err) => logger.error(`vivo: no se pudo deshacer el análisis de ${codigo}`, err?.message))
+    const informes = await db.collection('vivoInformes').where('sesionId', '==', codigo).get().catch(() => null)
+    if (informes) await Promise.all(informes.docs.map((d) => d.ref.delete().catch(() => {})))
+    throw e
   }
 }
 
@@ -859,7 +922,7 @@ module.exports = {
   limpiarVivoDeActividad, limpiarVivoDeSesion,recuperarAnalisisAtascado, recuperarInformesAtascados, sellarSesionesVencidas,
   generarInformePregunta, generarInformeFinal, alCambiarSesionVivo,
   precheckGenerarDinamicaVivo, ejecutarGenerarDinamicaVivo,
-  activarAnalisisGratis,
+  precheckActivarAnalisisVivo, ejecutarActivarAnalisisVivo,
   procesarRespuestaVivo,
-  _pruebas: { configurarEsperas: (a) => { esperasReintentoMs = a }, promptGenerar, promptEvaluar, aPreguntaCompleta, reclamarRespuesta, escribirSiToken, promptInforme, promptInformeEncuesta, SISTEMA_INFORME, SISTEMA_INFORME_ENCUESTA, SISTEMA_GENERAR, SISTEMA_EVALUAR },
+  _pruebas: { configurarEsperas: (a) => { esperasReintentoMs = a }, configurarEsperaEvaluaciones: (ms) => { esperaEvaluacionesMs = ms }, promptGenerar, promptEvaluar, aPreguntaCompleta, reclamarRespuesta, escribirSiToken, promptInforme, promptInformeEncuesta, SISTEMA_INFORME, SISTEMA_INFORME_ENCUESTA, SISTEMA_GENERAR, SISTEMA_EVALUAR },
 }

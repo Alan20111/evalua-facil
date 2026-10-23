@@ -14,7 +14,6 @@ import VistaPregunta from './VistaPregunta'
 import { InformeFinalDocente } from './DiagnosticoDocente'
 import PanelCalificacionVivo from './PanelCalificacionVivo'
 import NotasDocenteVivo from './NotasDocenteVivo'
-import BotonInformeVivoPDF from './BotonInformeVivoPDF'
 import { useNotasVivo } from '../../hooks/useNotasVivo'
 import { esEncuesta, resumenAbiertas } from '../../utils/participacionVivo'
 import Temporizador from './Temporizador'
@@ -52,7 +51,7 @@ function Estado({ pregunta, respuestas, sesion }) {
   const r = useMemo(() => resumenAbiertas(respuestas, pregunta), [respuestas, pregunta])
   if (pregunta.tipo === 'opcion_unica') return <p className="text-sm text-muted">{r.recibidas} {r.recibidas === 1 ? 'respuesta' : 'respuestas'}</p>
   if (esEncuesta(sesion.proposito)) return <p className="text-sm text-muted">{r.recibidas} {r.recibidas === 1 ? 'respuesta' : 'respuestas'} (se conservan íntegras)</p>
-  if (!sesion.analisisActivo) return <p className="text-sm text-muted">{r.recibidas} {r.recibidas === 1 ? 'respuesta' : 'respuestas'} · el análisis con IA no está activo</p>
+  if (!sesion.analisisActivo) return <p className="text-sm text-muted">{r.recibidas} {r.recibidas === 1 ? 'respuesta' : 'respuestas'} · sin análisis con IA (opcional, se pide al terminar)</p>
   const pendientes = r.pendientes + r.analizando
   return (
     <p className="text-sm text-muted">
@@ -152,11 +151,9 @@ function ResultadosFinales({ sesion, respuestas, informes, claves, actividad, in
             <Estado pregunta={pregunta} respuestas={respuestas} sesion={sesion} />
             <Clave pregunta={pregunta} clave={clave} />
           </section>
+          {/* La tarjeta del informe aparece SIEMPRE: con análisis lo muestra; sin él, ofrece pedirlo (opcional, con costo) y el PDF. */}
           <InformeFinalDocente sesion={sesion} informes={informes} respuestas={respuestas} notas={notas.texto} />
-          {!sesion.analisisActivo && <p className="text-sm text-muted px-1">En esta sesión no se activó el análisis con IA, así que no hay diagnóstico por pregunta.</p>}
-          {/* Sin análisis no hay tarjeta de informe: el PDF (datos de la sesión + notas) se ofrece junto a las notas. */}
-          <NotasDocenteVivo notas={notas}
-            pdf={sesion.analisisActivo ? null : <BotonInformeVivoPDF sesion={sesion} respuestas={respuestas} notas={notas.texto} />} />
+          <NotasDocenteVivo notas={notas} />
         </>
       }
       debajo={sesion.calificable ? (

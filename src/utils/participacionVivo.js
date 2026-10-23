@@ -575,6 +575,17 @@ export function puedeDiagnosticar(pregunta, respuestas, opciones = {}) {
   return { ok: true, n, minimo, confianza: confianzaDe(n), motivo: '' }
 }
 
+/**
+ * ¿Se puede pedir el «Análisis de resultados con IA» de esta sesión? La misma regla en el botón y en el servidor (que la
+ * vuelve a comprobar antes de cobrar). Antes de analizar nada está «evaluado», así que las respuestas recibidas se cuentan
+ * como si lo estuvieran. Una sesión CALIFICABLE puede pedirlo siempre: la evaluación por respuesta sirve para proponer notas.
+ */
+export function datosSuficientesAnalisisVivo(sesion, respuestas) {
+  if (sesion?.calificable === true) return true
+  const comoUsables = (respuestas || []).map((r) => ({ ...r, estadoIA: ESTADO_IA.ANALIZADA }))
+  return (sesion?.preguntas || []).some((p) => puedeDiagnosticar(p, comoUsables, { encuesta: esEncuesta(sesion?.proposito) }).ok)
+}
+
 /** Cobertura de los conceptos esperados en palabras breves: se calcula con código (gratis), sin IA. */
 export function coberturaConceptos(textos, conceptos) {
   const palabras = (textos || []).map((t) => new Set(String(t ?? '').split(/\s+/).map(normalizarTermino).filter(Boolean)))

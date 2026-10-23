@@ -7,18 +7,17 @@
 // «Proyectar en otra ventana» abre una ventana de solo lectura con la vista del grupo (se sincroniza por
 // BroadcastChannel; no escribe nada). Etapas: sala de espera (QR protagonista) → preguntas → resultados finales,
 // pregunta por pregunta y sin desplazamiento.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, ArrowRight, Check, Eye, Lock, Maximize2, MonitorUp, Play, QrCode, Sparkles, Square, Users, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ArrowLeft, ArrowRight, Check, Eye, Lock, Maximize2, MonitorUp, Play, QrCode, Square, Users, X } from 'lucide-react'
 import { useToast } from '../Toast'
 import { Button, Modal } from '../ui'
 import Spinner from '../Spinner'
 import { useAreaMedida, useAutoOcultar, useEstadoProyeccion } from '../../hooks/useProyeccion'
 import {
   ampliarTiempoVivo, cerrarPreguntaVivo, escucharInformesVivo, escucharRespuestasVivo, escucharSesionVivo, finalizarSesionVivo, irAPreguntaVivo, medirRelojServidor,
-  sellarPreguntaVivo, activarAnalisisVivo,
+  sellarPreguntaVivo,
 } from '../../utils/participacionVivoDb'
 import { useCuentaRegresiva, useRelojServidor } from '../../hooks/useTemporizadorVivo'
-import { UMBRALES_DIAGNOSTICO, esEncuesta, esTipoAbierto, puedeDiagnosticar } from '../../utils/participacionVivo'
 import { IS_NATIVE_APP } from '../../utils/platform'
 import { planOpciones, rutaProyeccion, tamanosProyeccion } from '../../utils/proyeccionVivo'
 import VistaGrupo from './VistaGrupo'
@@ -70,7 +69,6 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
   const [indiceResultados, setIndiceResultados] = useState(0) // pregunta consultada en los resultados finales
   const [estado, cambiar] = useEstadoProyeccion(codigo, { emisor: true })
   const [visibles] = useAutoOcultar(3000)
-  const [activandoAnalisis, setActivandoAnalisis] = useState(false)
   const [confirmandoFin, setConfirmandoFin] = useState(false)
   const [accionando, setAccionando] = useState(false)
   const [reintentoSello, setReintentoSello] = useState(0)
@@ -118,33 +116,14 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
     })
   }, [cuenta.estado, idVigente, sesion, codigo, reintentoSello])
 
-  // En una encuesta el análisis también resume las preguntas de opción: no depende de que haya abiertas.
-  const tieneAbiertas = (sesion?.preguntas || []).some((p) => esTipoAbierto(p.tipo)) || esEncuesta(sesion?.proposito)
   const ir = useCallback((i) => irAPreguntaVivo(codigo, i).catch((e) => toast(e.message || 'No se pudo cambiar de pregunta', 'error')), [codigo, toast])
   async function accion(fn, falla) {
     setAccionando(true)
     try { await fn() } catch (e) { toast(e.message || falla, 'error') } finally { setAccionando(false) }
   }
 
-  // Una sesión NO calificable solo puede activar el análisis si ya hay una pregunta que alcance su umbral de datos (el servidor lo vuelve a comprobar).
-  const hayDatosSuficientes = useMemo(
-    () => (sesion?.preguntas || []).some((p) => puedeDiagnosticar(p, respuestas, { encuesta: esEncuesta(sesion?.proposito) }).ok),
-    [sesion, respuestas]
-  )
-  const puedeActivar = sesion?.calificable === true || hayDatosSuficientes
-
-  // Activar el análisis es GRATIS (su costo lo absorbe la tarifa de generación por pregunta): no hay confirmación de créditos.
-  async function activarAnalisis() {
-    setActivandoAnalisis(true)
-    try {
-      await activarAnalisisVivo({ sesionId: codigo })
-      toast('Análisis activado: las respuestas abiertas se evaluarán y cada pregunta tendrá su diagnóstico')
-    } catch (e) {
-      toast(e.message || 'No se pudo activar el análisis', 'error')
-    } finally {
-      setActivandoAnalisis(false)
-    }
-  }
+  // El «Análisis de resultados con IA» ya no se activa aquí: es opcional, se cobra aparte y se pide desde «Informe final»
+  // (Vista del docente) cuando la sesión terminó. La proyección solo conduce la sesión.
 
   function proyectarEnOtraVentana() {
     const w = window.open(rutaProyeccion(codigo), 'ef-proyeccion-vivo', 'popup=yes,width=1280,height=720')
@@ -216,12 +195,6 @@ export default function PresentacionVivo({ codigo, actividad, claves, docenteId,
               {!ultima && <Button size="sm" iconRight={ArrowRight} onClick={() => ir(sesion.preguntaIndex + 1)}>Siguiente</Button>}
             </>
           ))}
-          {!finalizada && tieneAbiertas && !sesion.analisisActivo && (
-            <Button variant="quiet" size="sm" icon={Sparkles} className={barra} disabled={activandoAnalisis || !puedeActivar} onClick={activarAnalisis}
-              title={!puedeActivar ? `Aún no hay respuestas suficientes (mínimo ${UMBRALES_DIAGNOSTICO.abierta_extensa} en una pregunta abierta, ${UMBRALES_DIAGNOSTICO.opcion_unica} en opción única)` : 'Sin costo: evalúa las respuestas abiertas y genera el diagnóstico de cada pregunta'}>
-              Analizar con IA
-            </Button>
-          )}
           {!finalizada && sesion.acceso === 'externo' && (
             <Button variant="quiet" size="sm" icon={QrCode} className={barra} onClick={() => cambiar({ mostrarQr: !estado.mostrarQr })}>{estado.mostrarQr ? 'Ocultar QR' : 'Mostrar QR'}</Button>
           )}

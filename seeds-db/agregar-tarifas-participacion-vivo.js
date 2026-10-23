@@ -4,7 +4,8 @@
  * Deja en `config/iaTarifas` las dos operaciones de Participación en vivo SIN tocar nada más del documento:
  *
  *   · generar_dinamica_vivo  — 3 créditos POR PREGUNTA entregada (antes 6 fijos por dinámica).
- *   · activar_analisis_vivo  — 0: activar el análisis ya es GRATIS (el costo lo absorbe la tarifa por pregunta).
+ *   · activar_analisis_vivo  — 5 FIJOS por sesión: «Análisis de resultados con IA», opcional, lo pide el docente al terminar
+ *                              (oct-2026; antes 0 = gratis). Incluye «Actualizar informe» dentro de los límites actuales.
  *                              La llave se conserva solo porque el servidor la usa para hallar el modelo del análisis.
  *
  * Ambas usan claude-haiku-4-5 (el modelo vigente).
@@ -35,7 +36,7 @@ const db = admin.firestore()
 
 const NUEVAS = {
   generar_dinamica_vivo: { tarifa: 3, categoria: 'Actividades', modelo: 'claude-haiku-4-5' },
-  activar_analisis_vivo: { tarifa: 0, categoria: 'Actividades', modelo: 'claude-haiku-4-5' },
+  activar_analisis_vivo: { tarifa: 5, categoria: 'Actividades', modelo: 'claude-haiku-4-5' },
 }
 const aplicar = process.argv.includes('--aplicar')
 const ref = db.doc('config/iaTarifas')

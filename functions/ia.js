@@ -357,9 +357,10 @@ const OPERACIONES = {
   // Video interactivo con IA (etapa 2): 2 créditos por pregunta entregada.
   // Solo propone; no escribe nada (functions/videoInteractivoIA.js).
   generar_preguntas_video: (args) => videoInteractivoIA.ejecutarGenerarPreguntasVideo({ ...args, pedirJSON }),
-  // Participación en vivo (functions/participacionVivo.js): generar la dinámica (tarifa fija) y activar
-  // el análisis de una sesión (cuota fija; no llama al modelo, lo hace el disparador por respuesta).
+  // Participación en vivo (functions/participacionVivo.js): generar la dinámica (tarifa POR PREGUNTA entregada) y el
+  // análisis de resultados con IA de UNA sesión finalizada (tarifa FIJA por sesión, opcional, lo pide el docente).
   generar_dinamica_vivo: (args) => participacionVivo.ejecutarGenerarDinamicaVivo({ ...args, pedirJSON }),
+  activar_analisis_vivo: (args) => participacionVivo.ejecutarActivarAnalisisVivo({ ...args, deps: { pedirJSON, obtenerClave: () => args.apiKey } }),
 }
 
 // Comprobaciones que corren ANTES de reservar créditos. Una operación con
@@ -385,6 +386,7 @@ const PRECHECKS = {
   // El contenido del video lo extrae Gemini AQUÍ, antes de reservar: sin contenido, sin cobro.
   generar_preguntas_video: (args) => videoInteractivoIA.precheckGenerarPreguntasVideo(args),
   generar_dinamica_vivo: (args) => participacionVivo.precheckGenerarDinamicaVivo({ ...args, deps: { fuentesIA, creditosDe } }),
+  activar_analisis_vivo: (args) => participacionVivo.precheckActivarAnalisisVivo(args),
 }
 
 // ── Piloto C-03 · Redactar aviso ────────────────────────────────────────────
@@ -6975,7 +6977,7 @@ exports.ejecutarPlaneacionIA = crearCallableIA(
 // (proceso que murió entre reservar() y liquidar()/reembolsar()).
 // Participación en vivo: evalúa cada respuesta abierta apenas queda registrada como `recibida`. Se dispara
 // también cuando una respuesta pasa a `recibida` al activar el análisis (las que llegaron antes). El cobro ya
-// se hizo al activar (activar_analisis_vivo); aquí NO se toca el ledger. Un evento repetido no repite la
+// se hizo al pedir el análisis de la sesión (activar_analisis_vivo); aquí NO se toca el ledger. Un evento repetido no repite la
 // llamada: participacionVivo.reclamarRespuesta la toma en una transacción.
 exports.onRespuestaVivoEscrita = onDocumentWritten(
   { document: 'vivoRespuestas/{respuestaId}', secrets: [ANTHROPIC_API_KEY_PROD], timeoutSeconds: 90, maxInstances: 20, memory: '256MiB' },
@@ -7014,14 +7016,15 @@ exports.actualizarInformeVivo = require('firebase-functions/v2/https').onCall(
   }
 )
 
-// Participación en vivo · activar el análisis: GRATIS. No pasa por ejecutarOperacionIA ni por el libro de créditos (el costo queda
-// absorbido por la tarifa de generación por pregunta). Idempotente; conserva la cuota de respuestas evaluadas y los topes de informes.
+// Participación en vivo · RETIRADO (oct-2026): activar el análisis ya no es gratis ni se hace durante la proyección. El
+// «Análisis de resultados con IA» se pide desde «Informe final» con la sesión finalizada y pasa por ejecutarOperacionIA
+// (`activar_analisis_vivo`, tarifa fija por sesión). Se conserva el nombre para que una pestaña vieja reciba un aviso claro
+// en vez de activar el análisis sin pagar.
 exports.activarAnalisisVivo = require('firebase-functions/v2/https').onCall(
-  { timeoutSeconds: 60 },
+  { timeoutSeconds: 10 },
   async (request) => {
-    const uid = request.auth?.uid
-    if (!uid) throw new HttpsError('unauthenticated', 'Inicia sesión para usar esta función')
-    return participacionVivo.activarAnalisisGratis({ uid, sesionId: String(request.data?.sesionId || '') })
+    if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Inicia sesión para usar esta función')
+    throw new HttpsError('failed-precondition', 'El análisis de resultados ahora se solicita desde «Informe final», al terminar la sesión. Actualiza la página.')
   }
 )
 
