@@ -1311,7 +1311,10 @@ service cloud.firestore {
           'estado', 'preguntaIndex', 'aceptando', 'preguntas', 'analisisActivo', 'creadaEn']) &&
         request.resource.data.preguntaIndex == -1 && request.resource.data.aceptando == false;
       allow update: if false;
-      allow delete: if isDocente() && resource.data.docenteId == request.auth.uid;
+      // Una sesión EN CURSO no se borra (los participantes la perderían a media clase): primero se finaliza. Las respuestas y
+      // diagnósticos de la sesión borrada los limpia el servidor (onSesionVivoBorrada). Borrar la actividad completa no pasa por
+      // aquí: esa limpieza usa el Admin SDK.
+      allow delete: if isDocente() && resource.data.docenteId == request.auth.uid && resource.data.estado != 'activa';
     }
 
     match /vivoRespuestas/{respuestaId} {
