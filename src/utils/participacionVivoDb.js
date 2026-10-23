@@ -1,7 +1,7 @@
 // Participación en vivo — acceso a Firestore y a los endpoints de participantes.
 //
-//   · El DOCENTE maneja la sesión por Firestore (reglas: solo avance; el análisis de IA y su contador
-//     los escribe el servidor al activarlo con `activarAnalisisVivo`, que es gratis).
+//   · El DOCENTE maneja la sesión por Firestore (reglas: solo avance). El «Análisis de resultados con IA» lo escribe el
+//     servidor cuando el docente lo pide y paga desde «Informe final» (ejecutarOperacionIA · `activar_analisis_vivo`).
 //   · Los PARTICIPANTES jamás tocan Firestore: usan /api/subject/vivo-estado y vivo-responder.
 import { doc, setDoc, getDoc, collection, query, where, getDocs, serverTimestamp, onSnapshot, runTransaction } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
@@ -119,10 +119,6 @@ export function actualizarInformeVivo({ sesionId, preguntaId = null }) {
   return httpsCallable(functions, 'actualizarInformeVivo')({ sesionId, preguntaId }).then((r) => r.data)
 }
 
-/** Activa el análisis de la sesión. GRATIS: no pasa por el libro de créditos; es idempotente. */
-export function activarAnalisisVivo({ sesionId }) {
-  return httpsCallable(functions, 'activarAnalisisVivo')({ sesionId }).then((r) => r.data)
-}
 
 // ── Participantes ──────────────────────────────────────────────────────────
 

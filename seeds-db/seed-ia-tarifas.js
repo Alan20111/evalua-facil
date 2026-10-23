@@ -121,9 +121,9 @@ const TARIFAS = {
     generar_preguntas_video: 2,
     // Participación en vivo (v14): generar la dinámica cuesta 3 créditos POR PREGUNTA realmente entregada.
     // Activar el análisis ya es GRATIS (callable activarAnalisisVivo, sin libro de créditos): la llave
-    // activar_analisis_vivo queda en 0 solo para que el servidor siga encontrando el modelo del análisis.
+    // activar_analisis_vivo: 5 fijos por sesión (oct-2026), opcional; antes 0 (gratis). Aplicar con agregar-tarifas-participacion-vivo.js.
     generar_dinamica_vivo: 3,
-    activar_analisis_vivo: 0,
+    activar_analisis_vivo: 5,
     // Crear entregable/observación completa con IA — incluye la actividad
     // de Observación con IA (no existe "guía de observación" aparte).
     crear_actividad_ia: 1,

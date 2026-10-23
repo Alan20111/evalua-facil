@@ -28,7 +28,7 @@ const OPERACIONES = {
   crear_actividad_ia: 'Actividad creada con IA',
   generar_preguntas_video: 'Preguntas de video con IA',
   generar_dinamica_vivo: 'Participación en vivo con IA',
-  activar_analisis_vivo: 'Análisis en vivo de participación',
+  activar_analisis_vivo: 'Análisis de resultados con IA (participación)',
   generar_contenido_juego: 'Crucigrama o sopa de letras',
   planeacion_didactica_inicial: 'Planeación didáctica con IA',
   planeacion_formato_oficial: 'Planeación en formato oficial',

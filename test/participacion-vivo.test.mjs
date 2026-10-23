@@ -8,7 +8,7 @@
 //   A. reglas puras (nube de palabras, contexto, preguntas, calificación propuesta);
 //   B. generar_dinamica_vivo: 3 créditos POR PREGUNTA entregada, sin cobro si no hay contexto o el material no alcanza,
 //      reintento sin doble cobro;
-//   C. activar el análisis (activarAnalisisVivo): GRATIS, sin libro de créditos, cola de respuestas previas, tope;
+//   C. «Análisis de resultados con IA» (activar_analisis_vivo): 5 créditos fijos por sesión, solo finalizada, una vez, reembolso sin resultado;
 //   D. evaluación de UNA respuesta: estados, evento duplicado, error, lista cerrada de conceptos;
 //   E. endpoints de participantes: modalidad externa vs grupo, identidad, duplicados, tope, secreto;
 //   F. limpieza al borrar la actividad.
@@ -31,7 +31,7 @@ const OTRO = 'docente_otro'
 const clave = () => crypto.randomUUID()
 const TARIFAS = {
   version: 99,
-  tarifas: { generar_dinamica_vivo: 3, activar_analisis_vivo: 0 },
+  tarifas: { generar_dinamica_vivo: 3, activar_analisis_vivo: 5 },
   categorias: { generar_dinamica_vivo: 'Actividades', activar_analisis_vivo: 'Actividades' },
   modeloPorOperacion: { generar_dinamica_vivo: 'claude-haiku-4-5', activar_analisis_vivo: 'claude-haiku-4-5' },
 }
@@ -243,15 +243,15 @@ await caso('códigos de sesión: 10 caracteres sin ambiguos; clave de participan
 
 grupo('A2. Tarifas y tope autorizados (sin sembrar nada)')
 
-await caso('el seed y el script dirigido traen 3 créditos POR PREGUNTA (generar) y 0 (el análisis es gratis); el tope es 40', async () => {
+await caso('el seed y el script dirigido traen 3 créditos POR PREGUNTA (generar) y 5 fijos por sesión (análisis); el tope es 40', async () => {
   const seed = require('../seeds-db/seed-ia-tarifas.js').TARIFAS
   assert.strictEqual(seed.tarifas.generar_dinamica_vivo, 3)
-  assert.strictEqual(seed.tarifas.activar_analisis_vivo, 0)
+  assert.strictEqual(seed.tarifas.activar_analisis_vivo, 5)
   assert.strictEqual(seed.modeloPorOperacion.generar_dinamica_vivo, 'claude-haiku-4-5')
   assert.strictEqual(seed.modeloPorOperacion.activar_analisis_vivo, 'claude-haiku-4-5')
   const { readFileSync } = await import('node:fs')
   const script = readFileSync(new URL('../seeds-db/agregar-tarifas-participacion-vivo.js', import.meta.url), 'utf8')
-  assert.ok(script.includes('generar_dinamica_vivo: { tarifa: 3,') && script.includes('activar_analisis_vivo: { tarifa: 0,'))
+  assert.ok(script.includes('generar_dinamica_vivo: { tarifa: 3,') && script.includes('activar_analisis_vivo: { tarifa: 5,'))
   assert.ok(script.includes("const aplicar = process.argv.includes('--aplicar')"), 'por omisión solo simula')
   assert.strictEqual(V.VIVO_CFG.TOPE_ANALISIS, 40)
 })
@@ -425,7 +425,7 @@ await caso('el prompt trata el contenido del docente como dato, no como instrucc
 })
 
 // ═════════════════════════════════════════════════════════════════════════════
-grupo('C. activar_analisis_vivo — cuota fija por sesión')
+grupo('C. activar_analisis_vivo — análisis de resultados: 5 créditos fijos por sesión, opcional')
 
 const CODIGO = 'ABCDEFGHJK'
 const PREGUNTAS_SESION = [
@@ -444,78 +444,16 @@ async function sembrarClaves() {
   await db.doc('activities/act_vivo/clave/p3').set({ criterios: 'Conversión en glucosa', esperada: 'Convierten luz en glucosa', conceptos: ['glucosa', 'energía'] })
   await db.doc('activities/act_vivo/clave/contexto').set({ resumen: 'Resumen del material.' })
 }
-const activar = ({ sesionId = CODIGO, uid = DOCENTE } = {}) =>
+const analizar = ({ sesionId = CODIGO, uid = DOCENTE, k = clave() } = {}) =>
+  IA_FN.ejecutarOperacionIA.run({ auth: { uid }, data: { operacion: 'activar_analisis_vivo', idempotencyKey: k, params: { sesionId } } })
+const activarGratisRetirado = ({ sesionId = CODIGO, uid = DOCENTE } = {}) =>
   IA_FN.activarAnalisisVivo.run({ auth: { uid }, data: { sesionId } })
 const ledger = async () => ({
   creditos: (await db.doc('iaCreditos/' + DOCENTE).get()).data(),
   consumos: (await db.collection('iaConsumos').get()).size,
   internos: (await db.collection('iaConsumosInterno').get()).size,
 })
-
-await caso('activar es GRATIS: marca la sesión, NO llama al modelo y no cambia saldo ni libro de créditos', async () => {
-  await reiniciar(); await sembrarActividad(); await sembrarSesion({ extra: { calificable: true } })
-  const antes = await ledger()
-  const r = await activar()
-  assert.strictEqual(r.yaActivo, false)
-  assert.deepStrictEqual(await ledger(), antes, 'ni saldo, ni consumo, ni reserva, ni movimiento')
-  assert.strictEqual((await creditosDe()).saldo, 100)
-  assert.strictEqual((await db.doc('vivoSesiones/' + CODIGO).get()).data().analisisActivo, true)
-  assert.strictEqual(pedidosIA.length, 0, 'activar no llama a la IA: cada respuesta se evalúa aparte')
-})
-
-await caso('activar funciona incluso con saldo 0 (no pasa por el libro de créditos)', async () => {
-  await reiniciar({ saldo: 0 }); await sembrarActividad(); await sembrarSesion({ extra: { calificable: true } })
-  const antes = await ledger()
-  await activar()
-  assert.deepStrictEqual(await ledger(), antes)
-  assert.strictEqual((await db.doc('vivoSesiones/' + CODIGO).get()).data().analisisActivo, true)
-})
-
-await caso('activar dos veces (doble clic / reintento) es idempotente: no repite nada ni toca el libro', async () => {
-  await reiniciar(); await sembrarActividad(); await sembrarSesion({ extra: { calificable: true } })
-  const antes = await ledger()
-  await activar(); const r2 = await activar()
-  assert.strictEqual(r2.yaActivo, true)
-  assert.deepStrictEqual(await ledger(), antes)
-})
-
-await caso('activar: sesión de otro docente, finalizada o sin preguntas → se rechaza y el libro queda intacto', async () => {
-  await reiniciar(); await sembrarActividad()
-  const antes = await ledger()
-  await sembrarSesion({ codigo: 'BCDEFGHJKM', extra: { docenteId: OTRO } })
-  await assert.rejects(() => activar({ sesionId: 'BCDEFGHJKM' }), (e) => codigoDe(e).includes('permission-denied'))
-  await sembrarSesion({ codigo: 'CDEFGHJKMN', extra: { estado: 'finalizada' } })
-  await assert.rejects(() => activar({ sesionId: 'CDEFGHJKMN' }), /ya terminó/)
-  await sembrarSesion({ codigo: 'DEFGHJKMNP', extra: { preguntas: [] } })
-  await assert.rejects(() => activar({ sesionId: 'DEFGHJKMNP' }), /no tiene preguntas que analizar/)
-  await assert.rejects(() => activar({ sesionId: 'xx' }), (e) => codigoDe(e).includes('invalid-argument'))
-  assert.deepStrictEqual(await ledger(), antes)
-  assert.strictEqual((await db.doc('vivoSesiones/BCDEFGHJKM').get()).data().analisisActivo, false)
-})
-
-await caso('sin sesión iniciada de sesión: se rechaza como no autenticado', async () => {
-  await reiniciar(); await sembrarActividad(); await sembrarSesion()
-  await assert.rejects(() => IA_FN.activarAnalisisVivo.run({ data: { sesionId: CODIGO } }), (e) => codigoDe(e).includes('unauthenticated'))
-})
-
-await caso('activar pone en cola TODAS las abiertas que llegaron antes; el tope lo aplica la evaluación por orden de llegada', async () => {
-  await reiniciar(); await sembrarActividad(); await sembrarSesion({ extra: { calificable: true } })
-  const n = V.VIVO_CFG.TOPE_ANALISIS + 5
-  for (let i = 0; i < n; i++) {
-    await db.doc(`vivoRespuestas/${CODIGO}_p2_${String(i).padStart(20, 'a')}`).set({
-      sesionId: CODIGO, actividadId: 'act_vivo', docenteId: DOCENTE, preguntaId: 'p2', preguntaTipo: 'abierta_breve', texto: `luz ${i}`,
-      estadoIA: 'sin_analisis', creadaEn: new Date(2026, 9, 1, 12, 0, i),
-    })
-  }
-  await db.doc(`vivoRespuestas/${CODIGO}_p1_${'z'.repeat(20)}`).set({ sesionId: CODIGO, preguntaId: 'p1', preguntaTipo: 'opcion_unica', opcion: 'a', estadoIA: null, docenteId: DOCENTE })
-  await activar()
-  const todas = (await db.collection('vivoRespuestas').get()).docs.map((d) => d.data())
-  assert.strictEqual(todas.filter((r) => r.estadoIA === 'recibida').length, n, 'todas las abiertas quedan en cola')
-  assert.strictEqual(todas.filter((r) => r.preguntaTipo === 'opcion_unica' && r.estadoIA === null).length, 1, 'la opción única no entra a la cola')
-})
-
-// ═════════════════════════════════════════════════════════════════════════════
-
+const sesionDoc = async (codigo = CODIGO) => (await db.doc('vivoSesiones/' + codigo).get()).data()
 const limpiarRespuestas = async () => { for (const d of (await db.collection('vivoRespuestas').get()).docs) await d.ref.delete() }
 const sembrarOpciones = async (pares, codigo = CODIGO) => {
   for (const [i, op] of pares.entries()) {
@@ -525,42 +463,156 @@ const sembrarOpciones = async (pares, codigo = CODIGO) => {
     })
   }
 }
+// Respuestas falsas de la IA según la llamada: evaluación de una respuesta (350 tokens), diagnóstico por pregunta (800) e informe final (700).
+const EVAL_OK = { nivel: 'logrado', puntaje: 0.9, conceptos: ['luz'], errores: [], evidencia: 'luz' }
+const DIAG_OK = { diagnostico: 'Una parte del grupo confunde el gas.', confusiones: [{ opcion: 'b', texto: 'Cree que el metano se libera' }], refuerzo: ['Productos'], siguientePaso: { tipo: 'aclarar', texto: 'Aclarar con un ejemplo.' }, limitaciones: 'Muestra pequeña' }
+const FINAL_OK = { sintesis: 'El grupo identifica el gas.', comprende: ['Productos'], noComprende: ['Origen'], siguientePaso: { tipo: 'aclarar', texto: 'Aclarar con un ejemplo.' }, actividadBreve: 'Dibujar el ciclo', limitaciones: '' }
+const iaAnalisis = (req) => (req.max_tokens === 350 ? EVAL_OK : req.max_tokens === 700 ? FINAL_OK : DIAG_OK)
+async function prepararAnalisis({ saldo = 100, extra = {}, opciones = ['a', 'a', 'a', 'b', 'b', 'b'] } = {}) {
+  await reiniciar({ saldo }); await sembrarActividad(); await sembrarClaves()
+  await db.doc('activities/act_vivo/clave/p1').set({ correcta: 'a' })
+  await sembrarSesion({ extra: { estado: 'finalizada', aceptando: false, ...extra } })
+  await sembrarOpciones(opciones)
+  respuestaIA = iaAnalisis
+}
+PV._pruebas.configurarEsperaEvaluaciones(50)
 
-await caso('activar (NO calificable) sin datos suficientes: 0, 1 y 4 respuestas de opción única se rechazan, no activan nada y no tocan el libro', async () => {
-  await reiniciar(); await sembrarActividad(); await sembrarSesion()
+await caso('pedir el análisis de una sesión finalizada cobra 5 créditos UNA vez, sin importar cuántas preguntas tenga', async () => {
+  await prepararAnalisis()
+  const r = await analizar()
+  assert.strictEqual(r.creditosReales, 5)
+  assert.strictEqual((await creditosDe()).saldo, 95)
+  assert.strictEqual((await sesionDoc()).analisisActivo, true)
+  assert.strictEqual((await db.doc(`vivoInformes/${CODIGO}_final`).get()).data().estado, 'listo', 'deja el informe final')
+  assert.strictEqual((await db.doc(`vivoInformes/${CODIGO}_p1`).get()).data().estado, 'listo', 'y el diagnóstico de la pregunta')
+  const consumos = (await db.collection('iaConsumos').get()).docs.map((d) => d.data())
+  assert.strictEqual(consumos.length, 1); assert.strictEqual(consumos[0].operacion, 'activar_analisis_vivo'); assert.strictEqual(consumos[0].estado, 'ejecutado')
+  const interno = (await db.collection('iaConsumosInterno').get()).docs[0].data()
+  assert.ok(interno.tokensEntrada > 0, 'registra el costo real (tokens) del análisis')
+})
+
+await caso('reintento con la MISMA clave: no cobra de nuevo ni repite el análisis', async () => {
+  await prepararAnalisis()
+  const k = clave()
+  await analizar({ k })
+  const pedidos = pedidosIA.length
+  const r2 = await analizar({ k })
+  assert.strictEqual(r2.repetida, true)
+  assert.strictEqual((await creditosDe()).saldo, 95)
+  assert.strictEqual(pedidosIA.length, pedidos, 'no vuelve a llamar a la IA')
+})
+
+await caso('pedirlo otra vez con OTRA clave (otra pestaña, doble clic): se rechaza sin cobro', async () => {
+  await prepararAnalisis()
+  await analizar()
+  await assert.rejects(() => analizar(), (e) => /ya tiene su análisis/.test(e.message) && /No se descontaron créditos/.test(e.message))
+  assert.strictEqual((await creditosDe()).saldo, 95)
+})
+
+await caso('dos pedidos A LA VEZ con claves distintas: solo uno cobra; el otro se reembolsa', async () => {
+  await prepararAnalisis()
+  const res = await Promise.allSettled([analizar(), analizar()])
+  assert.strictEqual(res.filter((x) => x.status === 'fulfilled').length, 1, res.map((x) => x.reason?.message).join(' | '))
+  assert.strictEqual((await creditosDe()).saldo, 95, 'se cobró una sola vez')
+  assert.strictEqual((await sesionDoc()).analisisActivo, true)
+})
+
+await caso('sesión EN CURSO, ajena, sin preguntas o código inválido: se rechaza sin reservar nada', async () => {
+  await prepararAnalisis({ extra: { estado: 'activa' } })
+  const antes = await ledger()
+  await assert.rejects(() => analizar(), /Finaliza la sesión/)
+  await sembrarSesion({ codigo: 'BCDEFGHJKM', extra: { docenteId: OTRO, estado: 'finalizada' } })
+  await assert.rejects(() => analizar({ sesionId: 'BCDEFGHJKM' }), (e) => codigoDe(e).includes('permission-denied'))
+  await sembrarSesion({ codigo: 'DEFGHJKMNP', extra: { preguntas: [], estado: 'finalizada' } })
+  await assert.rejects(() => analizar({ sesionId: 'DEFGHJKMNP' }), /no tiene preguntas que analizar/)
+  await assert.rejects(() => analizar({ sesionId: 'xx' }), (e) => codigoDe(e).includes('invalid-argument'))
+  assert.deepStrictEqual(await ledger(), antes)
+  assert.strictEqual((await sesionDoc()).analisisActivo, false)
+  assert.strictEqual(pedidosIA.length, 0)
+})
+
+await caso('NO calificable sin datos suficientes (0, 1 y 4 de opción única): se rechaza sin cobro', async () => {
+  await prepararAnalisis({ opciones: [] })
   const antes = await ledger()
   for (const pares of [[], ['a'], ['a', 'b', 'a', 'b']]) {
-    await limpiarRespuestas()
-    await sembrarOpciones(pares)
-    await assert.rejects(() => activar(), (e) => codigoDe(e).includes('failed-precondition') && /Todavía no hay respuestas suficientes/.test(e.message), pares.length + ' respuestas')
-    assert.strictEqual((await db.doc('vivoSesiones/' + CODIGO).get()).data().analisisActivo, false)
+    await limpiarRespuestas(); await sembrarOpciones(pares)
+    await assert.rejects(() => analizar(), (e) => /Todavía no hay respuestas suficientes/.test(e.message), pares.length + ' respuestas')
   }
   assert.deepStrictEqual(await ledger(), antes)
+  assert.strictEqual((await sesionDoc()).analisisActivo, false)
 })
 
-await caso('activar (NO calificable) con 5 de opción única o 8 abiertas con variedad: se permite, gratis', async () => {
-  await reiniciar(); await sembrarActividad(); await sembrarSesion()
+await caso('saldo insuficiente: no se ejecuta, no se cobra y la sesión queda sin análisis', async () => {
+  await prepararAnalisis({ saldo: 2 })
+  await assert.rejects(() => analizar())
+  assert.strictEqual((await creditosDe()).saldo, 2)
+  assert.strictEqual((await sesionDoc()).analisisActivo, false)
+  assert.strictEqual(pedidosIA.length, 0)
+})
+
+await caso('si la IA falla y no queda informe: reembolso íntegro, la sesión vuelve a quedar sin análisis y sin informes', async () => {
+  await prepararAnalisis()
+  respuestaIA = () => 'no es json'
+  await assert.rejects(() => analizar())
+  assert.strictEqual((await creditosDe()).saldo, 100, 'no se cobró')
+  assert.strictEqual((await sesionDoc()).analisisActivo, false, 'se puede volver a pedir')
+  assert.strictEqual((await db.collection('vivoInformes').get()).size, 0, 'un nuevo intento empieza limpio')
+  respuestaIA = iaAnalisis
+  await analizar()
+  assert.strictEqual((await creditosDe()).saldo, 95, 'el segundo intento sí cobra, una vez')
+})
+
+await caso('calificable sin respuestas: se permite pedirlo, pero sin resultado se reembolsa', async () => {
+  await prepararAnalisis({ extra: { calificable: true }, opciones: [] })
+  await assert.rejects(() => analizar(), /No se pudo preparar el informe/)
+  assert.strictEqual((await creditosDe()).saldo, 100)
+  assert.strictEqual((await sesionDoc()).analisisActivo, false)
+})
+
+await caso('evalúa las abiertas DENTRO del tope (40) por orden de llegada; el resto no se evalúa ni se cobra aparte', async () => {
+  await prepararAnalisis()
+  const n = V.VIVO_CFG.TOPE_ANALISIS + 5
+  for (let i = 0; i < n; i++) {
+    await db.doc(`vivoRespuestas/${CODIGO}_p2_${String(i).padStart(20, 'a')}`).set({
+      sesionId: CODIGO, actividadId: 'act_vivo', docenteId: DOCENTE, preguntaId: 'p2', preguntaTipo: 'abierta_breve', texto: `luz ${i}`,
+      estadoIA: 'sin_analisis', creadaEn: new Date(2026, 9, 1, 12, 0, i),
+    })
+  }
+  const r = await analizar()
+  assert.strictEqual(r.resultado.evaluadas, V.VIVO_CFG.TOPE_ANALISIS)
+  assert.strictEqual(pedidosIA.filter((p) => p.max_tokens === 350).length, V.VIVO_CFG.TOPE_ANALISIS, 'una llamada por respuesta dentro del tope')
+  const tarde = (await db.doc(`vivoRespuestas/${CODIGO}_p2_${String(n - 1).padStart(20, 'a')}`).get()).data()
+  assert.notStrictEqual(tarde.estadoIA, 'analizada', 'la que llegó fuera del tope no se evalúa')
+  assert.strictEqual((await creditosDe()).saldo, 95, 'el precio es por sesión: 5')
+})
+
+await caso('encuesta: no evalúa respuestas una por una; el análisis es el informe de tendencias', async () => {
+  await prepararAnalisis({ extra: { proposito: 'encuesta' } })
+  for (let i = 0; i < 10; i++) await db.doc(`vivoRespuestas/${CODIGO}_p3_${String(i).padStart(20, 'g')}`).set({ sesionId: CODIGO, actividadId: 'act_vivo', docenteId: DOCENTE, preguntaId: 'p3', preguntaTipo: 'abierta_extensa', texto: `opinión ${i}`, estadoIA: 'sin_analisis', abierta: true, creadaEn: new Date(2026, 9, 1, 12, 0, i) })
+  await analizar()
+  assert.strictEqual(pedidosIA.filter((p) => p.max_tokens === 350).length, 0)
+  assert.strictEqual((await db.collection('vivoRespuestas').where('estadoIA', '==', 'recibida').get()).size, 0)
+  assert.strictEqual((await creditosDe()).saldo, 95)
+})
+
+await caso('«Actualizar informe» después de pagar: incluido, no toca el libro de créditos', async () => {
+  await prepararAnalisis()
+  await analizar()
   const antes = await ledger()
-  await sembrarOpciones(['a', 'b', 'a', 'b', 'a'])
-  assert.strictEqual((await activar()).yaActivo, false)
-  assert.strictEqual((await db.doc('vivoSesiones/' + CODIGO).get()).data().analisisActivo, true)
-  // abiertas: 7 no alcanzan; 8 con variedad sí
-  await db.doc('vivoSesiones/' + CODIGO).update({ analisisActivo: false })
-  await limpiarRespuestas()
-  const palabras = ['luz', 'agua', 'sol', 'planta', 'hoja', 'aire', 'raíz', 'tallo']
-  const sembrarAbiertas = async (n) => { for (let i = 0; i < n; i++) await db.doc('vivoRespuestas/' + CODIGO + '_p2_' + String(i).padStart(20, 'a')).set({ sesionId: CODIGO, actividadId: 'act_vivo', docenteId: DOCENTE, preguntaId: 'p2', preguntaTipo: 'abierta_breve', texto: palabras[i], estadoIA: 'sin_analisis', creadaEn: new Date(2026, 9, 1, 12, 0, i) }) }
-  await sembrarAbiertas(7)
-  await assert.rejects(() => activar(), /Todavía no hay respuestas suficientes/)
-  await sembrarAbiertas(8)
-  await activar()
-  assert.strictEqual((await db.doc('vivoSesiones/' + CODIGO).get()).data().analisisActivo, true)
-  assert.deepStrictEqual(await ledger(), antes, 'en ningún caso se tocó el libro de créditos')
+  await sembrarOpciones(['a', 'a', 'a', 'b', 'b', 'b', 'a'])
+  const deps = { pedirJSON: IA_FN._pruebas.pedirJSON, obtenerClave: () => CLAVE_API }
+  await PV.generarInformePregunta({ sesionId: CODIGO, preguntaId: 'p1', deps, manual: true })
+  await PV.generarInformeFinal({ sesionId: CODIGO, deps, manual: true })
+  assert.deepStrictEqual(await ledger(), antes)
+  assert.strictEqual((await db.doc(`vivoInformes/${CODIGO}_final`).get()).data().generaciones, 2)
 })
 
-await caso('activar (calificable) sin respuestas se permite: el diagnóstico dirá «muestra insuficiente»', async () => {
-  await reiniciar(); await sembrarActividad(); await sembrarSesion({ extra: { calificable: true } })
-  await activar()
-  assert.strictEqual((await db.doc('vivoSesiones/' + CODIGO).get()).data().analisisActivo, true)
+await caso('la activación GRATIS quedó retirada: avisa que se actualice la página y no activa nada', async () => {
+  await prepararAnalisis({ extra: { estado: 'activa' } })
+  await assert.rejects(() => activarGratisRetirado(), /Actualiza la página/)
+  await assert.rejects(() => IA_FN.activarAnalisisVivo.run({ data: { sesionId: CODIGO } }), (e) => codigoDe(e).includes('unauthenticated'))
+  assert.strictEqual((await sesionDoc()).analisisActivo, false)
+  assert.strictEqual((await creditosDe()).saldo, 100)
 })
 
 grupo('D. Evaluación de UNA respuesta abierta')
@@ -1954,16 +2006,6 @@ await caso('evaluación rápida conserva el comportamiento de evaluar: marca la 
   assert.ok(/\[CORRECTA\]/.test(textoDelPedido(pedidosIA[0])))
   for (let i = 0; i < 8; i++) await db.doc(`vivoRespuestas/${CODIGO}_p3_${String(i).padStart(20, 'f')}`).set({ sesionId: CODIGO, actividadId: 'act_vivo', docenteId: DOCENTE, preguntaId: 'p3', preguntaTipo: 'abierta_extensa', texto: `respuesta ${i}`, estadoIA: 'recibida' })
   assert.strictEqual((await informe('p3')).omitido, 'insuficiente', 'sin evaluar no cuentan: la evaluación por respuesta sigue siendo necesaria')
-})
-
-await caso('activar el análisis de una encuesta no pone en cola evaluaciones por respuesta', async () => {
-  await reiniciar(); await sembrarActividad(); await sembrarClaves()
-  await sembrarSesion({ extra: { proposito: 'encuesta', calificable: true } })
-  for (let i = 0; i < 10; i++) await db.doc(`vivoRespuestas/${CODIGO}_p3_${String(i).padStart(20, 'g')}`).set({ sesionId: CODIGO, actividadId: 'act_vivo', docenteId: DOCENTE, preguntaId: 'p3', preguntaTipo: 'abierta_extensa', texto: `opinión ${i}`, estadoIA: 'sin_analisis', abierta: true })
-  const antes = await ledger()
-  await activar()
-  assert.deepStrictEqual(await ledger(), antes, 'activar una encuesta tampoco toca el libro')
-  assert.strictEqual((await db.collection('vivoRespuestas').where('estadoIA', '==', 'recibida').get()).size, 0, 'ninguna respuesta de encuesta se encola para evaluarse')
 })
 
 require.cache[rutaSdk].exports = SDK_REAL
