@@ -305,6 +305,7 @@ export default function TeacherParticipacionPage() {
   const mover = (i, d) => setModelo((ms) => { const c = [...ms]; [c[i], c[i + d]] = [c[i + d], c[i]]; return c })
 
   return (
+    <>
     <div className={`${TEACHER_CONTAINER} px-4 py-4 space-y-4`}>
       <div className="flex items-center gap-2">
         <Button variant="quiet" size="sm" icon={ArrowLeft} onClick={() => navigate(`/subject/${actividad.asignaturaId}`)}>{asignatura ? subjectDisplayName(asignatura) : 'Asignatura'}</Button>
@@ -384,15 +385,18 @@ export default function TeacherParticipacionPage() {
         </section>
       )}
 
-      {presentando && (
-        <PresentacionVivo codigo={presentando} actividad={actividad} claves={claves} docenteId={currentUser.uid}
-          asignaturaNombre={asignatura ? subjectDisplayName(asignatura) : ''}
-          onCerrar={() => { setPresentando(null); cargar().catch(() => {}) }} />
-      )}
       {confirmandoBorrar && (
         <ConfirmModal title="¿Eliminar esta actividad?" message="Se borrarán sus preguntas, sesiones, respuestas y calificaciones. No se puede deshacer."
           confirmLabel="Eliminar" danger onConfirm={borrar} onCancel={() => setConfirmandoBorrar(false)} />
       )}
     </div>
+    {/* FUERA del contenedor con space-y-4: si fuera su hijo heredaría margin-top (1rem = 14.4 px) y la presentación
+        a pantalla completa quedaría desplazada hacia abajo, dejando ver la página por arriba. */}
+    {presentando && (
+      <PresentacionVivo codigo={presentando} actividad={actividad} claves={claves} docenteId={currentUser.uid}
+        asignaturaNombre={asignatura ? subjectDisplayName(asignatura) : ''}
+        onCerrar={() => { setPresentando(null); cargar().catch(() => {}) }} />
+    )}
+    </>
   )
 }
