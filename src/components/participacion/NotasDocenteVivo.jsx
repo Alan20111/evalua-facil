@@ -9,9 +9,8 @@ export default function NotasDocenteVivo({ notas, pdf = null }) {
   return (
     <section aria-label="Notas del docente" className="rounded-card border border-outline-variant bg-white p-4 space-y-2">
       <h3 className="text-base font-semibold text-on-surface">Notas del docente</h3>
-      <p className="text-xs text-muted">Solo tú las ves. No las cambia la IA ni «Actualizar informe», y se incluyen en el «Informe en PDF».</p>
+      <p className="text-xs text-muted">Anota lo que observaste, los acuerdos con el grupo, las acciones de seguimiento o ideas para la próxima vez. Solo tú las ves; no las cambia la IA ni «Actualizar informe», y se incluyen en el «Informe en PDF».</p>
       <Textarea aria-label="Notas del docente" rows={5} autoResize maxLength={MAX_NOTAS_VIVO} showCount disabled={cargando}
-        placeholder="Lo que observaste, acuerdos con el grupo, acciones de seguimiento, ideas para la próxima vez…"
         value={texto} onChange={(e) => setTexto(e.target.value)} />
       {recuperado && sucio && <p className="text-xs text-amber-800">Recuperamos lo que escribiste y no guardaste.</p>}
       {conflicto && (
