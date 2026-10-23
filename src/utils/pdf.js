@@ -19,6 +19,7 @@ import { esCalificacionProvisional, NOTA_PIE_PROVISIONAL } from './evaluacionGra
 import { contenidoAnalisisResultadosPDF } from './analisisResultadosPDF'
 import { planInformeAsignatura } from './analisisAsignaturaInforme'
 import { planInformeEntregable } from './analisisEntregableInforme'
+import { planInformeVivoPDF } from './informeVivoPDF'
 
 // Palomita verde de "respuesta correcta", dibujada con dos trazos y centrada
 // en (cx, cy). Ver el comentario en didDrawCell: las fuentes estándar de jsPDF
@@ -584,13 +585,15 @@ export async function exportAnalisisResultadosPDF(args) {
 // Análisis integral de asignatura con IA. Recorre el MISMO plan que la
 // pantalla (analisisAsignaturaInforme.js): aquí solo se dibuja. Descargarlo no
 // llama a la IA ni cuesta créditos — imprime el informe ya guardado.
-const COLOR_TONO_ASIGNATURA = { ia: [37, 99, 235], dato: [71, 85, 105], atencion: [180, 120, 4] }
+const COLOR_TONO_ASIGNATURA = { ia: [37, 99, 235], dato: [71, 85, 105], atencion: [180, 120, 4], docente: [15, 118, 110] }
 
 // Dibuja cualquier informe de análisis con IA a partir de su PLAN (secciones
 // de párrafos, listas, notas y tablas). Lo comparten el análisis de
 // asignatura y el de una actividad: cada uno arma su plan y aquí solo se
 // dibuja. `lineas` = renglones informativos bajo el encabezado.
-async function construirPDFDeInforme({ plan, subject, membrete = null, watermark = false, subtitulo, destacado = '', lineas = [] }) {
+// `paginar`: «Página X de Y» al pie (solo quien lo pide; los informes de antes quedan igual). Sin `plan.aviso` no se dibuja
+// el recuadro del asistente de IA (un informe que no salió de la IA no lo lleva).
+async function construirPDFDeInforme({ plan, subject, membrete = null, watermark = false, subtitulo, destacado = '', lineas = [], paginar = false }) {
   const [{ jsPDF }, autoTableMod] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
@@ -624,16 +627,18 @@ async function construirPDFDeInforme({ plan, subject, membrete = null, watermark
   if (plan.generadoEn) parrafo(`Generado el ${plan.generadoEn}`, { size: 8, color: 140, gap: 5 })
 
   // Aviso de IA — mismo texto que en pantalla, siempre visible en el reporte.
-  doc.setFont(undefined, 'normal'); doc.setFontSize(7.5)
-  const avisoLines = doc.splitTextToSize(plan.aviso, pageW - 40)
-  ensureSpace(20 + avisoLines.length * 3.5)
-  doc.setFillColor(255, 247, 224)
-  doc.roundedRect(14, y - 4, pageW - 28, 9 + avisoLines.length * 3.5, 2, 2, 'F')
-  doc.setFont(undefined, 'bold'); doc.setFontSize(9); doc.setTextColor(146, 100, 6)
-  doc.text('Asistente IA', 18, y + 1)
-  doc.setFont(undefined, 'normal'); doc.setFontSize(7.5)
-  doc.text(avisoLines, 18, y + 5)
-  y += 12 + avisoLines.length * 3.5
+  if (plan.aviso) {
+    doc.setFont(undefined, 'normal'); doc.setFontSize(7.5)
+    const avisoLines = doc.splitTextToSize(plan.aviso, pageW - 40)
+    ensureSpace(20 + avisoLines.length * 3.5)
+    doc.setFillColor(255, 247, 224)
+    doc.roundedRect(14, y - 4, pageW - 28, 9 + avisoLines.length * 3.5, 2, 2, 'F')
+    doc.setFont(undefined, 'bold'); doc.setFontSize(9); doc.setTextColor(146, 100, 6)
+    doc.text('Asistente IA', 18, y + 1)
+    doc.setFont(undefined, 'normal'); doc.setFontSize(7.5)
+    doc.text(avisoLines, 18, y + 5)
+    y += 12 + avisoLines.length * 3.5
+  }
 
   plan.secciones.forEach((s, i) => {
     const color = COLOR_TONO_ASIGNATURA[s.tono] || COLOR_TONO_ASIGNATURA.ia
@@ -646,6 +651,7 @@ async function construirPDFDeInforme({ plan, subject, membrete = null, watermark
       if (b.tipo === 'parrafo') parrafo(b.texto)
       else if (b.tipo === 'nota') parrafo(b.texto, { size: 8.5, color: 110 })
       else if (b.tipo === 'lista') b.items.forEach((it) => parrafo(`•  ${it}`, { size: 9.5, gap: 2 }))
+      else if (b.tipo === 'espacio') y += 3 // renglón en blanco que el docente dejó en sus notas
       else if (b.tipo === 'tabla') {
         ensureSpace(b.titulo ? 40 : 30)
         if (b.titulo) parrafo(b.titulo, { bold: true, size: 8.5, color: 90, gap: 1 })
@@ -665,6 +671,14 @@ async function construirPDFDeInforme({ plan, subject, membrete = null, watermark
   })
 
   if (watermark) addPdfFooter(doc)
+  if (paginar) {
+    const total = doc.internal.getNumberOfPages()
+    for (let p = 1; p <= total; p++) {
+      doc.setPage(p)
+      doc.setFont(undefined, 'normal'); doc.setFontSize(7.5); doc.setTextColor(140)
+      doc.text(`Página ${p} de ${total}`, pageW - 14, pageH - 6, { align: 'right' })
+    }
+  }
   return doc
 }
 
@@ -696,6 +710,23 @@ export async function construirAnalisisEntregablePDF({ analisis, subject, membre
 export async function exportAnalisisEntregablePDF(args) {
   const doc = await construirAnalisisEntregablePDF(args)
   await savePdfDoc(doc, `analisis_actividad_${safeFile(args.subject)}.pdf`)
+}
+
+// Informe de UNA sesión de Participación en vivo: el informe final ya guardado + las notas del docente (aparte). No llama a la
+// IA ni escribe nada: solo lee lo que la pantalla ya tiene.
+export async function construirInformeVivoPDF({ sesion, informe, respuestas, notas, subject, membrete = null }) {
+  const plan = planInformeVivoPDF({ sesion, informe, respuestas, notas })
+  return construirPDFDeInforme({
+    plan, subject, membrete,
+    subtitulo: 'Informe de participación en vivo', destacado: plan.titulo,
+    lineas: plan.lineas, paginar: true,
+  })
+}
+
+export async function exportInformeVivoPDF(args) {
+  const doc = await construirInformeVivoPDF(args)
+  const dia = args.sesion.creadaEn?.toDate?.()?.toISOString?.().slice(0, 10) || 'sesion'
+  await savePdfDoc(doc, `informe_participacion_${safeFile(args.subject)}_${dia}.pdf`)
 }
 
 // El MISMO reporte de arriba pero con las gráficas de pastel que el docente

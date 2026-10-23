@@ -6,10 +6,8 @@ import { Loader2, RefreshCw, Sparkles } from 'lucide-react'
 import { Button } from '../ui'
 import { LIMITES_INFORME, esEncuesta } from '../../utils/participacionVivo'
 import { actualizarInformeVivo } from '../../utils/participacionVivoDb'
-
-const PASO = { reexplicar: 'Volver a explicar', aclarar: 'Aclarar con un ejemplo', actividad: 'Hacer una actividad breve' }
-// Encuesta: no hay aciertos ni errores; se habla de opiniones.
-const PASO_ENCUESTA = { reexplicar: 'Retomar el tema', aclarar: 'Conversar con el grupo', actividad: 'Hacer una actividad breve' }
+import { PASO_INFORME_VIVO as PASO, PASO_INFORME_VIVO_ENCUESTA as PASO_ENCUESTA, rotulosInformeVivo } from '../../utils/informeVivoPDF'
+import BotonInformeVivoPDF from './BotonInformeVivoPDF'
 
 function Lista({ titulo, items }) {
   if (!items?.length) return null
@@ -21,8 +19,8 @@ function Lista({ titulo, items }) {
   )
 }
 
-/** Informe FINAL de la sesión: síntesis de los diagnósticos por pregunta. */
-export function InformeFinalDocente({ sesion, informes }) {
+/** Informe FINAL de la sesión: síntesis de los diagnósticos por pregunta. `respuestas` y `notas` solo alimentan el PDF. */
+export function InformeFinalDocente({ sesion, informes, respuestas = [], notas = '' }) {
   const encuesta = esEncuesta(sesion.proposito)
   const [actualizando, setActualizando] = useState(false)
   const [error, setError] = useState('')
@@ -33,6 +31,7 @@ export function InformeFinalDocente({ sesion, informes }) {
     try { await actualizarInformeVivo({ sesionId: sesion.codigo }) } catch (e) { setError(e.message || 'No se pudo actualizar') } finally { setActualizando(false) }
   }
   const inf = doc?.informe
+  const rot = rotulosInformeVivo(encuesta)
   return (
     <section aria-label="Informe final de la sesión" className="rounded-card border border-outline-variant bg-surface-card p-4 space-y-3">
       <header className="flex items-center gap-2">
@@ -43,8 +42,8 @@ export function InformeFinalDocente({ sesion, informes }) {
       {doc?.estado === 'listo' && inf && (
         <>
           <p className="text-base text-on-surface leading-snug">{inf.sintesis}</p>
-          <Lista titulo={encuesta ? 'Opiniones en las que coinciden' : 'Lo que el grupo comprende'} items={(inf.comprende || []).map((x, k) => <li key={k}>{x}</li>)} />
-          <Lista titulo={encuesta ? 'Temas con división o sin consenso' : 'Lo que aún no comprende'} items={(inf.noComprende || []).map((x, k) => <li key={k}>{x}</li>)} />
+          <Lista titulo={rot.comprende} items={(inf.comprende || []).map((x, k) => <li key={k}>{x}</li>)} />
+          <Lista titulo={rot.noComprende} items={(inf.noComprende || []).map((x, k) => <li key={k}>{x}</li>)} />
           <div className="rounded-card bg-surface p-3">
             <p className="text-sm font-semibold text-on-surface">{(encuesta ? PASO_ENCUESTA : PASO)[inf.siguientePaso?.tipo] || 'Siguiente paso'}</p>
             <p className="text-sm text-on-surface">{inf.siguientePaso?.texto}</p>
@@ -55,9 +54,13 @@ export function InformeFinalDocente({ sesion, informes }) {
       )}
       {(!doc || doc.estado === 'insuficiente') && <p className="text-sm text-on-surface">Muestra insuficiente: {doc?.motivo || 'ninguna pregunta reunió datos suficientes para una síntesis.'}</p>}
       {doc?.estado === 'error' && <p className="text-sm text-red-700">No se pudo preparar el informe. Puedes intentarlo de nuevo.</p>}
-      {doc?.estado !== 'generando' && (doc?.generaciones ?? 0) < LIMITES_INFORME.FINAL && (
-        <div className="flex items-center gap-3">
-          <Button variant="secondary" size="sm" icon={RefreshCw} busy={actualizando} onClick={actualizar}>Actualizar informe</Button>
+      {/* El PDF no depende del límite de «Actualizar»: se puede exportar siempre que el informe no se esté preparando. */}
+      {doc?.estado !== 'generando' && (
+        <div className="flex flex-wrap items-center gap-3">
+          {(doc?.generaciones ?? 0) < LIMITES_INFORME.FINAL && (
+            <Button variant="secondary" size="sm" icon={RefreshCw} busy={actualizando} onClick={actualizar}>Actualizar informe</Button>
+          )}
+          <BotonInformeVivoPDF sesion={sesion} informe={doc || null} respuestas={respuestas} notas={notas} disabled={actualizando} />
           {error && <span className="text-xs text-red-700">{error}</span>}
         </div>
       )}

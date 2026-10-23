@@ -976,6 +976,16 @@ await caso('limpiarVivoDeActividad borra sesiones, respuestas y claves de ESA ac
   assert.strictEqual((await db.doc('activities/act_otra_viva/clave/p1').get()).exists, true)
 })
 
+await caso('limpiarVivoDeActividad también borra las notas del docente de ESA actividad y nada más', async () => {
+  await reiniciar(); await sembrarActividad(); await sembrarActividad('act_otra_viva')
+  await sembrarSesion()
+  await db.doc(`vivoNotas/${CODIGO}`).set({ sesionId: CODIGO, actividadId: 'act_vivo', docenteId: DOCENTE, texto: 'mías', version: 1 })
+  await db.doc('vivoNotas/KMNPQRSTUV').set({ sesionId: 'KMNPQRSTUV', actividadId: 'act_otra_viva', docenteId: DOCENTE, texto: 'otra actividad', version: 1 })
+  await PV.limpiarVivoDeActividad({ activityId: 'act_vivo' })
+  assert.strictEqual((await db.doc(`vivoNotas/${CODIGO}`).get()).exists, false)
+  assert.strictEqual((await db.doc('vivoNotas/KMNPQRSTUV').get()).exists, true, 'la otra actividad conserva sus notas')
+})
+
 await caso('limpiarVivoDeSesion borra respuestas y diagnósticos de ESA sesión y nada más', async () => {
   await reiniciar(); await sembrarActividad(); await sembrarClaves()
   // Dos sesiones de la MISMA actividad: la borrada y la que debe quedar intacta.
@@ -987,9 +997,13 @@ await caso('limpiarVivoDeSesion borra respuestas y diagnósticos de ESA sesión 
   await db.doc('vivoRespuestas/hermana_1').set({ sesionId: 'KMNPQRSTUV', actividadId: 'act_vivo', docenteId: DOCENTE })
   await db.doc('vivoInformes/KMNPQRSTUV_p1').set({ sesionId: 'KMNPQRSTUV', actividadId: 'act_vivo', docenteId: DOCENTE, estado: 'listo' })
   await db.doc('submissions/act_vivo_ins1').set({ actividadId: 'act_vivo', alumnoId: 'ins1', calificacion: 8 })
+  await db.doc(`vivoNotas/${CODIGO}`).set({ sesionId: CODIGO, actividadId: 'act_vivo', docenteId: DOCENTE, texto: 'notas', version: 1 })
+  await db.doc('vivoNotas/KMNPQRSTUV').set({ sesionId: 'KMNPQRSTUV', actividadId: 'act_vivo', docenteId: DOCENTE, texto: 'de la hermana', version: 1 })
   await db.doc(`vivoSesiones/${CODIGO}`).delete() // lo que hace el docente; el disparador llama a la limpieza
   const r = await PV.limpiarVivoDeSesion({ sesionId: CODIGO })
-  assert.strictEqual(r.borrados, 3)
+  assert.strictEqual(r.borrados, 4, 'respuesta + 2 diagnósticos + notas del docente')
+  assert.strictEqual((await db.doc(`vivoNotas/${CODIGO}`).get()).exists, false, 'las notas de la sesión borrada se van con ella')
+  assert.strictEqual((await db.doc('vivoNotas/KMNPQRSTUV').get()).data().texto, 'de la hermana', 'las notas de la otra sesión siguen')
   assert.strictEqual((await db.collection('vivoRespuestas').where('sesionId', '==', CODIGO).get()).size, 0)
   assert.strictEqual((await db.collection('vivoInformes').where('sesionId', '==', CODIGO).get()).size, 0)
   assert.strictEqual((await db.doc('vivoSesiones/KMNPQRSTUV').get()).exists, true, 'la otra sesión sigue')

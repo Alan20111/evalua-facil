@@ -3,7 +3,7 @@
 //   · El DOCENTE maneja la sesión por Firestore (reglas: solo avance; el análisis de IA y su contador
 //     los escribe el servidor al activarlo con `activarAnalisisVivo`, que es gratis).
 //   · Los PARTICIPANTES jamás tocan Firestore: usan /api/subject/vivo-estado y vivo-responder.
-import { doc, setDoc, collection, query, where, getDocs, serverTimestamp, onSnapshot } from 'firebase/firestore'
+import { doc, setDoc, getDoc, collection, query, where, getDocs, serverTimestamp, onSnapshot, runTransaction } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { auth, db, functions } from '../firebase'
 import { fetchApi } from './apiBase'
@@ -79,6 +79,39 @@ export function escucharInformesVivo(codigo, docenteId, cb, onError) {
     (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
     onError
   )
+}
+
+// ── Notas del docente (vivoNotas/{codigo}) ─────────────────────────────────
+// Son del docente, aparte del informe de IA: ningún proceso automático las escribe. Una por sesión.
+
+/** Notas guardadas de una sesión. Sin documento todavía: texto vacío y versión 0. */
+export async function leerNotasVivo(codigo) {
+  const s = await getDoc(doc(db, 'vivoNotas', codigo))
+  return s.exists() ? { texto: s.data().texto || '', version: s.data().version || 0 } : { texto: '', version: 0 }
+}
+
+/**
+ * Guarda las notas SOLO si nadie las cambió desde que se leyeron (`versionEsperada`). Si otra pestaña o dispositivo guardó
+ * antes, lanza un error con `code: 'conflicto'` y `remoto: { texto, version }` para que el docente decida; nunca sobrescribe a
+ * ciegas. Devuelve la versión nueva.
+ */
+export async function guardarNotasVivo({ sesion, texto, versionEsperada }) {
+  const ref = doc(db, 'vivoNotas', sesion.codigo)
+  return runTransaction(db, async (tx) => {
+    const s = await tx.get(ref)
+    const actual = s.exists() ? (s.data().version || 0) : 0
+    if (actual !== versionEsperada) {
+      const err = new Error('Las notas cambiaron en otra pestaña o dispositivo.')
+      err.code = 'conflicto'
+      err.remoto = { texto: s.data()?.texto || '', version: actual }
+      throw err
+    }
+    const nueva = actual + 1
+    const datos = { texto, version: nueva, actualizadoEn: serverTimestamp() }
+    if (s.exists()) tx.update(ref, datos)
+    else tx.set(ref, { docenteId: sesion.docenteId, sesionId: sesion.codigo, actividadId: sesion.actividadId, ...datos })
+    return nueva
+  })
 }
 
 /** «Actualizar» manual de un diagnóstico (sin preguntaId = el informe final). Sin cargo: el servidor limita las llamadas. */

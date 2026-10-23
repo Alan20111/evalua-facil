@@ -1330,6 +1330,34 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Notas del DOCENTE sobre una sesión en vivo (una por sesión; id = código de la sesión). Son suyas: ni la IA, ni
+    // «Actualizar informe», ni estudiantes, ni otros docentes las tocan. `version` sube de uno en uno: dos pestañas no se
+    // pisan (la segunda en guardar recibe un rechazo y el cliente le avisa). Las borra el servidor junto con la sesión.
+    // Leer un documento que todavía no existe está permitido: la transacción del cliente lo lee antes de crearlo.
+    match /vivoNotas/{sesionId} {
+      allow read: if isDocente() && (resource == null || resource.data.docenteId == request.auth.uid);
+      allow create: if isDocente() &&
+        sesionId.matches('^[A-HJ-KM-NP-Z2-9]{10}$') &&
+        exists(/databases/$(database)/documents/vivoSesiones/$(sesionId)) &&
+        get(/databases/$(database)/documents/vivoSesiones/$(sesionId)).data.docenteId == request.auth.uid &&
+        request.resource.data.keys().hasOnly(['docenteId', 'sesionId', 'actividadId', 'texto', 'version', 'actualizadoEn']) &&
+        request.resource.data.docenteId == request.auth.uid &&
+        request.resource.data.sesionId == sesionId &&
+        request.resource.data.actividadId == get(/databases/$(database)/documents/vivoSesiones/$(sesionId)).data.actividadId &&
+        request.resource.data.texto is string && request.resource.data.texto.size() <= 5000 &&
+        request.resource.data.version == 1 &&
+        request.resource.data.actualizadoEn == request.time;
+      allow update: if isDocente() && resource.data.docenteId == request.auth.uid &&
+        request.resource.data.keys().hasOnly(['docenteId', 'sesionId', 'actividadId', 'texto', 'version', 'actualizadoEn']) &&
+        request.resource.data.docenteId == resource.data.docenteId &&
+        request.resource.data.sesionId == resource.data.sesionId &&
+        request.resource.data.actividadId == resource.data.actividadId &&
+        request.resource.data.texto is string && request.resource.data.texto.size() <= 5000 &&
+        request.resource.data.version == resource.data.version + 1 &&
+        request.resource.data.actualizadoEn == request.time;
+      allow delete: if false;
+    }
+
     match /submissions/{submissionId} {
       // F-06 (2026-09-06): acceso cruzado entre docentes de distintas escuelas.
       // Antes: isDocente() sin restricción → cualquier docente leía las calificaciones
