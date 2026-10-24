@@ -84,8 +84,22 @@ const saldoDe = async () => (await db.doc(`iaCreditos/${DOCENTE}`).get()).data()
 const consumos = async () => (await db.collection('iaConsumos').get()).docs.map((d) => d.data())
 const propuestas = async () => (await db.collection(`activities/${ACTIVIDAD}/iaSugerenciasEntregable`).get()).docs
 
-const lote = ({ operacion, k = clave(), unidades = 3, params = {} }) =>
-  IA_FN.ejecutarOperacionIA.run({ auth: { uid: DOCENTE }, data: { operacion, idempotencyKey: k, unidades, params: { actividadId: ACTIVIDAD, ...params } } })
+// Oct-2026: el cobro exige la estimación que el docente vio y confirmó
+// (estimar_calificacion_evidencias). Este archivo prueba la clave de tarifa que
+// manda el cliente, así que primero estima como lo hace la pantalla; si la
+// estimación falla (p. ej. sin rúbrica), se ejecuta sin ella y el error que
+// cuenta es el de la revisión previa, que corre antes.
+const estimar = (params) =>
+  IA_FN.ejecutarOperacionIA.run({ auth: { uid: DOCENTE }, data: { operacion: 'estimar_calificacion_evidencias', params } })
+    .then((r) => r.estimacion)
+const lote = async ({ operacion, k = clave(), unidades = 3, params = {} }) => {
+  const p = { actividadId: ACTIVIDAD, ...params }
+  const costoConfirmado = await estimar({ modo: 'lote', ...p }).catch(() => null)
+  return IA_FN.ejecutarOperacionIA.run({
+    auth: { uid: DOCENTE },
+    data: { operacion, idempotencyKey: k, unidades, params: { ...p, ...(costoConfirmado && { costoConfirmado }) } },
+  })
+}
 
 grupo('Calificar todas con IA (actividad de imágenes) — la clave de tarifa que manda el cliente ya no rompe la operación')
 
@@ -120,9 +134,10 @@ await caso('el mismo clic reintentado (misma idempotencyKey) no cobra dos veces'
 
 await caso('flujo individual con su clave (…_imagenes): acepta la misma clave y cobra 0.5', async () => {
   await sembrar()
+  const costoConfirmado = await estimar({ modo: 'individual', actividadId: ACTIVIDAD, submissionId: 'sub1' })
   const r = await IA_FN.ejecutarOperacionIA.run({
     auth: { uid: DOCENTE },
-    data: { operacion: 'calificar_entregable_ia_imagenes', idempotencyKey: clave(), unidades: 1, params: { actividadId: ACTIVIDAD, submissionId: 'sub1' } },
+    data: { operacion: 'calificar_entregable_ia_imagenes', idempotencyKey: clave(), unidades: 1, params: { actividadId: ACTIVIDAD, submissionId: 'sub1', costoConfirmado } },
   })
   assert.ok(r.resultado, 'devuelve un resultado')
   assert.strictEqual(await saldoDe(), 99.5)

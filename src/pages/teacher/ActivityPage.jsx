@@ -45,6 +45,8 @@ import ConfirmModal from '../../components/ConfirmModal'
 import { ClipboardList, ListChecks, X } from 'lucide-react'
 import { totalRubrica, RUBRICA_TOTAL, esCotejo, instrumentoColors } from '../../utils/rubrica'
 import useCreditosIA from '../../hooks/useCreditosIA'
+import useEstimacionCalificacionIA from '../../hooks/useEstimacionCalificacionIA'
+import DesgloseCostoCalificacion from '../../components/rubrica/DesgloseCostoCalificacion'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import useTelefonoWeb from '../../hooks/useTelefonoWeb'
 import { useScrollLock } from '../../hooks/useScrollLock'
@@ -169,6 +171,13 @@ export default function ActivityPage() {
   // Casilla expresa de «Recalificar todas con IA»: sin ella la IA NO reemplaza las calificaciones del docente.
   const [sobrescribirCalificadas, setSobrescribirCalificadas] = useState(false)
   const [loteIATrabajando, setLoteIATrabajando] = useState(false)
+  // Costo EXACTO del lote según el servidor (oct-2026): se pide al abrir la
+  // confirmación; "Continuar" queda deshabilitado hasta tenerlo, y es esa
+  // misma estimación la que se manda al ejecutar (el servidor la recalcula y,
+  // si cambió, no cobra y devuelve la nueva).
+  const estimacionLote = useEstimacionCalificacionIA(
+    loteIAConteo ? { modo: 'lote', actividadId: activityId, recalificar: loteIAConteo.recalificar === true } : null,
+  )
   // La ventana se ancla DEBAJO del renglón de la calificación oficial, para
   // que ésta quede siempre a la vista mientras se marca la rúbrica
   const califRowRef = useRef(null)
@@ -597,12 +606,19 @@ export default function ActivityPage() {
   // las aplica una por una si le convencen.
   async function ejecutarLoteIA() {
     const recalificar = loteIAConteo?.recalificar === true
+    const estimacion = estimacionLote.estimacion
+    if (!estimacion) return // el botón ya está deshabilitado sin estimación
     setLoteIATrabajando(true)
     try {
       const data = await creditosIA.ejecutar(
-        claveOperacionLote,
-        { actividadId: activityId, recalificar, sobrescribirCalificadas: recalificar && sobrescribirCalificadas },
-        loteIAConteo.entregas,
+        'calificar_entregable_ia_lote',
+        {
+          actividadId: activityId, recalificar, sobrescribirCalificadas: recalificar && sobrescribirCalificadas,
+          // La estimación que el docente acaba de aceptar: el servidor cobra
+          // solo si coincide exactamente con la que recalcula.
+          costoConfirmado: estimacion,
+        },
+        estimacion.entregas,
         { timeoutMs: 300000 },
       )
       setLoteIAConteo(null)
@@ -638,7 +654,13 @@ export default function ActivityPage() {
           ' — revísalas al calificar a cada estudiante. Tú decides.',
       )
     } catch (err) {
-      toast(err.codigo === 'SALDO_INSUFICIENTE' ? 'No tienes créditos suficientes para este lote' : 'No se pudo completar: ' + err.message, 'error')
+      if ((err.codigo === 'COSTO_CAMBIO' || err.codigo === 'COSTO_SIN_CONFIRMAR') && err.estimacion) {
+        // No se reservó nada: se muestra el costo nuevo y el docente decide otra vez.
+        estimacionLote.reemplazar(err.estimacion)
+        toast(err.message, 'error')
+      } else {
+        toast(err.codigo === 'SALDO_INSUFICIENTE' ? 'No tienes créditos suficientes para este lote' : 'No se pudo completar: ' + err.message, 'error')
+      }
     } finally {
       setLoteIATrabajando(false)
     }
@@ -1104,11 +1126,13 @@ export default function ActivityPage() {
   // todavía (ZIP, Excel, PowerPoint, personalizado sin jpg/png/pdf/docx).
   const actividadAdmiteIA = normalizeFileTypeKeys(activity?.tiposArchivo)
     .some((k) => ['imagenes', 'pdf', 'word', 'todos'].includes(k))
-  // Operación efectiva según el tipo de la actividad — determina la tarifa
-  // que ve el docente en el modal y que usa el servidor al cobrar.
-  const claveOperacionLote = normalizeFileTypeKeys(activity?.tiposArchivo).includes('imagenes')
-    ? 'calificar_entregable_ia_lote_imagenes'
-    : 'calificar_entregable_ia_lote'
+  // Entregas del lote: las que cuenta el SERVIDOR en cuanto llega su
+  // estimación (es lo que se cobrará); mientras tanto, el conteo local.
+  const nLote = estimacionLote.estimacion?.entregas ?? loteIAConteo?.entregas ?? 0
+  // Las que quedan fuera por otra razón (propuesta pendiente, formato): las no
+  // clasificables ya se listan con nombre y motivo en el desglose, no se repiten.
+  const nNoElegibles = Math.max(0, (loteIAConteo?.totalPorCalificar || 0) - nLote -
+    (estimacionLote.estimacion?.noClasificables?.length || 0))
   const puedeCalificarConIA = hasRubrica && actividadAdmiteIA && (
     !!sugerenciaPersistidaIA ||
     (creditosIA.saldoPositivo && selFiles.some((f) => isEvidenciaSoportada(f.nombre, f.url)))
@@ -1247,7 +1271,6 @@ export default function ActivityPage() {
           rubrica={activity.rubrica}
           onAplicar={aplicarPropuestaIA}
           resultadoPersistido={sugerenciaPersistidaIA}
-          tiposArchivo={activity?.tiposArchivo}
         />
       )}
 
@@ -1413,19 +1436,36 @@ export default function ActivityPage() {
         <ConfirmacionCreditosModal
           titulo={loteIAConteo.recalificar ? 'Recalificar todas con IA' : 'Calificar todas con IA'}
           descripcion={loteIAConteo.recalificar
-            ? `Se generará una propuesta NUEVA de calificación (con la rúbrica/lista de cotejo actual) para ${loteIAConteo.entregas} entrega${loteIAConteo.entregas !== 1 ? 's' : ''} con evidencia. Las que no tienen calificación, o cuya calificación puso antes la IA, se ACTUALIZAN solas con la propuesta nueva.` +
+            ? `Se generará una propuesta NUEVA de calificación (con la rúbrica/lista de cotejo actual) para ${nLote} entrega${nLote !== 1 ? 's' : ''} con evidencia. Las que no tienen calificación, o cuya calificación puso antes la IA, se ACTUALIZAN solas con la propuesta nueva.` +
               (loteIAConteo.yaCalificadas > 0
                 ? ` ${loteIAConteo.yaCalificadas} de ellas ya tienen una calificación tuya: por omisión NO se tocan, quedan como propuesta para que las revises.`
                 : '') +
               ' El valor anterior de cada calificación que cambie queda guardado en el historial de la entrega. No se toca ninguna entrega ni archivo.'
-            : (loteIAConteo.totalPorCalificar > loteIAConteo.entregas
-                ? `Se generará una propuesta de calificación con IA para ${loteIAConteo.entregas} de las ${loteIAConteo.totalPorCalificar} entregas por calificar. La IA solo propone: tú revisas y confirmas cada una al calificar a ese estudiante.`
-                : `Se generará una propuesta de calificación para ${loteIAConteo.entregas} entrega${loteIAConteo.entregas !== 1 ? 's' : ''} pendiente${loteIAConteo.entregas !== 1 ? 's' : ''}. La IA solo propone: tú revisas y confirmas cada una al calificar a ese estudiante.`)}
-          costoMin={creditosIA.estimar(claveOperacionLote, loteIAConteo.entregas) ?? loteIAConteo.entregas * 0.5}
+            : (loteIAConteo.totalPorCalificar > nLote
+                ? `Se generará una propuesta de calificación con IA para ${nLote} de las ${loteIAConteo.totalPorCalificar} entregas por calificar. La IA solo propone: tú revisas y confirmas cada una al calificar a ese estudiante.`
+                : `Se generará una propuesta de calificación para ${nLote} entrega${nLote !== 1 ? 's' : ''} pendiente${nLote !== 1 ? 's' : ''}. La IA solo propone: tú revisas y confirmas cada una al calificar a ese estudiante.`)}
+          // Costo exacto del servidor. Mientras no llega (o si falló), sin
+          // ningún importe en pantalla y el botón deshabilitado: nunca se
+          // confirma un costo que no se ha visto.
+          costoMin={estimacionLote.estimacion?.total ?? 0}
+          exacto
+          costoPendiente={!estimacionLote.estimacion}
           ejecutando={loteIATrabajando}
           onCancelar={() => { if (!loteIATrabajando) setLoteIAConteo(null) }}
           onContinuar={ejecutarLoteIA}
         >
+          <div className="mb-3">
+            <DesgloseCostoCalificacion
+              estimacion={estimacionLote.estimacion}
+              cargando={estimacionLote.cargando}
+              error={estimacionLote.error}
+              onReintentar={estimacionLote.reintentar}
+              nombreDe={(alumnoId) => {
+                const st = students.find((s) => s.id === alumnoId)
+                return st ? studentFullName(st) : null
+              }}
+            />
+          </div>
           {loteIAConteo.recalificar && loteIAConteo.yaCalificadas > 0 && (
             <Checkbox
               checked={sobrescribirCalificadas}
@@ -1435,14 +1475,14 @@ export default function ActivityPage() {
               hint="Sin marcar, esas entregas no cambian. Marcada, cada calificación anterior queda en el historial."
             />
           )}
-          {!loteIAConteo.recalificar && loteIAConteo.totalPorCalificar > loteIAConteo.entregas && (
+          {!loteIAConteo.recalificar && nNoElegibles > 0 && (
             <p
               className="text-sm text-muted"
               data-tooltip="Puede quedar fuera porque ya tiene una propuesta de IA pendiente, o porque no tiene evidencia en un formato compatible (JPG, PNG, PDF o Word)."
             >
-              {loteIAConteo.totalPorCalificar - loteIAConteo.entregas === 1
+              {nNoElegibles === 1
                 ? '1 entrega no es elegible para IA en este momento.'
-                : `${loteIAConteo.totalPorCalificar - loteIAConteo.entregas} entregas no son elegibles para IA en este momento.`}
+                : `${nNoElegibles} entregas no son elegibles para IA en este momento.`}
             </p>
           )}
         </ConfirmacionCreditosModal>

@@ -97,24 +97,42 @@ function pdfjsSinFuentesDom() {
   return pdfjs
 }
 
-async function hayTrazosVisibles(bytes) {
+// `estricto` (oct-2026, tarifa de «Calificar con IA»): si pdf.js no contesta a
+// tiempo o falla, devuelve null («no se sabe») en vez de suponer que SÍ hay
+// contenido. Sin él, todo sigue igual que antes (las fuentes de IA prefieren
+// mandar a mirar ante la duda; para COBRAR, la duda no se resuelve adivinando).
+async function hayTrazosVisibles(bytes, { estricto = false, operadores = OPERADORES_VISIBLES } = {}) {
   const pdfjs = pdfjsSinFuentesDom()
   const pdfParse = require('pdf-parse')
+  const buscados = new Set(operadores.map((n) => pdfjs.OPS?.[n]).filter((v) => v !== undefined))
   let visible = false
   const revision = pdfParse(new Uint8Array(bytes), {
     pagerender: async (pagina) => {
-      if (!visible) visible = hayOperadorVisible((await pagina.getOperatorList()).fnArray, pdfjs.OPS)
+      if (!visible) visible = ((await pagina.getOperatorList()).fnArray || []).some((f) => buscados.has(f))
       return ''
     },
   }).then(() => visible)
-  const limite = new Promise((resolve) => setTimeout(() => resolve(true), MS_MAX_REVISION_VISUAL).unref?.())
-  return Promise.race([revision, limite]).catch(() => true)
+  const duda = estricto ? null : true
+  const limite = new Promise((resolve) => setTimeout(() => resolve(duda), MS_MAX_REVISION_VISUAL).unref?.())
+  return Promise.race([revision, limite]).catch(() => duda)
 }
 
-/** ¿Este PDF (sin texto extraíble) tiene algo que se pueda ver? */
-async function tieneContenidoVisible(bytes) {
+/** ¿Este PDF (sin texto extraíble) tiene algo que se pueda ver? (null = no se sabe, solo en modo estricto) */
+async function tieneContenidoVisible(bytes, { estricto = false } = {}) {
   if (tieneImagenesIncrustadas(bytes)) return true
-  return hayTrazosVisibles(bytes)
+  return hayTrazosVisibles(bytes, { estricto })
+}
+
+// Trazos y rellenos VECTORIALES (diagramas, gráficas, texto convertido a
+// curvas), sin contar texto ni imágenes. Lo usa la tarifa de «Calificar con
+// IA» para saber si un PDF con poco texto y sin fotografías es en realidad un
+// dibujo que hay que interpretar. Estricto: null si no se pudo revisar.
+const OPERADORES_VECTORIALES = [
+  'stroke', 'closeStroke', 'fill', 'eoFill', 'fillStroke', 'eoFillStroke', 'closeFillStroke',
+  'closeEOFillStroke', 'shadingFill',
+]
+async function hayTrazosVectoriales(bytes) {
+  return hayTrazosVisibles(bytes, { estricto: true, operadores: OPERADORES_VECTORIALES })
 }
 
 /**
@@ -158,7 +176,9 @@ async function clasificarDocumento(url) {
  * La clasificación en sí, sobre los bytes ya descargados — separada de la
  * descarga para poder probarla con PDF reales sin red.
  */
-async function clasificarBytes(ext, arrayBuffer) {
+// `opciones.estricto` (oct-2026): si no se puede saber si un PDF sin texto
+// tiene contenido visible, devuelve `tipo: 'incierto'` en vez de suponer que sí.
+async function clasificarBytes(ext, arrayBuffer, { estricto = false } = {}) {
   if (ext !== 'pdf' && ext !== 'docx') {
     return {
       tipo: 'no_soportado',
@@ -197,7 +217,11 @@ async function clasificarBytes(ext, arrayBuffer) {
 
   const texto = (datos.text || '').trim()
   const paginas = datos.numpages
-  if (!texto && !(await tieneContenidoVisible(arrayBuffer.slice(0)))) {
+  const visible = texto ? true : await tieneContenidoVisible(arrayBuffer.slice(0), { estricto })
+  if (visible === null) {
+    return { tipo: 'incierto', texto: '', paginas, motivo: 'No se pudo revisar el contenido del PDF a tiempo.' }
+  }
+  if (!visible) {
     return {
       tipo: 'vacio',
       texto: '',
@@ -252,5 +276,6 @@ async function extraerTextoDocumento(url) {
 
 module.exports = {
   extraerTextoDocumento, clasificarDocumento, clasificarBytes, tipoPorDensidad, MIN_CHARS_POR_PAGINA_TEXTO,
+  hayTrazosVectoriales,
   hayOperadorVisible, tieneImagenesIncrustadas,
 }

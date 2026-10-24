@@ -36,6 +36,15 @@ export default function ConfirmacionCreditosModal({
   // créditos" cuando el snapshot ya refleja la reserva. Sin esta prop el
   // modal se comporta exactamente igual que antes.
   avisoEjecutando = null,
+  // `exacto` (oct-2026): el costo lo calculó el servidor y es el que se
+  // cobrará (p. ej. "Calificar todas con IA"): sin «aproximadamente». Sin
+  // esta prop el texto queda como siempre.
+  exacto = false,
+  // `costoPendiente` (oct-2026): el costo todavía no se conoce (se está
+  // calculando o falló el cálculo). No se muestra NINGÚN importe —nunca «0
+  // créditos»— ni se juzga el saldo, y "Continuar" queda deshabilitado; el
+  // estado («Calculando el precio…» o el error) lo muestra `children`.
+  costoPendiente = false,
   onCancelar,
   onContinuar,
   z = 50, // sobre una pantalla que ya está a z-60 (p. ej. la proyección de Participación en vivo)
@@ -43,12 +52,14 @@ export default function ConfirmacionCreditosModal({
   const c = useCreditosIA()
   const [comprarAbierto, setComprarAbierto] = useState(false)
   const [activarAbierto, setActivarAbierto] = useState(false)
+  // Con costo exacto, todos los importes con dos decimales (3.50, 46.50).
+  const fmt = (n) => (exacto ? (Math.round(Number(n) * 100) / 100).toFixed(2) : n)
   const max = costoMax ?? costoMin
-  const rango = max !== costoMin ? `${costoMin}–${max}` : `${costoMin}`
+  const rango = max !== costoMin ? `${fmt(costoMin)}–${fmt(max)}` : `${fmt(costoMin)}`
   const restanteMin = c.saldo - max
   const restanteMax = c.saldo - costoMin
-  const restante = restanteMin !== restanteMax ? `${restanteMin}–${restanteMax}` : `${restanteMin}`
-  const alcanza = c.saldo >= max
+  const restante = restanteMin !== restanteMax ? `${fmt(restanteMin)}–${fmt(restanteMax)}` : `${fmt(restanteMin)}`
+  const alcanza = costoPendiente || c.saldo >= max
 
   return (
     <>
@@ -78,18 +89,20 @@ export default function ConfirmacionCreditosModal({
           <>
             {descripcion && <p className="text-sm text-muted mb-2">{descripcion}</p>}
             {children && <div className="mb-3">{children}</div>}
-            {textoCosto ? (
+            {costoPendiente ? (
+              <div className="mb-4" />
+            ) : textoCosto ? (
               <p className="text-sm font-semibold text-on-surface mb-4">{textoCosto}</p>
             ) : (
               <>
                 <p className="text-sm text-on-surface mb-1">
-                  Esta acción utilizará aproximadamente <span className="font-semibold">{rango} {max === 1 ? 'crédito' : 'créditos'}</span> de IA.
+                  Esta acción utilizará {exacto ? '' : 'aproximadamente '}<span className="font-semibold">{rango} {max === 1 ? 'crédito' : 'créditos'}</span> de IA.
                 </p>
                 <p className="text-sm text-on-surface mb-1">
-                  Tienes <span className="font-semibold tabular-nums">{c.saldo}</span> créditos disponibles.
+                  Tienes <span className="font-semibold tabular-nums">{fmt(c.saldo)}</span> créditos disponibles.
                 </p>
                 <p className="text-sm text-muted mb-4">
-                  Después de realizarla tendrás aproximadamente {restante}.
+                  Después de realizarla tendrás {exacto ? '' : 'aproximadamente '}{restante}.
                 </p>
               </>
             )}
@@ -97,7 +110,7 @@ export default function ConfirmacionCreditosModal({
               <Button variant="quiet" onClick={onCancelar} disabled={ejecutando}>
                 Cancelar
               </Button>
-              <Button onClick={onContinuar} disabled={ejecutando || continuarDeshabilitado}>
+              <Button onClick={onContinuar} disabled={ejecutando || continuarDeshabilitado || costoPendiente}>
                 {ejecutando ? 'Trabajando…' : 'Continuar'}
               </Button>
             </div>
@@ -107,8 +120,11 @@ export default function ConfirmacionCreditosModal({
             <p className="text-sm font-medium text-on-surface mb-1">
               No tienes suficientes créditos para realizar esta acción.
             </p>
+            {/* Con costo exacto, el desglose se sigue viendo: el docente sabe
+                cuánto le falta y por qué. */}
+            {exacto && children && <div className="mb-3">{children}</div>}
             <p className="text-sm text-muted mb-4">
-              Esta acción requiere aproximadamente {rango} {max === 1 ? 'crédito' : 'créditos'} y tienes {c.saldo} disponibles.
+              Esta acción requiere {exacto ? '' : 'aproximadamente '}{rango} {max === 1 ? 'crédito' : 'créditos'} y tienes {fmt(c.saldo)} disponibles.
               {c.mostrarCTAActivarBienvenida && (PUEDE_COMPRAR
                 ? ' Puedes comprar créditos o activar tus créditos de regalo.'
                 : ' Puedes activar tus créditos de regalo.')}

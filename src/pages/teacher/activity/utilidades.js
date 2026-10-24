@@ -1,6 +1,7 @@
 // Constantes y funciones de ActivityPage.jsx (fase 5 de PLAN_NORMALIZACION_UI).
 import { ALL_FILES_KEY, LINK_KEY } from '../../../config/fileTypes'
 import { parseFechaLimite } from '../../../utils/activityVisibility'
+import { esEvidenciaSoportada } from '../../../utils/tarifaCalificacionEvidencias.js'
 import { useEffect } from 'react'
 
 // La evaluación con rúbrica de un alumno "no existe" hasta que se elige algún
@@ -44,14 +45,13 @@ export function isImageFile(name, url) {
   return /\.(jpg|jpeg|png|gif|webp)(\?|$|\s)/.test(s) || /\.(jpg|jpeg|png|gif|webp)$/.test((name || '').toLowerCase())
 }
 
-// Formatos que "Calificar con IA" (OP-11) puede analizar en esta primera
-// versión — mismo criterio que evidenciasEntrega.js del servidor (JPG/PNG
-// imagen, PDF nativo, DOCX por texto extraído); .doc antiguo y cualquier
-// otro formato quedan fuera. Solo decide si el botón se MUESTRA — el
-// servidor vuelve a validar todo desde Firestore, nunca confía en esto.
+// Formatos que "Calificar con IA" (OP-11) puede analizar: la MISMA regla que
+// usa el servidor (src/utils/tarifaCalificacionEvidencias.js — JPG/PNG
+// imagen, PDF, DOCX; la extensión se lee del nombre y, si no hay, de la URL).
+// Solo decide si el botón se MUESTRA y el conteo previo — el costo y la
+// validación final los hace el servidor desde Firestore.
 export function isEvidenciaSoportada(name, url) {
-  const s = `${name || ''} ${url || ''}`.toLowerCase().split('?')[0]
-  return /\.(jpe?g|png|pdf|docx)$/.test(s)
+  return esEvidenciaSoportada(name, url)
 }
 
 // All files of a submission: `archivos[]` when present (multi-photo uploads),

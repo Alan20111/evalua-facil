@@ -11041,13 +11041,17 @@ grupo('guardado de respuestas — cola por pregunta, estados, reintentos y enví
     assert.strictEqual(original['Chat con Asistente'], 22, 'los datos originales no se modifican')
   })
 
-  caso('registro de movimientos · columna Créditos: consumo resta, recarga/ajuste suman, ajuste negativo resta, sin cobro 0', () => {
-    assert.deepStrictEqual(importeMovimiento(-2), { texto: '−2', tono: 'cargo' })
-    assert.deepStrictEqual(importeMovimiento(-0.5), { texto: '−0.5', tono: 'cargo' })
-    assert.deepStrictEqual(importeMovimiento(50), { texto: '+50', tono: 'abono' })
-    assert.deepStrictEqual(importeMovimiento(30), { texto: '+30', tono: 'abono' })
-    assert.deepStrictEqual(importeMovimiento(-150), { texto: '−150', tono: 'cargo' })
-    assert.deepStrictEqual(importeMovimiento(0), { texto: '0', tono: 'neutro' })
+  // Oct-2026: dos decimales fijos (−21.50, +200.00, 0.00) y el tono sale del SIGNO.
+  caso('registro de movimientos · columna Créditos: consumo resta, recarga/ajuste suman, ajuste negativo resta, sin cobro 0.00', () => {
+    assert.deepStrictEqual(importeMovimiento(-2), { texto: '−2.00', tono: 'cargo' })
+    assert.deepStrictEqual(importeMovimiento(-0.5), { texto: '−0.50', tono: 'cargo' })
+    assert.deepStrictEqual(importeMovimiento(-21.5), { texto: '−21.50', tono: 'cargo' })
+    assert.deepStrictEqual(importeMovimiento(50), { texto: '+50.00', tono: 'abono' })
+    assert.deepStrictEqual(importeMovimiento(200), { texto: '+200.00', tono: 'abono' })
+    assert.deepStrictEqual(importeMovimiento(-150), { texto: '−150.00', tono: 'cargo' })
+    assert.deepStrictEqual(importeMovimiento(1600), { texto: '+1,600.00', tono: 'abono' })
+    assert.deepStrictEqual(importeMovimiento(0), { texto: '0.00', tono: 'neutro' })
+    assert.deepStrictEqual(importeMovimiento(undefined), { texto: '0.00', tono: 'neutro' })
   })
 
   caso('registro de movimientos · columna Fecha: día y hora en hora de México', () => {

@@ -33,7 +33,8 @@ import { PUEDE_COMPRAR } from '../../utils/platform'
 import ActivarCreditosModal from '../ActivarCreditosModal'
 import ReportarIA from '../ReportarIA'
 import { esCotejo, totalRubrica, RUBRICA_TOTAL } from '../../utils/rubrica'
-import { normalizeFileTypeKeys } from '../../config/fileTypes'
+import useEstimacionCalificacionIA from '../../hooks/useEstimacionCalificacionIA'
+import DesgloseCostoCalificacion from './DesgloseCostoCalificacion'
 import { Button, IconButton } from '../ui'
 import { ICONO } from '../../config/iconos'
 
@@ -109,9 +110,6 @@ export default function CalificarConIAModal({
   // scroll principal, el de la columna). En la app nativa (pantalla completa,
   // sin columnas) se sigue usando PanelFlotante tal cual.
   inline = false,
-  // Tipo de archivos que acepta la actividad — determina la tarifa:
-  // imagenes = 0.5 cr, documentos (PDF/Word) = 0.25 cr.
-  tiposArchivo = null,
 }) {
   const c = useCreditosIA()
   const toast = useToast()
@@ -131,12 +129,16 @@ export default function CalificarConIAModal({
   // solo-lectura nunca se marca (nunca se llama a onAplicar).
   const precargada = useRef(false)
 
-  // Operación efectiva según el tipo de evidencia de la actividad:
-  // imágenes cobran 0.5 cr, documentos (PDF/Word) cobran 0.25 cr.
-  const esImagenes = normalizeFileTypeKeys(tiposArchivo).includes('imagenes')
-  const claveOperacion = esImagenes ? 'calificar_entregable_ia_imagenes' : 'calificar_entregable_ia'
-  const costo = c.estimar(claveOperacion) ?? (esImagenes ? 0.5 : 0.25)
-  const alcanza = c.saldo >= costo
+  // Costo EXACTO según el servidor (oct-2026): tarifa POR ENTREGA según lo
+  // que entregó el estudiante (imágenes 0.50, solo documentos 0.25), la
+  // misma regla que el lote. "Calificar" queda deshabilitado hasta tenerlo.
+  const estimacionIndividual = useEstimacionCalificacionIA(
+    paso === 'confirmar' ? { modo: 'individual', actividadId, submissionId } : null,
+  )
+  const costo = estimacionIndividual.estimacion?.total ?? null
+  const f2 = (n) => (Math.round(Number(n) * 100) / 100).toFixed(2)
+  // Mientras se calcula no se afirma que falten créditos.
+  const alcanza = costo == null || c.saldo >= costo
 
   // Calificación propuesta: preferir el valor YA CALCULADO y persistido en
   // su momento (`calificacionPropuesta`) — así "Ver evaluación de IA" sigue
@@ -176,9 +178,12 @@ export default function CalificarConIAModal({
   }
 
   async function ejecutar() {
+    const estimacion = estimacionIndividual.estimacion
+    if (!estimacion) return // el botón ya está deshabilitado sin estimación
     setEjecutando(true)
     try {
-      const data = await c.ejecutar(claveOperacion, { actividadId, submissionId }, 1)
+      // Se manda la estimación aceptada: el servidor cobra solo si coincide.
+      const data = await c.ejecutar('calificar_entregable_ia', { actividadId, submissionId, costoConfirmado: estimacion }, 1)
       const res = data.resultado
       setResultado(res)
       setRetro(res.retroalimentacionGeneral || '')
@@ -194,7 +199,12 @@ export default function CalificarConIAModal({
       onAplicar({ ...res, calificacionPropuesta: calificacionPropuestaDe(res) }, submissionId)
     } catch (err) {
       toast(err.message || 'No se pudo completar la calificación', 'error')
-      cerrarTodo()
+      if ((err.codigo === 'COSTO_CAMBIO' || err.codigo === 'COSTO_SIN_CONFIRMAR') && err.estimacion) {
+        // No se reservó nada: se muestra el costo nuevo sin cerrar.
+        estimacionIndividual.reemplazar(err.estimacion)
+      } else {
+        cerrarTodo()
+      }
     } finally {
       setEjecutando(false)
     }
@@ -227,15 +237,22 @@ export default function CalificarConIAModal({
               nivel por criterio con su justificación. Tú revisas, ajustas y confirmas — la IA nunca guarda la
               calificación.
             </p>
+            <div className="mb-2">
+              <DesgloseCostoCalificacion
+                estimacion={estimacionIndividual.estimacion}
+                cargando={estimacionIndividual.cargando}
+                error={estimacionIndividual.error}
+                onReintentar={estimacionIndividual.reintentar}
+              />
+            </div>
             <p className="text-sm text-on-surface mb-4">
-              Esta acción usará <span className="font-semibold">{costo} crédito{costo !== 1 ? 's' : ''}</span> —
-              tienes <span className="font-semibold tabular-nums">{c.saldo}</span> disponibles.
+              Tienes <span className="font-semibold tabular-nums">{f2(c.saldo)}</span> créditos disponibles.
             </p>
             <div className="flex justify-end gap-2">
               <Button variant="quiet" onClick={cerrarTodo} disabled={ejecutando}>
                 Cancelar
               </Button>
-              <Button onClick={ejecutar} disabled={ejecutando}>
+              <Button onClick={ejecutar} disabled={ejecutando || !estimacionIndividual.estimacion}>
                 {ejecutando && <Spinner size="sm" />}
                 {ejecutando ? 'Analizando…' : 'Calificar'}
               </Button>
@@ -244,8 +261,12 @@ export default function CalificarConIAModal({
         ) : (
           <>
             <p className="text-sm font-medium text-on-surface mb-1">No tienes suficientes créditos para esta acción.</p>
+            {/* El precio exacto se sigue viendo aunque no alcance el saldo. */}
+            <div className="mb-2">
+              <DesgloseCostoCalificacion estimacion={estimacionIndividual.estimacion} />
+            </div>
             <p className="text-sm text-muted mb-4">
-              Esta acción requiere {costo} crédito{costo !== 1 ? 's' : ''} y tienes {c.saldo} disponibles.
+              Esta acción requiere {f2(costo)} crédito{costo !== 1 ? 's' : ''} y tienes {f2(c.saldo)} disponibles.
               {c.mostrarCTAActivarBienvenida && (PUEDE_COMPRAR
                 ? ' Puedes comprar créditos o activar tus créditos de regalo.'
                 : ' Puedes activar tus créditos de regalo.')}
@@ -409,7 +430,7 @@ export default function CalificarConIAModal({
           {/* Reportar la propuesta tal como la dio la IA (docs/PLAN_GOOGLE_PLAY.md, B2). */}
           <div className="flex flex-wrap justify-end gap-2">
             <ReportarIA
-              operacion={claveOperacion}
+              operacion="calificar_entregable_ia"
               contenido={resultado}
               contextoId={submissionId}
               className="mr-auto"

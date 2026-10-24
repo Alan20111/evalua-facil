@@ -321,7 +321,6 @@ export default function PanelCalificar() {
                   rubrica={activity.rubrica}
                   onAplicar={aplicarPropuestaIA}
                   resultadoPersistido={sugerenciaPersistidaIA}
-                  tiposArchivo={activity?.tiposArchivo}
                 />
               ) : (
               <div className="p-4 space-y-3">

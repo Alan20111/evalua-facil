@@ -25,7 +25,42 @@ cierra `aplicado` (cobro real) o `sin_cobro` (`motivoCodigo`: `fallido`, `expira
 
 Campos: `uid`, `periodo` (`AAAA-MM`, hora de México), `tipo`, `operacion`, `categoria`,
 `delta`, `estado`, `motivoCodigo`, `saldoDespues`, `ref`, `fecha`, `actualizadoEn`,
-`origen` (`ledger` | `historico`).
+`origen` (`ledger` | `historico`) y, solo en «Calificar con IA» de entregables (oct-2026),
+`detalle`.
+
+### `detalle` de «Calificación de evidencias» (oct-2026)
+
+La tarifa de «Calificar con IA» es **por entrega** según el **contenido** de lo que
+entregó el estudiante (regla definitiva de Kike, oct-2026): **0.25** si solo hay texto
+procesable; **0.50** si hay al menos una imagen o texto escaneado —foto, PDF escaneado
+(aunque traiga capa de texto), PDF o Word con fotografías, dibujo con poco texto—, una
+sola vez por entrega. Si no se puede clasificar con fiabilidad (archivo dañado o
+inaccesible, imagen sin medida, escaneo de más de 10 páginas), la entrega **no se
+califica ni se cobra**: en el lote se excluye y se lista con su motivo; individual se
+bloquea antes de reservar. Umbrales: 200 caracteres por página y 200 px por lado (medidos
+sobre 305 PDF reales). Igual en la calificación individual y en el lote (reglas puras en
+`src/utils/tarifaCalificacionEvidencias.js`, copiadas al servidor; la lectura de PDF/Word
+en `functions/evidenciasEntrega.js`, que reutiliza `docExtract.clasificarBytes`). El servidor calcula
+el costo, la pantalla lo muestra antes de confirmar y el ledger reserva **exactamente**
+ese importe. El ledger guarda en el movimiento (y en `iaConsumos/{id}`), dentro de la
+misma transacción:
+
+| Campo | Qué es |
+|---|---|
+| `modo` | `individual` o `lote` |
+| `entregas`, `conImagenes`, `soloDocumentos` | al reservar: las confirmadas; al liquidar: las que **de verdad** se evaluaron |
+| `tarifaImagenes`, `tarifaDocumentos` | tarifas vigentes con las que se calculó |
+| `reservado`, `cobrado`, `devuelto` | importe reservado, cobrado y devuelto (fallos parciales o totales) |
+| `noProcesadas` | entregas confirmadas que no se pudieron evaluar (no se cobran) |
+
+Los movimientos anteriores no tienen `detalle`: la pantalla muestra solo lo que su
+consumo permite comprobar (entregas evaluadas × la tarifa única que se cobró), sin decir
+si eran imágenes o documentos, porque ese dato nunca se guardó.
+
+Categoría: si la clave efectiva (`…_imagenes`) no tiene categoría propia en
+`config/iaTarifas`, el ledger usa la de la operación base («Calificación de evidencias»).
+Los cobros anteriores que quedaron en «Otros» (en `iaCreditos.consumoPorCategoria` y en
+cada movimiento) no se tocan.
 
 **Nunca se copia aquí**: el `motivo` técnico de un error del proveedor, el `resultado` de
 la IA, el `motivo` ni el `adminUid` de un ajuste. La interfaz muestra textos fijos
@@ -50,11 +85,21 @@ la IA, el `motivo` ni el `adminUid` de un ajuste. La interfaz muestra textos fij
 
 ## Presentación
 
-Una tabla de tres columnas —**Fecha**, **Concepto** y **Créditos**— con los filtros
-«Todos / Consumos / Recargas y ajustes». Créditos: consumo y ajuste negativo restan;
-compra, bienvenida y ajuste positivo suman; «Sin cobro» es 0. El saldo posterior sigue
-guardado en cada movimiento pero no se muestra en la tabla. Un mes sin movimientos
-muestra su mensaje dentro de la tabla.
+Una tabla de cuatro columnas —**Fecha**, **Saldo**, **Concepto** y **Créditos**— con los
+filtros «Todos / Consumos / Recargas y ajustes» (oct-2026; antes eran tres, sin Saldo).
+
+- **Saldo**: el `saldoDespues` que escribió el ledger en la misma transacción, en el
+  color del texto principal y con dos decimales. Si falta (registros importados), «—»:
+  nunca se reconstruye.
+- **Créditos**: dos decimales y el tono sale del **signo real** del movimiento, no del
+  concepto: negativo en rojo (`−21.50`), positivo en verde (`+200.00`), cero neutro
+  (`0.00`). Un reembolso del ledger no crea un abono aparte: deja el mismo movimiento en
+  «Sin cobro», 0.00.
+- **Concepto**: las cuatro claves de «Calificar con IA» de entregables se muestran como
+  «Calificación de evidencias», con el desglose debajo (p. ej. «Lote · 10 entregas ·
+  4 × 0.50 + 6 × 0.25 = 3.50 créditos»).
+
+Un mes sin movimientos muestra su mensaje dentro de la tabla.
 
 **Chat con Asistente (función retirada):** es solo presentación. Las operaciones
 `chat_asistente`, `chat_crear_actividad` y `chat_crear_examen` nunca aparecen en el
