@@ -4027,7 +4027,10 @@ await caso('ajuste del admin: se registra lo aplicado, sin motivo ni adminUid; u
   assert.strictEqual((await movimientosDe()).length, antes, 'un ajuste que no cambia el saldo no deja movimiento')
 })
 
-await caso('reserva anterior al registro de movimientos (sin movimiento): al liquidarse se crea completo, con el saldo real', async () => {
+// Desde nov-2026 (cadena de saldos): una reserva sin número de orden se cierra
+// sin reescribir su fila — la reserva queda como se descontó y lo no usado
+// vuelve en su propia fila, con el saldo real. Así cada fila cuadra con la anterior.
+await caso('reserva anterior al registro de movimientos (sin movimiento): al liquidarse se crea la reserva y su devolución aparte, con el saldo real', async () => {
   await limpiar()
   await sembrarDocente()
   await darSaldo(DOCENTE, 9)
@@ -4041,10 +4044,13 @@ await caso('reserva anterior al registro de movimientos (sin movimiento): al liq
   const m = await movDe(k)
   assert.strictEqual(m.uid, DOCENTE)
   assert.strictEqual(m.operacion, 'examen')
-  assert.strictEqual(m.delta, -4)
-  assert.strictEqual(m.saldoDespues, 15)
+  assert.strictEqual(m.delta, -10)
+  assert.strictEqual(m.saldoDespues, undefined, 'el saldo de la reserva no se conoce: no se inventa')
   assert.strictEqual(m.periodo, '2026-09')
   assert.strictEqual(m.estado, 'aplicado')
+  assert.strictEqual(m.devolucionAparte, true)
+  const dev = await movDe(`${k}_devolucion`)
+  assert.deepStrictEqual([dev.tipo, dev.delta, dev.saldoAntes, dev.saldoDespues, dev.consumoId], ['devolucion', 6, 9, 15, k])
 })
 
 await caso('coherencia: tras una secuencia de movimientos, el saldo del último coincide con iaCreditos.saldo', async () => {

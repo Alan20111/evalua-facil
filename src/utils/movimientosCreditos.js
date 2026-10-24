@@ -45,6 +45,7 @@ const TIPOS = {
   compra: 'Compra de créditos',
   bienvenida: 'Créditos de bienvenida',
   ajuste: 'Ajuste de Evalúa Fácil',
+  devolucion: 'Devolución de créditos no usados',
 }
 
 const MOTIVOS_SIN_COBRO = {
@@ -65,16 +66,29 @@ export function esCalificacionEvidencias(m) {
   return m?.tipo === 'consumo' && OPERACIONES_CALIFICACION_EVIDENCIAS.has(m.operacion)
 }
 
+function nombreOperacion(m) {
+  if (OPERACIONES_CALIFICACION_EVIDENCIAS.has(m.operacion)) return 'Calificación de evidencias'
+  return OPERACIONES[m.operacion] || m.categoria || 'Operación de IA'
+}
+
 export function tituloMovimiento(m) {
-  if (esCalificacionEvidencias(m)) return 'Calificación de evidencias'
-  if (m.tipo === 'consumo') return OPERACIONES[m.operacion] || m.categoria || 'Operación de IA'
+  if (m.tipo === 'consumo') return nombreOperacion(m)
   return TIPOS[m.tipo] || 'Movimiento de créditos'
 }
 
 // Línea secundaria: el estado cuando no es un cobro normal. «Sin cobro» deja
 // claro que NO se descontó nada (la operación falló o expiró).
+// Cuando otra operación ocurrió mientras esta estaba reservada, la reserva se
+// queda como se descontó y lo que no se usó vuelve en su propia fila
+// («Devolución de créditos no usados»): así cada fila cuadra con la anterior.
 export function detalleMovimiento(m) {
+  if (m.tipo === 'devolucion') return nombreOperacion(m)
   if (m.estado === 'en_proceso') return 'En proceso'
+  if (m.devolucionAparte) {
+    return m.estado === 'sin_cobro'
+      ? `${MOTIVOS_SIN_COBRO[m.motivoCodigo] || 'La operación no se completó'} · Se devolvió todo en otra fila`
+      : 'Reservado · lo no usado se devolvió en otra fila'
+  }
   if (m.estado === 'sin_cobro') return `${MOTIVOS_SIN_COBRO[m.motivoCodigo] || 'La operación no se completó'} · No se descontó nada`
   return null
 }
@@ -191,9 +205,11 @@ export function tieneSaldoComprobable(m) {
 export const INICIO_MODELO_CREDITOS = '21-ago-2026'
 const INICIO_MODELO_CREDITOS_MS = Date.parse('2026-08-21T04:20:00Z')
 
+// La bienvenida solo existe en el modelo nuevo: la migración se desplegó a lo
+// largo de una hora y hay cuentas que la activaron minutos antes del corte.
 export function esModeloAnterior(m) {
   const ms = millisDe(m?.fecha)
-  return ms > 0 && ms < INICIO_MODELO_CREDITOS_MS
+  return m?.tipo !== 'bienvenida' && ms > 0 && ms < INICIO_MODELO_CREDITOS_MS
 }
 
 // Avisos de la tabla del mes, a partir de las filas que se muestran.
@@ -223,7 +239,73 @@ export function prepararMovimientos(movs, { filtro = 'todos' } = {}) {
   return movs
     .filter((m) => !esOperacionOculta(m))
     .filter((m) => (filtro === 'consumos' ? m.tipo === 'consumo' : filtro === 'recargas' ? m.tipo !== 'consumo' : true))
-    .sort((a, b) => millisDe(b.fecha) - millisDe(a.fecha))
+    .sort((a, b) => compararOrden(b, a))
+}
+
+// Orden cronológico de la cadena de saldos. Desde nov-2026 el ledger numera
+// cada movimiento de la cuenta (`secuencia`, en la misma transacción que mueve
+// el saldo): ese es el orden real en que cambió el saldo, aunque una reserva
+// se haya abierto antes que otra operación. Sin número (registros anteriores),
+// manda la fecha.
+export function compararOrden(a, b) {
+  if (Number.isFinite(a?.secuencia) && Number.isFinite(b?.secuencia)) return a.secuencia - b.secuencia
+  return millisDe(a?.fecha) - millisDe(b?.fecha) || String(a?.id || '').localeCompare(String(b?.id || ''))
+}
+
+// ── Cortes de la cadena (créditos sin registro) ──────────────────────────────
+// Entre dos saldos registrados, la suma de los importes intermedios debe dar
+// exactamente la diferencia. Si no da, entraron (o salieron) créditos que no
+// quedaron registrados: la DIFERENCIA está comprobada, pero no cuándo ni cómo.
+// Se informa como una fila sin fecha ni saldo, justo antes del saldo que la
+// revela. El primer tramo del modelo nuevo no tiene un saldo anterior
+// registrado: su diferencia es el saldo con el que arrancó la cuenta más los
+// abonos sin registro. Recibe TODOS los movimientos de la cuenta (incluidos
+// los que la pantalla oculta: también movieron el saldo). Nunca inventa saldos.
+export function cortesDeCadena(movs) {
+  const lista = (movs || [])
+    .filter((m) => millisDe(m.fecha) > 0 && !esModeloAnterior(m))
+    .slice()
+    .sort(compararOrden)
+  const cortes = []
+  let anterior = null
+  let acumulado = 0
+  let desde = Math.min(INICIO_MODELO_CREDITOS_MS, millisDe(lista[0]?.fecha) || Infinity)
+  for (const m of lista) {
+    const delta = Number(m.delta) || 0
+    if (!tieneSaldoComprobable(m)) { acumulado += delta; continue }
+    const esperado = (anterior ?? 0) + acumulado + delta
+    const diferencia = Math.round((m.saldoDespues - esperado) * 100) / 100
+    if (diferencia !== 0) {
+      cortes.push({
+        id: `corte_${m.id}`, tipo: 'corte', delta: diferencia, antesDe: m.id,
+        desde, hasta: millisDe(m.fecha), inicio: anterior == null,
+      })
+    }
+    anterior = m.saldoDespues
+    acumulado = 0
+    desde = millisDe(m.fecha)
+  }
+  return cortes
+}
+
+// Coloca cada corte justo antes (en el tiempo) del movimiento que lo revela:
+// en la lista del mes, más reciente primero, queda inmediatamente debajo.
+export function insertarCortes(listaDesc, cortes) {
+  if (!cortes?.length) return listaDesc
+  const porMovimiento = new Map(cortes.map((c) => [c.antesDe, c]))
+  return listaDesc.flatMap((m) => (porMovimiento.has(m.id) ? [m, porMovimiento.get(m.id)] : [m]))
+}
+
+export function textoCorte(c) {
+  const dia = (ms) => new Date(ms).toLocaleDateString('es-MX', { timeZone: ZONA, day: 'numeric', month: 'short', year: 'numeric' })
+  const quien = c.inicio
+    ? 'Saldo con el que inició el modelo nuevo o abonos sin registro'
+    : (c.delta > 0 ? 'Abonos sin registro' : 'Descuentos sin registro')
+  return {
+    titulo: 'Créditos sin registro',
+    periodo: `${quien}, entre el ${dia(c.desde)} y el ${dia(c.hasta)}.`,
+    nota: 'La diferencia está comprobada con los saldos registrados; su origen no pudo recuperarse.',
+  }
 }
 
 // ── Periodos «AAAA-MM» en hora de México (misma llave que escribe el ledger) ──

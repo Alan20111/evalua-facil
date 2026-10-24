@@ -71,11 +71,46 @@ la IA, el `motivo` ni el `adminUid` de un ajuste. La interfaz muestra textos fij
 - IDs deterministas: un reintento reescribe el mismo documento, no duplica.
 - Las escrituras del registro de movimientos van en la transacción del ledger: concurrencia cubierta por
   las mismas transacciones que ya protegen el saldo.
-- Una reserva anterior al registro de movimientos (sin movimiento) que se liquida después crea su
-  movimiento completo (la escritura es `merge`).
 - Invariante probada: el `saldoDespues` del movimiento más reciente es igual a
   `iaCreditos.saldo`.
 - No cambia tarifas, saldos, bienvenida ni la lógica de consumo.
+
+### Cadena de saldos (nov-2026)
+
+Regla: **saldo nuevo = saldo anterior − gasto + abono**, fila por fila, en el orden en
+que de verdad cambió el saldo.
+
+- Cada movimiento nuevo lleva `saldoAntes`, `saldoDespues` y `secuencia` (número de orden
+  por cuenta; contador `iaCreditos.secuenciaMovimientos`), escritos en la transacción que
+  mueve el saldo. Las transacciones sobre `iaCreditos/{uid}` se serializan, así que el
+  número es el orden real aunque dos operaciones se crucen. La pantalla ordena por
+  `secuencia` cuando la hay y por fecha en los registros anteriores.
+- `validarMovimiento` rechaza dentro de la transacción cualquier fila con
+  `saldoAntes + delta ≠ saldoDespues` o saldo negativo (`MOVIMIENTO_INCONSISTENTE`): la
+  transacción entera se cancela y el saldo no cambia.
+- **Reservas.** El consumo guarda `secuenciaReserva` y `saldoAntesReserva`. Al liquidar o
+  reembolsar, si nada movió el saldo desde la reserva, la fila se reescribe en su lugar con
+  lo real (un solo renglón, como siempre). Si algo lo movió (otra operación, compra o
+  ajuste) —o la reserva es anterior a la numeración—, la fila de la reserva se queda como se
+  descontó (`devolucionAparte: true`) y lo no usado vuelve en su propia fila:
+  `{clave}_devolucion`, `tipo: 'devolucion'`, «Devolución de créditos no usados». Antes la
+  reserva se reescribía siempre y, con operaciones cruzadas, rompía la cadena.
+- Pruebas: `npm run test:cadena` (todas las rutas, operaciones cruzadas, reservas viejas,
+  reintentos simultáneos y oleadas concurrentes; tras cada caso comprueba la cuenta entera)
+  y `node test/cadena-creditos.test.mjs` (orden, cortes y textos).
+- Verificador: `node seeds-db/verificar-creditos.js` (solo lectura; sale con código 1 ante
+  cualquier discrepancia nueva).
+
+### Cortes históricos (créditos sin registro)
+
+Antes del 21-oct-2026 no existía este registro. Lo importado del historial no tiene saldo
+(«—») salvo donde quedó registrado. Entre dos saldos registrados, los importes intermedios
+deben sumar la diferencia; si no, entraron créditos que nunca se registraron. La pantalla
+lo muestra como una fila «Créditos sin registro», sin fecha ni saldo, con el importe
+comprobado y el periodo entre esos dos saldos (`cortesDeCadena`). Al 24-oct-2026 hay dos,
+en una sola cuenta: +170 (inicio del modelo nuevo → 16-sep) y +120 (16-sep → 5-oct). Su
+origen no se puede recuperar (registros del servidor solo desde el 14-oct, sin respaldos
+de Firestore) y **no se vuelve a investigar**. No se inventan movimientos para cerrarlos.
 
 ## Consulta del cliente
 
@@ -93,8 +128,8 @@ filtros «Todos / Consumos / Recargas y ajustes» (oct-2026; antes eran tres, si
   nunca se reconstruye.
 - **Créditos**: dos decimales y el tono sale del **signo real** del movimiento, no del
   concepto: negativo en rojo (`−21.50`), positivo en verde (`+200.00`), cero neutro
-  (`0.00`). Un reembolso del ledger no crea un abono aparte: deja el mismo movimiento en
-  «Sin cobro», 0.00.
+  (`0.00`). Un reembolso sin nada en medio deja el mismo movimiento en «Sin cobro», 0.00;
+  si otra operación se cruzó, lo devuelto va en su propia fila (ver «Cadena de saldos»).
 - **Concepto**: las cuatro claves de «Calificar con IA» de entregables se muestran como
   «Calificación de evidencias», con el desglose debajo (p. ej. «Lote · 10 entregas ·
   4 × 0.50 + 6 × 0.25 = 3.50 créditos»).
