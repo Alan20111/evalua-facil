@@ -12,10 +12,11 @@ import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import useMovimientosCreditos from '../hooks/useMovimientosCreditos'
 import useConsumosHistoricos from '../hooks/useConsumosHistoricos'
+import useCortesHistoricos from '../hooks/useCortesHistoricos'
 import {
   FILTROS, INICIO_MODELO_CREDITOS, avisosMovimientos, desgloseMovimiento, desplazarPeriodo, detalleMovimiento,
-  esModeloAnterior, etiquetaPeriodo, importeMovimiento, partesFechaMovimiento, periodoDe, prepararMovimientos,
-  saldoMovimiento, tituloMovimiento,
+  esModeloAnterior, etiquetaPeriodo, importeMovimiento, insertarCortes, partesFechaMovimiento, periodoDe,
+  prepararMovimientos, saldoMovimiento, textoCorte, tituloMovimiento,
 } from '../utils/movimientosCreditos'
 import { Chip, IconButton, Table } from './ui'
 
@@ -33,6 +34,8 @@ const COLUMNAS = [
     className: `align-top w-20 sm:w-24 ${CELDA_MOVIL}`,
     headerClassName: `w-20 sm:w-24 ${CELDA_MOVIL}`,
     render: (m) => {
+      // Un corte no tiene fecha exacta: solo se sabe entre qué saldos ocurrió.
+      if (m.tipo === 'corte') return <span className="block text-xs text-muted">Sin fecha</span>
       const { dia, hora } = partesFechaMovimiento(m.fecha)
       return (
         <>
@@ -57,6 +60,16 @@ const COLUMNAS = [
     className: `align-top ${CELDA_MOVIL}`,
     headerClassName: CELDA_MOVIL,
     render: (m) => {
+      if (m.tipo === 'corte') {
+        const t = textoCorte(m)
+        return (
+          <span data-testid="movimiento-corte">
+            <span className="block text-on-surface">{t.titulo}</span>
+            <span className="block text-xs text-muted">{t.periodo}</span>
+            <span className="block text-xs text-muted">{t.nota}</span>
+          </span>
+        )
+      }
       const detalle = detalleMovimiento(m)
       return (
         <>
@@ -98,6 +111,9 @@ export default function CreditosMovimientos() {
     [ordenados, consumos],
   )
   const avisos = useMemo(() => avisosMovimientos(lista), [lista])
+  // Créditos sin registro (cortes de la cadena): solo meses con historial importado.
+  const cortes = useCortesHistoricos(movimientos.some((m) => m.origen === 'historico'))
+  const filas = useMemo(() => (filtro === 'consumos' ? lista : insertarCortes(lista, cortes)), [lista, cortes, filtro])
 
   return (
     <section aria-label="Registro de movimientos de créditos" className="mt-6 pb-24 md:pb-0">
@@ -133,7 +149,7 @@ export default function CreditosMovimientos() {
         )}
         <Table
           columns={COLUMNAS}
-          data={lista}
+          data={filas}
           rowKey={(m) => m.id}
           emptyMessage="No hay movimientos en este mes."
           minWidth={0}

@@ -93,6 +93,31 @@ function escribirMovimiento(tx, id, datos) {
   tx.set(db().doc(`iaMovimientos/${id}`), { ...datos, origen: 'ledger' }, { merge: true })
 }
 
+// ── Cadena de saldos (nov-2026) ─────────────────────────────────────────────
+// Regla: saldo nuevo = saldo anterior − gasto + abono, fila por fila, en el
+// orden en que de verdad cambió el saldo. Para que eso se cumpla siempre:
+//   · Cada movimiento lleva `saldoAntes` y `saldoDespues` de su transacción y
+//     un número de orden por cuenta (`secuencia`, contador
+//     iaCreditos.secuenciaMovimientos), asignado DENTRO de la transacción que
+//     mueve el saldo — las transacciones sobre iaCreditos/{uid} se serializan,
+//     así que el número es el orden real, aunque dos operaciones se crucen.
+//   · Un movimiento que no cumple la regla no se escribe: la transacción
+//     entera se cancela (MOVIMIENTO_INCONSISTENTE) y el saldo no cambia.
+//   · Una reserva solo se reescribe en su lugar si nada movió el saldo desde
+//     que se abrió. Si algo lo movió, la reserva se queda como se descontó y lo
+//     no usado vuelve en su propia fila (tipo 'devolucion'), con su número.
+function siguienteSecuencia(creditos) {
+  return (Number(creditos?.secuenciaMovimientos) || 0) + 1
+}
+
+function validarMovimiento({ saldoAntes, delta, saldoDespues }) {
+  const ok = [saldoAntes, delta, saldoDespues].every((n) => typeof n === 'number' && Number.isFinite(n)) &&
+    round2(saldoAntes + delta) === round2(saldoDespues) && saldoDespues >= 0
+  if (!ok) {
+    throw new ErrorCreditos('MOVIMIENTO_INCONSISTENTE', `Movimiento inconsistente: ${saldoAntes} + ${delta} ≠ ${saldoDespues}`)
+  }
+}
+
 // Movimiento de un consumo a partir de su documento de iaConsumos.
 function baseConsumo(consumo) {
   const fecha = consumo.createdAt?.toDate?.() || new Date()
@@ -197,6 +222,10 @@ async function reservar({
 
     // Escrituras: consumo reservado + saldo descontado, atómicos.
     const createdAt = Timestamp.fromDate(ahora)
+    const saldoAntes = round2(creditos.saldo || 0)
+    const saldoTrasReserva = round2(saldoAntes - costo)
+    const secuencia = siguienteSecuencia(creditos)
+    validarMovimiento({ saldoAntes, delta: -costo, saldoDespues: saldoTrasReserva })
     tx.set(refConsumo, {
       uid,
       operacion,
@@ -206,22 +235,27 @@ async function reservar({
       creditosReservados: costo,
       estado: 'reservado',
       createdAt,
+      // Para saber al liquidar si algo movió el saldo mientras tanto.
+      secuenciaReserva: secuencia,
+      saldoAntesReserva: saldoAntes,
       ...(detalleReserva && { detalle: detalleReserva }),
     })
-    const saldoTrasReserva = round2((creditos.saldo || 0) - costo)
     // Registro: «en proceso» con la reserva ya descontada. Se cierra en
     // liquidar (cobro real) o reembolsar (sin cobro).
     escribirMovimiento(tx, idempotencyKey, {
       ...baseConsumo({ uid, operacion, categoria, createdAt }),
       delta: -costo,
       estado: 'en_proceso',
+      saldoAntes,
       saldoDespues: saldoTrasReserva,
+      secuencia,
       ...(detalleReserva && { detalle: detalleReserva }),
       actualizadoEn: FieldValue.serverTimestamp(),
     })
     tx.set(refCreditos, {
       ...camposNuevos,
       saldo: saldoTrasReserva,
+      secuenciaMovimientos: secuencia,
       actualizadoEn: FieldValue.serverTimestamp(),
     }, { merge: true })
 
@@ -232,6 +266,53 @@ async function reservar({
       saldoTrasReserva,
     }
   })
+}
+
+// Cierra el movimiento de una reserva (al liquidar o reembolsar) sin romper la
+// cadena. `cobrado` es lo que de verdad se descuenta al final; `devolucion` lo
+// que vuelve al saldo ahora. Devuelve el nuevo contador de secuencia (o null si
+// no cambia) para escribirlo en iaCreditos.
+function cerrarMovimientoReserva(tx, { idempotencyKey, consumo, creditos, cobrado, devolucion, campos }) {
+  const saldoActual = round2(creditos.saldo || 0)
+  const saldoFinal = round2(saldoActual + devolucion)
+  const contador = Number(creditos.secuenciaMovimientos) || 0
+  const enSitio = Number.isFinite(consumo.secuenciaReserva) && consumo.secuenciaReserva === contador &&
+    typeof consumo.saldoAntesReserva === 'number'
+  if (enSitio) {
+    // Nada movió el saldo desde la reserva: la fila pasa a decir lo real.
+    const mov = { saldoAntes: round2(consumo.saldoAntesReserva), delta: cobrado ? -cobrado : 0, saldoDespues: saldoFinal }
+    validarMovimiento(mov)
+    escribirMovimiento(tx, idempotencyKey, { ...baseConsumo(consumo), ...campos, ...mov, secuencia: consumo.secuenciaReserva })
+    return { saldoFinal, secuencia: null }
+  }
+  // Algo movió el saldo entretanto (otra operación, una compra, un ajuste) o la
+  // reserva es anterior a la numeración: la fila de la reserva se queda como se
+  // descontó y lo no usado vuelve en su propia fila.
+  escribirMovimiento(tx, idempotencyKey, {
+    ...baseConsumo(consumo),
+    ...campos,
+    delta: -consumo.creditosReservados,
+    ...(devolucion > 0 && { devolucionAparte: true }),
+  })
+  if (devolucion <= 0) return { saldoFinal, secuencia: null }
+  const secuencia = contador + 1
+  const ahora = new Date()
+  const mov = { saldoAntes: saldoActual, delta: devolucion, saldoDespues: saldoFinal }
+  validarMovimiento(mov)
+  escribirMovimiento(tx, `${idempotencyKey}_devolucion`, {
+    uid: consumo.uid,
+    tipo: 'devolucion',
+    operacion: consumo.operacion,
+    categoria: consumo.categoria || 'Otros',
+    consumoId: idempotencyKey,
+    estado: 'aplicado',
+    ...mov,
+    secuencia,
+    fecha: Timestamp.fromDate(ahora),
+    periodo: periodoDe(ahora),
+    actualizadoEn: FieldValue.serverTimestamp(),
+  })
+  return { saldoFinal, secuencia }
 }
 
 // ── LIQUIDACIÓN ─────────────────────────────────────────────────────────────
@@ -278,20 +359,20 @@ async function liquidar({ uid, idempotencyKey, creditosReales, resultado = null,
       liquidadoEn: FieldValue.serverTimestamp(),
       ...(detalleFinal && { detalle: detalleFinal }),
     })
-    const saldoFinal = round2((creditos.saldo || 0) + devolucion)
+    const { saldoFinal, secuencia } = cerrarMovimientoReserva(tx, {
+      idempotencyKey, consumo, creditos, cobrado: reales, devolucion,
+      campos: {
+        estado: 'aplicado',
+        ...(detalleFinal && { detalle: detalleFinal }),
+        actualizadoEn: FieldValue.serverTimestamp(),
+      },
+    })
     tx.update(refCreditos, {
       saldo: saldoFinal,
       // Histórico total, sin reseteo — solo crece, sirve para reportes.
       consumidoTotal: round2((creditos.consumidoTotal || 0) + reales),
       consumoPorCategoria: categorias,
-      actualizadoEn: FieldValue.serverTimestamp(),
-    })
-    escribirMovimiento(tx, idempotencyKey, {
-      ...baseConsumo(consumo),
-      delta: -reales,
-      estado: 'aplicado',
-      saldoDespues: saldoFinal,
-      ...(detalleFinal && { detalle: detalleFinal }),
+      ...(secuencia != null && { secuenciaMovimientos: secuencia }),
       actualizadoEn: FieldValue.serverTimestamp(),
     })
 
@@ -311,7 +392,7 @@ async function reembolsar({ uid, idempotencyKey, motivo = 'fallo', estadoFinal =
     if (consumo.estado !== 'reservado') return { hecho: false, estado: consumo.estado }
 
     const creditosSnap = await tx.get(refCreditos)
-    const saldo = round2((creditosSnap.data()?.saldo || 0) + consumo.creditosReservados)
+    const creditos = creditosSnap.data() || { saldo: 0 }
     // Con desglose: se deja constancia de que no se cobró nada y se devolvió todo.
     const detalleFinal = consumo.detalle
       ? { ...consumo.detalle, cobrado: 0, devuelto: consumo.creditosReservados }
@@ -324,16 +405,20 @@ async function reembolsar({ uid, idempotencyKey, motivo = 'fallo', estadoFinal =
       liquidadoEn: FieldValue.serverTimestamp(),
       ...(detalleFinal && { detalle: detalleFinal }),
     })
-    tx.update(refCreditos, { saldo, actualizadoEn: FieldValue.serverTimestamp() })
     // Registro: sin cobro. `motivoCodigo` es el estado final ('fallido',
     // 'expirado', 'cancelado'): nunca el `motivo` técnico del proveedor.
-    escribirMovimiento(tx, idempotencyKey, {
-      ...baseConsumo(consumo),
-      delta: 0,
-      estado: 'sin_cobro',
-      motivoCodigo: estadoFinal,
-      saldoDespues: saldo,
-      ...(detalleFinal && { detalle: detalleFinal }),
+    const { saldoFinal: saldo, secuencia } = cerrarMovimientoReserva(tx, {
+      idempotencyKey, consumo, creditos, cobrado: 0, devolucion: round2(consumo.creditosReservados),
+      campos: {
+        estado: 'sin_cobro',
+        motivoCodigo: estadoFinal,
+        ...(detalleFinal && { detalle: detalleFinal }),
+        actualizadoEn: FieldValue.serverTimestamp(),
+      },
+    })
+    tx.update(refCreditos, {
+      saldo,
+      ...(secuencia != null && { secuenciaMovimientos: secuencia }),
       actualizadoEn: FieldValue.serverTimestamp(),
     })
     return { hecho: true, saldo }
@@ -379,20 +464,24 @@ async function ajustarSaldoManual({ uid, delta, motivo, adminUid }) {
   const ref = db().doc(`iaCreditos/${uid}`)
   return db().runTransaction(async (tx) => {
     const snap = await tx.get(ref)
-    const actual = snap.exists ? (snap.data().saldo || 0) : 0
+    const actual = round2(snap.exists ? (snap.data().saldo || 0) : 0)
     const saldo = round2(Math.max(0, actual + delta))
     // Registro: se registra lo que de verdad cambió el saldo (un delta que
     // lo cruzaría por debajo de cero se recorta). Sin motivo ni adminUid: el
     // docente solo ve «Ajuste de Evalúa Fácil».
     const aplicado = round2(saldo - actual)
+    let secuencia = null
     if (aplicado !== 0) {
       const ahora = new Date()
+      secuencia = siguienteSecuencia(snap.data())
+      const mov = { saldoAntes: actual, delta: aplicado, saldoDespues: saldo }
+      validarMovimiento(mov)
       escribirMovimiento(tx, `ajuste_${db().collection('iaMovimientos').doc().id}`, {
         uid,
         tipo: 'ajuste',
-        delta: aplicado,
+        ...mov,
         estado: 'aplicado',
-        saldoDespues: saldo,
+        secuencia,
         fecha: Timestamp.fromDate(ahora),
         periodo: periodoDe(ahora),
         actualizadoEn: FieldValue.serverTimestamp(),
@@ -400,6 +489,7 @@ async function ajustarSaldoManual({ uid, delta, motivo, adminUid }) {
     }
     tx.set(ref, {
       saldo,
+      ...(secuencia != null && { secuenciaMovimientos: secuencia }),
       consumidoTotal: snap.exists ? (snap.data().consumidoTotal || 0) : 0,
       consumoPorCategoria: snap.exists ? (snap.data().consumoPorCategoria || {}) : {},
       actualizadoEn: FieldValue.serverTimestamp(),
@@ -459,10 +549,15 @@ async function activarCreditosBienvenida({ uid, ahora = new Date() }) {
       return { repetida: true, saldo: undefined }
     }
     const creditosSnap = await tx.get(refCreditos)
-    const saldoActual = creditosSnap.exists ? (creditosSnap.data().saldo || 0) : 0
+    const saldoActual = round2(creditosSnap.exists ? (creditosSnap.data().saldo || 0) : 0)
+    const saldoNuevo = round2(saldoActual + CREDITOS_BIENVENIDA)
+    const secuencia = siguienteSecuencia(creditosSnap.data())
+    const mov = { saldoAntes: saldoActual, delta: CREDITOS_BIENVENIDA, saldoDespues: saldoNuevo }
+    validarMovimiento(mov)
 
     tx.set(refCreditos, {
-      saldo: saldoActual + CREDITOS_BIENVENIDA,
+      saldo: saldoNuevo,
+      secuenciaMovimientos: secuencia,
       consumidoTotal: creditosSnap.exists ? (creditosSnap.data().consumidoTotal || 0) : 0,
       consumoPorCategoria: creditosSnap.exists ? (creditosSnap.data().consumoPorCategoria || {}) : {},
       actualizadoEn: FieldValue.serverTimestamp(),
@@ -475,15 +570,15 @@ async function activarCreditosBienvenida({ uid, ahora = new Date() }) {
     escribirMovimiento(tx, `bienvenida_${uid}`, {
       uid,
       tipo: 'bienvenida',
-      delta: CREDITOS_BIENVENIDA,
+      ...mov,
       estado: 'aplicado',
-      saldoDespues: saldoActual + CREDITOS_BIENVENIDA,
+      secuencia,
       fecha: Timestamp.fromDate(ahora),
       periodo: periodoDe(ahora),
       actualizadoEn: FieldValue.serverTimestamp(),
     })
 
-    return { repetida: false, saldo: saldoActual + CREDITOS_BIENVENIDA }
+    return { repetida: false, saldo: saldoNuevo }
   })
 }
 
@@ -509,11 +604,15 @@ async function acreditarCompraCreditos({ purchaseId, adminUid }) {
 
     const refCreditos = db().doc(`iaCreditos/${compra.docenteId}`)
     const creditosSnap = await tx.get(refCreditos)
-    const saldoActual = creditosSnap.exists ? (creditosSnap.data().saldo || 0) : 0
-    const nuevoSaldo = saldoActual + compra.creditos
+    const saldoActual = round2(creditosSnap.exists ? (creditosSnap.data().saldo || 0) : 0)
+    const nuevoSaldo = round2(saldoActual + compra.creditos)
+    const secuencia = siguienteSecuencia(creditosSnap.data())
+    const mov = { saldoAntes: saldoActual, delta: compra.creditos, saldoDespues: nuevoSaldo }
+    validarMovimiento(mov)
 
     tx.set(refCreditos, {
       saldo: nuevoSaldo,
+      secuenciaMovimientos: secuencia,
       consumidoTotal: creditosSnap.exists ? (creditosSnap.data().consumidoTotal || 0) : 0,
       consumoPorCategoria: creditosSnap.exists ? (creditosSnap.data().consumoPorCategoria || {}) : {},
       actualizadoEn: FieldValue.serverTimestamp(),
@@ -529,9 +628,9 @@ async function acreditarCompraCreditos({ purchaseId, adminUid }) {
     escribirMovimiento(tx, `compra_${purchaseId}`, {
       uid: compra.docenteId,
       tipo: 'compra',
-      delta: compra.creditos,
+      ...mov,
       estado: 'aplicado',
-      saldoDespues: nuevoSaldo,
+      secuencia,
       ref: purchaseId,
       fecha: Timestamp.fromDate(ahora),
       periodo: periodoDe(ahora),
@@ -554,4 +653,5 @@ module.exports = {
   limpiarReservasHuerfanas,
   ajustarSaldoManual,
   periodoDe,
+  validarMovimiento,
 }
