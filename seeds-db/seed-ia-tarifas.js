@@ -212,6 +212,11 @@ const TARIFAS = {
     // evidencia fotográfica/PDF/Word en vez de solo texto.
     calificar_entregable_ia: 'Calificación de evidencias',
     calificar_entregable_ia_lote: 'Calificación de evidencias',
+    // Las claves de tarifa de imágenes son la MISMA operación (oct-2026): sin
+    // estas dos líneas sus cobros caían en «Otros». El ledger ya usa la
+    // categoría de la operación base si falta, pero el documento queda completo.
+    calificar_entregable_ia_imagenes: 'Calificación de evidencias',
+    calificar_entregable_ia_lote_imagenes: 'Calificación de evidencias',
     crear_evaluacion_ia: 'Evaluaciones',
     generar_preguntas_video: 'Evaluaciones',
     generar_dinamica_vivo: 'Actividades',

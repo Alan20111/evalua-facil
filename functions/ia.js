@@ -56,6 +56,10 @@ const { promedioParcial, notasParaPromedio, normalizeGrade, ponderacionActivaEnP
 const { resolveVisibilidad, cuentaParaCalificacion } = require('./_shared/activityVisibility.js')
 const { EVALUACION_DEFAULTS } = require('./_shared/evaluacionDefaults.js')
 const { calcularTarifaExamen } = require('./_shared/tarifaExamen.js')
+// Tarifa de «Calificar con IA» POR ENTREGA (oct-2026): la misma regla que usa
+// la pantalla, para la calificación individual y para el lote.
+const tarifaEvidencias = require('./_shared/tarifaCalificacionEvidencias.js')
+const { createHash } = require('node:crypto')
 
 const ANTHROPIC_API_KEY_PROD = defineSecret('ANTHROPIC_API_KEY_PROD')
 // Video interactivo con IA: Gemini lee el video (functions/extraccionVideoGemini.js).
@@ -1594,7 +1598,51 @@ async function exigirParcialNoCerrado(db, asignaturaId, parcial) {
   }
 }
 
-async function precheckCalificarEntregable({ uid, params }) {
+// ── Costo autoritativo de "Calificar con IA" (oct-2026) ─────────────────────
+// Regla de Kike: la tarifa es POR ENTREGA según lo que el estudiante entregó —
+// imágenes si entre las evidencias que se analizan hay al menos una imagen,
+// documentos si solo hay PDF/DOCX —, igual en la calificación individual y en
+// el lote (src/utils/tarifaCalificacionEvidencias.js). El tipo se toma de las
+// evidencias YA PREPARADAS: lo que se manda a la IA es lo que se cobra.
+// Clase de la entrega por CONTENIDO (evidenciasEntrega.js): 'imagenes'
+// (foto, PDF escaneado o con fotografías, Word con fotografías, dibujo),
+// 'documentos' (solo texto) o 'incierta' (no se califica ni se cobra).
+function tipoTarifaDeEvidencias(evidencias) {
+  return evidencias.clasificacion
+}
+
+// Por qué una entrega no se puede clasificar, para decírselo al docente.
+function motivoNoClasificable(evidencias) {
+  return (evidencias.inciertos || []).map((i) => `${i.nombre}: ${i.motivo}`).join(' · ').slice(0, 400) ||
+    'No se pudo determinar el contenido de la entrega.'
+}
+
+// Costo de un conjunto de entregas + una FIRMA de qué entregas y de qué tipo
+// entran. La estimación que ve el docente lleva esta firma; al ejecutar, el
+// servidor la recalcula y, si cambió el conjunto, el tipo de alguna entrega o
+// una tarifa, rechaza ANTES de reservar (ver crearCallableIA). null si faltan
+// las tarifas en config/iaTarifas (la operación no se puede cobrar).
+// `noClasificables` (lote): entregas que quedan FUERA por no poder
+// clasificarse — no se califican ni se cobran, pero entran en la firma: si
+// después se vuelven clasificables (o al revés), el precio confirmado ya no
+// corresponde y se pide confirmar de nuevo.
+function costoCalificacionEvidencias({ tarifas, modo, entregas, recalificar = false, noClasificables = [] }) {
+  const costo = tarifaEvidencias.calcularCostoCalificacion({ tipos: entregas.map((e) => e.tipo), tarifas, modo })
+  if (!costo) return null
+  const base = [
+    modo, recalificar ? 'recalificar' : 'normal',
+    `${costo.tarifaImagenes}|${costo.tarifaDocumentos}`,
+    ...entregas.map((e) => `${e.submissionId}:${e.tipo}`).sort(),
+    ...noClasificables.map((e) => `${e.submissionId}:incierta`).sort(),
+  ].join('\n')
+  return {
+    ...costo,
+    noClasificables: noClasificables.map(({ submissionId, alumnoId, motivo }) => ({ submissionId, alumnoId: alumnoId || null, motivo })),
+    firma: createHash('sha256').update(base).digest('hex').slice(0, 32),
+  }
+}
+
+async function precheckCalificarEntregable({ uid, params, tarifas }) {
   const db = getFirestore()
   const actividadId = String(params?.actividadId || '')
   const submissionId = String(params?.submissionId || '')
@@ -1621,19 +1669,25 @@ async function precheckCalificarEntregable({ uid, params }) {
   const sub = subSnap.data()
   if (sub.actividadId !== actividadId) throw new HttpsError('permission-denied', 'Esta entrega no es de esta actividad')
 
-  // Mismo respaldo legacy archivoURL/nombreArchivo que usa submissionFiles()
-  // en el cliente (ActivityPage.jsx) — entregas viejas de un solo archivo.
-  const archivos = Array.isArray(sub.archivos) && sub.archivos.length
-    ? sub.archivos
-    : (sub.archivoURL ? [{ url: sub.archivoURL, nombre: sub.nombreArchivo }] : [])
+  // Mismos archivos que ve la pantalla (archivos[] o el par legacy
+  // archivoURL/nombreArchivo; «completada sin archivo» no tiene evidencia).
+  const archivos = tarifaEvidencias.archivosDeEntrega(sub)
 
   const evidencias = await prepararEvidenciasEntrega(archivos)
+  // Sin poder clasificar la entrega no hay precio fiable: se bloquea ANTES de
+  // reservar (la estimación responde lo mismo y la pantalla no deja confirmar).
+  if (evidencias.clasificacion === 'incierta') {
+    throw new HttpsError('failed-precondition',
+      `No se puede calificar esta entrega con IA: ${motivoNoClasificable(evidencias)} No se descontaron créditos.`,
+      { codigo: 'ENTREGA_NO_CLASIFICABLE' })
+  }
   if (!evidencias.bloques.length) {
     throw new HttpsError('failed-precondition',
       'Esta entrega no tiene evidencias en un formato que la IA pueda leer todavía (JPG, PNG, PDF o Word). No se descontaron créditos.')
   }
 
   const nombreEstudiante = await nombrePilaDeEstudiante(db, sub.alumnoId)
+  const tipoEvidenciaTarifa = tipoTarifaDeEvidencias(evidencias)
 
   return {
     clase: 'entregable',
@@ -1645,11 +1699,12 @@ async function precheckCalificarEntregable({ uid, params }) {
     evidenciasDetalle: evidencias.detalle,
     ignoradosPorFormato: evidencias.ignoradosPorFormato,
     ignoradosPorTope: evidencias.ignoradosPorTope,
-    // Determina la clave de tarifa efectiva: si algún archivo analizado es
-    // imagen usa la tarifa de imágenes (0.5 cr), si son solo docs usa la
-    // de documentos (0.25 cr). El orquestador lo lee para elegir la clave
-    // de config/iaTarifas y para registrarlo en iaConsumosInterno.
-    tipoEvidenciaTarifa: evidencias.detalle.some((d) => d.tipo === 'imagen') ? 'imagenes' : 'documentos',
+    // Tipo de la entrega para la tarifa (imágenes 0.5 / documentos 0.25) y el
+    // costo autoritativo que se muestra antes de confirmar y se cobra.
+    tipoEvidenciaTarifa,
+    costoCalificacion: costoCalificacionEvidencias({
+      tarifas, modo: 'individual', entregas: [{ submissionId, tipo: tipoEvidenciaTarifa }],
+    }),
   }
 }
 
@@ -1772,6 +1827,10 @@ async function ejecutarCalificarEntregableIA({ params, modelo, apiKey }) {
   return {
     resultado,
     unidadesReales: 1, // tarifa fija por entrega evaluada — nunca por número de evidencias
+    // Lo que de verdad se evaluó, por tipo: con esto se liquida el cobro.
+    cobroCalificacion: ctx.tipoEvidenciaTarifa === 'imagenes'
+      ? { conImagenes: 1, soloDocumentos: 0 }
+      : { conImagenes: 0, soloDocumentos: 1 },
     interno: { modelo, tokensEntrada, tokensSalida, ms, evidencias: ctx.evidenciasDetalle.length },
   }
 }
@@ -1792,8 +1851,12 @@ async function ejecutarCalificarEntregableIA({ params, modelo, apiKey }) {
 // las revise/edite/confirme al calificar a cada estudiante (regla O3).
 
 const CALIFICAR_ENTREGABLE_LOTE_CONCURRENCIA = 4
+// Entregas que la revisión previa (y la estimación) prepara a la vez: cada una
+// descarga y revisa a lo más 3 archivos; 4 a la vez es lo mismo que ya aguanta
+// la ejecución del lote y baja la espera de ~25 s a ~8 s con 35 PDF.
+const PRECHECK_LOTE_CONCURRENCIA = 4
 
-async function precheckCalificarEntregableLote({ uid, params }) {
+async function precheckCalificarEntregableLote({ uid, params, tarifas }) {
   const db = getFirestore()
   const actividadId = String(params?.actividadId || '')
   if (!actividadId) throw new HttpsError('invalid-argument', 'Falta la actividad a calificar')
@@ -1839,31 +1902,54 @@ async function precheckCalificarEntregableLote({ uid, params }) {
     candidatas = candidatas.filter((d) => !yaConPropuesta.has(d.id))
   }
 
+  // La preparación real (descarga y revisión de cada PDF/Word) decide si la
+  // entrega se puede procesar y de qué clase es: la estimación corre ESTA
+  // misma función, así que no se anuncia el cobro de una entrega que luego se
+  // descartaría. Hasta PRECHECK_LOTE_CONCURRENCIA entregas a la vez (la misma
+  // cifra que ya usa la ejecución del lote); el orden del resultado no cambia.
+  const resultados = new Array(candidatas.length)
+  let siguiente = 0
+  async function preparar() {
+    while (siguiente < candidatas.length) {
+      const i = siguiente++
+      const sub = candidatas[i].data()
+      // Mismos archivos que ve la pantalla (ver precheckCalificarEntregable).
+      const evidencias = await prepararEvidenciasEntrega(tarifaEvidencias.archivosDeEntrega(sub))
+      const nombreEstudiante = evidencias.clasificacion && evidencias.clasificacion !== 'incierta'
+        ? await nombrePilaDeEstudiante(db, sub.alumnoId)
+        : null
+      resultados[i] = { subDoc: candidatas[i], sub, evidencias, nombreEstudiante }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(PRECHECK_LOTE_CONCURRENCIA, candidatas.length) }, preparar))
+
   const items = []
+  const noClasificables = []
   let sinEvidencia = 0
-  for (const subDoc of candidatas) {
-    const sub = subDoc.data()
-    const archivos = Array.isArray(sub.archivos) && sub.archivos.length
-      ? sub.archivos
-      : (sub.archivoURL ? [{ url: sub.archivoURL, nombre: sub.nombreArchivo }] : [])
-    const evidencias = await prepararEvidenciasEntrega(archivos)
+  for (const { subDoc, sub, evidencias, nombreEstudiante } of resultados) {
+    // Sin clase fiable: fuera del lote, sin calificar ni cobrar, y se le dice
+    // al docente cuál y por qué.
+    if (evidencias.clasificacion === 'incierta') {
+      noClasificables.push({ submissionId: subDoc.id, alumnoId: sub.alumnoId || null, motivo: motivoNoClasificable(evidencias) })
+      continue
+    }
     if (!evidencias.bloques.length) { sinEvidencia++; continue }
-    const nombreEstudiante = await nombrePilaDeEstudiante(db, sub.alumnoId)
-    items.push({ submissionId: subDoc.id, evidencias, nombreEstudiante })
+    // Tarifa POR ENTREGA según su contenido (oct-2026) — no según los tipos
+    // que acepta la actividad.
+    items.push({ submissionId: subDoc.id, evidencias, nombreEstudiante, tipoTarifa: tipoTarifaDeEvidencias(evidencias) })
   }
 
   if (!items.length) {
     throw new HttpsError('failed-precondition',
-      'No hay entregas pendientes con evidencia en un formato legible (JPG, PNG, PDF o Word). No se descontaron créditos.')
+      noClasificables.length
+        ? `Ninguna entrega pendiente se puede calificar con IA: ${noClasificables.length === 1 ? 'la única con evidencia no' : `las ${noClasificables.length} con evidencia no`} se pudieron clasificar (${noClasificables[0].motivo}). No se descontaron créditos.`
+        : 'No hay entregas pendientes con evidencia en un formato legible (JPG, PNG, PDF o Word). No se descontaron créditos.',
+      noClasificables.length ? { codigo: 'ENTREGA_NO_CLASIFICABLE' } : undefined)
   }
 
-  // Tipo de evidencia según tiposArchivo de la actividad — mismo criterio que
-  // el cliente (normalizeFileTypeKeys en fileTypes.js). Si la actividad acepta
-  // imágenes o "todos", se aplica la tarifa de imágenes (0.5 cr/entrega);
-  // de lo contrario, la de documentos (0.25 cr/entrega).
-  const tiposArr = Array.isArray(act.tiposArchivo) ? act.tiposArchivo
-    : ({ imagenes: ['imagenes'], imagenes_pdf: ['imagenes', 'pdf'], todos: ['todos'] }[act.tiposArchivo] || [act.tiposArchivo || ''])
-  const tipoEvidenciaTarifa = tiposArr.some((t) => t === 'imagenes' || t === 'todos') ? 'imagenes' : 'documentos'
+  // Resumen del tipo del lote, solo para la métrica interna (iaConsumosInterno).
+  const conImagen = items.filter((it) => it.tipoTarifa === 'imagenes').length
+  const tipoEvidenciaTarifa = conImagen === items.length ? 'imagenes' : conImagen === 0 ? 'documentos' : 'mixto'
 
   return {
     clase: 'entregable',
@@ -1876,6 +1962,11 @@ async function precheckCalificarEntregableLote({ uid, params }) {
     // Solo con la casilla expresa del diálogo la IA reemplaza notas del docente.
     sobrescribirCalificadas: recalificar && params?.sobrescribirCalificadas === true,
     tipoEvidenciaTarifa,
+    // Costo autoritativo del lote: suma de la tarifa de cada entrega.
+    costoCalificacion: costoCalificacionEvidencias({
+      tarifas, modo: 'lote', recalificar, noClasificables,
+      entregas: items.map((it) => ({ submissionId: it.submissionId, tipo: it.tipoTarifa })),
+    }),
   }
 }
 
@@ -1945,6 +2036,9 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
   let tokensSalida = 0
   let fallidas = 0
   let generadas = 0
+  // Generadas por tipo de tarifa: con esto se cobra lo que DE VERDAD se evaluó.
+  let generadasConImagenes = 0
+  let generadasSoloDocumentos = 0
   let aplicadasAuto = 0
   let omitidasCalificadas = 0
 
@@ -2028,6 +2122,8 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
           }, { merge: true })
         }
         generadas++
+        if (item.tipoTarifa === 'imagenes') generadasConImagenes++
+        else generadasSoloDocumentos++
       } catch (e) {
         fallidas++
         logger.warn(`OP-11-lote: entrega ${item.submissionId} falló: ${String(e.message || e).slice(0, 200)}`)
@@ -2044,6 +2140,7 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
   return {
     resultado: { generadas, fallidas, yaProcesadas, sinEvidencia: ctx.sinEvidencia, aplicadasAuto, omitidasCalificadas },
     unidadesReales: generadas, // 1 crédito por entrega REALMENTE evaluada
+    cobroCalificacion: { conImagenes: generadasConImagenes, soloDocumentos: generadasSoloDocumentos },
     interno: { modelo, tokensEntrada, tokensSalida, entregas: generadas, fallidas, yaProcesadas, aplicadasAuto, omitidasCalificadas },
   }
 }
@@ -6727,6 +6824,42 @@ async function adquirirBloqueoOperacion({ uid, operacion, asignaturaId, idempote
 // necesita más de 300 s de margen, y subirlo para todas alargaría el peor caso
 // de las demás. Mismo cuerpo, mismo ledger; `soloOperacion` impide usar la
 // variante larga para cualquier otra cosa.
+// ── Estimación del costo de "Calificar con IA" (oct-2026) ───────────────────
+// La pantalla la pide ANTES de mostrar la confirmación y no habilita el botón
+// hasta tenerla. Corre la MISMA revisión previa que el cobro real (permisos,
+// rúbrica, entregas candidatas y preparación de evidencias), así que el número
+// de entregas y el total que ve el docente son los que se cobrarían. No
+// reserva, no llama a la IA y no escribe nada.
+//
+// Viaja por ejecutorOperacionIA como una operación con nombre propio: un
+// servidor anterior a este cambio no la conoce y responde «no disponible»
+// (no ejecuta nada ni cobra), así que publicar la web antes que las funciones
+// nunca dispara un cobro.
+const OPERACION_ESTIMAR_CALIFICACION = 'estimar_calificacion_evidencias'
+
+function detalleCalificacion(c) {
+  return {
+    modo: c.modo, entregas: c.entregas, conImagenes: c.conImagenes, soloDocumentos: c.soloDocumentos,
+    tarifaImagenes: c.tarifaImagenes, tarifaDocumentos: c.tarifaDocumentos,
+  }
+}
+
+async function estimarCalificacionEvidencias({ uid, params }) {
+  const modo = params?.modo === 'lote' ? 'lote' : 'individual'
+  let tarifas
+  try {
+    tarifas = await ledger.cargarTarifas()
+  } catch (e) {
+    throw comoHttpsError(e)
+  }
+  const precheck = modo === 'lote' ? precheckCalificarEntregableLote : precheckCalificarEntregable
+  const ctx = await precheck({ uid, params, tarifas })
+  if (!ctx.costoCalificacion) {
+    throw new HttpsError('failed-precondition', 'La tarifa de calificación con IA no está configurada. No se descontaron créditos.')
+  }
+  return { estimacion: ctx.costoCalificacion, sinEvidencia: ctx.sinEvidencia || 0 }
+}
+
 function crearCallableIA(opciones, { soloOperacion = null } = {}) {
   return onCall(
     opciones,
@@ -6741,6 +6874,11 @@ function crearCallableIA(opciones, { soloOperacion = null } = {}) {
     }
 
     const { operacion: operacionRecibida, idempotencyKey, params = {}, unidades = 1 } = request.data || {}
+    // Estimación de "Calificar con IA": solo lectura, sin clave de Anthropic
+    // ni ledger. Solo en el callable general.
+    if (operacionRecibida === OPERACION_ESTIMAR_CALIFICACION && !soloOperacion) {
+      return estimarCalificacionEvidencias({ uid, params })
+    }
     // El cliente manda a veces la CLAVE DE TARIFA (…_imagenes) para mostrar el costo; la operación
     // real es la base y la tarifa la decide el servidor más abajo con el tipo de evidencia.
     const operacion = OPERACION_BASE_DE_TARIFA[operacionRecibida] || operacionRecibida
@@ -6787,21 +6925,41 @@ function crearCallableIA(opciones, { soloOperacion = null } = {}) {
     const unidadesMinimas = Number.isInteger(precontexto?.unidadesMinimas) && precontexto.unidadesMinimas > 0
       ? Math.min(precontexto.unidadesMinimas, 500)
       : 0
-    const n = Math.max(unidadesCliente, unidadesMinimas)
+    // "Calificar con IA" (individual y lote, oct-2026): el costo lo calcula el
+    // servidor por entrega (precheck → costoCalificacion) y el docente lo vio
+    // antes de confirmar (estimarCalificacionEvidencias). Aquí se exige que lo
+    // confirmado sea EXACTAMENTE lo recalculado ahora — mismas entregas, mismo
+    // tipo de cada una, mismas tarifas, mismo total —; si algo cambió, se
+    // detiene ANTES de reservar y la pantalla pide confirmar de nuevo. El
+    // cliente no fija el precio: solo devuelve la estimación que recibió, y
+    // si no coincide no se cobra nada.
+    const esCalificacionEvidencias = operacion === 'calificar_entregable_ia' || operacion === 'calificar_entregable_ia_lote'
+    const costoCalificacion = esCalificacionEvidencias ? (precontexto?.costoCalificacion || null) : null
+    if (esCalificacionEvidencias) {
+      if (!costoCalificacion) {
+        throw new HttpsError('failed-precondition', 'La tarifa de calificación con IA no está configurada. No se descontaron créditos.')
+      }
+      const confirmado = params?.costoConfirmado
+      if (!confirmado || typeof confirmado !== 'object') {
+        throw new HttpsError('failed-precondition',
+          'Actualiza la página para ver el costo antes de calificar con IA. No se descontaron créditos.',
+          { codigo: 'COSTO_SIN_CONFIRMAR', estimacion: costoCalificacion })
+      }
+      if (!tarifaEvidencias.mismaEstimacion(confirmado, costoCalificacion)) {
+        throw new HttpsError('failed-precondition',
+          'El costo cambió desde que lo revisaste (cambiaron las entregas o las tarifas). Revisa el nuevo costo y vuelve a confirmar. No se descontaron créditos.',
+          { codigo: 'COSTO_CAMBIO', estimacion: costoCalificacion })
+      }
+    }
 
-    // Clave de tarifa efectiva para operaciones con tarifa diferenciada:
-    // calificar_entregable_ia y su variante _lote cobran distinto según si
-    // la actividad es de imágenes (0.5 cr) o de documentos (0.25 cr). El
-    // precheck devuelve tipoEvidenciaTarifa; si no existe (otras operaciones),
-    // se usa la clave de operación original.
-    const operacionEfectiva = (() => {
-      if (!precontexto?.tipoEvidenciaTarifa) return operacion
-      if (operacion === 'calificar_entregable_ia' && precontexto.tipoEvidenciaTarifa === 'imagenes')
-        return 'calificar_entregable_ia_imagenes'
-      if (operacion === 'calificar_entregable_ia_lote' && precontexto.tipoEvidenciaTarifa === 'imagenes')
-        return 'calificar_entregable_ia_lote_imagenes'
-      return operacion
-    })()
+    const n = costoCalificacion ? costoCalificacion.entregas : Math.max(unidadesCliente, unidadesMinimas)
+
+    // Clave con la que se registra el cobro. Calificación de evidencias: la de
+    // imágenes si TODAS las entregas llevan imagen, la base si no (el importe
+    // exacto y el desglose van aparte). Las demás operaciones, la suya.
+    const operacionEfectiva = costoCalificacion
+      ? tarifaEvidencias.claveOperacionCalificacion(costoCalificacion)
+      : operacion
 
     // Un solo intento activo por asignatura: ver adquirirBloqueoOperacion.
     const bloqueo = operacion === 'planeacion_didactica_inicial'
@@ -6811,7 +6969,13 @@ function crearCallableIA(opciones, { soloOperacion = null } = {}) {
     try {
       let reserva
       try {
-        reserva = await ledger.reservar({ uid, operacion: operacionEfectiva, idempotencyKey, unidades: n, asignaturaId: params.asignaturaId || null, tarifas })
+        reserva = await ledger.reservar({
+          uid, operacion: operacionEfectiva, idempotencyKey, unidades: n, asignaturaId: params.asignaturaId || null, tarifas,
+          // Si la clave efectiva no tiene categoría propia, la de la operación base.
+          operacionCategoria: operacion,
+          // Calificación de evidencias: se reserva EXACTAMENTE lo confirmado.
+          ...(costoCalificacion && { costoCalculado: costoCalificacion.total, detalle: detalleCalificacion(costoCalificacion) }),
+        })
       } catch (e) {
         throw comoHttpsError(e)
       }
@@ -6877,7 +7041,32 @@ function crearCallableIA(opciones, { soloOperacion = null } = {}) {
         logger.error(`ejecutarOperacionIA(${operacion}): el ejecutor no devolvió unidadesReales — se cobra el tope reservado (${n})`)
       }
       const unidadesParaCobro = unidadesRealesMetrica ?? n
-      const creditosReales = Math.min(unidadesParaCobro, n) * porUso
+      let creditosReales = Math.min(unidadesParaCobro, n) * porUso
+
+      // Calificación de evidencias: se cobra la tarifa de cada entrega que DE
+      // VERDAD se evaluó (las que fallaron o ya estaban en proceso no se
+      // cobran), nunca más de lo confirmado y reservado. El desglose del
+      // movimiento refleja eso mismo.
+      let detalleLiquidacion = null
+      if (costoCalificacion) {
+        const cc = salida.cobroCalificacion
+        if (cc && Number.isInteger(cc.conImagenes) && Number.isInteger(cc.soloDocumentos)) {
+          const real = tarifaEvidencias.calcularCostoCalificacion({
+            tipos: [...Array(cc.conImagenes).fill('imagenes'), ...Array(cc.soloDocumentos).fill('documentos')],
+            tarifas, modo: costoCalificacion.modo,
+          })
+          creditosReales = Math.min(real.total, costoCalificacion.total)
+          detalleLiquidacion = {
+            ...detalleCalificacion(real),
+            noProcesadas: Math.max(0, costoCalificacion.entregas - real.entregas),
+          }
+        } else {
+          // Defensivo (mismo criterio de arriba): sin el desglose del ejecutor
+          // se cobra lo reservado, nunca cero en silencio.
+          logger.error(`ejecutarOperacionIA(${operacion}): el ejecutor no devolvió cobroCalificacion — se cobra lo reservado`)
+          creditosReales = costoCalificacion.total
+        }
+      }
 
       // Métricas internas (tokens, modelo, unidades y créditos): fuera del
       // alcance del cliente.
@@ -6945,7 +7134,7 @@ function crearCallableIA(opciones, { soloOperacion = null } = {}) {
 
       let liquidacion
       try {
-        liquidacion = await ledger.liquidar({ uid, idempotencyKey, creditosReales, resultado: salida.resultado })
+        liquidacion = await ledger.liquidar({ uid, idempotencyKey, creditosReales, resultado: salida.resultado, detalle: detalleLiquidacion })
       } catch (e) {
         // El resultado existe pero la liquidación falló: NO se reembolsa (el
         // trabajo se hizo). La reserva quedará 'reservada' y con el resultado

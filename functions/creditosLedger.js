@@ -132,7 +132,19 @@ async function cargarTarifas() {
 //
 // Sin chequeo de suscripción/plan: cualquier docente autenticado con saldo
 // suficiente puede usar IA, sin importar su estado de suscripción.
-async function reservar({ uid, operacion, idempotencyKey, unidades = 1, asignaturaId = null, tarifas, ahora = new Date() }) {
+// `costoCalculado` (opcional, oct-2026): importe exacto que calculó el
+// SERVIDOR cuando una operación no es «tarifa × unidades» — hoy, un lote de
+// "Calificar con IA" que mezcla entregas con imágenes (0.50) y solo documentos
+// (0.25). Nunca viene del cliente: lo calcula functions/ia.js con
+// config/iaTarifas. Sin él, todo sigue igual que antes.
+// `detalle` (opcional): desglose verificable del cobro (entregas, tipos,
+// tarifas). Se guarda en el consumo y en el movimiento del docente.
+// `operacionCategoria` (opcional): operación base cuya categoría se usa si la
+// clave efectiva no tiene una propia (las claves «…_imagenes» caían en «Otros»).
+async function reservar({
+  uid, operacion, idempotencyKey, unidades = 1, asignaturaId = null, tarifas, ahora = new Date(),
+  costoCalculado = null, detalle = null, operacionCategoria = null,
+}) {
   if (!idempotencyKey || typeof idempotencyKey !== 'string' || idempotencyKey.length < 8) {
     throw new ErrorCreditos('CLAVE_INVALIDA', 'Falta la clave de idempotencia')
   }
@@ -141,8 +153,14 @@ async function reservar({ uid, operacion, idempotencyKey, unidades = 1, asignatu
   // Asistente no cobra por mensaje, y `!0` sería `true`, rechazando la
   // operación como si no tuviera tarifa configurada.
   if (porUso == null) throw new ErrorCreditos('OPERACION_DESCONOCIDA', `Sin tarifa para "${operacion}"`)
-  const costo = round2(porUso * unidades)
-  const categoria = tarifas.categorias?.[operacion] || 'Otros'
+  if (costoCalculado != null && (typeof costoCalculado !== 'number' || !Number.isFinite(costoCalculado) || costoCalculado < 0)) {
+    throw new ErrorCreditos('COSTO_INVALIDO', 'El costo calculado no es válido')
+  }
+  const costo = costoCalculado != null ? round2(costoCalculado) : round2(porUso * unidades)
+  const categoria = tarifas.categorias?.[operacion] ||
+    (operacionCategoria ? tarifas.categorias?.[operacionCategoria] : null) ||
+    'Otros'
+  const detalleReserva = detalle ? { ...detalle, reservado: costo } : null
 
   const refCreditos = db().doc(`iaCreditos/${uid}`)
   const refConsumo = db().doc(`iaConsumos/${idempotencyKey}`)
@@ -188,6 +206,7 @@ async function reservar({ uid, operacion, idempotencyKey, unidades = 1, asignatu
       creditosReservados: costo,
       estado: 'reservado',
       createdAt,
+      ...(detalleReserva && { detalle: detalleReserva }),
     })
     const saldoTrasReserva = round2((creditos.saldo || 0) - costo)
     // Registro: «en proceso» con la reserva ya descontada. Se cierra en
@@ -197,6 +216,7 @@ async function reservar({ uid, operacion, idempotencyKey, unidades = 1, asignatu
       delta: -costo,
       estado: 'en_proceso',
       saldoDespues: saldoTrasReserva,
+      ...(detalleReserva && { detalle: detalleReserva }),
       actualizadoEn: FieldValue.serverTimestamp(),
     })
     tx.set(refCreditos, {
@@ -219,7 +239,10 @@ async function reservar({ uid, operacion, idempotencyKey, unidades = 1, asignatu
 // reservado de más), se acumula al histórico total (sin reseteo — nunca se
 // pierde) y el resultado queda en el documento para que un reintento
 // posterior lo reciba sin cobrar.
-async function liquidar({ uid, idempotencyKey, creditosReales, resultado = null }) {
+// `detalle` (opcional): lo que DE VERDAD se procesó (p. ej. entregas evaluadas
+// por tipo). Se completa con lo reservado, lo cobrado y lo devuelto, para que
+// el registro nunca diga que se procesó lo que falló.
+async function liquidar({ uid, idempotencyKey, creditosReales, resultado = null, detalle = null }) {
   const refCreditos = db().doc(`iaCreditos/${uid}`)
   const refConsumo = db().doc(`iaConsumos/${idempotencyKey}`)
 
@@ -244,11 +267,16 @@ async function liquidar({ uid, idempotencyKey, creditosReales, resultado = null 
     const categorias = { ...(creditos.consumoPorCategoria || {}) }
     categorias[consumo.categoria] = round2((categorias[consumo.categoria] || 0) + reales)
 
+    const detalleFinal = (detalle || consumo.detalle)
+      ? { ...(consumo.detalle || {}), ...(detalle || {}), reservado: consumo.creditosReservados, cobrado: reales, devuelto: devolucion }
+      : null
+
     tx.update(refConsumo, {
       estado: 'ejecutado',
       creditosReales: reales,
       resultado,
       liquidadoEn: FieldValue.serverTimestamp(),
+      ...(detalleFinal && { detalle: detalleFinal }),
     })
     const saldoFinal = round2((creditos.saldo || 0) + devolucion)
     tx.update(refCreditos, {
@@ -263,6 +291,7 @@ async function liquidar({ uid, idempotencyKey, creditosReales, resultado = null 
       delta: -reales,
       estado: 'aplicado',
       saldoDespues: saldoFinal,
+      ...(detalleFinal && { detalle: detalleFinal }),
       actualizadoEn: FieldValue.serverTimestamp(),
     })
 
@@ -283,12 +312,17 @@ async function reembolsar({ uid, idempotencyKey, motivo = 'fallo', estadoFinal =
 
     const creditosSnap = await tx.get(refCreditos)
     const saldo = round2((creditosSnap.data()?.saldo || 0) + consumo.creditosReservados)
+    // Con desglose: se deja constancia de que no se cobró nada y se devolvió todo.
+    const detalleFinal = consumo.detalle
+      ? { ...consumo.detalle, cobrado: 0, devuelto: consumo.creditosReservados }
+      : null
 
     tx.update(refConsumo, {
       estado: estadoFinal,
       creditosReales: 0,
       motivo,
       liquidadoEn: FieldValue.serverTimestamp(),
+      ...(detalleFinal && { detalle: detalleFinal }),
     })
     tx.update(refCreditos, { saldo, actualizadoEn: FieldValue.serverTimestamp() })
     // Registro: sin cobro. `motivoCodigo` es el estado final ('fallido',
@@ -299,6 +333,7 @@ async function reembolsar({ uid, idempotencyKey, motivo = 'fallo', estadoFinal =
       estado: 'sin_cobro',
       motivoCodigo: estadoFinal,
       saldoDespues: saldo,
+      ...(detalleFinal && { detalle: detalleFinal }),
       actualizadoEn: FieldValue.serverTimestamp(),
     })
     return { hecho: true, saldo }

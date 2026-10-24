@@ -123,6 +123,22 @@ export function useCreditosIA() {
         return porUso * unidades
       },
 
+      // Costo EXACTO de "Calificar con IA" según el servidor (individual o
+      // lote): mismas entregas, mismas evidencias y misma tarifa por entrega
+      // que usará el cobro. No reserva ni descuenta nada. Va por el callable
+      // general con una operación propia: un servidor que todavía no la conoce
+      // responde «no disponible» sin ejecutar nada.
+      async estimarCalificacion(params) {
+        const llamar = httpsCallable(functions, 'ejecutarOperacionIA', { timeout: 120000 })
+        try {
+          const { data } = await llamar({ operacion: 'estimar_calificacion_evidencias', params })
+          return data
+        } catch (e) {
+          const err = new Error(e?.message || 'No se pudo calcular el costo')
+          err.codigoSDK = e?.code || null
+          throw err
+        }
+      },
       // Ejecuta una operación de IA. Genera la clave de idempotencia AQUÍ,
       // una por confirmación del docente: un doble clic o un reintento de red
       // reutilizan la misma clave y el servidor no cobra dos veces.
@@ -165,6 +181,9 @@ export function useCreditosIA() {
           // Solo al reintentar con la misma clave: en qué quedó la operación anterior
           // ('reservado' = sigue en proceso; 'reembolsado'/'fallido' = falló y no se cobró).
           err.estadoPrevio = e?.details?.estadoPrevio || null
+          // "Calificar con IA": si el costo cambió desde la confirmación, el
+          // servidor no reservó nada y manda aquí la estimación nueva.
+          err.estimacion = e?.details?.estimacion || null
           throw err
         }
       },

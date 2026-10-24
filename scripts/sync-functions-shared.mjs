@@ -105,6 +105,10 @@ const ARCHIVOS = [
   'participacionVivo.js',
   // Sellado de las preguntas cerradas (lo usan el control del docente y el barrido programado).
   'vivoSellado.js',
+  // Tarifa de «Calificar con IA» por entrega (oct-2026): qué evidencias cuentan,
+  // si la entrega lleva imagen y el costo del lote — la misma regla en la
+  // calificación individual, en el lote, en la pantalla y en el servidor.
+  'tarifaCalificacionEvidencias.js',
 ]
 
 function fallar(mensaje) {

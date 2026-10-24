@@ -10,6 +10,8 @@
 // `saldoDespues` puede faltar (registros importados del historial anterior,
 // que nunca lo guardaron): entonces no se muestra, no se inventa.
 
+import { textoDesgloseCalificacion } from './tarifaCalificacionEvidencias.js'
+
 const ZONA = 'America/Mexico_City'
 
 // Nombre de cada operación para el docente. Si llega una operación nueva que
@@ -51,7 +53,20 @@ const MOTIVOS_SIN_COBRO = {
   cancelado: 'La operación se canceló',
 }
 
+// "Calificar con IA" de entregables (individual o lote, con cualquiera de sus
+// claves de tarifa): un solo concepto para el docente. El modo y el cálculo
+// van en el desglose (ver desgloseMovimiento).
+const OPERACIONES_CALIFICACION_EVIDENCIAS = new Set([
+  'calificar_entregable_ia', 'calificar_entregable_ia_imagenes',
+  'calificar_entregable_ia_lote', 'calificar_entregable_ia_lote_imagenes',
+])
+
+export function esCalificacionEvidencias(m) {
+  return m?.tipo === 'consumo' && OPERACIONES_CALIFICACION_EVIDENCIAS.has(m.operacion)
+}
+
 export function tituloMovimiento(m) {
+  if (esCalificacionEvidencias(m)) return 'Calificación de evidencias'
   if (m.tipo === 'consumo') return OPERACIONES[m.operacion] || m.categoria || 'Operación de IA'
   return TIPOS[m.tipo] || 'Movimiento de créditos'
 }
@@ -62,6 +77,52 @@ export function detalleMovimiento(m) {
   if (m.estado === 'en_proceso') return 'En proceso'
   if (m.estado === 'sin_cobro') return `${MOTIVOS_SIN_COBRO[m.motivoCodigo] || 'La operación no se completó'} · No se descontó nada`
   return null
+}
+
+const f2 = (n) => (Number(n) || 0).toFixed(2)
+
+// Desglose verificable de una calificación de evidencias, p. ej.
+// «Lote · 10 entregas · 4 × 0.50 + 6 × 0.25 = 3.50 créditos».
+//   · Movimientos nuevos: el `detalle` que guardó el ledger en la misma
+//     transacción. Tras liquidar, cuenta SOLO lo que de verdad se evaluó y
+//     cobró; las entregas que fallaron y lo devuelto se dicen aparte.
+//   · Movimientos anteriores (sin `detalle`): solo lo que su consumo
+//     (`iaConsumos/{id}`, el mismo id) permite comprobar — cuántas entregas se
+//     evaluaron y la tarifa única que se aplicó. NO se dice si eran imágenes o
+//     documentos: antes la tarifa salía del tipo de actividad, no de lo
+//     entregado, y ese dato nunca se guardó.
+// Sin cobro (falló, expiró) no lleva desglose: ya dice que no se descontó nada.
+export function desgloseMovimiento(m, consumo = null) {
+  if (!esCalificacionEvidencias(m) || m.estado === 'sin_cobro') return null
+  const d = m.detalle
+  if (d && Number.isInteger(d.entregas)) {
+    const partes = [textoDesgloseCalificacion(d)]
+    if (d.noProcesadas > 0) {
+      partes.push(d.noProcesadas === 1 ? '1 no se pudo procesar (sin cobro)' : `${d.noProcesadas} no se pudieron procesar (sin cobro)`)
+    }
+    if (m.estado === 'aplicado' && d.devuelto > 0) partes.push(`reservados ${f2(d.reservado)}, devueltos ${f2(d.devuelto)}`)
+    return partes.join(' · ')
+  }
+  return desgloseHistorico(m, consumo)
+}
+
+export function desgloseHistorico(m, consumo) {
+  if (!consumo || m.estado !== 'aplicado') return null
+  const lote = String(m.operacion || '').includes('_lote')
+  const n = lote
+    ? (Number.isInteger(consumo.resultado?.generadas) ? consumo.resultado.generadas : null)
+    : 1
+  const cobrado = Number(consumo.creditosReales)
+  if (!n || !(cobrado > 0)) return null
+  const tarifa = Math.round((cobrado / n) * 100) / 100
+  // Solo si la cuenta cierra exacta: si no, no se muestra nada (nunca se adivina).
+  if (Math.abs(tarifa * n - cobrado) > 0.001) return null
+  return `${lote ? 'Lote' : 'Individual'} · ${n} ${n === 1 ? 'entrega' : 'entregas'} × ${f2(tarifa)} = ${f2(cobrado)} créditos`
+}
+
+// Movimientos que necesitan leer su consumo para mostrar el desglose histórico.
+export function necesitaConsumoHistorico(m) {
+  return esCalificacionEvidencias(m) && m.estado === 'aplicado' && !m.detalle
 }
 
 // Chat con Asistente: función retirada. NUNCA se muestra, ni en el registro de
@@ -93,12 +154,31 @@ export function categoriasVisibles(consumoPorCategoria) {
     .sort((a, b) => b[1] - a[1])
 }
 
-// Columna «Créditos»: consumo y ajuste negativo restan, recarga, bienvenida y
-// ajuste positivo suman; sin cobro es 0.
+// Créditos con dos decimales fijos (21.50, 200.00): el docente compara importes
+// y saldos columna contra columna, así que todos llevan el mismo formato.
+function formatoCreditos(n) {
+  return n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+// Columna «Créditos»: el tono sale del SIGNO real del movimiento, nunca del
+// concepto. Consumo y ajuste negativo restan (rojo); compra, bienvenida y
+// ajuste positivo suman (verde); sin cobro es 0.00 (neutro) — un reembolso del
+// ledger no crea un abono aparte: deja el mismo movimiento en 0.
 export function importeMovimiento(delta) {
-  if (!delta) return { texto: '0', tono: 'neutro' }
-  const n = Math.abs(delta).toLocaleString('es-MX', { maximumFractionDigits: 2 })
-  return delta > 0 ? { texto: `+${n}`, tono: 'abono' } : { texto: `−${n}`, tono: 'cargo' }
+  const valor = Number(delta) || 0
+  if (!valor) return { texto: formatoCreditos(0), tono: 'neutro' }
+  const n = formatoCreditos(Math.abs(valor))
+  return valor > 0 ? { texto: `+${n}`, tono: 'abono' } : { texto: `−${n}`, tono: 'cargo' }
+}
+
+// Columna «Saldo»: el saldo que dejó el movimiento, tal como lo escribió el
+// ledger en la misma transacción (`saldoDespues`). Si no está (registros
+// importados del historial anterior), se muestra «—»: nunca se reconstruye ni
+// se inventa.
+export function saldoMovimiento(m) {
+  return typeof m?.saldoDespues === 'number' && Number.isFinite(m.saldoDespues)
+    ? formatoCreditos(m.saldoDespues)
+    : '—'
 }
 
 export const FILTROS = [
