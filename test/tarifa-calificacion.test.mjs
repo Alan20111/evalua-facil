@@ -7,6 +7,7 @@
 import assert from 'node:assert'
 import {
   tituloMovimiento, importeMovimiento, saldoMovimiento, desgloseMovimiento, necesitaConsumoHistorico,
+  esModeloAnterior, avisosMovimientos, tieneSaldoComprobable, INICIO_MODELO_CREDITOS, prepararMovimientos,
 } from '../src/utils/movimientosCreditos.js'
 import {
   evidenciasValidas, archivosDeEntrega, calcularCostoCalificacion, claveOperacionCalificacion,
@@ -242,6 +243,42 @@ caso('tarifa por entrega · qué archivo es evidencia válida (misma regla en pa
   for (const [n, u, esperado] of [['a.png', 'x', true], ['a.JPEG', 'x', true], ['a.pdf', 'x', true], ['a.docx', 'x', true], ['a.doc', 'x', false], ['a.gif', 'x', false], ['', 'https://archivos.test/a.png', true], ['foto', 'https://archivos.test/a.png', false]]) {
     assert.strictEqual(esEvidenciaSoportada(n, u), esperado, `${n} ${u}`)
   }
+})
+
+// ── Avisos del registro (A/B) — solo presentación, nunca cambian importes ni saldos ──
+const ts = (iso) => ({ toMillis: () => Date.parse(iso) })
+
+caso('registro · modelo anterior = antes del corte de la migración (20-ago 23:20 hora de México)', () => {
+  assert.strictEqual(INICIO_MODELO_CREDITOS, '21-ago-2026')
+  assert.strictEqual(esModeloAnterior({ fecha: ts('2026-08-20T20:17:06Z') }), true, 'último cobro del modelo anterior')
+  assert.strictEqual(esModeloAnterior({ fecha: ts('2026-08-21T04:20:27Z') }), false, 'primer cobro que cuenta en consumidoTotal')
+  assert.strictEqual(esModeloAnterior({ fecha: ts('2026-10-24T10:00:00Z') }), false)
+  assert.strictEqual(esModeloAnterior({ fecha: { seconds: Date.parse('2026-08-10T00:00:00Z') / 1000 } }), true, 'Timestamp sin toMillis')
+  assert.strictEqual(esModeloAnterior({}), false, 'sin fecha no se marca')
+  assert.strictEqual(esModeloAnterior(null), false)
+})
+
+caso('registro · avisos del mes según las filas que se muestran', () => {
+  assert.deepStrictEqual(avisosMovimientos([]), { sinSaldo: false, modeloAnterior: false }, 'mes vacío: sin avisos')
+  const octubre = [{ fecha: ts('2026-10-24T10:00:00Z'), saldoDespues: 24 }, { fecha: ts('2026-10-02T01:40:00Z'), origen: 'historico' }]
+  assert.deepStrictEqual(avisosMovimientos(octubre), { sinSaldo: true, modeloAnterior: false })
+  assert.deepStrictEqual(avisosMovimientos([octubre[0]]), { sinSaldo: false, modeloAnterior: false }, 'todo con saldo: sin aviso')
+  const agosto = [{ fecha: ts('2026-08-25T10:00:00Z') }, { fecha: ts('2026-08-15T10:00:00Z') }]
+  assert.deepStrictEqual(avisosMovimientos(agosto), { sinSaldo: true, modeloAnterior: true })
+  assert.strictEqual(tieneSaldoComprobable({ saldoDespues: 0 }), true, 'saldo 0 sí es comprobable')
+  assert.strictEqual(tieneSaldoComprobable({ saldoDespues: NaN }), false)
+})
+
+caso('registro · los avisos no cambian importes, saldos ni orden de las filas', () => {
+  const filas = [
+    { id: 'a', fecha: ts('2026-08-15T10:00:00Z'), tipo: 'consumo', delta: -5, origen: 'historico' },
+    { id: 'b', fecha: ts('2026-10-06T03:33:24Z'), tipo: 'ajuste', delta: 30, saldoDespues: 30.5, origen: 'historico' },
+  ]
+  const copia = JSON.stringify(filas)
+  avisosMovimientos(filas)
+  filas.forEach(esModeloAnterior)
+  assert.strictEqual(JSON.stringify(filas), copia, 'no muta los movimientos')
+  assert.deepStrictEqual(prepararMovimientos(filas).map((m) => [m.id, importeMovimiento(m.delta).texto, saldoMovimiento(m)]), [['b', '+30.00', '30.50'], ['a', '−5.00', '—']])
 })
 
 console.log(`\n${pasadas} pasaron, ${fallos} fallaron`)

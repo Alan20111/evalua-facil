@@ -137,7 +137,7 @@ export function esOperacionOculta(m) {
   return OPERACIONES_OCULTAS.has(m.operacion)
 }
 
-// «Utilizados en total» para mostrar: lo consumido menos lo de la categoría
+// «Utilizados desde el 21-ago-2026» para mostrar: lo consumido menos lo de la categoría
 // oculta, así el total visible es coherente con el desglose. Resta, no suma las
 // categorías: el consumo que no está atribuido a una categoría (cuentas del
 // modelo anterior) sigue contando. No modifica ningún dato.
@@ -176,9 +176,32 @@ export function importeMovimiento(delta) {
 // importados del historial anterior), se muestra «—»: nunca se reconstruye ni
 // se inventa.
 export function saldoMovimiento(m) {
+  return tieneSaldoComprobable(m) ? formatoCreditos(m.saldoDespues) : '—'
+}
+
+export function tieneSaldoComprobable(m) {
   return typeof m?.saldoDespues === 'number' && Number.isFinite(m.saldoDespues)
-    ? formatoCreditos(m.saldoDespues)
-    : '—'
+}
+
+// Inicio del modelo actual de créditos (migración a créditos puros). Es el
+// instante del primer cobro que cuenta en `consumidoTotal`; lo anterior es del
+// modelo anterior y no entra en «Utilizados desde el 21-ago-2026». Medido en
+// producción (oct-2026): en las dos únicas cuentas con cobros anteriores, lo
+// posterior a este corte suma exactamente su consumidoTotal.
+export const INICIO_MODELO_CREDITOS = '21-ago-2026'
+const INICIO_MODELO_CREDITOS_MS = Date.parse('2026-08-21T04:20:00Z')
+
+export function esModeloAnterior(m) {
+  const ms = millisDe(m?.fecha)
+  return ms > 0 && ms < INICIO_MODELO_CREDITOS_MS
+}
+
+// Avisos de la tabla del mes, a partir de las filas que se muestran.
+export function avisosMovimientos(lista) {
+  return {
+    sinSaldo: lista.some((m) => !tieneSaldoComprobable(m)),
+    modeloAnterior: lista.some(esModeloAnterior),
+  }
 }
 
 export const FILTROS = [
