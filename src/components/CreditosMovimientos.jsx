@@ -13,8 +13,9 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import useMovimientosCreditos from '../hooks/useMovimientosCreditos'
 import useConsumosHistoricos from '../hooks/useConsumosHistoricos'
 import {
-  FILTROS, desgloseMovimiento, desplazarPeriodo, detalleMovimiento, etiquetaPeriodo, importeMovimiento,
-  partesFechaMovimiento, periodoDe, prepararMovimientos, saldoMovimiento, tituloMovimiento,
+  FILTROS, INICIO_MODELO_CREDITOS, avisosMovimientos, desgloseMovimiento, desplazarPeriodo, detalleMovimiento,
+  esModeloAnterior, etiquetaPeriodo, importeMovimiento, partesFechaMovimiento, periodoDe, prepararMovimientos,
+  saldoMovimiento, tituloMovimiento,
 } from '../utils/movimientosCreditos'
 import { Chip, IconButton, Table } from './ui'
 
@@ -62,7 +63,9 @@ const COLUMNAS = [
           <span className="block text-on-surface break-words">{tituloMovimiento(m)}</span>
           {m._desglose && <span className="block text-xs text-muted break-words" data-testid="movimiento-desglose">{m._desglose}</span>}
           {detalle && <span className="block text-xs text-muted">{detalle}</span>}
-          {m.origen === 'historico' && <span className="block text-xs text-muted">Registro anterior</span>}
+          {esModeloAnterior(m)
+            ? <span className="block text-xs text-muted" data-testid="movimiento-modelo-anterior">Modelo anterior (antes del <span className="whitespace-nowrap">{INICIO_MODELO_CREDITOS}</span>)</span>
+            : m.origen === 'historico' && <span className="block text-xs text-muted">Registro anterior</span>}
         </>
       )
     },
@@ -94,6 +97,7 @@ export default function CreditosMovimientos() {
     () => ordenados.map((m) => ({ ...m, _desglose: desgloseMovimiento(m, consumos[m.id] || null) })),
     [ordenados, consumos],
   )
+  const avisos = useMemo(() => avisosMovimientos(lista), [lista])
 
   return (
     <section aria-label="Registro de movimientos de créditos" className="mt-6 pb-24 md:pb-0">
@@ -116,6 +120,17 @@ export default function CreditosMovimientos() {
       ) : error ? (
         <p className="text-sm text-muted">No se pudieron cargar tus movimientos. Intenta de nuevo más tarde.</p>
       ) : (
+        <>
+        {avisos.sinSaldo && (
+          <p className="text-xs text-muted mb-2" data-testid="aviso-sin-saldo">
+            Algunos movimientos no tienen un saldo comprobable: en ellos la columna Saldo muestra «—» y solo se indica su importe.
+          </p>
+        )}
+        {avisos.modeloAnterior && (
+          <p className="text-xs text-muted mb-2" data-testid="aviso-modelo-anterior">
+            Los movimientos marcados «Modelo anterior» son de antes del <span className="whitespace-nowrap">{INICIO_MODELO_CREDITOS}</span> y no cuentan en «Utilizados desde el <span className="whitespace-nowrap">{INICIO_MODELO_CREDITOS}</span>».
+          </p>
+        )}
         <Table
           columns={COLUMNAS}
           data={lista}
@@ -123,6 +138,7 @@ export default function CreditosMovimientos() {
           emptyMessage="No hay movimientos en este mes."
           minWidth={0}
         />
+        </>
       )}
     </section>
   )

@@ -17,7 +17,7 @@ import { Sparkles } from 'lucide-react'
 import useCreditosIA from '../hooks/useCreditosIA'
 import ComprarCreditosModal from './ComprarCreditosModal'
 import CreditosMovimientos from './CreditosMovimientos'
-import { categoriasVisibles, consumoTotalVisible } from '../utils/movimientosCreditos'
+import { INICIO_MODELO_CREDITOS, categoriasVisibles, consumoTotalVisible } from '../utils/movimientosCreditos'
 import { PUEDE_COMPRAR } from '../utils/platform'
 import { Button, Modal } from './ui'
 import { ICONO } from '../config/iconos'
@@ -61,7 +61,7 @@ export default function CreditosPanel({ onCerrar }) {
           </div>
           <div className="bg-surface rounded-card p-3 text-center">
             <div className="text-2xl font-bold text-on-surface tabular-nums">{usados}</div>
-            <div className="text-xs text-muted">Utilizados en total</div>
+            <div className="text-xs text-muted">Utilizados desde el <span className="whitespace-nowrap">{INICIO_MODELO_CREDITOS}</span></div>
           </div>
         </div>
 
