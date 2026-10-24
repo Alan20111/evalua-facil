@@ -193,6 +193,17 @@ export function saldoMovimiento(m) {
   return tieneSaldoComprobable(m) ? formatoCreditos(m.saldoDespues) : '—'
 }
 
+// Columna «Saldo anterior»: con lo que contaba la cuenta justo antes de este
+// movimiento, para que cada fila se lea sola: saldo anterior ± créditos = saldo
+// nuevo. Es el que guardó el ledger (`saldoAntes`) o, en las filas que solo
+// guardaron el saldo nuevo, ese saldo menos el movimiento (aritmética, no se
+// supone nada). Sin saldo nuevo comprobable, «—».
+export function saldoAnteriorMovimiento(m) {
+  if (typeof m?.saldoAntes === 'number' && Number.isFinite(m.saldoAntes)) return formatoCreditos(m.saldoAntes)
+  if (!tieneSaldoComprobable(m)) return '—'
+  return formatoCreditos(Math.round((m.saldoDespues - (Number(m.delta) || 0)) * 100) / 100)
+}
+
 export function tieneSaldoComprobable(m) {
   return typeof m?.saldoDespues === 'number' && Number.isFinite(m.saldoDespues)
 }

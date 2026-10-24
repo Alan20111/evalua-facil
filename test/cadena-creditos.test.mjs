@@ -11,7 +11,7 @@
 import assert from 'node:assert'
 import {
   cortesDeCadena, insertarCortes, textoCorte, compararOrden, prepararMovimientos, tituloMovimiento,
-  detalleMovimiento, saldoMovimiento, importeMovimiento, avisosMovimientos, esModeloAnterior,
+  detalleMovimiento, saldoMovimiento, importeMovimiento, avisosMovimientos, esModeloAnterior, saldoAnteriorMovimiento,
 } from '../src/utils/movimientosCreditos.js'
 
 let pasadas = 0
@@ -170,6 +170,33 @@ caso('devolución en fila aparte · título, detalle y filtro «Recargas y ajust
   assert.strictEqual(detalleMovimiento(reservaFallida), 'La operación no se completó · Se devolvió todo en otra fila')
   assert.deepStrictEqual(prepararMovimientos([dev, { id: 'x', tipo: 'consumo', fecha: ts('2026-11-01T00:00:00Z') }], { filtro: 'recargas' }).map((m) => m.id), ['k_devolucion'])
   assert.strictEqual(importeMovimiento(dev.delta).tono, 'abono')
+})
+
+caso('saldo anterior ± créditos = saldo nuevo en cada fila, y el nuevo de una es el anterior de la siguiente (22-oct real)', () => {
+  // Filas reales del 22-oct-2026 (cuenta auditada), más reciente primero como en pantalla.
+  const filas = prepararMovimientos([
+    { id: 'c', fecha: ts('2026-10-22T17:19:12Z'), tipo: 'consumo', operacion: 'cotejo', delta: -0.5, saldoDespues: 54 },
+    { id: 'r1', fecha: ts('2026-10-22T17:21:52Z'), tipo: 'consumo', operacion: 'rubrica', delta: -2, saldoDespues: 52 },
+    { id: 'r2', fecha: ts('2026-10-22T17:23:47Z'), tipo: 'consumo', operacion: 'rubrica', delta: -2, saldoDespues: 50 },
+    { id: 'l', fecha: ts('2026-10-22T22:57:36Z'), tipo: 'consumo', operacion: 'calificar_entregable_ia_lote', delta: -6.5, saldoDespues: 43.5 },
+  ])
+  assert.deepStrictEqual(filas.map((m) => [m.id, saldoAnteriorMovimiento(m), importeMovimiento(m.delta).texto, saldoMovimiento(m)]), [
+    ['l', '50.00', '−6.50', '43.50'],
+    ['r2', '52.00', '−2.00', '50.00'],
+    ['r1', '54.00', '−2.00', '52.00'],
+    ['c', '54.50', '−0.50', '54.00'],
+  ])
+  for (let i = 0; i < filas.length - 1; i++) assert.strictEqual(saldoAnteriorMovimiento(filas[i]), saldoMovimiento(filas[i + 1]))
+})
+
+caso('saldo anterior · el que guardó el ledger manda; sin saldo comprobable, «—»; abonos y sin cobro', () => {
+  assert.strictEqual(saldoAnteriorMovimiento({ saldoAntes: 16.5, delta: 12, saldoDespues: 28.5 }), '16.50')
+  assert.strictEqual(saldoAnteriorMovimiento({ delta: 30, saldoDespues: 30.5 }), '0.50')
+  assert.strictEqual(saldoAnteriorMovimiento({ delta: 0, saldoDespues: 46 }), '46.00')
+  assert.strictEqual(saldoAnteriorMovimiento({ delta: -4 }), '—')
+  assert.strictEqual(saldoAnteriorMovimiento({ tipo: 'corte', delta: 170 }), '—')
+  assert.strictEqual(saldoAnteriorMovimiento({ saldoDespues: 'x', delta: 1 }), '—')
+  assert.strictEqual(saldoAnteriorMovimiento(null), '—')
 })
 
 caso('títulos existentes no cambian', () => {
