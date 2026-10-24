@@ -1,8 +1,10 @@
 // Registro de movimientos de créditos IA — tabla de movimientos del mes dentro
 // del panel de créditos. Solo lectura: lo que se muestra lo escribió el servidor
 // en la misma transacción que movió el saldo. Un mes por vez (sin índices ni
-// orderBy). Cuatro columnas: Fecha, Saldo, Concepto y Créditos. El saldo es el
-// que guardó el ledger tras cada movimiento (nunca se recalcula aquí).
+// orderBy). Cinco columnas: Fecha, Saldo anterior, Concepto, Créditos y Saldo
+// nuevo — cada fila se lee sola: saldo anterior ± créditos = saldo nuevo, y el
+// saldo nuevo de una fila es el saldo anterior de la siguiente. Los saldos son
+// los que guardó el ledger (nunca se inventan; «—» si no se conocen).
 //
 // «Sin cobro» = la operación falló, expiró o se canceló y NO se descontó nada.
 // El Chat con Asistente (función retirada) nunca se muestra: ver
@@ -16,44 +18,48 @@ import useCortesHistoricos from '../hooks/useCortesHistoricos'
 import {
   FILTROS, INICIO_MODELO_CREDITOS, avisosMovimientos, desgloseMovimiento, desplazarPeriodo, detalleMovimiento,
   esModeloAnterior, etiquetaPeriodo, importeMovimiento, insertarCortes, partesFechaMovimiento, periodoDe,
-  prepararMovimientos, saldoMovimiento, textoCorte, tituloMovimiento,
+  prepararMovimientos, saldoAnteriorMovimiento, saldoMovimiento, textoCorte, tituloMovimiento,
 } from '../utils/movimientosCreditos'
 import { Chip, IconButton, Table } from './ui'
 
 // Abono en verde, cargo en rojo (token `error`), sin cobro en gris.
 const TONO = { abono: 'text-emerald-700', cargo: 'text-error', neutro: 'text-muted' }
 
-// En teléfono las cuatro columnas caben sin desplazamiento horizontal: menos
-// relleno lateral por celda (la tabla base usa px-4) para darle ancho al Concepto.
-const CELDA_MOVIL = 'max-sm:!px-2'
+// En teléfono las cinco columnas caben sin desplazamiento horizontal: menos
+// relleno lateral por celda (la tabla base usa px-4) y cifras un punto más
+// chicas, para darle ancho al Concepto.
+const CELDA_MOVIL = 'max-sm:!px-1.5'
+const CIFRA = 'tabular-nums max-sm:text-xs'
+
+// Saldo en el color de texto principal (casi negro), sea cargo o abono.
+const columnaSaldo = (key, header, valor) => ({
+  key,
+  header,
+  align: 'right',
+  className: `align-top whitespace-nowrap ${CELDA_MOVIL}`,
+  headerClassName: `${CELDA_MOVIL} max-sm:whitespace-normal max-sm:w-14`,
+  render: (m) => <span className={`${CIFRA} text-on-surface`}>{valor(m)}</span>,
+})
 
 const COLUMNAS = [
   {
     key: 'fecha',
     header: 'Fecha',
-    className: `align-top w-20 sm:w-24 ${CELDA_MOVIL}`,
-    headerClassName: `w-20 sm:w-24 ${CELDA_MOVIL}`,
+    className: `align-top w-14 sm:w-24 ${CELDA_MOVIL}`,
+    headerClassName: `w-14 sm:w-24 ${CELDA_MOVIL}`,
     render: (m) => {
       // Un corte no tiene fecha exacta: solo se sabe entre qué saldos ocurrió.
       if (m.tipo === 'corte') return <span className="block text-xs text-muted">Sin fecha</span>
       const { dia, hora } = partesFechaMovimiento(m.fecha)
       return (
         <>
-          <span className="block text-on-surface">{dia}</span>
+          <span className="block text-on-surface max-sm:text-xs">{dia}</span>
           <span className="block text-xs text-muted">{hora}</span>
         </>
       )
     },
   },
-  {
-    // Saldo en el color de texto principal (casi negro), sea cargo o abono.
-    key: 'saldo',
-    header: 'Saldo',
-    align: 'right',
-    className: `align-top whitespace-nowrap ${CELDA_MOVIL}`,
-    headerClassName: CELDA_MOVIL,
-    render: (m) => <span className="tabular-nums text-on-surface">{saldoMovimiento(m)}</span>,
-  },
+  columnaSaldo('saldoAnterior', 'Saldo anterior', saldoAnteriorMovimiento),
   {
     key: 'concepto',
     header: 'Concepto',
@@ -91,9 +97,10 @@ const COLUMNAS = [
     headerClassName: CELDA_MOVIL,
     render: (m) => {
       const { texto, tono } = importeMovimiento(m.delta)
-      return <span className={`font-semibold tabular-nums ${TONO[tono]}`}>{texto}</span>
+      return <span className={`font-semibold ${CIFRA} ${TONO[tono]}`}>{texto}</span>
     },
   },
+  columnaSaldo('saldo', 'Saldo nuevo', saldoMovimiento),
 ]
 
 export default function CreditosMovimientos() {
