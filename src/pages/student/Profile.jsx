@@ -17,6 +17,7 @@ import { useBackHandler } from '../../hooks/useBackHandler'
 import { ArrowLeft, Camera, Copy, Check, KeyRound, Trash2, UserMinus, AlertTriangle, Cloud, User, Settings, Bell, Lightbulb, ShieldCheck } from 'lucide-react'
 import { Tabs, SubTabs, ListRow, ListGroup, FlechaFila, FILA_LISTA, Button, IconButton } from '../../components/ui'
 import AppQRButton from '../../components/AppQRButton'
+import SugerenciaEF, { ICONO_SUGERENCIA } from '../../components/SugerenciaEF'
 import AvatarCropModal from '../../components/AvatarCropModal'
 import ConfirmModal from '../../components/ConfirmModal'
 import EliminarCuentaAlumnoModal from '../../components/EliminarCuentaAlumnoModal'
@@ -459,6 +460,17 @@ export default function StudentProfile() {
             </ListGroup>
             <ListGroup title="Ayuda">
               <ListRow to="/alumno/tips" icon={Lightbulb} title="Tips" />
+              {/* Solo donde no hay barra lateral (teléfono y app nativa): en
+                  escritorio la barra ya tiene este acceso. */}
+              <SugerenciaEF render={(abrir) => (
+                <ListRow
+                  onClick={abrir}
+                  icon={ICONO_SUGERENCIA}
+                  title="Sugerencia a Evalúa Fácil"
+                  detail="Un error, algo difícil de hacer o una idea"
+                  className={IS_NATIVE_APP ? '' : 'md:hidden'}
+                />
+              )} />
             </ListGroup>
             <ListGroup title="Acerca de">
               <ListRow to="/privacidad" icon={ShieldCheck} title="Aviso de privacidad" />

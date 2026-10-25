@@ -73,7 +73,7 @@ export default function ReactivosIAReview({ reactivos: initial, onClose, onGuard
         </div>
         {/* Reportar los reactivos tal como los dio la IA (docs/PLAN_GOOGLE_PLAY.md, B2). */}
         <div className="flex justify-end">
-          <ReportarIA operacion="reactivos" contenido={initial} />
+          <ReportarIA operacion="reactivos" ubicacion="reactivos_revision" contenido={initial} />
         </div>
 
         {reactivos.map((r, i) => (

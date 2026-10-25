@@ -776,7 +776,7 @@ export default function ChatAsistente() {
               {/* Reportar la respuesta de la IA (docs/PLAN_GOOGLE_PLAY.md, B2). */}
               {h.role !== 'user' && (
                 <ReportarIA
-                  operacion="chat_asistente"
+                  operacion="chat_asistente" ubicacion="chat_asistente"
                   contenido={h.propuesta ? { respuesta: h.content, propuesta: h.propuesta } : h.content}
                   contextoId={h.id}
                 />

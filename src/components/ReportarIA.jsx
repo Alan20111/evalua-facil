@@ -9,17 +9,27 @@
 //   operacion   id de la operación de IA (el de functions/ia.js), p. ej. 'chat_asistente'
 //   contenido   lo que se reporta: texto u objeto (se guarda recortado)
 //   contextoId  dónde pasó (id de la asignatura, actividad o mensaje), opcional
+//   ubicacion   clave fija de la pantalla (UBICACIONES_REPORTE_IA en
+//               src/utils/catalogoReportes.js), p. ej. 'revision_entrega'
+//   asignaturaId / actividadId / entregaId  los ids que la pantalla tiene a
+//               mano, opcionales; sin ellos se usan los de la URL. El servidor
+//               comprueba que sean de quien reporta antes de nombrarlos.
 //   onAbiertoChange(bool)  para el modal que lo contiene: con la hoja abierta,
 //               el de abajo debe ponerse `busy` y no cerrarse con Escape
 import { useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { Flag } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './Toast'
 import { Button, Modal, MotivoApagado, RadioGroup, Textarea } from './ui'
 import { MOTIVOS_REPORTE_IA, LARGO_MAX_COMENTARIO_REPORTE, enviarReporteIA } from '../utils/reportesIA'
+import { rolParaRegistro } from '../utils/sugerencias'
 
-export default function ReportarIA({ operacion, contenido, contextoId, onAbiertoChange, className = '' }) {
+export default function ReportarIA({
+  operacion, contenido, contextoId, ubicacion, asignaturaId, actividadId, entregaId, onAbiertoChange, className = '',
+}) {
   const { currentUser, userProfile } = useAuth()
+  const { pathname } = useLocation()
   const toast = useToast()
   const [abierto, setAbierto] = useState(false)
   const [motivo, setMotivo] = useState('')
@@ -38,12 +48,17 @@ export default function ReportarIA({ operacion, contenido, contextoId, onAbierto
     try {
       await enviarReporteIA({
         uid: currentUser.uid,
-        rol: userProfile?.role === 'docente' || userProfile?.role === 'admin' ? userProfile.role : 'alumno',
+        rol: rolParaRegistro(userProfile),
         operacion,
         contextoId,
         contenido,
         motivo,
         comentario,
+        ubicacion,
+        asignaturaId,
+        actividadId,
+        entregaId,
+        pathname,
       })
       setEnviado(true)
       cambiarAbierto(false)

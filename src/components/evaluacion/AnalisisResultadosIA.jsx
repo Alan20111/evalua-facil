@@ -161,7 +161,7 @@ export default function AnalisisResultadosIA({ resultado, students, generadoEn =
         </div>
         {/* Reportar el análisis tal como lo dio la IA (docs/PLAN_GOOGLE_PLAY.md, B2). */}
         <div className="flex justify-end">
-          <ReportarIA operacion="analizar_resultados" contenido={resultado} contextoId={activity?.id} />
+          <ReportarIA operacion="analizar_resultados" ubicacion="analisis_resultados" contenido={resultado} contextoId={activity?.id} actividadId={activity?.id} asignaturaId={activity?.asignaturaId} />
         </div>
 
         {editado.resumenEjecutivo != null && (

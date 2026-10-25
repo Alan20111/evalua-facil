@@ -2460,7 +2460,8 @@ export default function EvaluacionManager({ activity, subject, activityId, activ
                               {/* Reportar la sugerencia de la IA (docs/PLAN_GOOGLE_PLAY.md, B2). */}
                               <div className="flex justify-end">
                                 <ReportarIA
-                                  operacion="calificar_abierta"
+                                  operacion="calificar_abierta" ubicacion="calificar_respuesta_abierta"
+                                  actividadId={activityId || activity?.id} asignaturaId={activity?.asignaturaId} entregaId={reviewing.submission?.id}
                                   contenido={sug}
                                   contextoId={sug._docId || iaKey}
                                 />

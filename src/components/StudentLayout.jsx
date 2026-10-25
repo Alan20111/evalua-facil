@@ -12,6 +12,7 @@ import { getEnrollments, visibleEnrollments } from '../utils/studentLookup'
 import PortalBadge from './PortalBadge'
 import EFLogo from './EFLogo'
 import AppQRButton from './AppQRButton'
+import SugerenciaEF from './SugerenciaEF'
 import { useBackHandler } from '../hooks/useBackHandler'
 import { useScrollLock } from '../hooks/useScrollLock'
 import useClientePing from '../hooks/useClientePing'
@@ -312,6 +313,12 @@ export default function StudentLayout({ children, refreshKey = 0 }) {
               <Lightbulb size={SB_ICONO} className="flex-shrink-0" />
               Tips
             </NavLink>
+
+            {/* Sugerencia a Evalúa Fácil: un error, algo que no funciona o una
+                idea. En el teléfono se entra desde Mi perfil › Ajustes. */}
+            <SugerenciaEF className={`${SB_FILA} ${INACTIVA}`} iconSize={SB_ICONO}>
+              Sugerencia a Evalúa Fácil
+            </SugerenciaEF>
 
             <AppQRButton className={`${SB_FILA} ${INACTIVA}`} iconSize={SB_ICONO}>
               QR de Evalúa Fácil

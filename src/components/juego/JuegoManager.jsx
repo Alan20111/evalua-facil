@@ -226,7 +226,7 @@ export default function JuegoManager({
               docente las edite (docs/PLAN_GOOGLE_PLAY.md, B2). */}
           {mostrandoContenido && estado === 'contenido_generado' && activity.juego?.contenido?.length > 0 && (
             <div className="flex justify-end mt-2">
-              <ReportarIA operacion="generar_contenido_juego" contenido={activity.juego.contenido} contextoId={activityId} />
+              <ReportarIA operacion="generar_contenido_juego" ubicacion="juego_contenido" contenido={activity.juego.contenido} contextoId={activityId} actividadId={activityId} asignaturaId={activity.asignaturaId} />
             </div>
           )}
           {mostrandoRevision && (

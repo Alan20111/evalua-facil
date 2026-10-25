@@ -1336,7 +1336,7 @@ function Planeacion({
               {/* Reportar la planeación generada (docs/PLAN_GOOGLE_PLAY.md, B2):
                   se manda lo que se ve, las secuencias del parcial activo. */}
               {contenidoActivo && (
-                <ReportarIA operacion="planeacion_didactica_inicial" contenido={secuenciasActivo} contextoId={subjectId} />
+                <ReportarIA operacion="planeacion_didactica_inicial" ubicacion="planeacion_inicial" contenido={secuenciasActivo} contextoId={subjectId} asignaturaId={subjectId} />
               )}
               {isDesktop && !vigente && (
                 <>

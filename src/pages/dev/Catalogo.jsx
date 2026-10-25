@@ -190,7 +190,7 @@ export default function Catalogo() {
 
         <Seccion titulo="Reportar respuesta de la IA">
           <p className="text-sm text-muted">Va junto a cada resultado de IA (docs/PLAN_GOOGLE_PLAY.md, B2). Enviar guarda un documento en reportesIA.</p>
-          <ReportarIA operacion="catalogo" contenido="Respuesta de ejemplo de la IA" contextoId="dev-componentes" />
+          <ReportarIA operacion="catalogo" ubicacion="catalogo" contenido="Respuesta de ejemplo de la IA" contextoId="dev-componentes" />
         </Seccion>
 
         <Seccion titulo="Estado vacío">

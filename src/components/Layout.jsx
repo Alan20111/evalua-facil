@@ -29,6 +29,7 @@ import SubjectIcon from './SubjectIcon'
 import PortalBadge from './PortalBadge'
 import EFLogo from './EFLogo'
 import AppQRButton from './AppQRButton'
+import SugerenciaEF from './SugerenciaEF'
 import ConfirmModal from './ConfirmModal'
 import { BOTON_ICONO, IconButton } from './ui'
 import { ICONO } from '../config/iconos'
@@ -363,6 +364,12 @@ export default function TeacherLayout({ children }) {
                   <BookOpen size={SB_ICONO} className="flex-shrink-0" />
                   Ayuda para comenzar
                 </NavLink>
+
+                {/* Sugerencia a Evalúa Fácil: un error, algo que no funciona o
+                    una idea. Registra sola la pantalla en la que estás. */}
+                <SugerenciaEF className={`${ITEM_SECUNDARIO} pl-8 ${ITEM_SEC_INACTIVO}`} iconSize={SB_ICONO}>
+                  Sugerencia a Evalúa Fácil
+                </SugerenciaEF>
 
                 {/* Canal oficial de YouTube — enlace externo, por eso no es un
                     NavLink ni tiene estado activo. Solo vive en el sidebar: la
