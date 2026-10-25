@@ -1894,9 +1894,33 @@ service cloud.firestore {
     // lee, les cambia el estado o los borra. Nadie lee los de otros, ni los
     // propios: el reporte no es un buzón de conversación. Los límites son
     // los de src/utils/reportesIA.js.
+    //
+    // Desde el 24-oct-2026 el reporte puede traer también DÓNDE pasó:
+    // `ubicacion` (clave fija de la pantalla, p. ej. 'revision_entrega'),
+    // `ruta` (la ruta de la pantalla con los ids reemplazados) y los ids que
+    // esa pantalla tenía a mano (`asignaturaId`, `actividadId`, `entregaId`).
+    // Son OPCIONALES: los reportes viejos y los clientes viejos siguen
+    // mandando solo los campos de antes. Los nombres reales (asignatura,
+    // actividad, quién reportó) NO los manda el cliente: los busca la Cloud
+    // Function avisosReportes con el Admin SDK y los escribe ella.
+    //
+    // Estados: nuevo → revisado (alguien lo leyó) → resuelto (se corrigió o
+    // se atendió); descartado si no procede. `resueltoEn` es nuevo y también
+    // opcional.
+    function textoOpcional(datos, campo, max) {
+      return !(campo in datos) || (datos[campo] is string && datos[campo].size() <= max);
+    }
+    function claveOpcional(datos, campo) {
+      return !(campo in datos) || (datos[campo] is string && datos[campo].matches('^[a-z0-9_]{1,60}$'));
+    }
+    function cambioDeEstadoDeReporte() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'revisadoEn', 'resueltoEn']) &&
+        request.resource.data.estado in ['nuevo', 'revisado', 'resuelto', 'descartado'];
+    }
     match /reportesIA/{reporteId} {
       allow create: if request.auth != null &&
-        request.resource.data.keys().hasOnly(['uid', 'rol', 'operacion', 'contextoId', 'texto', 'motivo', 'comentario', 'estado', 'creadoEn']) &&
+        request.resource.data.keys().hasOnly(['uid', 'rol', 'operacion', 'contextoId', 'texto', 'motivo', 'comentario', 'estado', 'creadoEn',
+          'ubicacion', 'ruta', 'asignaturaId', 'actividadId', 'entregaId']) &&
         request.resource.data.uid == request.auth.uid &&
         request.resource.data.rol in ['docente', 'alumno', 'admin'] &&
         request.resource.data.operacion is string && request.resource.data.operacion.size() <= 120 &&
@@ -1904,12 +1928,46 @@ service cloud.firestore {
         request.resource.data.texto is string && request.resource.data.texto.size() <= 4000 &&
         request.resource.data.motivo in ['inapropiado', 'incorrecto', 'otro'] &&
         request.resource.data.comentario is string && request.resource.data.comentario.size() <= 1000 &&
+        claveOpcional(request.resource.data, 'ubicacion') &&
+        textoOpcional(request.resource.data, 'ruta', 120) &&
+        textoOpcional(request.resource.data, 'asignaturaId', 120) &&
+        textoOpcional(request.resource.data, 'actividadId', 120) &&
+        textoOpcional(request.resource.data, 'entregaId', 120) &&
         request.resource.data.estado == 'nuevo' &&
         request.resource.data.creadoEn == request.time;
       allow read, delete: if isAdmin();
-      allow update: if isAdmin() &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'revisadoEn']) &&
-        request.resource.data.estado in ['nuevo', 'revisado', 'descartado'];
+      allow update: if isAdmin() && cambioDeEstadoDeReporte();
+    }
+
+    // «Sugerencia a Evalúa Fácil» (24-oct-2026): lo que docentes y
+    // estudiantes quieren decirle a la plataforma —un error, algo que no
+    // funciona, una pantalla que se ve mal, algo difícil de hacer o una
+    // idea—. Va APARTE de reportesIA: aquí no hay respuesta de la IA de por
+    // medio. Mismo trato: cada quien escribe a su nombre, solo el admin lee,
+    // cambia el estado o borra. `ruta`, `pantalla` y `modulo` los llena la
+    // app sola (la persona no tiene que saber cómo se llama la pantalla).
+    // Los límites son los de src/utils/sugerencias.js. El correo al admin lo
+    // manda la Cloud Function avisosReportes.
+    match /sugerencias/{sugerenciaId} {
+      allow create: if request.auth != null &&
+        request.resource.data.keys().hasOnly(['uid', 'rol', 'categoria', 'descripcion', 'ruta', 'pantalla', 'modulo', 'estado', 'creadoEn']) &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.rol in ['docente', 'alumno', 'admin'] &&
+        request.resource.data.categoria in ['error_tecnico', 'funcionamiento', 'visualizacion', 'dificultad', 'mejora', 'otro'] &&
+        request.resource.data.descripcion is string &&
+        request.resource.data.descripcion.size() >= 1 && request.resource.data.descripcion.size() <= 2000 &&
+        request.resource.data.ruta is string && request.resource.data.ruta.size() <= 120 &&
+        request.resource.data.pantalla is string && request.resource.data.pantalla.size() <= 80 &&
+        request.resource.data.modulo is string && request.resource.data.modulo.size() <= 80 &&
+        request.resource.data.estado == 'nuevo' &&
+        request.resource.data.creadoEn == request.time;
+      allow read, delete: if isAdmin();
+      allow update: if isAdmin() && cambioDeEstadoDeReporte();
+    }
+
+    // Cuota diaria de correos de avisosReportes. Solo la toca el servidor.
+    match /avisosReportesCuota/{dia} {
+      allow read, write: if false;
     }
 
     // Violaciones de la Content-Security-Policy (docs/PLAN_GOOGLE_PLAY.md,
