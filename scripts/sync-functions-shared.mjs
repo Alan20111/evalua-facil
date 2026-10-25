@@ -109,6 +109,12 @@ const ARCHIVOS = [
   // si la entrega lleva imagen y el costo del lote — la misma regla en la
   // calificación individual, en el lote, en la pantalla y en el servidor.
   'tarifaCalificacionEvidencias.js',
+  // Reportes de IA y Sugerencias a Evalúa Fácil (24-oct-2026): nombres de
+  // operación, ubicación, motivo y categoría — los mismos en el panel del
+  // admin y en el correo que manda functions/avisosReportes.js. El nombre de
+  // la operación sale del catálogo de movimientos de créditos.
+  'movimientosCreditos.js',
+  'catalogoReportes.js',
 ]
 
 function fallar(mensaje) {

@@ -104,6 +104,15 @@ exports.limpiarAnalisisActividad = analisisAcademico.limpiarAnalisisActividad
 const adminChat = require('./adminChat')
 exports.chatAdmin = adminChat.chatAdmin
 
+// Aviso por correo al admin de cada Reporte de IA y de cada Sugerencia a
+// Evalúa Fácil (24-oct-2026), con reintento programado — ver
+// functions/avisosReportes.js. Necesita el secreto BREVO_API_KEY en Secret
+// Manager ANTES de desplegar.
+const avisosReportes = require('./avisosReportes')
+exports.onReporteIACreado = avisosReportes.onReporteIACreado
+exports.onSugerenciaCreada = avisosReportes.onSugerenciaCreada
+exports.reintentarAvisosReportes = avisosReportes.reintentarAvisosReportes
+
 // Resumen diario de costo de IA vs. ingresos por venta de créditos, para el
 // apartado "Costos de IA" del panel (3-sep-2026). Callable y no lectura del
 // cliente porque `iaConsumosInterno` sigue cerrado a TODO cliente y porque la

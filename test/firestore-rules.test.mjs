@@ -3744,6 +3744,95 @@ ok('F-05 · admin CAN read publicProfiles')
   await assertSucceeds(deleteDoc(doc(asAdmin, 'reportesIA', 'R2')))
   ok('REPORTES IA · el admin lee, marca revisado y borra; no reescribe el contenido')
 
+  // Ubicación funcional (24-oct-2026): campos OPCIONALES. El reporte de
+  // antes (sin ellos) sigue entrando —ya lo probó R1—; con ellos también.
+  const ubicacion = { ubicacion: 'revision_entrega', ruta: '/activity/:id', asignaturaId: 'S1', actividadId: 'A1', entregaId: 'SUB1' }
+  await assertSucceeds(setDoc(doc(asT1, 'reportesIA', 'R10'), reporte(T1, ubicacion)))
+  await assertSucceeds(setDoc(doc(asT1, 'reportesIA', 'R11'), reporte(T1, { ubicacion: 'rubrica_editor', ruta: '/subject/:id' })))
+  ok('REPORTES IA · con ubicación y ids entra; sin ellos (reporte de siempre) también')
+
+  await assertFails(setDoc(doc(asT1, 'reportesIA', 'R12'), reporte(T1, { ubicacion: 'Revisión de entrega' })))
+  await assertFails(setDoc(doc(asT1, 'reportesIA', 'R13'), reporte(T1, { ruta: 'x'.repeat(121) })))
+  await assertFails(setDoc(doc(asT1, 'reportesIA', 'R14'), reporte(T1, { actividadId: 7 })))
+  await assertFails(setDoc(doc(asT1, 'reportesIA', 'R15'), reporte(T1, { entregaId: 'x'.repeat(121) })))
+  // Los nombres los resuelve el servidor: el cliente no los puede mandar.
+  await assertFails(setDoc(doc(asT1, 'reportesIA', 'R16'), reporte(T1, { contexto: { actividad: 'Inventada' } })))
+  await assertFails(setDoc(doc(asT1, 'reportesIA', 'R17'), reporte(T1, { notificacion: { estado: 'enviado' } })))
+  ok('REPORTES IA · ubicación con forma de clave, tamaños y tipos; contexto y notificación no vienen del cliente')
+
+  await assertSucceeds(updateDoc(doc(asAdmin, 'reportesIA', 'R10'), { estado: 'resuelto', resueltoEn: serverTimestamp() }))
+  await assertSucceeds(updateDoc(doc(asAdmin, 'reportesIA', 'R11'), { estado: 'descartado', revisadoEn: serverTimestamp() }))
+  await assertFails(updateDoc(doc(asAdmin, 'reportesIA', 'R11'), { estado: 'archivado' }))
+  await assertFails(updateDoc(doc(asAdmin, 'reportesIA', 'R11'), { estado: 'resuelto', ubicacion: 'otra' }))
+  await assertFails(updateDoc(doc(asT1, 'reportesIA', 'R11'), { estado: 'resuelto', resueltoEn: serverTimestamp() }))
+  ok('REPORTES IA · solo el admin marca «resuelto»; estados fuera de la lista no')
+
+  // Un reporte HISTÓRICO (con los campos de siempre y ya revisado) sigue
+  // legible y se puede pasar a resuelto.
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'reportesIA', 'R_VIEJO'), {
+      uid: T1, rol: 'docente', operacion: 'rubrica', contextoId: '', texto: 'x', motivo: 'otro',
+      comentario: '', estado: 'revisado', creadoEn: Timestamp.fromMillis(Date.UTC(2026, 9, 14)), revisadoEn: Timestamp.fromMillis(Date.UTC(2026, 9, 15)),
+    })
+  })
+  assert.strictEqual((await getDoc(doc(asAdmin, 'reportesIA', 'R_VIEJO'))).data().estado, 'revisado')
+  await assertSucceeds(updateDoc(doc(asAdmin, 'reportesIA', 'R_VIEJO'), { estado: 'resuelto', resueltoEn: serverTimestamp() }))
+  ok('REPORTES IA · un reporte histórico se sigue leyendo y se puede resolver')
+
+  // ── Sugerencia a Evalúa Fácil (24-oct-2026) ──
+  const sugerencia = (uid, extra = {}) => ({
+    uid, rol: 'docente', categoria: 'error_tecnico', descripcion: 'No carga la lista de asistencia',
+    ruta: '/subject/:id', pantalla: 'Asignatura', modulo: 'Docente', estado: 'nuevo', creadoEn: serverTimestamp(), ...extra,
+  })
+  await assertSucceeds(setDoc(doc(asT1, 'sugerencias', 'G1'), sugerencia(T1)))
+  await assertSucceeds(setDoc(doc(asJuan, 'sugerencias', 'G2'), sugerencia(U_JUAN, { rol: 'alumno', categoria: 'mejora', ruta: '/alumno/inicio', pantalla: 'Inicio', modulo: 'Estudiante' })))
+  for (const categoria of ['funcionamiento', 'visualizacion', 'dificultad', 'otro']) {
+    await assertSucceeds(setDoc(doc(asT1, 'sugerencias', `G_${categoria}`), sugerencia(T1, { categoria })))
+  }
+  ok('SUGERENCIAS · docente y estudiante envían a su nombre, con cualquiera de las seis categorías')
+
+  await assertFails(setDoc(doc(anonimo, 'sugerencias', 'G3'), sugerencia('nadie')))
+  await assertFails(setDoc(doc(asT2, 'sugerencias', 'G4'), sugerencia(T1)))
+  ok('SUGERENCIAS · sin sesión o a nombre de otro, no')
+
+  await assertFails(setDoc(doc(asT1, 'sugerencias', 'G5'), sugerencia(T1, { descripcion: '' })))
+  await assertFails(setDoc(doc(asT1, 'sugerencias', 'G6'), sugerencia(T1, { descripcion: 'x'.repeat(2001) })))
+  await assertFails(setDoc(doc(asT1, 'sugerencias', 'G7'), sugerencia(T1, { categoria: 'queja' })))
+  await assertFails(setDoc(doc(asT1, 'sugerencias', 'G8'), sugerencia(T1, { estado: 'resuelto' })))
+  await assertFails(setDoc(doc(asT1, 'sugerencias', 'G9'), sugerencia(T1, { adjunto: 'https://x' })))
+  await assertFails(setDoc(doc(asT1, 'sugerencias', 'G10'), sugerencia(T1, { creadoEn: Timestamp.fromMillis(0) })))
+  await assertFails(setDoc(doc(asT1, 'sugerencias', 'G11'), sugerencia(T1, { rol: 'superusuario' })))
+  const { ruta: _sinRuta, ...sinRuta } = sugerencia(T1)
+  await assertFails(setDoc(doc(asT1, 'sugerencias', 'G12'), sinRuta))
+  await assertFails(setDoc(doc(asT1, 'sugerencias', 'G13'), sugerencia(T1, { pantalla: 'x'.repeat(81) })))
+  ok('SUGERENCIAS · descripción obligatoria y con tope, categoría, estado, campos, fecha, rol y ubicación los fija la regla')
+
+  await assertFails(getDoc(doc(asT1, 'sugerencias', 'G1')))
+  await assertFails(getDocs(collection(asT1, 'sugerencias')))
+  await assertFails(updateDoc(doc(asT1, 'sugerencias', 'G1'), { descripcion: 'cambio' }))
+  await assertFails(deleteDoc(doc(asT1, 'sugerencias', 'G1')))
+  await assertFails(getDoc(doc(asJuan, 'sugerencias', 'G2')))
+  ok('SUGERENCIAS · nadie más que el admin las lee; el autor no las edita ni las borra')
+
+  await assertSucceeds(getDocs(collection(asAdmin, 'sugerencias')))
+  await assertSucceeds(updateDoc(doc(asAdmin, 'sugerencias', 'G1'), { estado: 'revisado', revisadoEn: serverTimestamp() }))
+  await assertSucceeds(updateDoc(doc(asAdmin, 'sugerencias', 'G1'), { estado: 'resuelto', resueltoEn: serverTimestamp() }))
+  await assertSucceeds(updateDoc(doc(asAdmin, 'sugerencias', 'G2'), { estado: 'descartado', revisadoEn: serverTimestamp() }))
+  await assertFails(updateDoc(doc(asAdmin, 'sugerencias', 'G1'), { descripcion: 'otra' }))
+  await assertFails(updateDoc(doc(asAdmin, 'sugerencias', 'G1'), { estado: 'archivado' }))
+  await assertSucceeds(deleteDoc(doc(asAdmin, 'sugerencias', 'G_otro')))
+  ok('SUGERENCIAS · el admin lee, revisa, resuelve, descarta y borra; no reescribe el contenido')
+
+  // Reportes de IA y sugerencias no se cruzan: una sugerencia no entra en
+  // reportesIA ni un reporte de IA en sugerencias.
+  await assertFails(setDoc(doc(asT1, 'reportesIA', 'X1'), sugerencia(T1)))
+  await assertFails(setDoc(doc(asT1, 'sugerencias', 'X2'), reporte(T1)))
+  ok('REPORTES IA / SUGERENCIAS · cada colección acepta solo su propia forma')
+
+  await assertFails(getDoc(doc(asAdmin, 'avisosReportesCuota', '2026-10-24')))
+  await assertFails(setDoc(doc(asT1, 'avisosReportesCuota', '2026-10-24'), { enviados: 0 }))
+  ok('AVISOS · la cuota diaria de correos solo la toca el servidor')
+
   // Violaciones de CSP: solo las escribe el servidor (api/csp-report.js).
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     await setDoc(doc(ctx.firestore(), 'cspReportes', 'C1'), { directiva: 'img-src', bloqueado: 'https://x.com', cuenta: 1 })

@@ -41,6 +41,10 @@ const OPERACIONES = {
   diagnostico_conocimientos: 'Diagnóstico de conocimientos',
 }
 
+// El mismo catálogo, para nombrar la operación en los Reportes de IA
+// (src/utils/catalogoReportes.js), sin escribir otro.
+export const NOMBRES_OPERACIONES = OPERACIONES
+
 const TIPOS = {
   compra: 'Compra de créditos',
   bienvenida: 'Créditos de bienvenida',
