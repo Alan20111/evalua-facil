@@ -3780,32 +3780,115 @@ ok('F-05 · admin CAN read publicProfiles')
   ok('REPORTES IA · un reporte histórico se sigue leyendo y se puede resolver')
 
   // ── Sugerencia a Evalúa Fácil (24-oct-2026) ──
+  // Desde el PR 3 cada sugerencia entra en la MISMA escritura que el avance
+  // de la cuota de su autor (sugerenciasCuota/{uid}).
   const sugerencia = (uid, extra = {}) => ({
     uid, rol: 'docente', categoria: 'error_tecnico', descripcion: 'No carga la lista de asistencia',
     ruta: '/subject/:id', pantalla: 'Asignatura', modulo: 'Docente', estado: 'nuevo', creadoEn: serverTimestamp(), ...extra,
   })
-  await assertSucceeds(setDoc(doc(asT1, 'sugerencias', 'G1'), sugerencia(T1)))
-  await assertSucceeds(setDoc(doc(asJuan, 'sugerencias', 'G2'), sugerencia(U_JUAN, { rol: 'alumno', categoria: 'mejora', ruta: '/alumno/inicio', pantalla: 'Inicio', modulo: 'Estudiante' })))
+  const HORA = 60 * 60 * 1000
+  // Deja la cuota de `uid` en un estado conocido (sin reglas, como el pasado).
+  async function cuotaPrevia(uid, { haceSeg = 60, ventanaHaceMs = HORA, enviadas = 0 } = {}) {
+    const ventanaInicio = Timestamp.fromMillis(Date.now() - ventanaHaceMs)
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'sugerenciasCuota', uid), {
+        ultimoEnvio: Timestamp.fromMillis(Date.now() - haceSeg * 1000), ventanaInicio, enviadas, ultimaSugerencia: 'previa',
+      })
+    })
+    return { ventanaInicio, enviadas }
+  }
+  async function sinCuota(uid) {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => { await deleteDoc(doc(ctx.firestore(), 'sugerenciasCuota', uid)) })
+  }
+  const avance = (previa, id, extra = {}) => ({ ultimoEnvio: serverTimestamp(), ventanaInicio: previa.ventanaInicio, enviadas: previa.enviadas + 1, ultimaSugerencia: id, ...extra })
+  const primera = (id) => ({ ultimoEnvio: serverTimestamp(), ventanaInicio: serverTimestamp(), enviadas: 1, ultimaSugerencia: id })
+  function enviar(db, uid, id, datos, cuota) {
+    const b = writeBatch(db)
+    b.set(doc(db, 'sugerencias', id), datos)
+    if (cuota) b.set(doc(db, 'sugerenciasCuota', uid), cuota)
+    return b.commit()
+  }
+  async function enviarConCuota(db, uid, id, datos) {
+    const previa = await cuotaPrevia(uid)
+    return enviar(db, uid, id, datos, avance(previa, id))
+  }
+
+  await assertSucceeds(enviarConCuota(asT1, T1, 'G1', sugerencia(T1)))
+  await assertSucceeds(enviarConCuota(asJuan, U_JUAN, 'G2', sugerencia(U_JUAN, { rol: 'alumno', categoria: 'mejora', ruta: '/alumno/inicio', pantalla: 'Inicio', modulo: 'Estudiante' })))
   for (const categoria of ['funcionamiento', 'visualizacion', 'dificultad', 'otro']) {
-    await assertSucceeds(setDoc(doc(asT1, 'sugerencias', `G_${categoria}`), sugerencia(T1, { categoria })))
+    await assertSucceeds(enviarConCuota(asT1, T1, `G_${categoria}`, sugerencia(T1, { categoria })))
   }
   ok('SUGERENCIAS · docente y estudiante envían a su nombre, con cualquiera de las seis categorías')
 
-  await assertFails(setDoc(doc(anonimo, 'sugerencias', 'G3'), sugerencia('nadie')))
-  await assertFails(setDoc(doc(asT2, 'sugerencias', 'G4'), sugerencia(T1)))
+  await assertFails(enviarConCuota(anonimo, 'nadie', 'G3', sugerencia('nadie')))
+  await assertFails(enviarConCuota(asT2, T1, 'G4', sugerencia(T1)))
   ok('SUGERENCIAS · sin sesión o a nombre de otro, no')
 
-  await assertFails(setDoc(doc(asT1, 'sugerencias', 'G5'), sugerencia(T1, { descripcion: '' })))
-  await assertFails(setDoc(doc(asT1, 'sugerencias', 'G6'), sugerencia(T1, { descripcion: 'x'.repeat(2001) })))
-  await assertFails(setDoc(doc(asT1, 'sugerencias', 'G7'), sugerencia(T1, { categoria: 'queja' })))
-  await assertFails(setDoc(doc(asT1, 'sugerencias', 'G8'), sugerencia(T1, { estado: 'resuelto' })))
-  await assertFails(setDoc(doc(asT1, 'sugerencias', 'G9'), sugerencia(T1, { adjunto: 'https://x' })))
-  await assertFails(setDoc(doc(asT1, 'sugerencias', 'G10'), sugerencia(T1, { creadoEn: Timestamp.fromMillis(0) })))
-  await assertFails(setDoc(doc(asT1, 'sugerencias', 'G11'), sugerencia(T1, { rol: 'superusuario' })))
+  await assertFails(enviarConCuota(asT1, T1, 'G5', sugerencia(T1, { descripcion: '' })))
+  await assertFails(enviarConCuota(asT1, T1, 'G6', sugerencia(T1, { descripcion: 'x'.repeat(2001) })))
+  await assertFails(enviarConCuota(asT1, T1, 'G7', sugerencia(T1, { categoria: 'queja' })))
+  await assertFails(enviarConCuota(asT1, T1, 'G8', sugerencia(T1, { estado: 'resuelto' })))
+  await assertFails(enviarConCuota(asT1, T1, 'G9', sugerencia(T1, { adjunto: 'https://x' })))
+  await assertFails(enviarConCuota(asT1, T1, 'G10', sugerencia(T1, { creadoEn: Timestamp.fromMillis(0) })))
+  await assertFails(enviarConCuota(asT1, T1, 'G11', sugerencia(T1, { rol: 'superusuario' })))
   const { ruta: _sinRuta, ...sinRuta } = sugerencia(T1)
-  await assertFails(setDoc(doc(asT1, 'sugerencias', 'G12'), sinRuta))
-  await assertFails(setDoc(doc(asT1, 'sugerencias', 'G13'), sugerencia(T1, { pantalla: 'x'.repeat(81) })))
-  ok('SUGERENCIAS · descripción obligatoria y con tope, categoría, estado, campos, fecha, rol y ubicación los fija la regla')
+  await assertFails(enviarConCuota(asT1, T1, 'G12', sinRuta))
+  await assertFails(enviarConCuota(asT1, T1, 'G13', sugerencia(T1, { pantalla: 'x'.repeat(81) })))
+  await assertFails(enviarConCuota(asT1, T1, 'G14', sugerencia(T1, { moderacion: { estado: 'limpia' } })))
+  ok('SUGERENCIAS · descripción obligatoria y con tope, categoría, estado, campos, fecha, rol y ubicación los fija la regla; la moderación no la pone el cliente')
+
+  // ── Límite de frecuencia: intentos de saltárselo desde el cliente ──
+  await cuotaPrevia(T1)
+  await assertFails(setDoc(doc(asT1, 'sugerencias', 'Q1'), sugerencia(T1)))
+  ok('CUOTA · una sugerencia sin avanzar la cuota no entra')
+
+  await sinCuota(T1)
+  await assertSucceeds(enviar(asT1, T1, 'Q2', sugerencia(T1), primera('Q2')))
+  const tras = (await getDoc(doc(asT1, 'sugerenciasCuota', T1))).data()
+  await assertFails(enviar(asT1, T1, 'Q3', sugerencia(T1), { ultimoEnvio: serverTimestamp(), ventanaInicio: tras.ventanaInicio, enviadas: 2, ultimaSugerencia: 'Q3' }))
+  ok('CUOTA · la primera vez crea la cuota; una segunda antes de 30 s se rechaza')
+
+  {
+    const previa = await cuotaPrevia(T1)
+    const b = writeBatch(asT1)
+    b.set(doc(asT1, 'sugerencias', 'Q4'), sugerencia(T1))
+    b.set(doc(asT1, 'sugerencias', 'Q5'), sugerencia(T1, { descripcion: 'otra' }))
+    b.set(doc(asT1, 'sugerenciasCuota', T1), avance(previa, 'Q5'))
+    await assertFails(b.commit())
+  }
+  ok('CUOTA · dos sugerencias con un solo avance de la cuota se rechazan')
+
+  {
+    const previa = await cuotaPrevia(T1, { enviadas: 5 })
+    await assertFails(enviar(asT1, T1, 'Q6', sugerencia(T1), avance(previa, 'Q6', { enviadas: 1 })))
+    await assertFails(enviar(asT1, T1, 'Q7', sugerencia(T1), avance(previa, 'Q7', { enviadas: 0 })))
+    await assertFails(enviar(asT1, T1, 'Q8', sugerencia(T1), avance(previa, 'Q8', { ultimoEnvio: Timestamp.fromMillis(Date.now() - HORA) })))
+    await assertFails(enviar(asT1, T1, 'Q9', sugerencia(T1), avance(previa, 'Q9', { ventanaInicio: serverTimestamp(), enviadas: 1 })))
+    await assertFails(enviar(asT1, T1, 'Q10', sugerencia(T1), avance(previa, 'Q10', { extra: 1 })))
+    await assertSucceeds(enviar(asT1, T1, 'Q11', sugerencia(T1), avance(previa, 'Q11')))
+  }
+  ok('CUOTA · no se puede bajar el contador, fecharlo en el pasado, reiniciar la ventana antes de tiempo ni agregar campos; +1 sí')
+
+  {
+    const previa = await cuotaPrevia(T1, { enviadas: 10 })
+    await assertFails(enviar(asT1, T1, 'Q12', sugerencia(T1), avance(previa, 'Q12')))
+    const vieja = await cuotaPrevia(T1, { enviadas: 10, ventanaHaceMs: 25 * HORA })
+    await assertFails(enviar(asT1, T1, 'Q13', sugerencia(T1), avance(vieja, 'Q13')))
+    await assertSucceeds(enviar(asT1, T1, 'Q14', sugerencia(T1), primera('Q14')))
+  }
+  ok('CUOTA · la 11.ª en 24 h se rechaza; pasadas 24 h la ventana vuelve a empezar en 1')
+
+  {
+    const previa = await cuotaPrevia(T1)
+    await assertFails(setDoc(doc(asT1, 'sugerenciasCuota', T1), avance(previa, 'NO_EXISTE')))
+    await assertFails(setDoc(doc(asT1, 'sugerenciasCuota', T1), avance(previa, 'G1')))
+    await assertFails(deleteDoc(doc(asT1, 'sugerenciasCuota', T1)))
+    await assertFails(setDoc(doc(asT2, 'sugerenciasCuota', T1), avance(previa, 'Q15')))
+    await assertSucceeds(getDoc(doc(asT1, 'sugerenciasCuota', T1)))
+    await assertFails(getDoc(doc(asT2, 'sugerenciasCuota', T1)))
+    await assertFails(getDoc(doc(asJuan, 'sugerenciasCuota', T1)))
+  }
+  ok('CUOTA · no avanza sin una sugerencia nueva, no se borra, nadie toca ni lee la de otro')
 
   await assertFails(getDoc(doc(asT1, 'sugerencias', 'G1')))
   await assertFails(getDocs(collection(asT1, 'sugerencias')))
@@ -3823,10 +3906,22 @@ ok('F-05 · admin CAN read publicProfiles')
   await assertSucceeds(deleteDoc(doc(asAdmin, 'sugerencias', 'G_otro')))
   ok('SUGERENCIAS · el admin lee, revisa, resuelve, descarta y borra; no reescribe el contenido')
 
+  // Dictamen del admin sobre una sugerencia retenida por la moderación.
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await updateDoc(doc(ctx.firestore(), 'sugerencias', 'G_funcionamiento'), { moderacion: { estado: 'retenida', motivos: ['insulto'], version: 1 } })
+  })
+  await assertSucceeds(updateDoc(doc(asAdmin, 'sugerencias', 'G_funcionamiento'), { revisionModeracion: 'legitima', revisionModeracionEn: serverTimestamp() }))
+  await assertSucceeds(updateDoc(doc(asAdmin, 'sugerencias', 'G_funcionamiento'), { estado: 'revisado', revisadoEn: serverTimestamp(), revisionModeracion: 'ofensiva', revisionModeracionEn: serverTimestamp() }))
+  await assertFails(updateDoc(doc(asAdmin, 'sugerencias', 'G_funcionamiento'), { revisionModeracion: 'sancionar', revisionModeracionEn: serverTimestamp() }))
+  await assertFails(updateDoc(doc(asAdmin, 'sugerencias', 'G_funcionamiento'), { revisionModeracion: 'legitima', revisionModeracionEn: Timestamp.fromMillis(0) }))
+  await assertFails(updateDoc(doc(asAdmin, 'sugerencias', 'G_funcionamiento'), { moderacion: { estado: 'limpia' } }))
+  await assertFails(updateDoc(doc(asT1, 'sugerencias', 'G_funcionamiento'), { revisionModeracion: 'legitima', revisionModeracionEn: serverTimestamp() }))
+  ok('MODERACIÓN · solo el admin da su dictamen (legítima u ofensiva); nadie reescribe lo que decidió el detector')
+
   // Reportes de IA y sugerencias no se cruzan: una sugerencia no entra en
   // reportesIA ni un reporte de IA en sugerencias.
   await assertFails(setDoc(doc(asT1, 'reportesIA', 'X1'), sugerencia(T1)))
-  await assertFails(setDoc(doc(asT1, 'sugerencias', 'X2'), reporte(T1)))
+  await assertFails(enviarConCuota(asT1, T1, 'X2', reporte(T1)))
   ok('REPORTES IA / SUGERENCIAS · cada colección acepta solo su propia forma')
 
   await assertFails(getDoc(doc(asAdmin, 'avisosReportesCuota', '2026-10-24')))

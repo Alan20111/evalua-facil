@@ -28,6 +28,10 @@
 //     manda ids, y solo se resuelven si son del propio docente que reporta.
 //   · El correo no lleva el texto de la respuesta de la IA (puede traer
 //     nombres y calificaciones de alumnos): ese se consulta en el panel.
+//   · Cada sugerencia pasa una vez por el detector propio
+//     (moderacionSugerencias.js) antes de avisarse. Si queda retenida —o el
+//     detector falla—, el correo sale SIN la descripción. Los Reportes de IA no
+//     pasan por el detector.
 
 const { onDocumentCreated } = require('firebase-functions/v2/firestore')
 const { onSchedule } = require('firebase-functions/v2/scheduler')
@@ -35,6 +39,7 @@ const { defineSecret } = require('firebase-functions/params')
 const { logger } = require('firebase-functions')
 const { getFirestore, Timestamp } = require('firebase-admin/firestore')
 const catalogo = require('./_shared/catalogoReportes.js')
+const moderacionSugerencias = require('./moderacionSugerencias')
 
 const BREVO_API_KEY = defineSecret('BREVO_API_KEY')
 
@@ -255,6 +260,17 @@ function filasDelCorreo(coleccion, datos, contexto) {
   return filas.filter(([, v]) => v)
 }
 
+// Una sugerencia que el detector no dio por limpia (retenida, sin revisar o
+// sin dictamen) se avisa SIN su descripción: el correo no debe reproducir un
+// posible insulto o amenaza. Se lee en el panel, con acceso restringido.
+const AVISO_RETENIDA = 'La descripción no se incluye en este correo: la revisión automática la retuvo para que la revise una persona. Ábrela en el panel.'
+
+// Una sugerencia que el detector dio por limpia SÍ lleva su descripción
+// completa en el correo (decisión de Kike). Ojo: el detector busca insultos,
+// amenazas y acoso; NO busca datos personales. Una sugerencia limpia puede
+// traer nombres, teléfonos o calificaciones y llegar así al correo. Cambiar
+// eso requiere una decisión aparte.
+
 // Reportes de IA: el comentario libre puede traer nombres, calificaciones o
 // cualquier otro dato personal, así que NO viaja en el correo. Se queda en el
 // registro (solo lo lee el admin) y el correo solo avisa que existe.
@@ -262,15 +278,22 @@ const AVISO_COMENTARIO_IA = 'Hay un comentario de quien reportó. Por privacidad
 
 function construirCorreo({ coleccion, id, datos, contexto }) {
   const esSugerencia = coleccion === 'sugerencias'
-  const asunto = esSugerencia
-    ? `[Sugerencia a Evalúa Fácil] ${catalogo.etiquetaCategoriaSugerencia(datos.categoria)}`
-    : `[Reporte de IA] ${catalogo.etiquetaMotivoIA(datos.motivo)} · ${corto(catalogo.nombreOperacionIA(datos.operacion), 60)}`
+  const retenida = esSugerencia && datos.moderacion?.estado !== 'limpia'
+  const motivosRetencion = retenida ? catalogo.textoMotivosModeracion(datos.moderacion) : ''
+  const asunto = retenida
+    ? `[Sugerencia a Evalúa Fácil] Retenida para revisión · ${motivosRetencion}`
+    : esSugerencia
+      ? `[Sugerencia a Evalúa Fácil] ${catalogo.etiquetaCategoriaSugerencia(datos.categoria)}`
+      : `[Reporte de IA] ${catalogo.etiquetaMotivoIA(datos.motivo)} · ${corto(catalogo.nombreOperacionIA(datos.operacion), 60)}`
   const filas = filasDelCorreo(coleccion, datos, contexto)
+  if (retenida) filas.splice(2, 0, ['Revisión automática', `Retenida: ${motivosRetencion}`])
   const tituloTexto = esSugerencia ? 'Descripción' : 'Comentario'
   const comentarioIA = String(datos.comentario || '').trim()
-  const texto = esSugerencia
-    ? String(datos.descripcion || '').trim()
-    : (comentarioIA ? AVISO_COMENTARIO_IA : '')
+  const texto = retenida
+    ? AVISO_RETENIDA
+    : esSugerencia
+      ? String(datos.descripcion || '').trim()
+      : (comentarioIA ? AVISO_COMENTARIO_IA : '')
   const enlace = enlaceAlCaso(coleccion, id)
   const encabezado = esSugerencia ? 'Nueva Sugerencia a Evalúa Fácil' : 'Nuevo Reporte de IA'
 
@@ -362,7 +385,7 @@ function decidirPrimerEnvio({ coleccion, id, datos, propios, cuota, ahora }) {
 }
 
 // Reclama el aviso. null = otro ya lo tiene, ya terminó o se omitió.
-async function reclamar({ coleccion, ref, contexto, ahora }) {
+async function reclamar({ coleccion, ref, contexto, moderacion, ahora }) {
   return db().runTransaction(async (tx) => {
     const snap = await tx.get(ref)
     if (!snap.exists) return null
@@ -373,6 +396,7 @@ async function reclamar({ coleccion, ref, contexto, ahora }) {
     const intentos = n.intentos || 0
     const cambios = {}
     if (contexto && !datos.contexto) cambios.contexto = contexto
+    if (moderacion && !datos.moderacion) cambios.moderacion = moderacion
 
     if (intentos >= CONFIG.maxIntentos) {
       tx.update(ref, { ...cambios, notificacion: { ...n, estado: 'agotado', actualizadoEn: Timestamp.fromMillis(ahora) } })
@@ -415,13 +439,31 @@ async function reclamar({ coleccion, ref, contexto, ahora }) {
   })
 }
 
+// Revisión automática de una sugerencia. Si el detector truena, el
+// comportamiento seguro es «sin_revisar»: la sugerencia se guarda igual, se
+// trata como retenida (el correo sale sin la descripción) y la revisa una
+// persona. Nunca se descarta ni se sanciona por esto.
+function moderar(texto, evaluar, ahora) {
+  try {
+    const r = evaluar(texto)
+    if (r?.estado !== 'limpia' && r?.estado !== 'retenida') throw new Error('respuesta inválida del detector')
+    return { estado: r.estado, motivos: Array.isArray(r.motivos) ? r.motivos : [], version: r.version ?? moderacionSugerencias.VERSION, revisadaEn: Timestamp.fromMillis(ahora) }
+  } catch (e) {
+    logger.error('avisosReportes: falló la revisión automática de la sugerencia', { error: e?.message })
+    return { estado: 'sin_revisar', motivos: [], version: moderacionSugerencias.VERSION, error: 'detector', revisadaEn: Timestamp.fromMillis(ahora) }
+  }
+}
+
 // Atiende un aviso de principio a fin. `enviar({ asunto, html, texto })` es
-// la llamada al proveedor (inyectable para las pruebas).
-async function procesarAviso({ coleccion, ref, enviar, ahora = Date.now() }) {
+// la llamada al proveedor y `evaluar(texto)` el detector (los dos
+// inyectables para las pruebas).
+async function procesarAviso({ coleccion, ref, enviar, ahora = Date.now(), evaluar = moderacionSugerencias.evaluarTexto }) {
   const snap = await ref.get()
   if (!snap.exists) return { resultado: 'no_existe' }
   const actual = snap.data()
   if (ESTADOS_CERRADOS.has(actual.notificacion?.estado)) return { resultado: 'ya_atendido' }
+
+  const moderacion = coleccion === 'sugerencias' && !actual.moderacion ? moderar(actual.descripcion, evaluar, ahora) : null
 
   let contexto = actual.contexto || null
   if (!contexto) {
@@ -434,7 +476,7 @@ async function procesarAviso({ coleccion, ref, enviar, ahora = Date.now() }) {
     }
   }
 
-  const reclamo = await reclamar({ coleccion, ref, contexto, ahora })
+  const reclamo = await reclamar({ coleccion, ref, contexto, moderacion, ahora })
   if (!reclamo) return { resultado: 'sin_reclamo' }
   if (reclamo.omitido) {
     logger.info('avisosReportes: aviso omitido', { coleccion, id: ref.id, motivo: reclamo.omitido })

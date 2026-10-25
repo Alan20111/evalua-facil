@@ -27,6 +27,8 @@ const ALUMNO = 'alumno_rep'
 const ADMIN = 'admin_rep'
 const AHORA = Date.UTC(2026, 9, 24, 18, 0, 0) // 24-oct-2026 12:00 en CDMX
 const MIN = 60 * 1000
+// Sugerencia que el detector ya dio por limpia (para armar correos a mano).
+const LIMPIA = { estado: 'limpia', motivos: [], version: 1 }
 
 function brevoFalso(respuestas = [], { demoraMs = 0 } = {}) {
   const llamadas = []
@@ -92,7 +94,7 @@ grupo('A. Contenido del correo')
 
 await caso('Sugerencia: asunto con [Sugerencia a Evalúa Fácil], categoría, pantalla, ruta, descripción y enlace al caso', async () => {
   const c = AV.construirCorreo({
-    coleccion: 'sugerencias', id: 'G1', datos: sugerencia(),
+    coleccion: 'sugerencias', id: 'G1', datos: sugerencia({ moderacion: LIMPIA }),
     contexto: { reportante: { rol: 'docente', nombre: 'Ana López', correo: 'ana@escuela.mx' } },
   })
   assert.strictEqual(c.asunto, '[Sugerencia a Evalúa Fácil] Error técnico')
@@ -146,7 +148,7 @@ await caso('Reporte viejo sin ubicación: no se inventan módulo ni pantalla', a
 })
 
 await caso('El texto del usuario se escapa en el HTML', async () => {
-  const c = AV.construirCorreo({ coleccion: 'sugerencias', id: 'G2', datos: sugerencia({ descripcion: '<script>alert(1)</script> & <b>' }), contexto: {} })
+  const c = AV.construirCorreo({ coleccion: 'sugerencias', id: 'G2', datos: sugerencia({ descripcion: '<script>alert(1)</script> & <b>', moderacion: LIMPIA }), contexto: {} })
   assert.ok(!c.html.includes('<script>') && c.html.includes('&lt;script&gt;') && c.html.includes('&amp;'))
 })
 
@@ -427,6 +429,112 @@ await caso('Una sugerencia no toca reportesIA y viceversa', async () => {
   assert.strictEqual((await db.collection('reportesIA').get()).size, 1)
   assert.strictEqual((await db.collection('sugerencias').get()).size, 1)
   assert.ok(enviar.llamadas[0].asunto.startsWith('[Sugerencia a Evalúa Fácil]'))
+})
+
+// ── G. Moderación de sugerencias (PR 3) ─────────────────────────────────────
+grupo('G. Moderación automática de sugerencias')
+
+await caso('Sugerencia respetuosa o crítica: queda «limpia» y el correo lleva la descripción', async () => {
+  await antes()
+  const enviar = brevoFalso()
+  const textos = ['Esta plataforma es pésima, la calificación es injusta y no sirve para nada', 'Me gustaría poder ver mis calificaciones en una gráfica']
+  for (const [i, descripcion] of textos.entries()) {
+    const ref = await crear('sugerencias', `M_OK${i}`, sugerencia({ uid: `persona_ok_${i}`, descripcion }))
+    await AV.procesarAviso({ coleccion: 'sugerencias', ref, enviar, ahora: AHORA })
+    const d = await leer(ref)
+    assert.strictEqual(d.moderacion.estado, 'limpia')
+    assert.deepStrictEqual(d.moderacion.motivos, [])
+    assert.ok(enviar.llamadas[i].texto.includes(descripcion), 'la descripción va en el correo')
+    assert.ok(!enviar.llamadas[i].asunto.includes('Retenida'))
+  }
+})
+
+await caso('Insulto: se guarda completo, queda retenida y el correo NO lleva la descripción', async () => {
+  await antes()
+  const enviar = brevoFalso()
+  const ofensa = 'el maestro es un p3nd3j0 y un imbécil'
+  const ref = await crear('sugerencias', 'M_INS', sugerencia({ uid: ALUMNO, rol: 'alumno', descripcion: ofensa }))
+  const r = await AV.procesarAviso({ coleccion: 'sugerencias', ref, enviar, ahora: AHORA })
+  assert.strictEqual(r.resultado, 'enviado')
+  const d = await leer(ref)
+  assert.strictEqual(d.descripcion, ofensa, 'no se borra ni se altera')
+  assert.strictEqual(d.estado, 'nuevo', 'no se descarta solo')
+  assert.strictEqual(d.moderacion.estado, 'retenida')
+  assert.deepStrictEqual(d.moderacion.motivos, ['insulto'])
+  const c = enviar.llamadas[0]
+  assert.strictEqual(c.asunto, '[Sugerencia a Evalúa Fácil] Retenida para revisión · posible insulto')
+  for (const pedazo of ['p3nd3j0', 'imbécil', 'maestro es']) {
+    assert.ok(!c.html.includes(pedazo) && !c.texto.includes(pedazo) && !c.asunto.includes(pedazo), `el correo no reproduce «${pedazo}»`)
+  }
+  assert.ok(c.texto.includes('Guadalupe Pérez · Estudiante · usuario GUAD'), 'sí dice quién la envió')
+  assert.ok(c.texto.includes('tab=sugerencias&caso=M_INS'))
+})
+
+await caso('Amenaza: retenida con «posible amenaza» en el asunto', async () => {
+  await antes()
+  const enviar = brevoFalso()
+  const ref = await crear('sugerencias', 'M_AME', sugerencia({ descripcion: 'te voy a matar, sé dónde vives' }))
+  await AV.procesarAviso({ coleccion: 'sugerencias', ref, enviar, ahora: AHORA })
+  assert.deepStrictEqual((await leer(ref)).moderacion.motivos, ['amenaza'])
+  assert.ok(enviar.llamadas[0].asunto.endsWith('posible amenaza'))
+  assert.ok(!enviar.llamadas[0].texto.includes('matar'))
+})
+
+await caso('Si el detector falla: «sin_revisar», el registro se guarda y el correo sale sin la descripción', async () => {
+  await antes()
+  const enviar = brevoFalso()
+  const ref = await crear('sugerencias', 'M_ERR', sugerencia({ descripcion: 'texto cualquiera' }))
+  const r = await AV.procesarAviso({ coleccion: 'sugerencias', ref, enviar, ahora: AHORA, evaluar: () => { throw new Error('detector roto') } })
+  assert.strictEqual(r.resultado, 'enviado')
+  const d = await leer(ref)
+  assert.strictEqual(d.moderacion.estado, 'sin_revisar')
+  assert.strictEqual(d.descripcion, 'texto cualquiera')
+  assert.ok(enviar.llamadas[0].asunto.includes('sin revisión automática'))
+  assert.ok(!enviar.llamadas[0].texto.includes('texto cualquiera'))
+  // Una respuesta sin forma válida también cuenta como falla.
+  const ref2 = await crear('sugerencias', 'M_ERR2', sugerencia({ uid: 'otra_persona', descripcion: 'otro texto' }))
+  await AV.procesarAviso({ coleccion: 'sugerencias', ref: ref2, enviar, ahora: AHORA, evaluar: () => ({ estado: 'quizas' }) })
+  assert.strictEqual((await leer(ref2)).moderacion.estado, 'sin_revisar')
+})
+
+await caso('La moderación se decide una vez: un reintento no la recalcula ni la cambia', async () => {
+  await antes()
+  const ref = await crear('sugerencias', 'M_RE', sugerencia({ descripcion: 'eres un idiota' }))
+  await AV.procesarAviso({ coleccion: 'sugerencias', ref, enviar: brevoFalso([{ ok: false, codigo: 'http_500' }]), ahora: AHORA })
+  const antesReintento = (await leer(ref)).moderacion
+  assert.strictEqual(antesReintento.estado, 'retenida')
+  let llamadasDetector = 0
+  const enviar = brevoFalso()
+  await AV.procesarAviso({ coleccion: 'sugerencias', ref, enviar, ahora: AHORA + 15 * MIN, evaluar: () => { llamadasDetector++; return { estado: 'limpia', motivos: [] } } })
+  assert.strictEqual(llamadasDetector, 0)
+  assert.deepStrictEqual((await leer(ref)).moderacion, antesReintento)
+  assert.ok(enviar.llamadas[0].asunto.includes('Retenida'))
+})
+
+await caso('Spam de insultos: el límite por persona sigue aplicando y todo queda guardado', async () => {
+  await antes()
+  const enviar = brevoFalso()
+  for (let i = 0; i < AV.CONFIG.topePorPersonaHora + 2; i++) {
+    const ref = await crear('sugerencias', `M_SP${i}`, sugerencia({ descripcion: `idiota ${i}`, creadoEn: Timestamp.fromMillis(AHORA - (30 - i) * MIN) }))
+    await AV.procesarAviso({ coleccion: 'sugerencias', ref, enviar, ahora: AHORA })
+  }
+  assert.strictEqual(enviar.llamadas.length, AV.CONFIG.topePorPersonaHora)
+  assert.strictEqual((await db.collection('sugerencias').get()).size, AV.CONFIG.topePorPersonaHora + 2)
+  assert.ok(enviar.llamadas.every((c) => !/idiota/.test(c.texto)))
+})
+
+await caso('Los Reportes de IA no pasan por la moderación; su comentario se guarda y no va en el correo', async () => {
+  await antes()
+  const enviar = brevoFalso()
+  const ref = await crear('reportesIA', 'M_IA', reporteIA({ comentario: 'la IA es una idiota' }))
+  let llamadasDetector = 0
+  await AV.procesarAviso({ coleccion: 'reportesIA', ref, enviar, ahora: AHORA, evaluar: () => { llamadasDetector++; return { estado: 'retenida', motivos: ['insulto'] } } })
+  assert.strictEqual(llamadasDetector, 0)
+  assert.strictEqual((await leer(ref)).moderacion, undefined)
+  assert.ok(enviar.llamadas[0].asunto.startsWith('[Reporte de IA]'))
+  assert.ok(!enviar.llamadas[0].texto.includes('la IA es una idiota'), 'el comentario no viaja en el correo (opción B)')
+  assert.ok(enviar.llamadas[0].texto.includes('Hay un comentario de quien reportó'))
+  assert.strictEqual((await leer(ref)).comentario, 'la IA es una idiota', 'el comentario se conserva en el registro')
 })
 
 await limpiar()

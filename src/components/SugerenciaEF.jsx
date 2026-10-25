@@ -21,10 +21,24 @@ import { useToast } from './Toast'
 import { ICONO } from '../config/iconos'
 import { Button, Modal, MotivoApagado, RadioGroup, Textarea } from './ui'
 import {
-  CATEGORIAS_SUGERENCIA, LARGO_MAX_DESCRIPCION_SUGERENCIA, enviarSugerencia, rolParaRegistro, ubicacionDeRuta,
+  CATEGORIAS_SUGERENCIA, LARGO_MAX_DESCRIPCION_SUGERENCIA, MAX_SUGERENCIAS_POR_DIA, SEGUNDOS_ENTRE_SUGERENCIAS,
+  enviarSugerencia, rolParaRegistro, ubicacionDeRuta,
 } from '../utils/sugerencias'
 
 export const ICONO_SUGERENCIA = MessageSquarePlus
+
+// El límite lo pone el servidor (firestore.rules); estos mensajes solo
+// explican por qué no se envió. `permission-denied` sin código propio es casi
+// siempre el reloj del dispositivo desfasado cerca del límite de 30 s.
+function mensajeDeError(e) {
+  if (e?.codigo === 'espera' || e?.code === 'permission-denied') {
+    return `Espera ${SEGUNDOS_ENTRE_SUGERENCIAS} segundos antes de enviar otra sugerencia.`
+  }
+  if (e?.codigo === 'tope') {
+    return `Ya enviaste ${MAX_SUGERENCIAS_POR_DIA} sugerencias en las últimas 24 horas. Podrás enviar otra más tarde.`
+  }
+  return 'No se pudo enviar tu sugerencia. Inténtalo de nuevo.'
+}
 
 export default function SugerenciaEF({ className = '', iconSize = ICONO.sm, children, render }) {
   const { currentUser, userProfile } = useAuth()
@@ -64,8 +78,8 @@ export default function SugerenciaEF({ className = '', iconSize = ICONO.sm, chil
       })
       setAbierto(false)
       toast('Gracias. Recibimos tu sugerencia; la revisará el equipo de Evalúa Fácil.')
-    } catch {
-      toast('No se pudo enviar tu sugerencia. Inténtalo de nuevo.', 'error')
+    } catch (e) {
+      toast(mensajeDeError(e), 'error')
     } finally {
       setEnviando(false)
     }
@@ -101,8 +115,9 @@ export default function SugerenciaEF({ className = '', iconSize = ICONO.sm, chil
         )}
       >
         <div className="space-y-4">
+          {/* Aviso de uso respetuoso: texto autorizado por Kike (24-oct-2026). */}
           <p className="text-sm text-muted">
-            Cuéntanos un error, algo que no funciona, algo difícil de hacer o una idea para mejorar. La revisa el equipo de Evalúa Fácil.
+            Utiliza este espacio con respeto. Comparte problemas, dificultades y propuestas de mejora. Los mensajes con posibles insultos o amenazas podrán revisarse antes de ser atendidos.
           </p>
           <RadioGroup
             label="¿De qué se trata?"

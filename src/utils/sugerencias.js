@@ -8,13 +8,45 @@
 // También vive aquí cómo se nombra la pantalla en la que está la persona
 // (`ubicacionDeRuta`): la persona no tiene que saber cómo se llama, la app la
 // registra sola. La usan las sugerencias y los Reportes de IA.
-import { collection, serverTimestamp } from 'firebase/firestore'
-import { addDoc } from './firestoreGuard'
+//
+// Límite de frecuencia (PR 3): cada sugerencia se escribe en la MISMA
+// transacción que el avance de `sugerenciasCuota/{uid}`. Quien manda es la
+// regla de firestore.rules, con la hora del servidor; aquí solo se calcula el
+// siguiente estado y se avisa antes de intentar si ya se sabe que no toca.
+import { collection, doc, runTransaction, serverTimestamp } from 'firebase/firestore'
 import { db } from '../firebase'
 
 export { CATEGORIAS_SUGERENCIA } from './catalogoReportes'
 
 export const LARGO_MAX_DESCRIPCION_SUGERENCIA = 2000
+export const SEGUNDOS_ENTRE_SUGERENCIAS = 30
+export const MAX_SUGERENCIAS_POR_DIA = 10
+const VENTANA_MS = 24 * 60 * 60 * 1000
+
+// Error con código para la ventana: 'espera' (menos de 30 s desde la última)
+// o 'tope' (ya van 10 en 24 h).
+export class LimiteSugerencias extends Error {
+  constructor(codigo) {
+    super(codigo)
+    this.codigo = codigo
+  }
+}
+
+function millis(t) {
+  return t?.toMillis?.() ?? 0
+}
+
+// Siguiente estado de la cuota a partir del que hay (o de ninguno). `ahora`
+// es la hora del dispositivo: si va desfasada, la regla del servidor tiene la
+// última palabra y el envío se rechaza sin daño.
+export function siguienteCuota(previa, idSugerencia, ahora = Date.now()) {
+  const nueva = { ultimoEnvio: serverTimestamp(), ultimaSugerencia: idSugerencia }
+  if (!previa) return { ...nueva, ventanaInicio: serverTimestamp(), enviadas: 1 }
+  if (ahora - millis(previa.ultimoEnvio) <= SEGUNDOS_ENTRE_SUGERENCIAS * 1000) throw new LimiteSugerencias('espera')
+  if (ahora - millis(previa.ventanaInicio) >= VENTANA_MS) return { ...nueva, ventanaInicio: serverTimestamp(), enviadas: 1 }
+  if ((previa.enviadas || 0) >= MAX_SUGERENCIAS_POR_DIA) throw new LimiteSugerencias('tope')
+  return { ...nueva, ventanaInicio: previa.ventanaInicio, enviadas: (previa.enviadas || 0) + 1 }
+}
 
 // Pantallas con nombre. El orden importa: la primera que coincide gana.
 const PANTALLAS = [
@@ -82,15 +114,22 @@ export function rolParaRegistro(userProfile) {
 
 export async function enviarSugerencia({ uid, rol, categoria, descripcion, pathname }) {
   const { modulo, pantalla } = ubicacionDeRuta(pathname)
-  await addDoc(collection(db, 'sugerencias'), {
-    uid,
-    rol,
-    categoria,
-    descripcion: String(descripcion || '').trim().slice(0, LARGO_MAX_DESCRIPCION_SUGERENCIA),
-    ruta: rutaSinIds(pathname),
-    pantalla: pantalla.slice(0, 80),
-    modulo: modulo.slice(0, 80),
-    estado: 'nuevo',
-    creadoEn: serverTimestamp(),
+  const sugerenciaRef = doc(collection(db, 'sugerencias'))
+  const cuotaRef = doc(db, 'sugerenciasCuota', uid)
+  await runTransaction(db, async (tx) => {
+    const previa = await tx.get(cuotaRef)
+    const cuota = siguienteCuota(previa.exists() ? previa.data() : null, sugerenciaRef.id)
+    tx.set(sugerenciaRef, {
+      uid,
+      rol,
+      categoria,
+      descripcion: String(descripcion || '').trim().slice(0, LARGO_MAX_DESCRIPCION_SUGERENCIA),
+      ruta: rutaSinIds(pathname),
+      pantalla: pantalla.slice(0, 80),
+      modulo: modulo.slice(0, 80),
+      estado: 'nuevo',
+      creadoEn: serverTimestamp(),
+    })
+    tx.set(cuotaRef, cuota)
   })
 }

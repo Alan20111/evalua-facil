@@ -1960,9 +1960,57 @@ service cloud.firestore {
         request.resource.data.pantalla is string && request.resource.data.pantalla.size() <= 80 &&
         request.resource.data.modulo is string && request.resource.data.modulo.size() <= 80 &&
         request.resource.data.estado == 'nuevo' &&
-        request.resource.data.creadoEn == request.time;
+        request.resource.data.creadoEn == request.time &&
+        // Límite de frecuencia (24-oct-2026): cada sugerencia va en la misma
+        // transacción que el avance de SU cuota, y la cuota apunta a ella.
+        // Sin avanzar la cuota no entra ninguna, y un avance vale por una sola.
+        getAfter(/databases/$(database)/documents/sugerenciasCuota/$(request.auth.uid)).data.ultimaSugerencia == sugerenciaId &&
+        getAfter(/databases/$(database)/documents/sugerenciasCuota/$(request.auth.uid)).data.ultimoEnvio == request.time;
       allow read, delete: if isAdmin();
-      allow update: if isAdmin() && cambioDeEstadoDeReporte();
+      // El admin cambia el estado y, si la sugerencia quedó retenida por la
+      // moderación automática, da su dictamen. `moderacion` (lo que decidió el
+      // detector) solo la escribe el servidor.
+      allow update: if isAdmin() && (cambioDeEstadoDeReporte() || dictamenDeModeracion());
+    }
+    function dictamenDeModeracion() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'revisadoEn', 'resueltoEn', 'revisionModeracion', 'revisionModeracionEn']) &&
+        request.resource.data.estado in ['nuevo', 'revisado', 'resuelto', 'descartado'] &&
+        request.resource.data.revisionModeracion in ['legitima', 'ofensiva'] &&
+        request.resource.data.revisionModeracionEn == request.time;
+    }
+
+    // Cuota de «Sugerencia a Evalúa Fácil» por persona: al menos 30 s entre
+    // envíos y como máximo 10 por cada 24 h. La escribe la app del propio
+    // usuario junto con cada sugerencia (src/utils/sugerencias.js), pero todo
+    // lo que vale lo fija la regla con la hora del SERVIDOR: el usuario no
+    // puede bajar su contador, fecharlo en el pasado, reiniciarlo antes de
+    // tiempo ni borrarlo. Lo único que podría hacer es gastar su propia cuota.
+    function cuotaValida(uid) {
+      return request.auth != null && request.auth.uid == uid &&
+        request.resource.data.keys().hasOnly(['ultimoEnvio', 'ventanaInicio', 'enviadas', 'ultimaSugerencia']) &&
+        request.resource.data.ultimoEnvio == request.time &&
+        request.resource.data.ultimaSugerencia is string &&
+        // La sugerencia a la que apunta se crea en esta misma transacción.
+        !exists(/databases/$(database)/documents/sugerencias/$(request.resource.data.ultimaSugerencia)) &&
+        existsAfter(/databases/$(database)/documents/sugerencias/$(request.resource.data.ultimaSugerencia));
+    }
+    match /sugerenciasCuota/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if cuotaValida(uid) &&
+        request.resource.data.ventanaInicio == request.time &&
+        request.resource.data.enviadas == 1;
+      allow update: if cuotaValida(uid) &&
+        request.time > resource.data.ultimoEnvio + duration.value(30, 's') &&
+        (
+          (request.time < resource.data.ventanaInicio + duration.value(24, 'h') &&
+            request.resource.data.ventanaInicio == resource.data.ventanaInicio &&
+            request.resource.data.enviadas == resource.data.enviadas + 1 &&
+            request.resource.data.enviadas <= 10) ||
+          (request.time >= resource.data.ventanaInicio + duration.value(24, 'h') &&
+            request.resource.data.ventanaInicio == request.time &&
+            request.resource.data.enviadas == 1)
+        );
+      allow delete: if false;
     }
 
     // Cuota diaria de correos de avisosReportes. Solo la toca el servidor.
