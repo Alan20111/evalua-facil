@@ -29,6 +29,7 @@
     "test:ia": "firebase emulators:exec --only firestore,auth --project demo-test \"node test/ia-creditos.test.mjs\"",
     "pretest:cadena": "node scripts/sync-functions-shared.mjs",
     "test:cadena": "firebase emulators:exec --only firestore,auth --project demo-test \"node test/cadena-ledger.test.mjs\"",
+    "test:moderacion": "node test/moderacion-sugerencias.test.mjs",
     "pretest:avisos": "node scripts/sync-functions-shared.mjs",
     "test:avisos": "firebase emulators:exec --only firestore,auth --project demo-test \"node test/avisos-reportes.test.mjs\"",
     "pretest:integridad": "node scripts/sync-functions-shared.mjs",

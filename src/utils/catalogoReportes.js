@@ -74,6 +74,29 @@ export function etiquetaCategoriaSugerencia(categoria) {
   return CATEGORIAS_SUGERENCIA.find((c) => c.value === categoria)?.label || String(categoria || '')
 }
 
+// Moderación automática (functions/moderacionSugerencias.js). «Posible»: el
+// detector solo sugiere; quien decide es una persona.
+const MOTIVOS_MODERACION = {
+  amenaza: 'posible amenaza',
+  acoso: 'posible acoso',
+  insulto: 'posible insulto',
+  groseria: 'posible grosería',
+}
+
+// La sugerencia necesita revisión humana antes de leerse como cualquier otra:
+// la retuvo el detector o el detector no pudo revisarla. Las que nunca pasaron
+// por el detector (anteriores a él) no se tratan como retenidas.
+export function sugerenciaRetenida(s) {
+  const estado = s?.moderacion?.estado
+  return estado === 'retenida' || estado === 'sin_revisar'
+}
+
+export function textoMotivosModeracion(moderacion) {
+  if (moderacion?.estado === 'sin_revisar') return 'sin revisión automática'
+  const motivos = (moderacion?.motivos || []).map((m) => MOTIVOS_MODERACION[m] || m)
+  return motivos.join(', ') || 'posible lenguaje ofensivo'
+}
+
 // ── Los dos ─────────────────────────────────────────────────────────────────
 
 // revisado = alguien lo leyó · resuelto = se corrigió o se atendió.
