@@ -469,7 +469,7 @@ export default function RubricaEditor({ initial, docenteId, onClose, onSaved, ia
             </div>
             {/* Reportar la propuesta tal como la dio la IA (docs/PLAN_GOOGLE_PLAY.md, B2). */}
             <div className="flex justify-end">
-              <ReportarIA operacion="rubrica" contenido={initial} />
+              <ReportarIA operacion="rubrica" ubicacion="rubrica_editor" contenido={initial} />
             </div>
           </>)}
 

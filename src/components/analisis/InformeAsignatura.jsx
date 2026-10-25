@@ -92,7 +92,7 @@ export default function InformeAsignatura({ analisis, onClose, onDescargarPDF, d
 
         {/* Reportar el informe de la IA (docs/PLAN_GOOGLE_PLAY.md, B2). */}
         <div className="flex justify-end">
-          <ReportarIA operacion="analizar_asignatura" contenido={analisis} contextoId={analisis?.id} onAbiertoChange={setReportando} />
+          <ReportarIA operacion="analizar_asignatura" ubicacion="informe_asignatura" contenido={analisis} contextoId={analisis?.id} onAbiertoChange={setReportando} />
         </div>
 
         <Button variant="secondary" fullWidth onClick={onClose}>

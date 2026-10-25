@@ -7,8 +7,9 @@ import {
 import { TEACHER_CONTAINER } from '../../config/layout'
 import CanalYouTubeLink from '../../components/CanalYouTubeLink'
 import YouTubeIcon from '../../components/YouTubeIcon'
+import SugerenciaEF, { ICONO_SUGERENCIA } from '../../components/SugerenciaEF'
 import { ICONO } from '../../config/iconos'
-import { PUEDE_COMPRAR } from '../../utils/platform'
+import { IS_NATIVE_APP, PUEDE_COMPRAR } from '../../utils/platform'
 
 // ─── Primeros pasos ──────────────────────────────────────────────────────────
 
@@ -317,6 +318,28 @@ export default function AyudaPage() {
         <span className="flex-1 text-[15px] font-semibold text-on-surface">Evalúa Fácil en YouTube</span>
         <ChevronRight size={ICONO.sm} className="text-muted flex-shrink-0" />
       </CanalYouTubeLink>
+
+      {/* Sugerencia a Evalúa Fácil — misma tarjeta; abre la ventana para
+          contar un error, algo que no funciona o una idea. En el teléfono es
+          la manera de llegar a ella (el ícono de ayuda de la barra superior
+          trae aquí). Solo donde no hay barra lateral (teléfono y app nativa):
+          en escritorio la barra ya tiene este acceso. */}
+      <SugerenciaEF
+        render={(abrir) => (
+          <button
+            type="button"
+            onClick={abrir}
+            className={`${IS_NATIVE_APP ? '' : 'md:hidden'} w-full text-left mb-6 flex items-center gap-3 px-5 py-4 bg-surface-card rounded-card shadow-card hover:bg-[var(--accent-tint)] transition-colors`}
+          >
+            <ICONO_SUGERENCIA size={ICONO.md} className="text-accent flex-shrink-0" />
+            <span className="flex-1 min-w-0">
+              <span className="block text-[15px] font-semibold text-on-surface">Sugerencia a Evalúa Fácil</span>
+              <span className="block text-sm text-muted">Cuéntanos un error, algo difícil de hacer o una idea para mejorar.</span>
+            </span>
+            <ChevronRight size={ICONO.sm} className="text-muted flex-shrink-0" />
+          </button>
+        )}
+      />
 
       {/* PRIMEROS PASOS */}
       <div className="flex items-center gap-2 mb-3">

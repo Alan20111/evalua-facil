@@ -174,7 +174,7 @@ export default function ListaCotejoEditor({ initial, docenteId, onClose, onSaved
             </div>
             {/* Reportar la propuesta tal como la dio la IA (docs/PLAN_GOOGLE_PLAY.md, B2). */}
             <div className="flex justify-end">
-              <ReportarIA operacion="cotejo" contenido={initial} />
+              <ReportarIA operacion="cotejo" ubicacion="cotejo_editor" contenido={initial} />
             </div>
           </>)}
           {/* Nombre de la lista de cotejo */}

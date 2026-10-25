@@ -430,7 +430,7 @@ export default function CalificarConIAModal({
           {/* Reportar la propuesta tal como la dio la IA (docs/PLAN_GOOGLE_PLAY.md, B2). */}
           <div className="flex flex-wrap justify-end gap-2">
             <ReportarIA
-              operacion="calificar_entregable_ia"
+              operacion="calificar_entregable_ia" ubicacion="revision_entrega" actividadId={actividadId} entregaId={submissionId}
               contenido={resultado}
               contextoId={submissionId}
               className="mr-auto"

@@ -206,7 +206,7 @@ export default function PropuestasVideoPanel({
           </button>
           {/* Reportar las preguntas que propuso la IA (docs/PLAN_GOOGLE_PLAY.md, B2). */}
           {propuestas.length > 0 && (
-            <ReportarIA operacion="generar_preguntas_video" contenido={propuestas} contextoId={activityId} className="ml-auto" />
+            <ReportarIA operacion="generar_preguntas_video" ubicacion="video_preguntas" contenido={propuestas} contextoId={activityId} actividadId={activityId} className="ml-auto" />
           )}
         </div>
       </div>

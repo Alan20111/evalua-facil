@@ -11,7 +11,7 @@ import {
   Map,
   Sparkles,
   BrainCircuit,
-  Download, TrendingUp, School, Flag, Bug } from 'lucide-react'
+  Download, TrendingUp, School, Flag, Bug, MessageSquarePlus } from 'lucide-react'
 import { cerrarSesion } from '../utils/cerrarSesion'
 import { useToast } from './Toast'
 import { useAuth } from '../context/AuthContext'
@@ -30,6 +30,7 @@ const TABS = [
   { id: 'creditos', label: 'Compras de créditos', icon: Sparkles },
   { id: 'costosIA', label: 'Costos de IA', icon: TrendingUp },
   { id: 'reportesIA', label: 'Reportes de IA', icon: Flag },
+  { id: 'sugerencias', label: 'Sugerencias a Evalúa Fácil', icon: MessageSquarePlus },
   { id: 'errores', label: 'Errores', icon: Bug },
   { id: 'registros', label: 'Registros', icon: UserPlus },
   { id: 'zonas', label: 'Ventas por zona', icon: Map },
@@ -42,7 +43,10 @@ const TABS = [
 // Los tonos guinda viven en [data-role='admin'] (src/index.css), no aquí: la
 // zona admin entera —tarjetas, tablas, botones— comparte esa misma paleta a
 // través de --accent, así que un solo lugar la define.
-export default function AdminLayout({ activeTab, onTabChange, children }) {
+//
+// `nuevos`: { [idDePestaña]: número } — casos nuevos sin atender (Reportes de IA
+// y Sugerencias a Evalúa Fácil). Se muestran junto al nombre de la pestaña.
+export default function AdminLayout({ activeTab, onTabChange, nuevos = {}, children }) {
   const { userProfile } = useAuth()
   const navigate = useNavigate()
   const toast = useToast()
@@ -125,6 +129,14 @@ export default function AdminLayout({ activeTab, onTabChange, children }) {
               >
                 <Icon size={SB_ICONO} className="flex-shrink-0" />
                 <span className="truncate">{label}</span>
+                {nuevos[id] > 0 && (
+                  <span
+                    className="ml-auto min-w-6 h-6 px-1.5 rounded-full bg-white text-[var(--admin-plane)] text-xs font-bold flex items-center justify-center tabular-nums flex-shrink-0"
+                    aria-label={`${nuevos[id]} nuevos`}
+                  >
+                    {nuevos[id] > 99 ? '99+' : nuevos[id]}
+                  </span>
+                )}
               </button>
             ))}
           </nav>
