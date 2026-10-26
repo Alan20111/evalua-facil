@@ -6860,10 +6860,16 @@ async function estimarCalificacionEvidencias({ uid, params }) {
   return { estimacion: ctx.costoCalificacion, sinEvidencia: ctx.sinEvidencia || 0 }
 }
 
+const MARGEN_CIERRE_MS = 30000 // liquidar el cobro y responder después de la última llamada a la IA
+
 function crearCallableIA(opciones, { soloOperacion = null } = {}) {
   return onCall(
     opciones,
     async (request) => {
+    // Fecha límite REAL de esta petición: el tiempo de la función que la atiende, menos un margen para
+    // liquidar y responder. Las operaciones que hacen varias rondas (generar_preguntas_video) la usan para
+    // cerrar a tiempo aunque las atienda la función general (300 s) en vez de la dedicada (540 s).
+    const venceEn = Date.now() + (Number(opciones?.timeoutSeconds) || 60) * 1000 - MARGEN_CIERRE_MS
     const uid = request.auth?.uid
     if (!uid) throw new HttpsError('unauthenticated', 'Inicia sesión para usar la IA')
 
@@ -6912,7 +6918,7 @@ function crearCallableIA(opciones, { soloOperacion = null } = {}) {
     if (PRECHECKS[operacion]) {
       // `idempotencyKey` solo lo usan los prechecks que saben reconocer un reintento ya
       // ejecutado (generar_preguntas_video: no vuelve a pagarle a Gemini por leer el video).
-      precontexto = await PRECHECKS[operacion]({ uid, params, tarifas, idempotencyKey })
+      precontexto = await PRECHECKS[operacion]({ uid, params, tarifas, idempotencyKey, venceEn })
     }
 
     // El precheck puede saber, ANTES de reservar, que esta operación va a
@@ -7004,7 +7010,7 @@ function crearCallableIA(opciones, { soloOperacion = null } = {}) {
         // por el precheck: el ejecutor nunca usa texto pedagógico del cliente.
         salida = await ejecutor({
           params: { ...params, __uid: uid, __idempotencyKey: idempotencyKey, __contexto: precontexto },
-          modelo, apiKey, unidades: n,
+          modelo, apiKey, unidades: n, venceEn,
         })
       } catch (e) {
         await ledger.reembolsar({ uid, idempotencyKey, motivo: String(e.message || e).slice(0, 300) })
@@ -7159,6 +7165,13 @@ exports.ejecutarOperacionIA = crearCallableIA({ secrets: [ANTHROPIC_API_KEY_PROD
 exports.ejecutarPlaneacionIA = crearCallableIA(
   { secrets: [ANTHROPIC_API_KEY_PROD], timeoutSeconds: 540 },
   { soloOperacion: 'planeacion_didactica_inicial' }
+)
+// Video interactivo: leer el video (Gemini, hasta 150 s) + generar, validar y SUSTITUIR las preguntas que no pasan
+// necesita más de 300 s. Mismo cuerpo y mismo ledger; `soloOperacion` impide usarla para otra cosa. Si aún no está
+// desplegada, el cliente cae a ejecutarOperacionIA con la MISMA clave y el ejecutor cierra antes por `venceEn`.
+exports.ejecutarVideoIA = crearCallableIA(
+  { secrets: [ANTHROPIC_API_KEY_PROD, GEMINI_API_KEY], timeoutSeconds: 540 },
+  { soloOperacion: 'generar_preguntas_video' }
 )
 
 // Mantenimiento diario: en créditos puros ya no hay ciclos que renovar ni

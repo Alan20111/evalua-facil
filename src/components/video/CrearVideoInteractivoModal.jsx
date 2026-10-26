@@ -75,7 +75,7 @@ export default function CrearVideoInteractivoModal({
     setTrabajando(true)
     try {
       const r = await accion()
-      const aviso = r.estado === 'incompleta' ? `La IA entregó ${r.entregadas} de ${r.pedidas} preguntas; solo se cobraron las entregadas.` : `${r.entregadas} ${r.entregadas === 1 ? 'pregunta propuesta' : 'preguntas propuestas'}: revísalas y apruébalas.`
+      const aviso = r.estado === 'incompleta' ? `Recibiste ${r.entregadas} de ${r.pedidas} preguntas: las demás no se pudieron comprobar con el video. Solo se cobraron las ${r.entregadas} que recibiste.` : `${r.entregadas} ${r.entregadas === 1 ? 'pregunta lista: revísala y apruébala si quieres publicarla.' : 'preguntas listas: revísalas y aprueba las que quieras publicar.'}`
       toast(r.recuperada ? `Recuperamos tu generación sin volver a cobrar. ${aviso}` : aviso)
       onCreated?.(r.actividadId)
     } catch (e) {
@@ -199,7 +199,7 @@ export default function CrearVideoInteractivoModal({
             {sinCobro && fallo.actividadId && <p className="text-sm text-amber-900">Puedes corregir lo que haga falta y generar de nuevo; la actividad quedó guardada como borrador.</p>}
           </div>
         )}
-        {trabajando && <p className="text-sm text-muted">La IA está viendo el video; puede tardar un par de minutos. No cierres esta ventana.</p>}
+        {trabajando && <p className="text-sm text-muted">La IA está viendo el video y comprobando cada pregunta. Puede tardar varios minutos (hasta unos 9 en videos largos). No cierres esta ventana.</p>}
       </div>
     </Modal>
   )

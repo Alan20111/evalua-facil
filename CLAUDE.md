@@ -35,7 +35,7 @@ export PATH="$JAVA_HOME/bin:$PATH"
 
 **Nombre en GCP Secret Manager:** `ANTHROPIC_API_KEY_PROD`
 **Proyecto GCP:** `evalua-facil-app`
-**Funciones que lo usan:** `ejecutarOperacionIA` (`functions/ia.js`) y `chatAdmin` (`functions/adminChat.js`)
+**Funciones que lo usan:** `ejecutarOperacionIA` y `ejecutarVideoIA` (`functions/ia.js`) y `chatAdmin` (`functions/adminChat.js`)
 **Dónde se crea la key:** console.anthropic.com → Settings → API Keys
 **Nombre sugerido en Anthropic:** `EVALUA-FACIL-PROD`
 **Expiración:** ninguna (nunca poner fecha de expiración a la key de producción)
@@ -72,7 +72,7 @@ export PATH="$JAVA_HOME/bin:$PATH"
    Solo las que usan la clave, y con el timeout de descubrimiento ampliado:
    ```bash
    export FUNCTIONS_DISCOVERY_TIMEOUT=120
-   firebase deploy --only functions:ejecutarOperacionIA,functions:chatAdmin
+   firebase deploy --only functions:ejecutarOperacionIA,functions:ejecutarVideoIA,functions:chatAdmin
    ```
    Sin esa variable el deploy muere con "User code failed to load. Cannot
    determine backend specification. Timeout after 10000": cargar este
@@ -156,8 +156,9 @@ Gemini **solo lee el video** (`functions/extraccionVideoGemini.js`); las pregunt
 sigue generando Claude Haiku 4.5. Es una credencial DISTINTA de la de Anthropic.
 
 - **Secreto en GCP Secret Manager:** `GEMINI_API_KEY` (proyecto `evalua-facil-app`).
-- **Función que lo recibe:** solo `ejecutarOperacionIA` (declarado en `functions/ia.js`).
-  `ejecutarPlaneacionIA` y `chatAdmin` NO lo reciben. El extractor lo lee únicamente de la
+- **Funciones que lo reciben:** solo `ejecutarOperacionIA` y `ejecutarVideoIA` (declarado en `functions/ia.js`;
+  `ejecutarVideoIA` es la de 540 s que genera las preguntas del video, y la general queda de respaldo con la
+  misma clave de idempotencia). `ejecutarPlaneacionIA` y `chatAdmin` NO lo reciben. El extractor lo lee únicamente de la
   variable de entorno `GEMINI_API_KEY`; nunca va al cliente, a los logs ni a un mensaje de error.
 - **Dónde se crea:** https://aistudio.google.com/apikey, restringida a la *Generative Language API*.
   Para uso real, de un proyecto con facturación: en el nivel gratuito Google usa lo enviado
@@ -179,10 +180,10 @@ referenciado no existe, y eso también bloquearía rotar la clave de Anthropic):
    Verifica la forma, sube con `--data-file`, comprueba la ida y vuelta y borra el archivo.
 2. Sembrar la tarifa de `generar_preguntas_video` (sin ella la operación rechaza sin cobrar):
    `cd seeds-db && node seed-ia-tarifas.js --dry-run`, revisar, y luego sin `--dry-run`.
-3. Desplegar solo la función que lo usa (con el tiempo de descubrimiento ampliado):
+3. Desplegar solo las funciones que lo usan (con el tiempo de descubrimiento ampliado):
    ```bash
    export FUNCTIONS_DISCOVERY_TIMEOUT=120
-   firebase deploy --only functions:ejecutarOperacionIA
+   firebase deploy --only functions:ejecutarOperacionIA,functions:ejecutarVideoIA
    ```
    Se despliega lo que haya en el árbol de trabajo: fusionar antes lo que deba subir.
 4. Validación real del extractor (una llamada por video; no usa créditos ni Claude):
@@ -195,7 +196,7 @@ referenciado no existe, y eso también bloquearía rotar la clave de Anthropic):
 Variables opcionales del extractor: `GEMINI_VIDEO_MODELO` (por omisión `gemini-3.5-flash-lite`),
 `GEMINI_VIDEO_TIMEOUT_MS` (90 000 por llamada) y `GEMINI_VIDEO_PRESUPUESTO_MS` (150 000 en total).
 Rotar la clave: igual que la de Anthropic (nueva versión con `--data-file` y **redesplegar**
-`ejecutarOperacionIA`, porque la versión queda fijada en el despliegue).
+`ejecutarOperacionIA` y `ejecutarVideoIA`, porque la versión queda fijada en el despliegue).
 
 ---
 

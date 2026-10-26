@@ -1,20 +1,21 @@
-// Textos de las tres recomendaciones antes de publicar un video interactivo (ver RecomendacionesVideo.jsx).
+// Textos de las recomendaciones antes de publicar un video interactivo (ver RecomendacionesVideo.jsx). Describen el flujo: el
+// sistema genera, comprueba y ubica cada pregunta; el docente solo la mueve (arrastrando) o edita su texto, y decide cuáles aprobar.
 export const RECOMENDACIONES_VIDEO = [
   {
-    titulo: 'Asegúrate de que las preguntas ocurren donde corresponden.',
-    corto: 'Que las preguntas ocurran donde corresponden',
-    texto: 'Comprueba que el estudiante haya visto la explicación necesaria antes de cada pregunta. Ajusta el momento y vuelve a probarlo si es necesario.',
+    titulo: 'Cada pregunta ya tiene su momento.',
+    corto: 'Cada pregunta ya tiene su momento',
+    texto: 'Aparece justo después de que el video explica lo que pregunta. Para cambiarlo, arrastra su punto en la línea de tiempo.',
   },
   {
-    titulo: 'Asegúrate de conocer el video.',
-    corto: 'Que conozcas el video',
-    texto: 'Revisa el contenido, las explicaciones, los ejemplos y la secuencia del video. No aceptes automáticamente los tiempos ni las preguntas generadas por la IA.',
+    titulo: 'Solo pagas las preguntas que recibes.',
+    corto: 'Solo pagas las que recibes',
+    texto: 'Cada pregunta y su respuesta se comprueban con el video. Si alguna no se puede comprobar, se cambia por otra; si no se logra, se quita. Puedes recibir menos de las que pediste.',
   },
   {
-    titulo: 'Asegúrate de que las preguntas y sus respuestas sean adecuadas.',
-    corto: 'Que preguntas y respuestas sean adecuadas',
-    texto: 'Verifica que correspondan al video, estén claras, tengan opciones pertinentes y una respuesta correcta respaldada por el contenido. Corrige o descarta las ambiguas, incorrectas, repetidas o sin respaldo suficiente.',
+    titulo: 'Tú decides cuáles usar.',
+    corto: 'Tú decides cuáles usar',
+    texto: 'Edita el texto o las opciones si lo necesitas y aprueba las preguntas que quieras publicar.',
   },
 ]
 
-export const REGLA_VIDEO = 'La IA propone; tú revisas, corriges, pruebas, apruebas o descartas. Aprobar una pregunta es tu decisión: no significa que el sistema haya comprobado que sea correcta.'
+export const REGLA_VIDEO = 'Solo se publican para tus estudiantes las preguntas que apruebes.'

@@ -118,7 +118,8 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, idioma = nu
     if (yt.listo) { yt.saltarA(nuevo); if (reproduciendo) yt.pausar() }
   }
   const alternar = () => { if (reproduciendo) yt.pausar(); else yt.reproducir() }
-  // Preguntas sin minuto: la línea de tiempo no las puede dibujar, así que se avisan aquí con un acceso a cada una.
+  // Propuestas de la versión anterior sin momento (pendientes de ubicación): la línea no las dibuja, así que se avisan aquí con un
+  // acceso a cada una. Las nuevas siempre llegan con su momento.
   const sinMinuto = preguntasSinMinuto(items)
 
   return (
@@ -133,7 +134,7 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, idioma = nu
       {yt.error != null && (
         <div role="alert" className="flex items-start gap-2 rounded-card bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-900">
           <AlertTriangle size={ICONO.sm} className="flex-shrink-0 mt-0.5" />
-          <span className="flex-1">{mensajeErrorYouTube(yt.error)} Puedes seguir ajustando el minuto con el campo.</span>
+          <span className="flex-1">{mensajeErrorYouTube(yt.error)} Puedes seguir ajustando el momento con los botones −5 a +5.</span>
           <button type="button" onClick={yt.reintentar} className="font-semibold underline">Reintentar</button>
         </div>
       )}
@@ -151,8 +152,8 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, idioma = nu
       {sinMinuto.length > 0 && (
         <div data-testid="aviso-sin-minuto" className="rounded-card border border-amber-300 bg-amber-50 px-3 py-2 space-y-1.5 text-amber-950">
           <p className="text-xs">
-            <span className="font-semibold">{sinMinuto.length === 1 ? '1 pregunta sin minuto' : `${sinMinuto.length} preguntas sin minuto`}:</span>{' '}
-            no {sinMinuto.length === 1 ? 'aparece' : 'aparecen'} en la línea de tiempo ni se {sinMinuto.length === 1 ? 'puede' : 'pueden'} aprobar hasta que elijas cuándo {sinMinuto.length === 1 ? 'aparece' : 'aparecen'}.
+            <span className="font-semibold">{sinMinuto.length === 1 ? '1 pregunta sin momento' : `${sinMinuto.length} preguntas sin momento`}</span>{' '}
+            ({sinMinuto.length === 1 ? 'generada antes de esta mejora): arrástrala a la línea de tiempo o descártala.' : 'generadas antes de esta mejora): arrástralas a la línea de tiempo o descártalas.'}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {sinMinuto.map((o) => (

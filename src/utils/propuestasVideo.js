@@ -36,7 +36,7 @@ export function idPropuesta(generacionId, indice) {
 
 // Respaldo que el servidor guardó junto con la pregunta → forma que lee la ventana de revisión (leerEvidencia). La cita es texto de la
 // transcripción por frases, no un resumen. «verificado»/«reubicado» solo si el verificador demostró la respuesta con el video;
-// sin minuto verificado queda «no_verificable» y la revisión pide confirmación expresa del docente.
+// sin minuto verificado queda «no_verificable» (solo ocurre en propuestas de la versión anterior).
 export function respaldoParaRevision(p) {
   const r = p?.respaldo
   if (!r || typeof r !== 'object' || !Number.isFinite(r.finSeg)) return null
@@ -62,8 +62,9 @@ export function propuestaDesdeIA(p, generacionId) {
     respuestaCorrecta: p.tipo === 'respuesta_corta' ? null : (p.respuestaCorrecta ?? null),
     retroalimentacion: limpiar(p.retroalimentacion) || null,
     timestampSeg: Number.isInteger(p.timestampSeg) ? p.timestampSeg : null,
-    // Sugerencia (NO verificada como minuto): solo si el verificador comprobó el prefijo y no hay minuto; el docente decide.
-    minutoSugerido: !Number.isInteger(p.timestampSeg) && Number.isInteger(p.minutoSugerido) ? p.minutoSugerido : null,
+    // Versión de la validación que pasó en el servidor (contenido, respuesta y momento). Sin ella, la propuesta es de la versión
+    // anterior y la revisión la identifica como tal (puede venir sin momento: queda pendiente de ubicación).
+    versionValidacion: Number.isInteger(p.versionValidacion) ? p.versionValidacion : null,
     respaldo: respaldoParaRevision(p),
     estado: ESTADO_PROPUESTA.PENDIENTE,
     origen: 'ia',

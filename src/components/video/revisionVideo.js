@@ -58,9 +58,12 @@ export function interpretarTiempo(texto) {
 }
 export { formatearMinuto }
 
+export const MENSAJE_SIN_UBICAR = 'Para aprobarla, primero arrastra su punto a la línea de tiempo.'
+
 // Valida el momento de aparición. `error` impide guardar; `aviso` solo advierte.
 export function validarTiempo(seg, duracionSeg) {
-  if (!Number.isInteger(seg)) return { ok: false, error: 'Escribe el minuto como m:ss (por ejemplo 2:35).', aviso: null }
+  // Sin momento solo puede estar una propuesta de la versión anterior: se ubica arrastrando su punto (nunca escribiendo).
+  if (!Number.isInteger(seg)) return { ok: false, error: MENSAJE_SIN_UBICAR, aviso: null }
   if (seg < 0) return { ok: false, error: 'El minuto no puede ser negativo.', aviso: null }
   const d = num(duracionSeg)
   if (d && d > 0 && seg > Math.floor(d)) return { ok: false, error: `El video dura ${formatearMinuto(Math.floor(d))}: el minuto no puede ser posterior.`, aviso: null }
@@ -88,27 +91,17 @@ export function leerEvidencia(respaldo) {
   return { inicioSeg: inicio, finSeg: fin, resumen, cita, verificacion }
 }
 
-// Advertencias sobre el momento elegido frente a la evidencia (si la hay).
+// Aviso sobre el momento elegido frente a la evidencia: solo si el DOCENTE movió la pregunta antes de que termine el fragmento
+// que la respalda. No se le pide comprobar nada: las preguntas nuevas ya llegan validadas (contenido, respuesta y momento).
 export function advertenciasDeTiempo(item) {
-  const adv = []
   const ev = leerEvidencia(item?.respaldo)
-  if (!ev) {
-    adv.push('No hay evidencia guardada de qué parte del video salió esta pregunta ni de si la explicación ya había terminado en este minuto. Compruébalo viendo el video.')
-    return adv
-  }
-  if (ev.verificacion === 'no_verificable') adv.push('El sistema no pudo respaldar esta pregunta con el contenido del video. Revísala con cuidado o descártala.')
-  if (ev.finSeg !== null && Number.isInteger(item.timestampSeg) && item.timestampSeg < ev.finSeg) {
-    adv.push(`El minuto elegido (${formatearMinuto(item.timestampSeg)}) es anterior al final del tramo de donde salió (${formatearMinuto(Math.floor(ev.finSeg))}): la explicación podría no haber terminado.`)
-  }
-  if (ev.finSeg === null) adv.push('No se sabe dónde termina la explicación en la que se basa esta pregunta.')
-  return adv
+  if (!ev || ev.finSeg === null || !Number.isInteger(item?.timestampSeg) || item.timestampSeg >= ev.finSeg) return []
+  return [`El momento elegido (${formatearMinuto(item.timestampSeg)}) es anterior al final del fragmento de donde salió (${formatearMinuto(Math.floor(ev.finSeg))}): la explicación podría no haber terminado.`]
 }
 
-// ¿Hay que pedir una confirmación expresa antes de aprobar? Solo si el sistema marcó la pregunta como
-// no respaldada. Aprobar nunca convierte una pregunta en «verificada».
-export function requiereConfirmacion(item) {
-  return leerEvidencia(item?.respaldo)?.verificacion === 'no_verificable'
-}
+// ¿La propuesta es de la versión anterior del generador (sin la validación automática actual)? Se reconoce al leerla: las
+// nuevas traen `versionValidacion`. No se reescribe ningún dato.
+export const esDeVersionAnterior = (p) => !Number.isInteger(p?.versionValidacion)
 
 // ── Elementos de revisión ────────────────────────────────────────────────────────────────
 // Une las propuestas de la IA con las preguntas que ya están en la evaluación (las aprobadas) en una
@@ -136,7 +129,7 @@ export function construirItems({ propuestas = [], activas = [], borradores = {},
     items.push(base({
       id: p.id, origen: 'ia', propuestaId: p.id, estado, fuente,
       editada: !!p.editada, sugeridoSeg: Number.isInteger(sugeridoSeg) ? sugeridoSeg : null, respaldo: p.respaldo || null, fuera,
-      minutoSugerido: Number.isInteger(p.minutoSugerido) ? p.minutoSugerido : null,
+      anterior: esDeVersionAnterior(p),
     }))
   }
   // Preguntas de la evaluación sin propuesta (creadas a mano, o de antes): también se publican.
@@ -149,9 +142,9 @@ export function construirItems({ propuestas = [], activas = [], borradores = {},
     .sort((a, b) => (a.timestampSeg ?? Infinity) - (b.timestampSeg ?? Infinity) || String(a.id).localeCompare(String(b.id)))
 }
 
-function base({ id, origen, propuestaId, estado, fuente, editada, sugeridoSeg, respaldo, fuera = false, minutoSugerido = null }) {
+function base({ id, origen, propuestaId, estado, fuente, editada, sugeridoSeg, respaldo, fuera = false, anterior = false }) {
   return {
-    id, origen, propuestaId, estado, editada, sugeridoSeg, respaldo, fueraDeLaEvaluacion: fuera, minutoSugerido,
+    id, origen, propuestaId, estado, editada, sugeridoSeg, respaldo, fueraDeLaEvaluacion: fuera, anterior,
     tipo: fuente.tipo,
     enunciado: fuente.enunciado || '',
     opciones: Array.isArray(fuente.opciones) ? fuente.opciones.map((o) => ({ ...o })) : null,

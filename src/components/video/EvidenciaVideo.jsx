@@ -2,10 +2,8 @@ import { AlertTriangle, FileSearch } from 'lucide-react'
 import { advertenciasDeTiempo, formatearMinuto, leerEvidencia } from './revisionVideo'
 import { ICONO } from '../../config/iconos'
 
-// De dónde salió una pregunta y si su momento tiene respaldo. NUNCA inventa evidencia y NO dibuja nada cuando no la hay: hoy
-// las propuestas no guardan el tramo del que salieron, así que un recuadro vacío repetido en cada pregunta no le dice nada al
-// docente (la ventana de revisión avisa UNA vez, en una línea, que no hay evidencia). Aunque la haya, el resumen de un tramo lo
-// escribió una IA y puede omitir o deformar lo que dice el video: es una ayuda para revisar, no una garantía.
+// De qué parte del video salió una pregunta: el fragmento y la cita con la que se comprobó. Es información, no una tarea: al docente
+// no se le pide comprobar nada. NUNCA inventa evidencia y NO dibuja nada cuando no la hay (propuestas de la versión anterior).
 export default function EvidenciaVideo({ item }) {
   const ev = leerEvidencia(item?.respaldo)
   if (!ev) return null
@@ -25,7 +23,6 @@ export default function EvidenciaVideo({ item }) {
         )}
         {ev.resumen && <p><span className="font-semibold">Resumen del tramo:</span> {ev.resumen}</p>}
         {ev.cita && <p><span className="font-semibold">Cita de apoyo:</span> “{ev.cita}”</p>}
-        <p className="text-hint">El resumen lo escribió una IA y puede omitir o deformar lo que dice el video. Compáralo con el video.</p>
       </div>
       {avisos.map((a) => (
         <p key={a} className="flex items-start gap-1.5 text-xs text-amber-900 bg-amber-50 rounded px-2 py-1.5">

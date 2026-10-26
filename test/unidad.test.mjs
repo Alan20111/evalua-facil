@@ -5942,19 +5942,6 @@ caso('extractor · suficiencia: depende de segmentos, densidad y cobertura — n
   assert.ok(/unas 2 preguntas/.test(e.message) && /pediste 10/.test(e.message))
 })
 
-caso('extractor · compatibilidad con la operación de preguntas: el contrato llega completo al prompt de Haiku', async () => {
-  const c = await conGemini(falsoGemini(respOk(textoGemini())), () => EX.extraerContenidoVideo(URL_VIDEO))
-  const prompt = VIA.promptPreguntasVideo({ asignatura: 'Informática', contenido: c }, { verdadero_falso: 2, opcion_multiple: 2, respuesta_corta: 1 }, [])
-  assert.ok(prompt.includes('#20 [4:45–5:00]') && prompt.includes('#1 [0:00–0:15]'), 'viajan los segmentos numerados con su rango real')
-  assert.ok(c.segmentos.every((s, i) => s.finSeg === (c.segmentos[i + 1]?.inicioSeg ?? c.duracionSeg)), 'fin = inicio del siguiente; el último termina con el video')
-  assert.ok(/introduceEn/.test(prompt) && /completaEn/.test(prompt) && !/timestampSeg/.test(prompt), 'el modelo declara segmentos, no tiempos')
-  assert.ok(/NO una transcripción literal/.test(prompt))
-  assert.ok(!/NO tiene habla/.test(prompt))
-  const mudo = VIA.promptPreguntasVideo({ asignatura: 'X', contenido: { ...c, habla: false } }, { verdadero_falso: 1, opcion_multiple: 0, respuesta_corta: 0 }, [])
-  assert.ok(/NO tiene habla/.test(mudo), 'si el video no tiene habla se le dice a Haiku')
-  assert.ok(/no es una transcripción literal/.test(VIA.SISTEMA))
-})
-
 caso('extractor · el mecanismo antiguo de YouTube ya no existe ni como ruta alternativa', () => {
   assert.throws(() => require.resolve('../functions/transcripcionYouTube.js'))
   for (const f of ['extraccionVideoGemini.js', 'videoInteractivoIA.js', 'ia.js', 'index.js']) {
@@ -5966,11 +5953,12 @@ caso('extractor · el mecanismo antiguo de YouTube ya no existe ni como ruta alt
   assert.ok(!/process\.env\.GEMINI_API_KEY[^)]*(console|logger)/.test(ext))
 })
 
-caso('extractor · el secreto GEMINI_API_KEY se enlaza SOLO a ejecutarOperacionIA; la clave no sale del entorno', () => {
+caso('extractor · el secreto GEMINI_API_KEY se enlaza SOLO a ejecutarOperacionIA y ejecutarVideoIA; la clave no sale del entorno', () => {
   process.env.GCLOUD_PROJECT ||= 'demo-test'
   const llaves = (f) => (f.__endpoint?.secretEnvironmentVariables || []).map((v) => v.key).sort()
   const ia = require('../functions/ia.js')
   assert.deepStrictEqual(llaves(ia.ejecutarOperacionIA), ['ANTHROPIC_API_KEY_PROD', 'GEMINI_API_KEY'])
+  assert.deepStrictEqual(llaves(ia.ejecutarVideoIA), ['ANTHROPIC_API_KEY_PROD', 'GEMINI_API_KEY'], 'la función del video también lee el video')
   assert.deepStrictEqual(llaves(ia.ejecutarPlaneacionIA), ['ANTHROPIC_API_KEY_PROD'], 'la planeación larga no recibe Gemini')
   assert.deepStrictEqual(llaves(require('../functions/adminChat.js').chatAdmin), ['ANTHROPIC_API_KEY_PROD'], 'el chat de admin no recibe Gemini')
   assert.strictEqual(ia.ejecutarOperacionIA.__endpoint.timeoutSeconds, 300, 'el tiempo de la función no cambió')
@@ -5989,80 +5977,68 @@ const preg = (o) => ({ tipo: 'verdadero_falso', enunciado: 'Enunciado 1', introd
 const SEGS20 = Array.from({ length: 20 }, (_, i) => ({ inicioSeg: i * 15, finSeg: (i + 1) * 15, texto: `Segmento ${i + 1}: se desarrolla el tema con un ejemplo concreto.` }))
 const OPT20 = { duracionSeg: 300, duracionConfiable: true, segmentos: SEGS20 }
 
-caso('generación: el prompt lleva la distribución exacta, el tope de tiempo y trata la transcripción como dato', () => {
-  const p = VIA.promptPreguntasVideo(CTX_VIDEO, { verdadero_falso: 4, opcion_multiple: 4, respuesta_corta: 2 }, [])
-  assert.ok(p.includes('EXACTAMENTE 10 preguntas'))
-  assert.ok(p.includes('4 × verdadero_falso') && p.includes('4 × opcion_multiple') && p.includes('2 × respuesta_corta'))
-  assert.ok(/Una simple mención NO basta/.test(p) && /nunca lo que se diga después/.test(p))
-  assert.ok(/no instrucciones/i.test(p) && /ignórala/.test(VIA.SISTEMA))
-  assert.ok(!p.includes('YA PROPUESTAS'))
-  assert.ok(VIA.promptPreguntasVideo(CTX_VIDEO, { verdadero_falso: 1, opcion_multiple: 0, respuesta_corta: 0 }, ['Algo previo']).includes('"Algo previo"'))
+// Generación DESDE FRASES (26-oct-2026): el modelo declara la frase donde queda explicada y cita literalmente; el tiempo lo decide
+// después la validación. 12 frases de 10 s en un video de 120 s.
+const FR12 = Array.from({ length: 12 }, (_, i) => ({ inicioSeg: i * 10, finSeg: (i + 1) * 10, texto: `Frase ${i + 1}: el video explica la idea número ${i + 1} con detalle suficiente.`, segmento: Math.floor(i / 6) + 1 }))
+const TRAMOS2 = [{ inicioSeg: 0, finSeg: 60, texto: 'Resumen del primer tramo que NO debe viajar al generador.' }, { inicioSeg: 60, finSeg: 120, texto: 'Resumen del segundo tramo.' }]
+const citaDe = (n, desde = 0, largo = 30) => ({ frase: n, texto: FR12[n - 1].texto.slice(desde, desde + largo) })
+const CTX_FR = { asignatura: 'Biología', contenido: { duracionSeg: 120, habla: true, frases: FR12, segmentos: TRAMOS2 } }
+const pfr = (o) => ({ tipo: 'verdadero_falso', enunciado: 'Enunciado F', explicadaEn: 5, citas: [citaDe(5)], correcta: 'v', retroalimentacion: 'Porque lo dice.', ...o })
+
+caso('generación desde frases: el prompt lleva las frases con su minuto (no el resumen), la distribución exacta, citas literales y ningún tiempo', () => {
+  const p = VIA.promptPreguntasVideo(CTX_FR, { verdadero_falso: 2, opcion_multiple: 1, respuesta_corta: 1 }, [])
+  assert.ok(p.includes('#1 [0:00] Frase 1: el video explica') && p.includes('#12 [1:50] Frase 12:'), 'viajan las frases numeradas con su minuto')
+  assert.ok(!p.includes('Resumen del primer tramo'), 'el resumen por tramos NO es fuente de las preguntas')
+  assert.ok(p.includes('EXACTAMENTE 4 preguntas') && p.includes('2 × verdadero_falso') && p.includes('1 × opcion_multiple') && p.includes('1 × respuesta_corta'))
+  assert.ok(/"explicadaEn"/.test(p) && /"citas"/.test(p) && /COPIADOS LITERALMENTE/.test(p) && /menor o igual a "explicadaEn"/.test(p))
+  assert.ok(!/introduceEn|completaEn|timestampSeg/.test(p), 'el modelo no escribe tiempos ni tramos')
+  assert.ok(/UNA sola opción/.test(p) && /plausibles/.test(p), 'opción múltiple: una correcta y distractores plausibles')
+  assert.ok(/Pregunta SOLO por lo que las frases DICEN expresamente/.test(p) && /Nada de conocimiento externo, inferencias/.test(p))
+  assert.ok(/no instrucciones/i.test(p) && /ignórala/.test(VIA.SISTEMA) && /frases casi literales/.test(VIA.SISTEMA))
+  assert.ok(!/SUSTITUYEN/.test(p) && !p.includes('YA PROPUESTAS'))
+  const r = VIA.promptPreguntasVideo(CTX_FR, { verdadero_falso: 3, opcion_multiple: 0, respuesta_corta: 0 }, ['Falló antes'], { reemplazo: true })
+  assert.ok(/SUSTITUYEN/.test(r) && r.includes('YA PROPUESTAS O DESCARTADAS') && r.includes('"Falló antes"'), 'el reemplazo sabe qué no repetir')
+  assert.ok(/NO tiene habla/.test(VIA.promptPreguntasVideo({ ...CTX_FR, contenido: { ...CTX_FR.contenido, habla: false } }, { verdadero_falso: 1, opcion_multiple: 0, respuesta_corta: 0 }, [])))
 })
 
-caso('generación: acepta lo válido y descarta lo que no cumple (tipo, opciones, clave, duplicados)', () => {
+caso('generación desde frases: lo que el generador no respalda con citas literales (o no cumple su forma) se descarta y queda anotado; ninguna trae tiempo', () => {
   const restante = { verdadero_falso: 2, opcion_multiple: 1, respuesta_corta: 1 }
-  const om = (o) => ({ tipo: 'opcion_multiple', enunciado: 'OM', introduceEn: 4, completaEn: 4, opciones: ['a', 'b', 'c', 'd'], correcta: 2, ...o })
+  const om = (o) => ({ tipo: 'opcion_multiple', enunciado: 'OM', explicadaEn: 4, citas: [citaDe(4)], opciones: ['a', 'b', 'c', 'd'], correcta: 2, ...o })
   const crudas = { preguntas: [
-    preg({ enunciado: 'VF buena' }),
-    preg({ enunciado: 'VF sin clave', correcta: 'tal vez' }),
-    preg({ enunciado: 'vf BUENA' }), // duplicada de la primera
+    pfr({ enunciado: 'VF buena', timestampSeg: 3 }), // un tiempo del modelo se ignora
+    pfr({ enunciado: 'VF cita inventada', citas: [{ frase: 5, texto: 'una frase que el video jamás dice' }] }),
+    pfr({ enunciado: 'VF cita posterior', explicadaEn: 5, citas: [citaDe(7)] }),
+    pfr({ enunciado: 'VF frase inexistente', explicadaEn: 99 }),
+    pfr({ enunciado: 'VF sin citas', citas: [] }),
+    pfr({ enunciado: 'VF sin clave', correcta: 'tal vez' }),
+    pfr({ enunciado: 'vf BUENA' }), // duplicada de la primera
     om({ enunciado: 'OM 3 opciones', opciones: ['a', 'b', 'c'] }),
-    om({ enunciado: 'OM repetidas', opciones: ['a', 'a', 'b', 'c'] }),
-    om({ enunciado: 'OM clave 9', correcta: 9 }),
     om({ enunciado: 'OM buena', correcta: '3' }),
-    { tipo: 'subir_archivo', enunciado: 'tipo no permitido', introduceEn: 1, completaEn: 1 },
-    { tipo: 'respuesta_corta', enunciado: 'Abierta', introduceEn: 8, completaEn: 8, correcta: 'x', retroalimentacion: 'Debe mencionar X.' },
-    preg({ enunciado: 'VF segunda', introduceEn: 20, completaEn: 20 }), // el último segmento termina con el video
-    preg({ enunciado: 'VF de más' }), // ya no caben más VF
+    { tipo: 'respuesta_corta', enunciado: 'Abierta', explicadaEn: 8, citas: [citaDe(6), citaDe(8, 9)], retroalimentacion: 'Debe mencionar X.' },
+    pfr({ enunciado: 'VF segunda', explicadaEn: 10, citas: [citaDe(10)] }),
+    pfr({ enunciado: 'VF de más' }), // ya no caben más VF
   ] }
-  const r = VIA.normalizarPreguntasVideo(crudas, { restante, ...OPT20 })
+  const r = VIA.normalizarPreguntasVideo(crudas, { restante, frases: FR12 })
   assert.deepStrictEqual(r.preguntas.map((q) => q.enunciado), ['VF buena', 'OM buena', 'Abierta', 'VF segunda'])
+  assert.deepStrictEqual(r.descartadas, ['VF cita inventada', 'VF cita posterior', 'VF frase inexistente', 'VF sin citas', 'VF sin clave', 'OM 3 opciones'])
   assert.deepStrictEqual(r.faltan, { verdadero_falso: 0, opcion_multiple: 0, respuesta_corta: 0 })
-  assert.deepStrictEqual(r.preguntas.map((q) => q.timestampSeg), [45, 60, 120, 300])
+  assert.ok(r.preguntas.every((q) => q.timestampSeg === null), 'el tiempo lo decide la validación, nunca el generador')
   assert.strictEqual(r.preguntas[1].correcta, 3)
+  // el respaldo es EXACTAMENTE el tramo de frases de la cita más temprana a la frase declarada, nada posterior
+  const ab = r.preguntas[2].respaldo
+  assert.deepStrictEqual([ab.unidad, ab.desdeSegmento, ab.hastaSegmento, ab.inicioSeg, ab.finSeg], ['frase', 6, 8, 50, 80])
+  assert.strictEqual(ab.texto, FR12.slice(5, 8).map((f) => f.texto).join('\n'))
+  assert.ok(!ab.texto.includes('Frase 9:'))
+  assert.deepStrictEqual(ab.citasGenerador.map((c) => c.segmento), [6, 8])
   // basura total: nada aceptado, todo sigue faltando
   for (const basura of [null, {}, { preguntas: 'x' }, { preguntas: [null, 1, 'a'] }]) {
-    const b = VIA.normalizarPreguntasVideo(basura, { restante, ...OPT20 })
+    const b = VIA.normalizarPreguntasVideo(basura, { restante, frases: FR12 })
     assert.strictEqual(b.preguntas.length, 0); assert.deepStrictEqual(b.faltan, restante)
   }
+  // sin frases no hay respaldo posible
+  assert.strictEqual(VIA.normalizarPreguntasVideo({ preguntas: [pfr({})] }, { restante, frases: [] }).preguntas.length, 0)
   // lo ya propuesto antes cuenta como duplicado
-  assert.strictEqual(VIA.normalizarPreguntasVideo({ preguntas: [preg({ enunciado: 'Ya existía' })] }, { restante, ...OPT20, enunciadosPrevios: ['ya existía'] }).preguntas.length, 0)
-})
-
-caso('tiempo de la pregunta: sale SOLO del fin del segmento donde el concepto queda explicado, nunca de su primera mención ni de un valor del modelo', () => {
-  const restante = { verdadero_falso: 1, opcion_multiple: 0, respuesta_corta: 0 }
-  const una = (o, opt = OPT20) => VIA.normalizarPreguntasVideo({ preguntas: [preg(o)] }, { restante, ...opt }).preguntas[0]
-  // Concepto MENCIONADO en el segmento 1 (0:00–0:15) y EXPLICADO en el 8 (1:45–2:00): aparece a los 120 s, no a los 15.
-  const tardia = una({ introduceEn: 1, completaEn: 8 })
-  assert.strictEqual(tardia.timestampSeg, 120)
-  assert.ok(tardia.timestampSeg > SEGS20[0].finSeg, 'no aparece al terminar la mención')
-  assert.ok(tardia.timestampSeg >= SEGS20[7].finSeg, 'no antes de que termine la explicación')
-  // El respaldo guardado es EXACTAMENTE el texto de los segmentos 1..8, sin ninguno posterior.
-  assert.deepStrictEqual([tardia.respaldo.desdeSegmento, tardia.respaldo.hastaSegmento, tardia.respaldo.inicioSeg, tardia.respaldo.finSeg], [1, 8, 0, 120])
-  assert.strictEqual(tardia.respaldo.texto, SEGS20.slice(0, 8).map((s) => s.texto).join('\n'))
-  assert.ok(!tardia.respaldo.texto.includes('Segmento 9:'))
-  assert.strictEqual(tardia.respaldo.motivoSinTiempo, null)
-  // Un `timestampSeg` escrito por el modelo (aunque sea adelantado) se ignora.
-  assert.strictEqual(una({ introduceEn: 1, completaEn: 8, timestampSeg: 5 }).timestampSeg, 120)
-  // El tiempo no depende de segmentos posteriores: si cita el 3, sale el fin del 3 aunque haya más después.
-  assert.strictEqual(una({ introduceEn: 2, completaEn: 3 }).timestampSeg, 45)
-  // Sin respaldo fiable → null (la pregunta se conserva para revisión docente), nunca un tiempo inventado.
-  const caso0 = (o, opt) => { const q = una(o, opt); return [q.timestampSeg, q.respaldo?.motivoSinTiempo ?? 'sin_respaldo'] }
-  assert.deepStrictEqual(caso0({ introduceEn: undefined, completaEn: undefined, timestampSeg: 40 }), [null, 'sin_respaldo'])
-  assert.deepStrictEqual(caso0({ introduceEn: 3, completaEn: 99 }), [null, 'sin_respaldo'])
-  assert.deepStrictEqual(caso0({ introduceEn: 5, completaEn: 2 }), [null, 'sin_respaldo'])
-  assert.deepStrictEqual(caso0({ introduceEn: 1, completaEn: 12 }), [null, 'respaldo_extenso'])
-  assert.deepStrictEqual(caso0({ introduceEn: 2, completaEn: 2 }, { ...OPT20, segmentos: SEGS20.map((s, i) => (i === 1 ? { ...s, texto: 'ok' } : s)) }), [null, 'respaldo_corto'])
-  // El último segmento solo termina «con el video» si la duración es confiable.
-  assert.deepStrictEqual(caso0({ introduceEn: 20, completaEn: 20 }, { ...OPT20, duracionConfiable: false }), [null, 'duracion_no_confiable'])
-  assert.strictEqual(una({ introduceEn: 19, completaEn: 19 }, { ...OPT20, duracionConfiable: false }).timestampSeg, 285)
-  // Segmentos sin fin (contenido viejo): no se puede respaldar el tiempo.
-  assert.strictEqual(una({}, { ...OPT20, segmentos: SEGS20.map(({ finSeg, ...s }) => s) }).timestampSeg, null)
-  // Las sin tiempo no se pierden ni se cobran de menos: se entregan y quedan al final, pendientes de revisión.
-  const mezcla = VIA.normalizarPreguntasVideo({ preguntas: [preg({ enunciado: 'a', introduceEn: 9, completaEn: 9 }), preg({ enunciado: 'b' })] }, { restante: { verdadero_falso: 2, opcion_multiple: 0, respuesta_corta: 0 }, ...OPT20 })
-  assert.strictEqual(mezcla.preguntas.length, 2)
-  const prop = mezcla.preguntas.map(VIA.aPropuesta)
-  assert.ok(prop.every((x) => x.estado === 'propuesta' && 'timestampSeg' in x))
+  assert.strictEqual(VIA.normalizarPreguntasVideo({ preguntas: [pfr({ enunciado: 'Ya existía' })] }, { restante, frases: FR12, enunciadosPrevios: ['ya existía'] }).preguntas.length, 0)
 })
 
 caso('generación: toda pregunta sale como «propuesta» de origen IA; la abierta no trae respuesta correcta automática', () => {
@@ -6076,6 +6052,7 @@ caso('generación: toda pregunta sale como «propuesta» de origen IA; la abiert
   assert.strictEqual(om.opciones.length, 4); assert.strictEqual(om.respuestaCorrecta, om.opciones[1].id)
   assert.strictEqual(ab.respuestaCorrecta, null); assert.strictEqual(ab.opciones, null); assert.strictEqual(ab.retroalimentacion, 'guía')
   assert.ok(!/undefined/.test(JSON.stringify([vf, om, ab])), 'ningún campo undefined (Firestore lo rechaza)')
+  assert.ok([vf, om, ab].every((q) => q.versionValidacion === 2 && !('minutoSugerido' in q)), 'marca de la validación; sin minuto sugerido')
   assert.deepStrictEqual(VIA.sanearYaGeneradas(['  a  b ', 5, '', null, 'x'.repeat(500)]).map((x) => x.length), [3, 300])
 })
 
@@ -6558,11 +6535,17 @@ const OPTV = { segmentos: SEGV, duracionSeg: 300, duracionConfiable: true, model
 const finSegV = (k) => k * 15 // fin real del segmento k en SEGV
 
 // Pregunta ya normalizada, con la mención y el «completaEn» que declaró el generador.
+// (Se arma directamente: el generador ya no trabaja por tramos, pero el verificador conserva el modo «resumen» que estas pruebas cubren.)
 const pq = (enunciado, introduceEn, completaEn, o = {}) => {
   const tipo = o.tipo || 'verdadero_falso'
-  const r = VIA.normalizarPreguntasVideo({ preguntas: [{ tipo, enunciado, introduceEn, completaEn, correcta: 'v', retroalimentacion: 'r', ...o }] },
-    { restante: { verdadero_falso: 0, opcion_multiple: 0, respuesta_corta: 0, [tipo]: 1 }, ...OPT20 })
-  return r.preguntas[0]
+  const ok = (k) => Number.isInteger(k) && k >= 1 && k <= SEGS20.length
+  const respaldo = ok(introduceEn) && ok(completaEn) && completaEn >= introduceEn
+    ? { desdeSegmento: introduceEn, hastaSegmento: completaEn, inicioSeg: SEGS20[introduceEn - 1].inicioSeg, finSeg: SEGS20[completaEn - 1].finSeg, motivoSinTiempo: null }
+    : null
+  const q = { tipo, enunciado, timestampSeg: null, respaldo, retroalimentacion: 'r' }
+  if (tipo === 'opcion_multiple') return { ...q, opciones: o.opciones, correcta: Number(o.correcta) }
+  if (tipo === 'verdadero_falso') return { ...q, correcta: o.correcta ?? 'v' }
+  return q
 }
 // Verificador simulado. `verdad[enunciado]` = { fin: segmento donde de verdad queda explicado (Infinity = nunca), respuesta, localiza, miente, citaFalsa, error }.
 function verificadorFalso(verdad) {
@@ -6740,27 +6723,262 @@ await casoA('verificación · INVARIANTE: sobre 120 casos con verdad conocida, n
   assert.ok(conTiempo > 60 && conTiempo < 120, `hubo preguntas verificadas y sin verificar (${conTiempo})`)
 })
 
-await casoA('revisión docente · sin minuto: no se puede aprobar, el docente ve la pista (sin botón que la aplique) y el respaldo viaja en la forma que ya lee la ventana', async () => {
+// ── Video interactivo: VALIDAR, SUSTITUIR y EXCLUIR (26-oct-2026, decisión de Kike) ──
+// Solo se entrega una pregunta que pasó la validación (contenido, respuesta y momento). Las que fallan se sustituyen (hasta 2
+// rondas); las que no se logran se excluyen y no se cobran. Todo con generador y verificador SIMULADOS.
+const VIA_MOD = require('../functions/videoInteractivoIA.js')
+const contenidoFR = (o = {}) => ({
+  videoId: 'dQw4w9WgXcQ', modelo: 'gemini-x', idioma: 'es', habla: true, duracionSeg: 120, duracionFuente: 'declarada_por_gemini', duracionConfiable: true,
+  segmentos: TRAMOS2, frases: FR12, segmentacion: { dudosa: false, largos: 0, frasesFiables: true, reintento: false },
+  uso: { tokensEntrada: 1, tokensSalida: 1, tokensPensamiento: 0, intentos: 1, ms: 1 }, caracteres: 100, ...o,
+})
+// Generador simulado: lee del prompt cuántas de cada tipo se piden (`porRonda` puede recortarlas). `fallan(enunciado, ronda)` decide
+// cuáles NO pasarán la validación (true → 'cita_invalida', o el motivo como texto). El verificador simulado aplica esa verdad.
+function simuladorVideo({ fallan = () => false, porRonda = (r, n) => n, alGenerar = () => {} } = {}) {
+  const pedidos = []
+  const verdad = new Map()
+  const pedirJSON = async ({ prompt }) => {
+    const ronda = pedidos.length
+    pedidos.push(prompt)
+    alGenerar(ronda)
+    const out = []
+    for (const tipo of ['verdadero_falso', 'opcion_multiple', 'respuesta_corta']) {
+      const n = porRonda(ronda, Number((new RegExp(`(\\d+) × ${tipo}`).exec(prompt) || [0, 0])[1]))
+      for (let i = 0; i < n; i += 1) {
+        const k = (out.length % 10) + 1
+        const enunciado = `R${ronda} ${tipo} ${i}`
+        verdad.set(enunciado, { k, falla: fallan(enunciado, ronda) })
+        out.push({ tipo, enunciado, explicadaEn: k, citas: [citaDe(k)], retroalimentacion: 'r',
+          ...(tipo === 'opcion_multiple' ? { opciones: ['a', 'b', 'c', 'd'], correcta: 1 } : tipo === 'verdadero_falso' ? { correcta: 'v' } : {}) })
+      }
+    }
+    return { datos: { preguntas: out.reverse() }, interno: { tokensEntrada: 10, tokensSalida: 5, ms: 1 } }
+  }
+  const llamadasVer = []
+  const verificar = async ({ preguntas, presupuestoMs, frases }) => {
+    llamadasVer.push({ n: preguntas.length, presupuestoMs, frases: frases.length })
+    return {
+      resultados: preguntas.map((q) => {
+        const v = verdad.get(q.enunciado)
+        if (v.falla) return { timestampSeg: null, respaldo: q.respaldo, verificacion: { estado: 'sin_verificar', motivo: typeof v.falla === 'string' ? v.falla : 'cita_invalida' } }
+        return { timestampSeg: FR12[v.k - 1].finSeg + 4, respaldo: q.respaldo, verificacion: { estado: 'verificada', motivo: null, citas: [] } }
+      }),
+      interno: { llamadas: preguntas.length, juez: 0, tokensEntrada: 1, tokensSalida: 1, cacheEscritura: 0, cacheLectura: 0, ms: 1 },
+    }
+  }
+  return { pedirJSON, verificar, pedidos, llamadasVer, verdad }
+}
+const ejecutarVideoSim = (sim, distribucion, extra = {}) => VIA_MOD.ejecutarGenerarPreguntasVideo({
+  params: { __contexto: { distribucion, asignatura: 'Biología', contenido: contenidoFR(), yaGeneradas: [], creditosPorPregunta: 2 } },
+  modelo: 'claude-haiku-4-5', apiKey: 'sk-ant-prueba', pedirJSON: sim.pedirJSON, verificar: sim.verificar, venceEn: Date.now() + 500000, ...extra,
+})
+const todasConMomento = (r) => r.resultado.preguntas.every((p) => Number.isInteger(p.timestampSeg) && p.timestampSeg >= 0 && p.timestampSeg <= 120)
+
+await casoA('sustitución · todas válidas a la primera: una ronda, se entregan y cobran exactamente las pedidas, todas con momento verificado y la marca de validación', async () => {
+  const sim = simuladorVideo()
+  const r = await ejecutarVideoSim(sim, { vf: 2, om: 1, abiertas: 1 })
+  assert.strictEqual(r.resultado.preguntas.length, 4); assert.strictEqual(r.unidadesReales, 4)
+  assert.ok(todasConMomento(r) && r.resultado.preguntas.every((p) => p.versionValidacion === 2 && p.verificacion.estado === 'verificada'))
+  const ts = r.resultado.preguntas.map((p) => p.timestampSeg)
+  assert.deepStrictEqual(ts, [...ts].sort((a, b) => a - b), 'ordenadas por momento')
+  const g = r.resultado.generacion
+  assert.deepStrictEqual([g.estado, g.faltantes, g.creditosConsumidos, g.verificacion.sinVerificar, g.validacion.rondas, g.validacion.version], ['completa', 0, 8, 0, 1, 2])
+  assert.strictEqual(sim.pedidos.length, 1, 'una sola llamada al generador')
+  assert.strictEqual(sim.llamadasVer[0].frases, 12, 'la validación trabaja sobre las frases')
+})
+
+await casoA('sustitución · las que fallan se reemplazan por preguntas DISTINTAS (1.5× lo que falta) y el reemplazo no se cobra', async () => {
+  const sim = simuladorVideo({ fallan: (e, ronda) => ronda === 0 && /verdadero_falso [01]$/.test(e) })
+  const r = await ejecutarVideoSim(sim, { vf: 4, om: 0, abiertas: 0 })
+  assert.strictEqual(r.resultado.preguntas.length, 4); assert.strictEqual(r.unidadesReales, 4); assert.strictEqual(r.resultado.generacion.estado, 'completa')
+  assert.ok(todasConMomento(r))
+  const enunciados = r.resultado.preguntas.map((p) => p.enunciado)
+  assert.ok(!enunciados.includes('R0 verdadero_falso 0') && !enunciados.includes('R0 verdadero_falso 1'), 'ninguna de las que fallaron se entrega')
+  assert.deepStrictEqual([enunciados.filter((e) => e.startsWith('R0')).length, enunciados.filter((e) => e.startsWith('R1')).length], [2, 2], 'se quedan las 2 válidas y entran 2 reemplazos')
+  assert.strictEqual(sim.pedidos.length, 2)
+  assert.ok(sim.pedidos[1].includes('EXACTAMENTE 3 preguntas') && /SUSTITUYEN/.test(sim.pedidos[1]), 'pide 1.5× lo que falta (3 por 2)')
+  assert.ok(sim.pedidos[1].includes('"R0 verdadero_falso 0"') && sim.pedidos[1].includes('"R0 verdadero_falso 2"'), 'el reemplazo no repite ni las fallidas ni las aceptadas')
+  const v = r.resultado.generacion.validacion
+  assert.deepStrictEqual([v.rondas, v.rechazadas, v.excluidas, v.motivos], [2, 3, 0, { cita_invalida: 2 }], 'el sobrante válido del reemplazo no se entrega ni se cobra')
+  assert.strictEqual(r.resultado.generacion.creditosConsumidos, 8)
+})
+
+await casoA('sustitución · tope de rondas: una pregunta que nunca pasa se EXCLUYE tras 2 reemplazos y no se cobra; nunca sale con un tiempo inventado', async () => {
+  const sim = simuladorVideo({ fallan: (e, ronda) => e === 'R0 verdadero_falso 2' || ronda > 0 })
+  const r = await ejecutarVideoSim(sim, { vf: 3, om: 0, abiertas: 0 })
+  assert.strictEqual(sim.pedidos.length, 1 + VIA.MAX_RONDAS_REEMPLAZO, 'ronda 0 + 2 de reemplazo, ni una más')
+  assert.strictEqual(VIA.MAX_RONDAS_REEMPLAZO, 2)
+  assert.strictEqual(r.resultado.preguntas.length, 2); assert.strictEqual(r.unidadesReales, 2)
+  assert.ok(todasConMomento(r) && !r.resultado.preguntas.some((p) => p.enunciado === 'R0 verdadero_falso 2'))
+  const g = r.resultado.generacion
+  assert.deepStrictEqual([g.estado, g.faltantes, g.numeroPreguntas, g.creditosConsumidos, g.validacion.excluidas, g.solicitado.numeroPreguntas], ['incompleta', 1, 2, 4, 1, 3])
+})
+
+await casoA('sustitución · ninguna válida tras las rondas → error SIN_PREGUNTAS_VALIDAS (el callable reembolsa todo) y nada se entrega', async () => {
+  const sim = simuladorVideo({ fallan: () => 'respuesta_no_coincide' })
+  const e = await ejecutarVideoSim(sim, { vf: 2, om: 1, abiertas: 0 }).then(() => null, (x) => x)
+  assert.ok(e, 'debe fallar')
+  assert.deepStrictEqual([e.code, e.details?.codigo], ['failed-precondition', 'SIN_PREGUNTAS_VALIDAS'])
+  assert.ok(/No se descontaron créditos/.test(e.message))
+  assert.strictEqual(sim.pedidos.length, 3, 'rondas acotadas')
+})
+
+await casoA('sustitución · fecha límite: sin tiempo para otra ronda se excluye lo que falta (sin tiempo inventado); la validación recibe solo el tiempo que queda', async () => {
+  let t = 0
+  const sim = simuladorVideo({ fallan: (e) => e === 'R0 verdadero_falso 0', alGenerar: () => { t += 60000 } })
+  const r = await ejecutarVideoSim(sim, { vf: 2, om: 0, abiertas: 0 }, { venceEn: 100000, ahora: () => t })
+  assert.strictEqual(sim.pedidos.length, 1, 'no arranca otra ronda con menos de MIN_MS_RONDA')
+  assert.strictEqual(sim.llamadasVer[0].presupuestoMs, 100000 - 60000 - 5000, 'la validación no pasa de la fecha límite')
+  assert.strictEqual(r.resultado.preguntas.length, 1); assert.strictEqual(r.unidadesReales, 1)
+  assert.ok(todasConMomento(r))
+  assert.deepStrictEqual([r.resultado.generacion.validacion.corteTiempo, r.resultado.generacion.faltantes], [true, 1])
+  // sin tiempo ni para la primera ronda: no hay nada que entregar → reembolso
+  const sim2 = simuladorVideo()
+  const e = await ejecutarVideoSim(sim2, { vf: 1, om: 0, abiertas: 0 }, { venceEn: 1000, ahora: () => 0 }).then(() => null, (x) => x)
+  assert.deepStrictEqual([e?.details?.codigo, sim2.pedidos.length], ['SIN_PREGUNTAS_VALIDAS', 0])
+})
+
+await casoA('sustitución · si falla el generador en una ronda de reemplazo se entrega lo válido; si falla en la primera, error (reembolso)', async () => {
+  const sim = simuladorVideo({ fallan: (e) => e === 'R0 verdadero_falso 1' })
+  const original = sim.pedirJSON
+  sim.pedirJSON = async (req) => { if (sim.pedidos.length === 1) { sim.pedidos.push('caída'); throw new Error('Anthropic caído') } return original(req) }
+  const r = await ejecutarVideoSim(sim, { vf: 3, om: 0, abiertas: 0 })
+  assert.deepStrictEqual([r.resultado.preguntas.length, r.unidadesReales, r.resultado.generacion.estado], [2, 2, 'incompleta'])
+  const sim2 = simuladorVideo()
+  sim2.pedirJSON = async () => { throw new Error('Anthropic caído') }
+  assert.ok(await ejecutarVideoSim(sim2, { vf: 1, om: 0, abiertas: 0 }).then(() => false, () => true))
+})
+
+await casoA('sustitución · lo que el generador no respalda con citas literales cuenta como fallo y se reemplaza', async () => {
+  const sim = simuladorVideo()
+  const original = sim.pedirJSON
+  sim.pedirJSON = async (req) => {
+    const r = await original(req)
+    if (sim.pedidos.length === 1) r.datos.preguntas[0].citas = [{ frase: 1, texto: 'esto no lo dice el video en ninguna parte' }]
+    return r
+  }
+  const r = await ejecutarVideoSim(sim, { vf: 2, om: 0, abiertas: 0 })
+  assert.deepStrictEqual([r.resultado.preguntas.length, sim.pedidos.length], [2, 2])
+  assert.deepStrictEqual(r.resultado.generacion.validacion.motivos, { estructura_o_cita_del_generador: 1 })
+})
+
+await casoA('validación en frases · opción múltiple con más de una opción defendible → no válida (opciones_ambiguas); con una sola → verificada en la FRASE declarada', async () => {
+  const prompts = []
+  const falso = (unica) => async ({ prompt }) => {
+    prompts.push(prompt)
+    const interno = { tokensEntrada: 1, tokensSalida: 1, cacheEscritura: 0, cacheLectura: 0, ms: 1 }
+    const cita = FR12[4].texto.slice(0, 30)
+    if (prompt.includes('PRIMERA frase')) return { datos: { primerSegmento: 5, citas: [{ segmento: 5, texto: cita }] }, interno }
+    const maxN = Math.max(...[...prompt.matchAll(/^#(\d+) /gm)].map((m) => Number(m[1])))
+    if (maxN < 5) return { datos: { puedeResponderse: false }, interno }
+    const esOM = /Tipo: opcion_multiple/.test(prompt)
+    return { datos: { puedeResponderse: true, evidenciaExplicita: true, respuesta: esOM ? 1 : 'v', ...(unica === undefined ? {} : { unicaCorrecta: unica }), componentes: [{ afirmacion: 'La idea cinco', segmento: 5, cita }] }, interno }
+  }
+  const om = { tipo: 'opcion_multiple', enunciado: 'OM', opciones: ['a', 'b', 'c', 'd'], correcta: 1, respaldo: { unidad: 'frase', desdeSegmento: 5, hastaSegmento: 5 } }
+  const vf = { tipo: 'verdadero_falso', enunciado: 'VF', correcta: 'v', respaldo: { unidad: 'frase', desdeSegmento: 5, hastaSegmento: 5 } }
+  const base = { segmentos: TRAMOS2, frases: FR12, duracionSeg: 120, duracionConfiable: true, modelo: 'm', client: {} }
+  const amb = (await VERIF.verificarPreguntas({ ...base, preguntas: [om], pedirJSON: falso(false) })).resultados[0]
+  assert.deepStrictEqual([amb.timestampSeg, amb.verificacion.motivo], [null, 'opciones_ambiguas'])
+  const sinCampo = (await VERIF.verificarPreguntas({ ...base, preguntas: [om], pedirJSON: falso(undefined) })).resultados[0]
+  assert.deepStrictEqual([sinCampo.timestampSeg, sinCampo.verificacion.motivo], [null, 'opciones_ambiguas'], 'sin la respuesta explícita no se da por buena')
+  prompts.length = 0
+  const ok = (await VERIF.verificarPreguntas({ ...base, preguntas: [om, vf], pedirJSON: falso(true) })).resultados
+  assert.deepStrictEqual(ok.map((x) => [x.timestampSeg, x.verificacion.estado]), [[54, 'verificada'], [54, 'verificada']], 'fin de la frase 5 + 3.5 s; la frase declarada es el candidato')
+  const prefijos = prompts.filter((x) => !x.includes('PRIMERA frase'))
+  assert.ok(prefijos.some((x) => /Tipo: opcion_multiple/.test(x) && x.includes('"unicaCorrecta"')), 'opción múltiple: se pregunta si hay una sola correcta')
+  assert.ok(prefijos.filter((x) => /Tipo: verdadero_falso/.test(x)).every((x) => !x.includes('unicaCorrecta')), 'verdadero/falso no lo necesita')
+})
+
+await casoA('lectura del video · sin frases fiables se lee UNA vez más pidiéndolas; si siguen sin llegar (o no hay tiempo) se rechaza ANTES de cobrar', async () => {
+  const sinFrases = textoGemini().split('\n').filter((l) => !l.startsWith('>')).join('\n')
+  const cuerpo = (f, i) => JSON.parse(f.llamadas[i].opts.body).contents[0].parts[1].text
+  // 1) la segunda lectura trae frases: se usa, y el uso de Gemini suma las dos
+  const f1 = falsoGemini(respOk(sinFrases), respOk(textoGemini()))
+  const c = await conGemini(f1, () => VIA.leerVideoConFrases(URL_VIDEO, Date.now() + 500000))
+  assert.deepStrictEqual([f1.llamadas.length, c.frases.length > 0, c.segmentacion.reintento], [2, true, true])
+  assert.ok(!cuerpo(f1, 0).includes('IMPORTANTE: debajo de CADA tramo') && cuerpo(f1, 1).includes('IMPORTANTE: debajo de CADA tramo'), 'la segunda insiste en las frases')
+  assert.strictEqual(c.uso.tokensEntrada, 2 * 27300, 'las dos lecturas cuentan en el costo')
+  // 2) tampoco la segunda: error permanente y claro
+  const f2 = falsoGemini(respOk(sinFrases))
+  const e2 = await conGemini(f2, () => falla(() => VIA.leerVideoConFrases(URL_VIDEO, Date.now() + 500000)))
+  assert.deepStrictEqual([e2?.codigo, e2?.transitorio, f2.llamadas.length], ['FRASES_NO_FIABLES', false, 2])
+  assert.ok(/suficiente precisión para ubicar las preguntas/.test(e2.message))
+  // 3) sin tiempo para otra lectura: no se intenta
+  const f3 = falsoGemini(respOk(sinFrases))
+  const e3 = await conGemini(f3, () => falla(() => VIA.leerVideoConFrases(URL_VIDEO, Date.now())))
+  assert.deepStrictEqual([e3?.codigo, f3.llamadas.length], ['FRASES_NO_FIABLES', 1])
+  // 4) con frases a la primera: una sola lectura
+  const f4 = falsoGemini(respOk(textoGemini()))
+  await conGemini(f4, () => VIA.leerVideoConFrases(URL_VIDEO, Date.now() + 500000))
+  assert.strictEqual(f4.llamadas.length, 1)
+  // 5) la suficiencia se revisa en la PRIMERA lectura: si no alcanza, no se relee (el motivo útil llega sin gastar otra lectura)
+  const f5 = falsoGemini(respOk(sinFrases), respOk(textoGemini()))
+  const e5 = await conGemini(f5, () => falla(() => VIA.leerVideoConFrases(URL_VIDEO, Date.now() + 500000, (c) => EX.exigirSuficiencia(c, 99))))
+  assert.deepStrictEqual([e5?.codigo, f5.llamadas.length], ['CONTENIDO_INSUFICIENTE', 1])
+})
+
+await casoA('extractor → generador: el contenido real de Gemini llega al prompt como FRASES con su minuto', async () => {
+  const c = await conGemini(falsoGemini(respOk(textoGemini())), () => EX.extraerContenidoVideo(URL_VIDEO))
+  const prompt = VIA.promptPreguntasVideo({ asignatura: 'Informática', contenido: c }, { verdadero_falso: 2, opcion_multiple: 2, respuesta_corta: 1 }, [])
+  assert.ok(prompt.includes('#1 [0:00] Frase literal del tramo 1 dicha en el segundo 0.'), 'la primera frase con su minuto')
+  assert.ok(prompt.includes(`#${c.frases.length} [`), 'hasta la última frase')
+  assert.ok(!prompt.includes('Se explica el concepto número 1'), 'el resumen por tramos no viaja')
+  assert.ok(c.segmentos.every((s, i) => s.finSeg === (c.segmentos[i + 1]?.inicioSeg ?? c.duracionSeg)), 'fin = inicio del siguiente; el último termina con el video')
+})
+
+caso('infraestructura · ejecutarVideoIA: 540 s, mismos secretos y solo esta operación; el cliente la usa y espera 560 s; la fecha límite viaja al precheck y al ejecutor', () => {
+  process.env.GCLOUD_PROJECT ||= 'demo-test'
+  const fuenteVideo = (r) => readFileSync(new globalThis.URL(`../${r}`, import.meta.url), 'utf8')
+  const ia = require('../functions/ia.js')
+  assert.strictEqual(ia.ejecutarVideoIA.__endpoint.timeoutSeconds, 540)
+  assert.strictEqual(ia.ejecutarOperacionIA.__endpoint.timeoutSeconds, 300, 'la general no cambia')
+  assert.strictEqual(ia.ejecutarPlaneacionIA.__endpoint.timeoutSeconds, 540, 'la de Planeación (precedente de 540 s) sigue igual')
+  const src = fuenteVideo('functions/ia.js')
+  assert.ok(/exports\.ejecutarVideoIA = crearCallableIA\(\s*\{ secrets: \[ANTHROPIC_API_KEY_PROD, GEMINI_API_KEY\], timeoutSeconds: 540 \},\s*\{ soloOperacion: 'generar_preguntas_video' \}/.test(src))
+  assert.ok(/const venceEn = Date\.now\(\) \+ \(Number\(opciones\?\.timeoutSeconds\) \|\| 60\) \* 1000 - MARGEN_CIERRE_MS/.test(src), 'la fecha límite sale del tiempo de la función que atiende')
+  assert.ok(/PRECHECKS\[operacion\]\(\{ uid, params, tarifas, idempotencyKey, venceEn \}\)/.test(src) && /modelo, apiKey, unidades: n, venceEn,/.test(src))
+  assert.ok(/exports\.ejecutarVideoIA = ia\.ejecutarVideoIA/.test(fuenteVideo('functions/index.js')), 'se exporta para desplegarse')
+  const gen = fuenteVideo('src/utils/videoGeneracion.js')
+  assert.ok(/export const CALLABLE_VIDEO = 'ejecutarVideoIA'/.test(gen) && /export const TIMEOUT_GENERACION_MS = 560000/.test(gen) && /callable: CALLABLE_VIDEO/.test(gen))
+  // si el frontend llega antes que la función, el cliente cae a la general con la MISMA clave (y el ejecutor cierra antes por venceEn)
+  assert.ok(/primero\?\.code === 'functions\/not-found' && callable !== 'ejecutarOperacionIA'/.test(fuenteVideo('src/hooks/useCreditosIA.js')))
+  // las reservas colgadas se reembolsan a los 15 min: más que los 9 min de la función
+  assert.ok(15 * 60 > 540)
+})
+
+await casoA('revisión docente · propuestas ANTIGUAS sin momento: pendientes de ubicación, sin tiempo inventado ni pista; solo se ubican arrastrando', async () => {
   const RV = await import('../src/components/video/revisionVideo.js')
-  // regla de no aprobar sin minuto: el tiempo null es inválido en la ventana y en la propuesta
-  assert.strictEqual(RV.validarTiempo(null, 300).ok, false)
+  // sin momento no se aprueba, pero el mensaje no pide escribir nada
+  const t = RV.validarTiempo(null, 300)
+  assert.deepStrictEqual([t.ok, t.error], [false, RV.MENSAJE_SIN_UBICAR])
+  assert.ok(/arrastra su punto/.test(t.error) && !/m:ss|Escribe/.test(t.error))
   assert.strictEqual(PV.validarPropuesta({ tipo: 'verdadero_falso', enunciado: 'x', respuestaCorrecta: 'v', timestampSeg: null }, 300).ok, false)
-  // la propuesta guarda la pista SOLO si no hay minuto, y un respaldo legible por la ventana
-  const sin = { tipo: 'verdadero_falso', enunciado: 'Algo', respuestaCorrecta: 'v', opciones: [{ id: 'v', texto: 'Verdadero' }, { id: 'f', texto: 'Falso' }], timestampSeg: null, minutoSugerido: 77, verificacion: { estado: 'sin_verificar' }, respaldo: { desdeSegmento: 3, hastaSegmento: 3, inicioSeg: 60, finSeg: 75, texto: 'Aquí se explica el tema.', unidad: 'frase' } }
-  const doc = PV.propuestaDesdeIA(sin, 'g1')
-  assert.deepStrictEqual([doc.timestampSeg, doc.minutoSugerido], [null, 77])
+  // una propuesta de la versión anterior se guarda como venía: sin momento y sin pista (aunque la trajera)
+  const vieja = { tipo: 'verdadero_falso', enunciado: 'Algo', respuestaCorrecta: 'v', opciones: [{ id: 'v', texto: 'Verdadero' }, { id: 'f', texto: 'Falso' }], timestampSeg: null, minutoSugerido: 77, verificacion: { estado: 'sin_verificar' }, respaldo: { desdeSegmento: 3, hastaSegmento: 3, inicioSeg: 60, finSeg: 75, texto: 'Aquí se explica el tema.', unidad: 'frase' } }
+  const doc = PV.propuestaDesdeIA(vieja, 'g1')
+  assert.deepStrictEqual([doc.timestampSeg, doc.versionValidacion, 'minutoSugerido' in doc], [null, null, false])
   assert.deepStrictEqual(RV.leerEvidencia(doc.respaldo), { inicioSeg: 60, finSeg: 75, resumen: '', cita: 'Aquí se explica el tema.', verificacion: 'no_verificable' })
-  const con = PV.propuestaDesdeIA({ ...sin, timestampSeg: 80, minutoSugerido: 77, verificacion: { estado: 'verificada' } }, 'g1')
-  assert.deepStrictEqual([con.timestampSeg, con.minutoSugerido, RV.leerEvidencia(con.respaldo).verificacion], [80, null, 'verificado'])
-  assert.strictEqual(RV.leerEvidencia(PV.propuestaDesdeIA({ ...sin, timestampSeg: 80, verificacion: { estado: 'corregida' } }, 'g1').respaldo).verificacion, 'reubicado')
-  assert.strictEqual(PV.propuestaDesdeIA({ ...sin, respaldo: null }, 'g1').respaldo, null)
-  // el elemento de revisión conserva la pista y sin minuto exige confirmación expresa
-  const items = RV.construirItems({ propuestas: [{ id: 'p1', estado: 'pendiente', ...doc }], activas: [] })
-  assert.deepStrictEqual([items[0].timestampSeg, items[0].minutoSugerido, RV.requiereConfirmacion(items[0])], [null, 77, true])
-  // la ventana solo MUESTRA la pista: no hay botón que la aplique ni se rellena el minuto por su cuenta
+  const nueva = PV.propuestaDesdeIA({ ...vieja, timestampSeg: 80, versionValidacion: 2, verificacion: { estado: 'verificada' } }, 'g1')
+  assert.deepStrictEqual([nueva.timestampSeg, nueva.versionValidacion, RV.leerEvidencia(nueva.respaldo).verificacion], [80, 2, 'verificado'])
+  assert.strictEqual(RV.leerEvidencia(PV.propuestaDesdeIA({ ...vieja, timestampSeg: 80, verificacion: { estado: 'corregida' } }, 'g1').respaldo).verificacion, 'reubicado')
+  assert.strictEqual(PV.propuestaDesdeIA({ ...vieja, respaldo: null }, 'g1').respaldo, null)
+  // se identifican AL LEERLAS (ningún dato se reescribe): versión anterior + pendiente de ubicación
+  const items = RV.construirItems({ propuestas: [{ id: 'p1', estado: 'pendiente', ...doc }, { id: 'p2', estado: 'pendiente', ...nueva }, { id: 'p3', estado: 'pendiente', ...vieja, timestampSeg: 40 }], activas: [] })
+  const porId = Object.fromEntries(items.map((i) => [i.id, i]))
+  assert.deepStrictEqual([porId.p1.anterior, porId.p1.timestampSeg, porId.p2.anterior, porId.p3.anterior, porId.p3.timestampSeg], [true, null, false, true, 40])
+  assert.deepStrictEqual(RV.preguntasSinMinuto(items).map((i) => i.id), ['p1'])
+  assert.ok(!('requiereConfirmacion' in RV) && !items.some((i) => 'minutoSugerido' in i), 'sin confirmaciones ni pistas')
+  // el control del momento: sin momento NO hay botones (no se toma 0 ni otra posición como base); solo el aviso
   const ct = readFileSync(new globalThis.URL('../src/components/video/ControlTiempoVideo.jsx', import.meta.url), 'utf8')
-  assert.ok(/Pista de la IA \(no confirmada\)/.test(ct) && /!Number\.isInteger\(seg\) && Number\.isInteger\(item\.minutoSugerido\)/.test(ct))
-  assert.ok(!/<button[^>]*minutoSugerido/.test(ct) && !/onCambiar\(item\.minutoSugerido\)/.test(ct), 'la pista no se aplica sola')
+  const rama = ct.slice(ct.indexOf('if (!Number.isInteger(seg)) {'), ct.indexOf('const v = validarTiempo'))
+  assert.ok(/data-testid="pendiente-ubicacion"/.test(rama) && /return \(/.test(rama) && !/mover\(|<button/.test(rama))
+  assert.ok(!/<input|Pista de la IA|minutoSugerido|interpretarTiempo|confirmarTexto|m:ss/.test(ct), 'ni campo de texto ni pista')
+  // la línea: la bolita de una pregunta sin momento queda ESTACIONADA (fuera de la pista) y solo toma un tiempo al soltarla
+  const lt = readFileSync(new globalThis.URL('../src/components/video/LineaTiempoRevision.jsx', import.meta.url), 'utf8')
+  assert.ok(/const sinUbicar = !Number\.isInteger\(valor\)/.test(lt) && /const v = sinUbicar \? null :/.test(lt))
+  assert.ok(/style=\{\{ left: sinUbicar \? '0%' : pct\(v\) \}\}/.test(lt) && /sinUbicar \? '-top-6' : 'top-0'/.test(lt) && /data-sin-ubicar=/.test(lt))
+  assert.ok(/if \(!disabled && Number\.isInteger\(s\) && s !== v\)/.test(lt), 'solo un segundo entero elegido arrastrando cambia el borrador')
+  assert.ok(!/: dur\)/.test(lt.slice(lt.indexOf('const sinUbicar'), lt.indexOf('const real'))), 'ya no se dibuja al final del video')
 })
 
 // ── Video interactivo: verificación ENDURECIDA (evidencia explícita), localización obligatoria y JSON tolerante ──
@@ -7172,21 +7390,19 @@ await casoA('margen · cubre el error de Gemini medido (hasta 6.0 s antes) con l
   assert.strictEqual(prematura(-7.3), true, 'con una marca 7.3 s antes (más que lo medido) el margen ya no alcanza')
 })
 
-await casoA('minuto sugerido · solo viaja cuando el minuto verificado es null; aPropuesta y propuestaDesdeIA lo conservan sin convertirlo en minuto', async () => {
+await casoA('minuto sugerido · ya no existe: aPropuesta no lo entrega (aunque el verificador lo calcule) y propuestaDesdeIA no lo guarda', async () => {
   const sin = VIA.aPropuesta({ tipo: 'verdadero_falso', enunciado: 'x', correcta: 'v', timestampSeg: null, retroalimentacion: null, verificacion: { estado: 'sin_verificar', sugerenciaSeg: 77, sugerenciaNivel: 'prefijo_verificado' } })
-  assert.deepStrictEqual([sin.timestampSeg, sin.minutoSugerido], [null, 77])
-  const sinNivel = VIA.aPropuesta({ tipo: 'verdadero_falso', enunciado: 'x', correcta: 'v', timestampSeg: null, retroalimentacion: null, verificacion: { estado: 'sin_verificar', sugerenciaSeg: 77 } })
-  assert.strictEqual(sinNivel.minutoSugerido, null, 'sin prefijo verificado la sugerencia NO se presenta')
-  const con = VIA.aPropuesta({ tipo: 'verdadero_falso', enunciado: 'x', correcta: 'v', timestampSeg: 50, retroalimentacion: null, verificacion: { estado: 'verificada', sugerenciaSeg: 77 } })
-  assert.deepStrictEqual([con.timestampSeg, con.minutoSugerido], [50, null])
-  const nada = VIA.aPropuesta({ tipo: 'verdadero_falso', enunciado: 'x', correcta: 'v', timestampSeg: null, retroalimentacion: null, verificacion: { estado: 'sin_verificar', sugerenciaSeg: null } })
-  assert.strictEqual(nada.minutoSugerido, null)
+  assert.ok(!('minutoSugerido' in sin))
+  const con = VIA.aPropuesta({ tipo: 'verdadero_falso', enunciado: 'x', correcta: 'v', timestampSeg: 50, retroalimentacion: null, verificacion: { estado: 'verificada' } })
+  assert.deepStrictEqual([con.timestampSeg, con.versionValidacion], [50, 2])
   const PV2 = await import('../src/utils/propuestasVideo.js')
-  const doc = PV2.propuestaDesdeIA({ ...sin, opciones: [{ id: 'v', texto: 'V' }, { id: 'f', texto: 'F' }], respuestaCorrecta: 'v' }, 'gen1')
-  assert.deepStrictEqual([doc.timestampSeg, doc.minutoSugerido], [null, 77])
-  assert.strictEqual(PV2.propuestaDesdeIA({ ...con, opciones: [{ id: 'v', texto: 'V' }, { id: 'f', texto: 'F' }], respuestaCorrecta: 'v' }, 'gen1').minutoSugerido, null)
-  // y sin minuto no se puede aprobar aunque haya sugerencia: el docente debe fijar uno
-  assert.strictEqual(PV2.validarPropuesta({ ...doc, estado: 'pendiente', respuestaCorrecta: 'v' }, 140).ok, false)
+  const doc = PV2.propuestaDesdeIA({ ...con, opciones: [{ id: 'v', texto: 'V' }, { id: 'f', texto: 'F' }], respuestaCorrecta: 'v' }, 'gen1')
+  assert.deepStrictEqual([doc.timestampSeg, doc.versionValidacion, 'minutoSugerido' in doc], [50, 2, false])
+  // y el ejecutor nunca entrega una sin momento: lo comprueba esValida
+  assert.strictEqual(VIA.esValida({ timestampSeg: null, verificacion: { estado: 'sin_verificar' } }, 120), false)
+  assert.strictEqual(VIA.esValida({ timestampSeg: 130, verificacion: { estado: 'verificada' } }, 120), false, 'fuera del video')
+  assert.strictEqual(VIA.esValida({ timestampSeg: 54, verificacion: { estado: 'sin_verificar' } }, 120), false, 'con tiempo pero sin verificar')
+  assert.strictEqual(VIA.esValida({ timestampSeg: 54, verificacion: { estado: 'corregida' } }, 120), true)
 })
 
 await casoA('JSON del verificador · se extrae el objeto aunque haya texto adicional, se valida la estructura y los reintentos están acotados', async () => {
@@ -7385,7 +7601,7 @@ caso('generación: el costo mostrado sale del total y de la tarifa vigente (2 cr
   assert.strictEqual(VG.validarConfiguracion({ ...CFG_OK, distribucion: { vf: 0, om: 0, abiertas: 0 } }).creditos, 0, 'sin preguntas no hay costo')
   const t = VG.textoCostoGeneracion(5)
   assert.ok(t.includes('5 preguntas') && t.includes('10 créditos') && t.includes('2 por pregunta'))
-  assert.ok(/solo se cobran las preguntas que realmente se entreguen/i.test(t), 'avisa que solo se cobra lo entregado')
+  assert.ok(/recibirás menos y solo pagarás las que recibas/i.test(t), 'avisa que pueden llegar menos y que solo se cobra lo entregado')
   assert.ok(VG.textoCostoGeneracion(1).includes('1 pregunta:') && VG.textoCostoGeneracion(1).includes('2 créditos'))
 })
 
@@ -8113,50 +8329,44 @@ caso('vista previa: compararConPropuesta solo para el docente (coincide / no coi
   assert.deepStrictEqual(RVD.compararConPropuesta(null, 'x'), { aplica: false })
 })
 
-caso('evidencia: nunca se inventa — sin datos avisa; con datos advierte si el minuto es anterior al final del tramo', () => {
+caso('evidencia: nunca se inventa y no le pide al docente comprobar nada; solo avisa si ÉL movió la pregunta antes de que termine el fragmento', () => {
   assert.strictEqual(RVD.leerEvidencia(null), null)
   assert.strictEqual(RVD.leerEvidencia({}), null)
   assert.strictEqual(RVD.leerEvidencia('x'), null)
-  const sin = RVD.advertenciasDeTiempo({ timestampSeg: 60, respaldo: null })
-  assert.strictEqual(sin.length, 1)
-  assert.match(sin[0], /No hay evidencia guardada/)
-  assert.match(sin[0], /Compruébalo viendo el video/)
+  assert.deepStrictEqual(RVD.advertenciasDeTiempo({ timestampSeg: 60, respaldo: null }), [], 'sin evidencia no se pide comprobar nada')
   const ev = RVD.leerEvidencia({ inicioSeg: 50, finSeg: 100, resumen: ' Se explica la IP ', cita: 'x'.repeat(500), verificacion: 'verificado', basura: 1 })
   assert.deepStrictEqual(Object.keys(ev).sort(), ['cita', 'finSeg', 'inicioSeg', 'resumen', 'verificacion'])
   assert.strictEqual(ev.resumen, 'Se explica la IP')
   assert.strictEqual(ev.cita.length, 300, 'se recorta')
   const antes = RVD.advertenciasDeTiempo({ timestampSeg: 80, respaldo: { inicioSeg: 50, finSeg: 100, verificacion: 'verificado' } })
-  assert.ok(antes.some((a) => /anterior al final del tramo/.test(a)), 'el minuto elegido es anterior al fin del tramo')
-  const despues = RVD.advertenciasDeTiempo({ timestampSeg: 102, respaldo: { inicioSeg: 50, finSeg: 100, verificacion: 'verificado' } })
-  assert.deepStrictEqual(despues, [], 'después del tramo y verificado: sin advertencias, pero la interfaz aclara que el resumen lo escribió una IA')
-  const nv = RVD.advertenciasDeTiempo({ timestampSeg: 120, respaldo: { inicioSeg: 50, finSeg: 100, verificacion: 'no_verificable' } })
-  assert.ok(nv.some((a) => /no pudo respaldar/.test(a)))
-  const sinFin = RVD.advertenciasDeTiempo({ timestampSeg: 120, respaldo: { resumen: 'algo' } })
-  assert.ok(sinFin.some((a) => /No se sabe dónde termina/.test(a)))
+  assert.ok(antes.length === 1 && /anterior al final del fragmento/.test(antes[0]))
+  assert.deepStrictEqual(RVD.advertenciasDeTiempo({ timestampSeg: 102, respaldo: { inicioSeg: 50, finSeg: 100, verificacion: 'verificado' } }), [])
+  assert.deepStrictEqual(RVD.advertenciasDeTiempo({ timestampSeg: 120, respaldo: { inicioSeg: 50, finSeg: 100, verificacion: 'no_verificable' } }), [])
+  assert.deepStrictEqual(RVD.advertenciasDeTiempo({ timestampSeg: 120, respaldo: { resumen: 'algo' } }), [])
+  assert.ok(!/Compáralo con el video|Compruébalo|Revísala con cuidado/.test(leerFuente('src/components/video/EvidenciaVideo.jsx') + leerFuente('src/components/video/revisionVideo.js')))
 })
 
-caso('evidencia: aprobar NO convierte una pregunta en «verificada» — la no respaldada pide confirmación expresa', () => {
-  assert.strictEqual(RVD.requiereConfirmacion({ respaldo: { verificacion: 'no_verificable', finSeg: 10 } }), true)
-  assert.strictEqual(RVD.requiereConfirmacion({ respaldo: { verificacion: 'verificado', finSeg: 10 } }), false)
-  assert.strictEqual(RVD.requiereConfirmacion({ respaldo: null }), false)
-  const panel = leerFuente('src/components/video/PropuestasVideoPanel.jsx') + leerFuente('src/components/video/RevisionVideoModal.jsx') // estado y guardado en el panel; una pregunta a la vez en la ventana
-  assert.ok(/requiereConfirmacion\(item\) && !confirmados\[item\.id\]/.test(panel), 'el botón Aprobar espera la confirmación')
+caso('evidencia: aprobar NUNCA pide confirmar el trabajo de la IA, y nada se etiqueta «Verificada»', () => {
+  assert.ok(!('requiereConfirmacion' in RVD))
+  const panel = leerFuente('src/components/video/PropuestasVideoPanel.jsx') + leerFuente('src/components/video/RevisionVideoModal.jsx')
+  assert.ok(!/confirmados|onConfirmar|Vi el video y comprobé|<Checkbox/.test(panel), 'sin casilla de confirmación')
+  assert.ok(/disabled=\{!!ocupada \|\| !!err\} className=\{`\$\{BOTON\} bg-accent text-white \$\{GLOBO_HASTA_DER\}`\} data-testid="aprobar"/.test(panel), 'Aprobar solo espera a que no haya otra acción ni un error')
   assert.ok(/Aprobada por ti/.test(panel), 'el estado dice «Aprobada por ti», nunca «verificada»')
   assert.ok(!/texto: '[^']*[Vv]erificad/.test(panel), 'ninguna etiqueta de estado dice «Verificada»')
 })
 
-caso('recomendaciones: las tres, con su texto, visibles en creación, revisión y vista previa', () => {
+caso('recomendaciones: describen el flujo (el sistema comprueba y ubica; el docente mueve, edita y aprueba) en creación, revisión y vista previa', () => {
   assert.strictEqual(RTX.RECOMENDACIONES_VIDEO.length, 3)
   assert.deepStrictEqual(RTX.RECOMENDACIONES_VIDEO.map((r) => r.titulo), [
-    'Asegúrate de que las preguntas ocurren donde corresponden.',
-    'Asegúrate de conocer el video.',
-    'Asegúrate de que las preguntas y sus respuestas sean adecuadas.',
+    'Cada pregunta ya tiene su momento.',
+    'Solo pagas las preguntas que recibes.',
+    'Tú decides cuáles usar.',
   ])
-  assert.match(RTX.RECOMENDACIONES_VIDEO[0].texto, /explicación necesaria antes de cada pregunta/)
-  assert.match(RTX.RECOMENDACIONES_VIDEO[1].texto, /No aceptes automáticamente/)
-  assert.match(RTX.RECOMENDACIONES_VIDEO[2].texto, /Corrige o descarta/)
-  assert.match(RTX.REGLA_VIDEO, /^La IA propone; tú revisas, corriges, pruebas, apruebas o descartas\./)
-  assert.match(RTX.REGLA_VIDEO, /no significa que el sistema haya comprobado/)
+  assert.match(RTX.RECOMENDACIONES_VIDEO[0].texto, /arrastra su punto en la línea de tiempo/)
+  assert.match(RTX.RECOMENDACIONES_VIDEO[1].texto, /se cambia por otra; si no se logra, se quita\. Puedes recibir menos de las que pediste/)
+  assert.match(RTX.RECOMENDACIONES_VIDEO[2].texto, /Edita el texto o las opciones/)
+  assert.ok(RTX.RECOMENDACIONES_VIDEO.every((r) => !/Comprueba|Verifica|No aceptes|Asegúrate/.test(r.titulo + r.texto)), 'no se le pide al docente comprobar el trabajo de la IA')
+  assert.match(RTX.REGLA_VIDEO, /preguntas que apruebes/)
   for (const f of ['CrearVideoInteractivoModal', 'VistaPreviaDocenteVideo']) {
     assert.ok(/RecomendacionesVideo/.test(leerFuente(`src/components/video/${f}.jsx`)), `${f} muestra las recomendaciones`)
   }
@@ -8370,13 +8580,16 @@ caso('ventana de revisión: una sola ventana, una pregunta a la vez, una sola l�
   assert.ok(!/<LineaTiempoVideo/.test(fuentes), 'no se reutiliza la línea de tiempo del estudiante (no se modifica)')
 })
 
-caso('ventana de revisión: controles de tiempo ±5/−1/+1/+5 y m:ss siguen; ya no hay «Comprobar», «Usar» ni «Sugerido por la IA»', () => {
+caso('ventana de revisión: ±5/−1/+1/+5 quedan como alternativa ACCESIBLE al arrastre; sin campo m:ss ni «Comprobar», «Usar» o «Sugerido por la IA»', () => {
   const col = leerFuente('src/components/video/ColumnaVideoRevision.jsx')
   const lt = leerFuente('src/components/video/LineaTiempoRevision.jsx')
   const ct = leerFuente('src/components/video/ControlTiempoVideo.jsx')
   assert.ok(!/setDoc|updateDoc|firebase|fetch\(/.test(lt + col + ct), 'moverlo no escribe nada aquí (el panel guarda)')
   assert.ok(/PASOS_TIEMPO\.filter/.test(ct) && RVD.PASOS_TIEMPO.join() === '-5,-1,1,5', 'los cuatro botones')
-  assert.ok(/aria-label="Minuto en que aparece la pregunta \(m:ss\)"/.test(ct) && /onBlur=\{\(e\) => confirmarTexto/.test(ct), 'el campo m:ss')
+  assert.ok(!/<input|onBlur|confirmarTexto|interpretarTiempo|m:ss/.test(ct), 'el docente no escribe minutos')
+  assert.ok(/data-testid="momento-pregunta"/.test(ct) && /aria-live="polite"/.test(ct), 'el momento se muestra (solo lectura) y se anuncia al cambiar')
+  // por qué siguen los botones: la bolita no se maneja con teclado (aria-hidden) y el triángulo mueve el VIDEO, no la pregunta
+  assert.ok(/data-testid="bolita-pregunta"[^>]*aria-hidden="true"/.test(lt))
   assert.ok(/onClick=\{\(\) => mover\(d\)\}/.test(ct) && /function ControlTiempoVideo\(\{ item, duracionSeg, disabled = false, onCambiar \}\)/.test(ct))
   // fuera «Comprobar», «Usar» y «Sugerido por la IA», con el código que era solo suyo
   assert.ok(!/Comprobar|Repetir|comprobar|usar-sugerido|Usar|Sugerido por la IA|sugerido-ia|onComprobar/.test(ct + col + leerFuente('src/components/video/RevisionVideoModal.jsx')) && !/RotateCcw/.test(ct), 'sin Comprobar / Usar / Sugerido')
@@ -8396,12 +8609,12 @@ caso('ventana de revisión: el TRIÁNGULO verde es el tiempo REAL del video y re
   const lt = leerFuente('src/components/video/LineaTiempoRevision.jsx')
   // la línea recibe por separado el tiempo real (triángulo) y el de la pregunta (bolita blanca)
   assert.ok(/<LineaTiempoRevision [^>]*posicion=\{yt\.listo \? posicion : null\}[^>]*valor=\{seg\}[^>]*onCambiar=\{alCambiar\}[^>]*onSoltar=\{onSoltar\}[^>]*onSaltar=\{saltar\}/.test(col))
-  assert.ok(/const real = Number\.isFinite\(posicion\) \? Math\.min\(Math\.max\(0, posicion\), dur\) : v/.test(lt), 'sin reproductor, cae en el momento de la pregunta')
+  assert.ok(/const real = Number\.isFinite\(posicion\) \? Math\.min\(Math\.max\(0, posicion\), dur\) : \(v \?\? 0\)/.test(lt), 'sin reproductor, cae en el momento de la pregunta (o al inicio si aún no tiene)')
   assert.ok(/style=\{\{ width: pct\(real\) \}\}/.test(lt), 'el relleno de avance sigue al tiempo real')
   const tri = lt.match(/data-testid="marca-video"[\s\S]*?style=\{\{ left: pct\(real\) \}\}/)
   assert.ok(tri, 'el triángulo se dibuja en el tiempo real')
-  const bol = lt.match(/data-testid="bolita-pregunta"[\s\S]*?style=\{\{ left: pct\(v\) \}\}/)
-  assert.ok(bol && !/real|posicion/.test(bol[0].replace(/\{\.\.\.agarrar\(elegir, !disabled, soltarBolita\)\}/, '')), 'la bolita usa solo el tiempo de la pregunta')
+  const bol = lt.match(/data-testid="bolita-pregunta"[\s\S]*?style=\{\{ left: sinUbicar \? '0%' : pct\(v\) \}\}/)
+  assert.ok(bol && !/real|posicion/.test(bol[0].replace(/\{\.\.\.agarrar\(elegir, !disabled, soltarBolita\)\}/, '')), 'la bolita usa solo el tiempo de la pregunta (nunca el del video)')
   // recorrer el video (triángulo, tocar la línea, flechas) solo SALTA: nunca llama a onCambiar
   assert.ok(/\{\.\.\.agarrar\(saltar, true\)\}/.test(lt) && /onChange=\{\(e\) => saltar\(Math\.min\(dur, Math\.max\(0, Math\.round\(Number\(e\.target\.value\)\)\)\)\)\}/.test(lt))
   assert.ok(/saltar\(Math\.min\(dur, Math\.max\(0, Math\.round\(real\) \+ paso\)\)\)/.test(lt))
@@ -8442,7 +8655,6 @@ caso('ventana de revisión: los controles llevan tooltip (data-tooltip, solo esc
     [col, /data-tooltip=\{reproduciendo \? 'Pausar el video' : 'Reproducir el video'\}/],
     [lt, /data-tooltip="Arrastra para mover el video y fijar cuándo aparece la pregunta"/],
     [ct, /data-tooltip=\{`Que aparezca \$\{Math\.abs\(d\)\}/], [ct, /data-tooltip=\{`Que aparezca \$\{d\} /],
-    [ct, /data-tooltip="Escribe el minuto exacto, por ejemplo 2:34"/],
   ]
   for (const [fuente, re] of conGlobo) assert.ok(re.test(fuente), String(re))
   // los <input> no generan ::after: su globo va en un envoltorio, no en el propio input
@@ -8513,7 +8725,7 @@ caso('ventana de revisión: la BOLITA BLANCA de la pregunta se arrastra, lleva e
   const v = leerFuente('src/components/video/RevisionVideoModal.jsx')
   const panel = leerFuente('src/components/video/PropuestasVideoPanel.jsx')
   // la bolita blanca (borde azul) es el punto de ESTA pregunta; el triángulo verde NO: es el tiempo del video
-  assert.ok(/<span className="block w-3\.5 h-3\.5 rounded-full border-2 border-accent bg-surface-card" \/>/.test(lt), 'bolita blanca con borde azul')
+  assert.ok(/<span className=\{`block w-3\.5 h-3\.5 rounded-full border-2 border-accent bg-surface-card \$\{sinUbicar \? 'border-dashed' : ''\}`\} \/>/.test(lt), 'bolita blanca con borde azul (punteado si aún no tiene momento)')
   assert.ok(/<span className="block w-0 h-0 border-x-\[8px\] border-x-transparent border-t-\[11px\] border-t-emerald-600" aria-hidden="true" \/>/.test(lt), 'triángulo verde')
   assert.ok(!/sugeridoSeg|marca-pregunta/.test(lt + col), 'sin anillo de referencia del sugerido ni punto duplicado')
   // YA NO HAY PUNTO AZUL: la «bolita» del control deslizante es transparente (el control sigue: tocar la línea salta, relleno de avance)
@@ -8529,7 +8741,7 @@ caso('ventana de revisión: la BOLITA BLANCA de la pregunta se arrastra, lleva e
   assert.ok(/\{\.\.\.agarrar\(elegir, !disabled, soltarBolita\)\}/.test(lt) && /touch-none/.test(lt) && /w-7 h-7/.test(lt) && /w-8 h-5/.test(lt))
   assert.ok(/Math\.min\(dur, Math\.max\(0, Math\.round\(\(\(clientX - r\.left\) \/ r\.width\) \* dur\)\)\)/.test(lt), 'entero y acotado al video')
   // elegir = borrador + el video salta (ColumnaVideoRevision.alCambiar); no escribe nada en la línea ni en la columna
-  assert.ok(/const elegir = \(s, el\) => \{ if \(!disabled && s !== v\) \{ el\.dataset\.ultimo = String\(s\); onCambiar\(s\) \} \}/.test(lt))
+  assert.ok(/const elegir = \(s, el\) => \{ if \(!disabled && Number\.isInteger\(s\) && s !== v\) \{ el\.dataset\.ultimo = String\(s\); onCambiar\(s\) \} \}/.test(lt))
   assert.ok(!/setDoc|updateDoc|firebase|fetch\(/.test(lt + col))
   // al SOLTAR se guarda solo: línea → columna → ventana → panel, por la ruta de siempre (guardarBorrador), con las demás ediciones pendientes
   assert.ok(/const soltarBolita = \(el\) => \{\s*const s = el\.dataset\.ultimo\s*delete el\.dataset\.ultimo\s*if \(s !== undefined\) onSoltar\?\.\(Number\(s\)\)/.test(lt), 'solo guarda si se movió')
@@ -8623,25 +8835,20 @@ caso('ventana de revisión: el video SE DETIENE en el segundo guardado de cada p
   assert.ok(!/paradaDePregunta/.test(leerFuente('src/components/video/VideoInteractivoPantalla.jsx') + leerFuente('src/utils/videoProgreso.js')))
 })
 
-caso('tarjeta «Revisión de las preguntas del video»: bloque informativo breve con el texto acordado (Momento / Contenido / Calidad)', () => {
+caso('tarjeta «Revisión de las preguntas del video»: un bloque breve que describe el flujo, sin pedir al docente comprobar el trabajo de la IA', () => {
   const p = leerFuente('src/components/video/PropuestasVideoPanel.jsx')
-  // el texto exacto, sin numeración ni el texto anterior
   assert.ok(/<h3 className="text-base font-semibold">Revisión de las preguntas del video<\/h3>/.test(p))
-  assert.ok(p.includes('Revisa cada pregunta en el video y aprueba solo las que sean correctas y pertinentes.'))
-  assert.ok(/<h4 className="text-sm font-semibold text-amber-900">Antes de aprobar<\/h4>/.test(p))
-  assert.ok(p.includes('<span className="font-semibold">Momento:</span> verifica que la pregunta aparezca cuando corresponde.'))
-  assert.ok(p.includes('<span className="font-semibold">Contenido:</span> comprueba que coincida con el video y que las respuestas sean correctas.'))
-  assert.ok(p.includes('<span className="font-semibold">Calidad:</span> corrige o descarta preguntas confusas, repetidas o inadecuadas.'))
-  assert.ok(p.includes('La IA propone; tú revisas y decides. Aprobar una pregunta no garantiza que sea correcta.'))
+  assert.ok(p.includes('Revisa las preguntas y aprueba las que quieras publicar.'))
+  assert.ok(p.includes('Las preguntas nuevas ya vienen comprobadas con el video y con su momento.'))
+  assert.ok(!/Antes de aprobar<\/h4>|verifica que la pregunta aparezca|comprueba que coincida con el video|Aprobar una pregunta no garantiza/.test(p), 'sin el texto anterior que mandaba comprobar')
   assert.ok(!/<ol|list-decimal/.test(p), 'sin numeración')
-  assert.ok(!/Solo las aprobadas llegan a tus alumnos|Antes de publicar, ten presente|Asegúrate de/.test(p), 'sin el texto anterior')
-  // misma identidad visual: icono Sparkles, bombilla, caja ámbar con borde; y compacta (tres viñetas en fila desde sm)
-  assert.ok(/<Sparkles size=\{18\} className="text-accent/.test(p) && /<Lightbulb size=\{16\} className="text-amber-700/.test(p))
-  assert.ok(/rounded-card border border-amber-200 bg-amber-50 px-3 py-2 space-y-1/.test(p) && /sm:grid-cols-3/.test(p))
-  assert.ok(/data-testid="recomendaciones-video"/.test(p))
-  // los textos largos siguen en el modal de creación (no se tocaron) y la lógica de la tarjeta sigue igual
+  assert.ok(!/Solo las aprobadas llegan a tus alumnos|Antes de publicar, ten presente|Asegúrate de/.test(p))
+  assert.ok(/rounded-card border border-outline-variant bg-surface px-3 py-2" aria-label="Cómo llegan las preguntas" data-testid="recomendaciones-video"/.test(p))
+  // los textos largos siguen en el modal de creación y la lógica de la tarjeta sigue igual
   assert.ok(/<RecomendacionesVideo \/>/.test(leerFuente('src/components/video/CrearVideoInteractivoModal.jsx')))
   assert.ok(/data-testid="abrir-revision"/.test(p) && /data-testid="abrir-vista-previa"/.test(p) && /data-testid="resumen-antes-de-publicar"/.test(p))
+  // (falla ya en main, sin relación con este cambio: el código usa ICONO.md desde la ola de iconos)
+  assert.ok(/<Sparkles size=\{18\} className="text-accent/.test(p))
 })
 
 caso('video estudiante · navegación libre: una pregunta respondida vuelve a activarse al repetir su tramo y no se repite al continuar', () => {
@@ -8792,7 +8999,7 @@ caso('revisión · etiquetaPregunta: tipo · estado — inicio del enunciado, re
   assert.strictEqual(RVD.etiquetaPregunta({ tipo: 'respuesta_corta', estado: 'descartada', enunciado: '  Hola\n mundo ' }), 'Respuesta abierta · descartada — Hola mundo')
 })
 
-caso('revisión · la línea agrupa, avisa las preguntas sin minuto y nada de esto toca reproductor, guardado ni créditos', () => {
+caso('revisión · la línea agrupa, avisa las preguntas pendientes de ubicación y nada de esto toca reproductor, guardado ni créditos', () => {
   const lt = leerFuente('src/components/video/LineaTiempoRevision.jsx')
   const col = leerFuente('src/components/video/ColumnaVideoRevision.jsx')
   const ct = leerFuente('src/components/video/ControlTiempoVideo.jsx')
@@ -8806,7 +9013,7 @@ caso('revisión · la línea agrupa, avisa las preguntas sin minuto y nada de es
   assert.ok(/e\.key === 'Escape'\) \{ e\.stopPropagation\(\); setGrupoAbierto\(null\) \}/.test(lt), 'Escape cierra solo la lista, no la ventana')
   // avisos de preguntas sin minuto: columna (con accesos), campo de minuto, panel y vista previa
   assert.ok(/const sinMinuto = preguntasSinMinuto\(items\)/.test(col) && /data-testid="aviso-sin-minuto"/.test(col) && /onClick=\{\(\) => onIr\?\.\(o\.id\)\}/.test(col))
-  assert.ok(/data-testid="explicacion-sin-minuto"/.test(ct))
+  assert.ok(/data-testid="pendiente-ubicacion"/.test(ct) && /preguntas sin momento/.test(col))
   assert.ok(/preguntasSinMinuto\(items\)\.length/.test(panel) && /data-testid="resumen-sin-minuto"/.test(panel))
   assert.ok(/preguntasSinMinuto\(items\)\.length/.test(vp) && /data-testid="vista-previa-sin-minuto"/.test(vp) && /'probar-sin-minuto'/.test(vp))
   // fuera de alcance a propósito: nada de esto escribe ni llama a la IA, y el reproductor del estudiante no se usa ni se toca aquí
@@ -8833,7 +9040,7 @@ caso('ventana de revisión: guardar la actual, guardar todo y aprobar con cambio
   assert.ok(/async function guardarTodos\(\)/.test(p) && /for \(const it of sucias\)/.test(p), 'guardar todo')
   assert.ok(/const propuesta = \(await guardarBorrador\(it\)\) \|\| persistida\(it\.id\)\s*\n\s*const plan = await aprobarPropuesta\(/.test(p), 'aprobar: primero guardar, después aprobar')
   assert.ok(/actualizarPregunta\(activityId, it\.id, publicos\)/.test(p) && /editarPropuesta\(activityId, persistida\(it\.id\), campos\)/.test(p), 'los mismos mecanismos de escritura de antes')
-  assert.ok(/const \[confirmados, setConfirmados\]/.test(p) && /ejecutar\(it, async \(\) => \{ await rechazarPropuesta/.test(p) && /restaurarPropuesta\(activityId/.test(p), 'descartar y restaurar siguen igual')
+  assert.ok(!/confirmados/.test(p) && /ejecutar\(it, async \(\) => \{ await rechazarPropuesta/.test(p) && /restaurarPropuesta\(activityId/.test(p), 'descartar y restaurar siguen igual; sin confirmaciones')
   // no hay guardado automático en el arrastre: el único camino a Firestore pasa por guardarBorrador/aprobar/descartar/restaurar
   assert.ok(!/useEffect\([^)]*guardarBorrador/.test(p))
   // la ventana y el video no importan nada que escriba: todo sale por manejadores del panel
@@ -8850,8 +9057,9 @@ caso('ventana de revisión: sin bloques de evidencia vacíos, y las recomendacio
   const ev = leerFuente('src/components/video/EvidenciaVideo.jsx')
   assert.ok(/if \(!ev\) return null/.test(ev), 'sin evidencia no se dibuja nada')
   const v = leerFuente('src/components/video/RevisionVideoModal.jsx')
-  assert.strictEqual((v.match(/data-testid="sin-evidencia"/g) || []).length, 1, 'un solo aviso de una línea, no un recuadro por pregunta')
-  assert.ok(/leerEvidencia\(item\.respaldo\)\s*\n\s*\? <EvidenciaVideo item=\{item\} \/>/.test(v))
+  assert.ok(!/data-testid="sin-evidencia"/.test(v), 'sin aviso que pida comprobar el momento')
+  assert.strictEqual((v.match(/data-testid="version-anterior"/g) || []).length, 1, 'la versión anterior se identifica en una línea')
+  assert.ok(/\{leerEvidencia\(item\.respaldo\) && <EvidenciaVideo item=\{item\} \/>\}/.test(v))
   // las recomendaciones: completas en la tarjeta del editor y en la creación (como antes), cortas en la ventana y en la vista previa
   const p = leerFuente('src/components/video/PropuestasVideoPanel.jsx')
   assert.ok(!/RecomendacionesVideo/.test(p) && /<RecomendacionesVideo compacto \/>/.test(v) && !/<RecomendacionesVideo \/>/.test(v), 'sin repetir el bloque largo en cada pregunta (la tarjeta del editor tiene su bloque breve propio)')

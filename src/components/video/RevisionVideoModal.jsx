@@ -9,10 +9,10 @@ import ColumnaVideoRevision from './ColumnaVideoRevision'
 import EvidenciaVideo from './EvidenciaVideo'
 import {
   ESTADO_REVISION, FILTRO_REVISION, GLOBO_ANGOSTO, GLOBO_DESDE_IZQ, GLOBO_HASTA_DER, accionEscape, coincideFiltro, contarSinGuardar, leerEvidencia, moverId, ordenRevision, primeraParaRevisar,
-  requiereConfirmacion, visiblesRevision,
+  visiblesRevision,
 } from './revisionVideo'
 
-import { Input, Checkbox, Radio } from '../ui'
+import { Input, Radio } from '../ui'
 import { ICONO } from '../../config/iconos'
 const ESTADOS = {
   [ESTADO_REVISION.PENDIENTE]: { texto: 'Pendiente', clase: 'bg-amber-100 text-amber-800' },
@@ -37,7 +37,7 @@ const BOTON = 'inline-flex items-center justify-center gap-1.5 min-h-[2.75rem] p
 //   problema      (item) → texto del primer error de validación, o null
 //   pausarVideo   la vista previa está abierta encima: se desmonta el reproductor de esta ventana (no puede haber dos)
 export default function RevisionVideoModal({
-  items, duracionSeg, videoId, idioma = null, bloqueado, ocupada, confirmados, onConfirmar, setCampos, quitarBorrador, problema,
+  items, duracionSeg, videoId, idioma = null, bloqueado, ocupada, setCampos, quitarBorrador, problema,
   onGuardar, onGuardarTiempo, onGuardarTodos, onDeshacerTodo, onAprobar, onDescartar, onRestaurar, onVistaPrevia, onCerrar, pausarVideo = false,
 }) {
   const porId = useMemo(() => Object.fromEntries(items.map((it) => [it.id, it])), [items])
@@ -210,17 +210,13 @@ export default function RevisionVideoModal({
                 </button>
               )}
 
-              {leerEvidencia(item.respaldo)
-                ? <EvidenciaVideo item={item} />
-                : <p className="text-sm text-muted" data-testid="sin-evidencia">Sin evidencia guardada de dónde salió esta pregunta: comprueba el momento viendo el video.</p>}
+              {leerEvidencia(item.respaldo) && <EvidenciaVideo item={item} />}
+              {item.anterior && item.origen === 'ia' && (
+                <p className="text-sm text-muted" data-testid="version-anterior">Esta pregunta se generó antes de que existiera la comprobación automática con el video.</p>
+              )}
               {sinPermiso && <p className="text-sm text-amber-900">El parcial está cerrado: puedes verla y probarla, pero ya no se puede cambiar.</p>}
               {item.fueraDeLaEvaluacion && <p className="text-sm text-muted">La aprobaste y después la eliminaste de la lista de preguntas: ya no se publica. Para volver a usarla, agrégala a mano en la lista de preguntas.</p>}
               {err && <p role="alert" className="text-xs text-error">{err}</p>}
-              {requiereConfirmacion(item) && item.estado === ESTADO_REVISION.PENDIENTE && (
-                <Checkbox checked={!!confirmados[item.id]} onChange={(e) => onConfirmar(item.id, e.target.checked)}
-                  wrapperClassName="bg-amber-50 rounded px-2 py-2"
-                  label={<span className="text-xs font-normal text-amber-950">Vi el video y comprobé que esta pregunta y su respuesta corresponden a lo que se explica antes de este minuto.</span>} />
-              )}
 
               <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-outline-variant">
                 {item.sinGuardar && (
@@ -246,7 +242,7 @@ export default function RevisionVideoModal({
                         data-tooltip="Descartar esta pregunta; podrás restaurarla">
                         <X size={ICONO.sm} /> Descartar
                       </button>
-                      <button type="button" onClick={() => resolver(onAprobar, { conservarVideo: true })} disabled={!!ocupada || !!err || (requiereConfirmacion(item) && !confirmados[item.id])} className={`${BOTON} bg-accent text-white ${GLOBO_HASTA_DER}`} data-testid="aprobar"
+                      <button type="button" onClick={() => resolver(onAprobar, { conservarVideo: true })} disabled={!!ocupada || !!err} className={`${BOTON} bg-accent text-white ${GLOBO_HASTA_DER}`} data-testid="aprobar"
                         data-tooltip="Aprobar y agregar a la evaluación">
                         {trabajando ? <Spinner size="sm" /> : <Check size={ICONO.sm} />} Aprobar
                       </button>

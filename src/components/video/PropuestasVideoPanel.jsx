@@ -43,7 +43,6 @@ export default function PropuestasVideoPanel({
   const [propuestas, setPropuestas] = useState(null)
   const [borradores, setBorradores] = useState({})
   const [ocupada, setOcupada] = useState(null)
-  const [confirmados, setConfirmados] = useState({})
   const [revisando, setRevisando] = useState(false)
   const [vistaPrevia, setVistaPrevia] = useState(null) // { inicioSeg, reproducir }
 
@@ -58,7 +57,7 @@ export default function PropuestasVideoPanel({
 
   const items = useMemo(() => construirItems({ propuestas: propuestas || [], activas: activas || [], borradores, activasListas }), [propuestas, activas, borradores, activasListas])
   const cuenta = useMemo(() => contarPorEstadoRevision(items), [items])
-  const sinMinuto = useMemo(() => preguntasSinMinuto(items).length, [items]) // no se dibujan en la línea de tiempo: se avisan
+  const sinMinuto = useMemo(() => preguntasSinMinuto(items).length, [items]) // de la versión anterior: pendientes de ubicación
   const itemsRef = useRef(items) // lo último que se ve en pantalla, para guardar al soltar la bolita sin depender de un cierre viejo
   useEffect(() => { itemsRef.current = items })
 
@@ -173,21 +172,16 @@ export default function PropuestasVideoPanel({
         <Sparkles size={ICONO.md} className="text-accent flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           <h3 className="text-base font-semibold">Revisión de las preguntas del video</h3>
-          <p className="text-sm text-muted">Revisa cada pregunta en el video y aprueba solo las que sean correctas y pertinentes.</p>
+          <p className="text-sm text-muted">Revisa las preguntas y aprueba las que quieras publicar.</p>
         </div>
       </div>
 
-      <section className="rounded-card border border-amber-200 bg-amber-50 px-3 py-2 space-y-1" aria-label="Antes de aprobar" data-testid="recomendaciones-video">
-        <div className="flex items-center gap-2">
-          <Lightbulb size={ICONO.sm} className="text-amber-700 flex-shrink-0" />
-          <h4 className="text-sm font-semibold text-amber-900">Antes de aprobar</h4>
-        </div>
-        <ul className="grid gap-x-4 gap-y-0.5 text-sm text-amber-900 list-disc pl-6 sm:grid-cols-3">
-          <li><span className="font-semibold">Momento:</span> verifica que la pregunta aparezca cuando corresponde.</li>
-          <li><span className="font-semibold">Contenido:</span> comprueba que coincida con el video y que las respuestas sean correctas.</li>
-          <li><span className="font-semibold">Calidad:</span> corrige o descarta preguntas confusas, repetidas o inadecuadas.</li>
-        </ul>
-        <p className="text-sm font-semibold text-amber-900">La IA propone; tú revisas y decides. Aprobar una pregunta no garantiza que sea correcta.</p>
+      <section className="rounded-card border border-outline-variant bg-surface px-3 py-2" aria-label="Cómo llegan las preguntas" data-testid="recomendaciones-video">
+        <p className="flex items-start gap-2 text-sm text-on-surface">
+          <Lightbulb size={ICONO.sm} className="text-accent flex-shrink-0 mt-0.5" />
+          <span>Las preguntas nuevas ya vienen comprobadas con el video y con su momento. Puedes arrastrarlas a otro momento o editar su
+            texto. Solo se publican las que apruebes.</span>
+        </p>
       </section>
 
       <div className="rounded-card bg-surface px-3 py-2 space-y-2" data-testid="resumen-antes-de-publicar">
@@ -197,7 +191,7 @@ export default function PropuestasVideoPanel({
           <span className="font-semibold text-red-800">{cuenta.descartada}</span> {cuenta.descartada === 1 ? 'descartada' : 'descartadas'}
           {sinMinuto > 0 && (
             <span data-testid="resumen-sin-minuto">
-              {' '}· <span className="font-semibold text-amber-900">{sinMinuto} sin minuto</span> (elige cuándo {sinMinuto === 1 ? 'aparece' : 'aparecen'} en «Revisar preguntas»)
+              {' '}· <span className="font-semibold text-amber-900">{sinMinuto} sin momento</span> ({sinMinuto === 1 ? 'generada antes de esta mejora: arrástrala a la línea de tiempo o descártala' : 'generadas antes de esta mejora: arrástralas a la línea de tiempo o descártalas'} en «Revisar preguntas»)
             </span>
           )}
         </p>
@@ -220,7 +214,6 @@ export default function PropuestasVideoPanel({
       {revisando && (
         <RevisionVideoModal
           items={items} duracionSeg={duracionSeg} videoId={videoId} idioma={idioma} bloqueado={bloqueado} ocupada={ocupada}
-          confirmados={confirmados} onConfirmar={(id, v) => setConfirmados((c) => ({ ...c, [id]: v }))}
           setCampos={setCampos} quitarBorrador={quitarBorrador} problema={problema}
           onGuardar={guardar} onGuardarTiempo={guardarTiempo} onGuardarTodos={guardarTodos} onDeshacerTodo={() => setBorradores({})}
           onAprobar={aprobar} onDescartar={descartar} onRestaurar={restaurar}
