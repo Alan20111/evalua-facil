@@ -25,7 +25,9 @@ const ACCESO = 'inline-flex items-center min-h-[2.75rem] max-w-full px-3 rounded
 //   onSoltar     (seg) → la bolita se soltó en `seg` (guardar el tiempo)
 //   onSaltar     (seg) → solo mover el video
 //   onIr         (id) → ir a esa pregunta
-export default function LineaTiempoRevision({ duracionSeg, posicion = null, valor, onCambiar, onSoltar, onSaltar, onIr, items = [], itemId, disabled = false }) {
+//   numeros      { id: número } de cada pregunta en la lista de la ventana («Pregunta N de M»): se ve dentro de su punto y de la bolita
+//                blanca. Una pregunta fuera del filtro activo no tiene número en esa lista y su punto se dibuja sin él.
+export default function LineaTiempoRevision({ duracionSeg, posicion = null, valor, onCambiar, onSoltar, onSaltar, onIr, items = [], itemId, disabled = false, numeros = {} }) {
   const [grupoAbierto, setGrupoAbierto] = useState(null) // segundo del punto agrupado cuyos accesos se ven debajo
   const dur = Number.isFinite(duracionSeg) && duracionSeg > 0 ? Math.floor(duracionSeg) : 0
   if (!dur) return null
@@ -93,26 +95,36 @@ export default function LineaTiempoRevision({ duracionSeg, posicion = null, valo
         <div className="absolute inset-x-3.5 top-1/2 h-0 pointer-events-none">
           {grupos.map(({ seg: s, items: g }) => {
             const o = g[0]
+            const n = numeros[o.id]
             if (g.length === 1) return (
             <button key={o.id} type="button" onClick={() => onIr?.(o.id)} data-testid="punto-pregunta"
-              aria-label={`Ir a la pregunta del minuto ${formatearMinuto(o.timestampSeg)}${o.sinGuardar ? ', con cambios sin guardar' : ''}`}
+              aria-label={`Ir a la pregunta ${n ? `${n} ` : ''}del minuto ${formatearMinuto(o.timestampSeg)}${o.sinGuardar ? ', con cambios sin guardar' : ''}`}
               className="absolute top-0 -translate-x-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full pointer-events-auto cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               style={{ left: pct(o.timestampSeg) }}>
-              <span className={`relative block w-2.5 h-2.5 rounded-full ring-2 ring-white ${COLOR_MARCA[o.estado] || COLOR_MARCA[ESTADO_REVISION.PENDIENTE]}`}>
-                {o.sinGuardar && <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-accent ring-1 ring-white" />}
-              </span>
+              {n ? (
+                <span className={`relative flex items-center justify-center min-w-[1.125rem] h-[1.125rem] px-0.5 rounded-full ring-2 ring-white text-[0.625rem] leading-none font-bold text-amber-950 tabular-nums ${COLOR_MARCA[o.estado] || COLOR_MARCA[ESTADO_REVISION.PENDIENTE]}`}>
+                  {n}
+                  {o.sinGuardar && <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-accent ring-1 ring-white" />}
+                </span>
+              ) : (
+                <span className={`relative block w-2.5 h-2.5 rounded-full ring-2 ring-white ${COLOR_MARCA[o.estado] || COLOR_MARCA[ESTADO_REVISION.PENDIENTE]}`}>
+                  {o.sinGuardar && <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-accent ring-1 ring-white" />}
+                </span>
+              )}
             </button>
             )
-            // Varias en el mismo segundo: un punto más grande con la cantidad; tocarlo muestra un acceso a cada una.
+            // Varias en el mismo segundo: un punto con sus números («3·4»; la cantidad si ninguna tiene número en la lista); tocarlo muestra
+            // un acceso a cada una.
             const sucio = g.some((it) => it.sinGuardar)
+            const nums = g.map((it) => numeros[it.id]).filter(Boolean)
             return (
               <button key={`grupo-${s}`} type="button" onClick={() => setGrupoAbierto(grupoAbierto === s ? null : s)} data-testid="punto-grupo"
                 aria-expanded={grupoAbierto === s}
-                aria-label={`${g.length} preguntas en el minuto ${formatearMinuto(s)}${sucio ? ', alguna con cambios sin guardar' : ''}: elegir cuál abrir`}
+                aria-label={`${nums.length ? `Preguntas ${nums.join(', ')}` : `${g.length} preguntas`} en el minuto ${formatearMinuto(s)}${sucio ? ', alguna con cambios sin guardar' : ''}: elegir cuál abrir`}
                 className="absolute top-0 -translate-x-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-full pointer-events-auto cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 style={{ left: pct(s) }}>
-                <span className={`relative flex items-center justify-center w-[1.125rem] h-[1.125rem] rounded-full ring-2 ring-white text-[0.625rem] leading-none font-bold text-amber-950 tabular-nums ${COLOR_MARCA[estadoDeGrupo(g)]}`}>
-                  {g.length}
+                <span className={`relative flex items-center justify-center min-w-[1.125rem] h-[1.125rem] px-1 rounded-full ring-2 ring-white text-[0.625rem] leading-none font-bold text-amber-950 tabular-nums ${COLOR_MARCA[estadoDeGrupo(g)]}`}>
+                  {nums.length ? nums.join('·') : g.length}
                   {sucio && <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-accent ring-1 ring-white" />}
                 </span>
               </button>
@@ -124,7 +136,9 @@ export default function LineaTiempoRevision({ duracionSeg, posicion = null, valo
           <div data-testid="bolita-pregunta" data-sin-ubicar={sinUbicar ? 'true' : undefined} aria-hidden="true" {...agarrar(elegir, !disabled, soltarBolita)}
             className={`absolute -translate-x-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center touch-none pointer-events-auto ${sinUbicar ? '-top-6' : 'top-0'} ${disabled ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'}`}
             style={{ left: sinUbicar ? '0%' : pct(v) }}>
-            <span className={`block w-3.5 h-3.5 rounded-full border-2 border-accent bg-surface-card ${sinUbicar ? 'border-dashed' : ''}`} />
+            <span data-testid="numero-bolita" className={`flex items-center justify-center min-w-[1.25rem] h-5 px-0.5 rounded-full border-2 border-accent bg-surface-card text-[0.625rem] leading-none font-bold text-accent tabular-nums ${sinUbicar ? 'border-dashed' : ''}`}>
+              {numeros[itemId] ?? ''}
+            </span>
           </div>
           {/* El TRIÁNGULO verde: el tiempo actual del video. Se arrastra o se mueve con las flechas para recorrer el video. */}
           {/* eslint-disable-next-line jsx-a11y/prefer-tag-over-role --

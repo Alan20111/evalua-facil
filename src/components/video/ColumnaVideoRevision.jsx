@@ -20,7 +20,9 @@ import { ICONO } from '../../config/iconos'
 //   duracionSeg  largo guardado del video; si falta se toma del reproductor (solo como tope visual, no se guarda)
 const ESPERA_SALTO_MS = 1500
 
-export default function ColumnaVideoRevision({ videoId, duracionSeg, idioma = null, sinSaltarA = null, item, items, disabled = false, onCambiar, onSoltar, onIr }) {
+//   accionesTiempo  botones que van en la misma fila que −5 … +5 (Deshacer / Rehacer de la ventana)
+//   numeros         { id: número de la pregunta en la lista de la ventana } para los puntos de la línea
+export default function ColumnaVideoRevision({ videoId, duracionSeg, idioma = null, sinSaltarA = null, item, items, disabled = false, onCambiar, onSoltar, onIr, accionesTiempo = null, numeros = {} }) {
   const contenedorRef = useRef(null)
   const sostenidoRef = useRef(null) // {seg, hasta}: el marcador se queda en lo que eligió el docente mientras el video llega ahí
   const baseRef = useRef(0) // desde dónde se reproduce: las preguntas anteriores ya cuentan como pasadas
@@ -147,7 +149,7 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, idioma = nu
           {reproduciendo ? <Pause size={ICONO.md} /> : <Play size={ICONO.md} className="ml-0.5" />}
         </button>
         <div className="flex-1 min-w-0">
-          <LineaTiempoRevision duracionSeg={dur} posicion={yt.listo ? posicion : null} valor={seg} onCambiar={alCambiar} onSoltar={onSoltar} onSaltar={saltar} items={items} onIr={onIr} itemId={item.id} disabled={disabled} />
+          <LineaTiempoRevision duracionSeg={dur} posicion={yt.listo ? posicion : null} valor={seg} onCambiar={alCambiar} onSoltar={onSoltar} onSaltar={saltar} items={items} onIr={onIr} itemId={item.id} disabled={disabled} numeros={numeros} />
         </div>
       </div>
       {sinMinuto.length > 0 && (
@@ -170,7 +172,7 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, idioma = nu
       <p className="text-xs text-muted tabular-nums" aria-live="polite">
         Video en {formatearMinuto(Math.floor(posicion))}
       </p>
-      <ControlTiempoVideo item={item} duracionSeg={dur || null} disabled={disabled} onCambiar={alCambiar} />
+      <ControlTiempoVideo item={item} duracionSeg={dur || null} disabled={disabled} onCambiar={alCambiar} acciones={accionesTiempo} />
     </div>
   )
 }

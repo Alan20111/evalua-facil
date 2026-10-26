@@ -9,15 +9,23 @@ const PASO = 'min-h-[2.75rem] min-w-[3rem] px-2.5 rounded-full border border-out
 //   item         elemento de revisión (con el borrador aplicado)
 //   duracionSeg  largo del video si se conoce (límite superior)
 //   onCambiar    (segundos) → nuevo tiempo del borrador
-export default function ControlTiempoVideo({ item, duracionSeg, disabled = false, onCambiar }) {
+//   acciones     botones que van al final de la misma fila (Deshacer / Rehacer); también cuando la pregunta aún no tiene momento
+export default function ControlTiempoVideo({ item, duracionSeg, disabled = false, onCambiar, acciones = null }) {
   const seg = item.timestampSeg
   // Propuesta de la versión anterior sin momento: queda pendiente de ubicación. No se le inventa un tiempo (tampoco 0 como base de
   // los botones): se ubica arrastrando su punto a la línea de tiempo, o se descarta.
   if (!Number.isInteger(seg)) {
-    return (
+    const aviso = (
       <p className="text-xs text-amber-900" data-testid="pendiente-ubicacion">
         Esta pregunta no tiene momento. Arrastra su punto a la línea de tiempo o descártala.
       </p>
+    )
+    if (!acciones) return aviso
+    return (
+      <div className="space-y-1">
+        <div className="flex flex-wrap items-center gap-1.5" data-testid="acciones-tiempo">{acciones}</div>
+        {aviso}
+      </div>
     )
   }
   const v = validarTiempo(seg, duracionSeg)
@@ -38,6 +46,13 @@ export default function ControlTiempoVideo({ item, duracionSeg, disabled = false
           <button key={d} type="button" disabled={disabled} onClick={() => mover(d)} className={`${PASO} ${GLOBO_DESDE_IZQ}`} aria-label={`Aparece ${d} segundos después`}
             data-tooltip={`Que aparezca ${d} ${d === 1 ? 'segundo' : 'segundos'} después`}>+{d}</button>
         ))}
+        {/* Separador + Deshacer / Rehacer como un bloque: si no caben en la línea (teléfono vertical) bajan juntos, nunca separados. */}
+        {acciones && (
+          <span className="inline-flex items-center gap-1.5" data-testid="acciones-tiempo">
+            <span aria-hidden="true" className="mx-0.5 h-6 w-px bg-outline-variant" />
+            {acciones}
+          </span>
+        )}
       </div>
       {(!v.ok || v.aviso) && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted">
