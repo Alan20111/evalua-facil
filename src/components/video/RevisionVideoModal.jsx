@@ -7,8 +7,9 @@ import { useScrollLock } from '../../hooks/useScrollLock'
 import RecomendacionesVideo from './RecomendacionesVideo'
 import ColumnaVideoRevision from './ColumnaVideoRevision'
 import EvidenciaVideo from './EvidenciaVideo'
+import TarjetaSiguientePregunta from './TarjetaSiguientePregunta'
 import {
-  ESTADO_REVISION, FILTRO_REVISION, GLOBO_ANGOSTO, GLOBO_DESDE_IZQ, GLOBO_HASTA_DER, TIPO_CORTO, accionEscape, coincideFiltro, contarSinGuardar, descripcionHistorial, firmaOrden, formatearMinuto, franjaRevision,
+  ESTADO_REVISION, FILTRO_REVISION, GLOBO_ANGOSTO, GLOBO_DESDE_IZQ, GLOBO_HASTA_DER, accionEscape, coincideFiltro, contarSinGuardar, descripcionHistorial, firmaOrden, franjaRevision,
   leerEvidencia, moverId, ordenRevision, primeraParaRevisar, visiblesRevision,
 } from './revisionVideo'
 
@@ -24,6 +25,10 @@ const FILTROS = [
   [FILTRO_REVISION.PENDIENTES, 'Pendientes', 'Solo las que aún no revisas'],
   [FILTRO_REVISION.DESCARTADAS, 'Descartadas', 'Las que descartaste; puedes restaurarlas'],
 ]
+// Misma forma y tamaño que los botones −5 … +5 (ControlTiempoVideo), junto a los que van.
+const PASO_HISTORIAL = 'inline-flex items-center justify-center gap-1.5 min-h-[2.75rem] min-w-[3rem] px-2.5 rounded-full border border-outline-variant text-sm font-semibold text-on-surface hover:bg-surface-container disabled:opacity-40 disabled:hover:bg-transparent'
+// En teléfono (vertical u horizontal) solo el ícono, para que quepan junto a −5 … +5; el nombre sigue en aria-label y tooltip.
+const TEXTO_HISTORIAL = 'max-sm:hidden [@media(orientation:landscape)_and_(max-height:500px)]:hidden'
 const BOTON = 'inline-flex items-center justify-center gap-1.5 min-h-[2.75rem] px-4 rounded-full text-sm font-semibold transition-colors disabled:opacity-60'
 
 // LA ventana de revisión de las preguntas del video: una pregunta a la vez («Pregunta X de N»), con su video, su línea de tiempo y
@@ -100,9 +105,29 @@ export default function RevisionVideoModal({
   const despues = moverId(orden, porId, filtro, actualId, 1)
   const { siguiente } = franjaRevision({ orden, porId, filtro, actualId })
   const posSiguiente = siguiente ? visibles.indexOf(siguiente.id) + 1 : 0
-  const momento = (it) => (Number.isInteger(it.timestampSeg) ? formatearMinuto(it.timestampSeg) : 'sin momento')
+  // Número de cada pregunta en la lista (el mismo de «Pregunta N de M»): se ve en su punto de la línea de tiempo.
+  const numeros = Object.fromEntries(visibles.map((id, i) => [id, i + 1]))
   const hist = descripcionHistorial(historiales[item.id])
   const sinEditar = trabajando || sinPermiso
+  // Deshacer / Rehacer: solo cambios de ESTA pregunta que aún se pueden revertir (nunca aprobar, descartar ni restaurar). Van junto a los
+  // controles del momento (−5 … +5), con su misma forma; en teléfono solo el ícono (el nombre sigue en aria-label y tooltip).
+  const bloqueadoHistorial = sinEditar || item.estado === ESTADO_REVISION.DESCARTADA
+  const accionesHistorial = (
+    <>
+      <button type="button" onClick={() => onDeshacer?.(item.id)} disabled={bloqueadoHistorial || !hist.deshacer} data-testid="deshacer"
+        aria-label={hist.deshacer ? `Deshacer el último cambio en ${hist.deshacer}` : 'Deshacer: no hay cambios que deshacer'}
+        data-tooltip={hist.deshacer ? `Deshacer el último cambio en ${hist.deshacer}` : 'No hay cambios que deshacer'}
+        className={`${PASO_HISTORIAL} ${GLOBO_DESDE_IZQ}`}>
+        <Undo2 size={ICONO.sm} /><span className={TEXTO_HISTORIAL}>Deshacer</span>
+      </button>
+      <button type="button" onClick={() => onRehacer?.(item.id)} disabled={bloqueadoHistorial || !hist.rehacer} data-testid="rehacer"
+        aria-label={hist.rehacer ? `Rehacer el cambio en ${hist.rehacer}` : 'Rehacer: no hay cambios que rehacer'}
+        data-tooltip={hist.rehacer ? `Rehacer el cambio en ${hist.rehacer}` : 'No hay cambios que rehacer'}
+        className={`${PASO_HISTORIAL} ${GLOBO_DESDE_IZQ}`}>
+        <Redo2 size={ICONO.sm} /><span className={TEXTO_HISTORIAL}>Rehacer</span>
+      </button>
+    </>
+  )
   // Texto: las pulsaciones seguidas son un solo paso para Deshacer (hasta una pausa o hasta salir del campo).
   const escribir = (clave) => ({ grupo: { clave } })
   const salirDelCampo = () => onCerrarPaso?.(item.id)
@@ -161,7 +186,7 @@ export default function RevisionVideoModal({
               ? <div className="min-w-0 rounded-card bg-surface-container p-6 text-sm text-muted text-center">La vista previa está abierta. Ciérrala para volver al video.</div>
               : (
                 <ColumnaVideoRevision videoId={videoId} duracionSeg={duracionSeg} idioma={idioma} sinSaltarA={sinSaltarA} item={item} items={items} onIr={ir} onSoltar={(seg) => onGuardarTiempo(item.id, seg)}
-                  disabled={trabajando || sinPermiso || item.estado === ESTADO_REVISION.DESCARTADA}
+                  disabled={trabajando || sinPermiso || item.estado === ESTADO_REVISION.DESCARTADA} accionesTiempo={accionesHistorial} numeros={numeros}
                   onCambiar={(seg, info) => setCampos(item.id, { timestampSeg: seg }, info?.arrastre ? { grupo: { clave: 'arrastre', ventanaMs: Infinity } } : {})} />
               )}
 
@@ -175,6 +200,7 @@ export default function RevisionVideoModal({
                   <span className="max-sm:hidden">Siguiente</span> <ChevronRight size={ICONO.sm} />
                 </button>
               </div>
+              <p className="text-sm font-bold text-accent" data-testid="numero-actual">Pregunta {pos} de {visibles.length}</p>
               {!editando && (
                 <div className="space-y-1.5">
                   <p className="text-base lg:text-[20px] leading-snug font-medium text-on-surface whitespace-pre-wrap" data-testid="enunciado-actual">{item.enunciado}</p>
@@ -233,26 +259,11 @@ export default function RevisionVideoModal({
               )}
 
               {item.estado !== ESTADO_REVISION.DESCARTADA && (
-                <div className="flex flex-wrap items-center gap-1.5">
                 <button type="button" onClick={() => setEditando((v) => !v)} disabled={trabajando || sinPermiso} aria-expanded={editando} data-testid="alternar-edicion"
                   data-tooltip={editando ? 'Volver a la vista de la pregunta' : 'Corregir el texto, las opciones y la respuesta correcta'}
                   className={`inline-flex items-center gap-1.5 min-h-[2.5rem] px-3 rounded-full border border-outline-variant text-xs font-semibold text-on-surface hover:bg-surface-container disabled:opacity-60 ${GLOBO_DESDE_IZQ}`}>
                   <Pencil size={ICONO.xs} /> {editando ? 'Cerrar edición' : 'Editar pregunta'}
                 </button>
-                {/* Deshacer / Rehacer: solo cambios de ESTA pregunta que aún se pueden revertir (nunca aprobar, descartar ni restaurar). */}
-                <button type="button" onClick={() => onDeshacer?.(item.id)} disabled={sinEditar || !hist.deshacer} data-testid="deshacer"
-                  aria-label={hist.deshacer ? `Deshacer el último cambio en ${hist.deshacer}` : 'Deshacer: no hay cambios que deshacer'}
-                  data-tooltip={hist.deshacer ? `Deshacer el último cambio en ${hist.deshacer}` : 'No hay cambios que deshacer'}
-                  className={`inline-flex items-center gap-1.5 min-h-[2.5rem] px-3 rounded-full border border-outline-variant text-xs font-semibold text-on-surface hover:bg-surface-container disabled:opacity-40 disabled:hover:bg-transparent ${GLOBO_DESDE_IZQ}`}>
-                  <Undo2 size={ICONO.xs} /> Deshacer
-                </button>
-                <button type="button" onClick={() => onRehacer?.(item.id)} disabled={sinEditar || !hist.rehacer} data-testid="rehacer"
-                  aria-label={hist.rehacer ? `Rehacer el cambio en ${hist.rehacer}` : 'Rehacer: no hay cambios que rehacer'}
-                  data-tooltip={hist.rehacer ? `Rehacer el cambio en ${hist.rehacer}` : 'No hay cambios que rehacer'}
-                  className={`inline-flex items-center gap-1.5 min-h-[2.5rem] px-3 rounded-full border border-outline-variant text-xs font-semibold text-on-surface hover:bg-surface-container disabled:opacity-40 disabled:hover:bg-transparent ${GLOBO_DESDE_IZQ}`}>
-                  <Redo2 size={ICONO.xs} /> Rehacer
-                </button>
-                </div>
               )}
 
               {leerEvidencia(item.respaldo) && <EvidenciaVideo item={item} />}
@@ -300,23 +311,8 @@ export default function RevisionVideoModal({
                 </div>
               </div>
 
-              {/* Siguiente pregunta: solo informa (para avanzar está «Siguiente»). Mismo orden y filtro que la navegación; texto completo,
-                  sin opciones ni respuesta, atenuada para no competir con la actual. */}
-              <section aria-label="Siguiente pregunta" data-testid="tarjeta-siguiente"
-                className="rounded-card border border-dashed border-outline-variant bg-surface-container px-3 py-2 space-y-1">
-                {siguiente ? (
-                  <>
-                    <p className="text-xs font-semibold text-muted" data-testid="siguiente-encabezado">
-                      Siguiente pregunta · Pregunta {posSiguiente} de {visibles.length} · {momento(siguiente)} · {TIPO_CORTO[siguiente.tipo] || 'Pregunta'}
-                    </p>
-                    <p className="text-sm lg:text-base leading-snug text-on-surface whitespace-pre-wrap" data-testid="siguiente-enunciado">
-                      {siguiente.enunciado.trim() || 'Pregunta sin texto'}
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-sm font-semibold text-muted" data-testid="ultima-pregunta">Es la última pregunta</p>
-                )}
-              </section>
+              {/* Siguiente pregunta: solo informa (para avanzar está «Siguiente»). Mismo orden y filtro que la navegación. */}
+              <TarjetaSiguientePregunta siguiente={siguiente} posicion={posSiguiente} total={visibles.length} />
             </div>
           </div>
           <div className="px-3 pb-3"><RecomendacionesVideo compacto /></div>

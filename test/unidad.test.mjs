@@ -8596,30 +8596,89 @@ caso('orden de la ventana: se recalcula cuando cambia un momento GUARDADO (al so
   assert.strictEqual(RVD.firmaOrden([...base].reverse()), RVD.firmaOrden(base))
 })
 
-caso('ventana de revisión: sin franja; la actual UNA sola vez en el panel y la «Siguiente pregunta» debajo, completa, atenuada y no interactiva', () => {
+caso('ventana de revisión: número de la actual ANTES de su enunciado; la actual una sola vez; la «Siguiente pregunta» debajo, completa e informativa', () => {
   const v = leerFuente('src/components/video/RevisionVideoModal.jsx')
   const header = v.slice(v.indexOf('<header'), v.indexOf('</header>'))
   // encabezado: número, estado y filtros; la franja ya no existe
   assert.ok(/Pregunta \{pos\} de \{visibles\.length\}/.test(header) && /data-testid=\{`filtro-\$\{valor\}`\}/.test(header))
   assert.ok(!/data-testid="franja|Ahora · /.test(v), 'sin franja «Ahora / Siguiente»')
-  // el enunciado de la actual se pinta una sola vez (el campo de edición lo reemplaza, no lo repite)
+  // el número de la pregunta va al inicio de su contenido, antes del enunciado (también mientras se edita)
+  const actual = v.slice(v.indexOf('data-testid="pregunta-actual"'))
+  assert.ok(/<p className="text-sm font-bold text-accent" data-testid="numero-actual">Pregunta \{pos\} de \{visibles\.length\}<\/p>/.test(actual))
+  assert.ok(actual.indexOf('data-testid="numero-actual"') < actual.indexOf('data-testid="enunciado-actual"') && actual.indexOf('data-testid="numero-actual"') < actual.indexOf('{editando && ('), 'antes del enunciado y del panel de edición')
+  // la actual: se pinta una sola vez y con su apariencia de siempre
   assert.strictEqual((v.match(/>\{item\.enunciado\}</g) || []).length, 1, 'la actual se pinta una sola vez')
+  assert.ok(/<p className="text-base lg:text-\[20px\] leading-snug font-medium text-on-surface whitespace-pre-wrap" data-testid="enunciado-actual">\{item\.enunciado\}<\/p>/.test(v))
   assert.ok(/\{!editando && \(/.test(v) && /\{editando && \(/.test(v), 'al editar, el campo reemplaza al texto (no lo repite)')
-  // tarjeta: DESPUÉS de las acciones de la actual (Descartar/Aprobar/Restaurar), con número, momento y tipo, texto completo
-  const tarjeta = v.slice(v.indexOf('data-testid="tarjeta-siguiente"'))
-  assert.ok(v.indexOf('data-testid="aprobar"') < v.indexOf('data-testid="tarjeta-siguiente"') && v.indexOf('data-testid="restaurar"') < v.indexOf('data-testid="tarjeta-siguiente"'))
-  assert.ok(/Siguiente pregunta · Pregunta \{posSiguiente\} de \{visibles\.length\} · \{momento\(siguiente\)\} · \{TIPO_CORTO\[siguiente\.tipo\] \|\| 'Pregunta'\}/.test(tarjeta))
-  assert.ok(/className="text-sm lg:text-base leading-snug text-on-surface whitespace-pre-wrap" data-testid="siguiente-enunciado"/.test(tarjeta), '~14 px en teléfono y tableta, ~16 px en escritorio: siempre un escalón por debajo de la actual (20 px en escritorio)')
-  assert.ok(!/line-clamp|truncate/.test(tarjeta.slice(0, tarjeta.indexOf('</section>'))), 'texto completo, sin recortar')
-  assert.ok(/border border-dashed border-outline-variant bg-surface-container/.test(v), 'fondo atenuado y borde discreto')
-  assert.ok(!/<button|onClick|opciones|respuestaCorrecta/.test(tarjeta.slice(0, tarjeta.indexOf('</section>'))), 'informativa: sin botón, sin opciones ni respuesta')
-  assert.ok(/data-testid="ultima-pregunta">Es la última pregunta</.test(tarjeta))
-  // mismo orden y filtro que «Siguiente»
+  // tarjeta: DESPUÉS de las acciones de la actual, mismo orden y filtro que «Siguiente»
+  assert.ok(v.indexOf('data-testid="aprobar"') < v.indexOf('<TarjetaSiguientePregunta') && v.indexOf('data-testid="restaurar"') < v.indexOf('<TarjetaSiguientePregunta'))
+  assert.ok(/<TarjetaSiguientePregunta siguiente=\{siguiente\} posicion=\{posSiguiente\} total=\{visibles\.length\} \/>/.test(v))
   assert.ok(/const \{ siguiente \} = franjaRevision\(\{ orden, porId, filtro, actualId \}\)/.test(v) && /const posSiguiente = siguiente \? visibles\.indexOf\(siguiente\.id\) \+ 1 : 0/.test(v))
   // el orden se recalcula solo con la huella de lo guardado; sin pregunta abierta se abre la primera por revisar
   assert.ok(/const firma = firmaOrden\(items\)/.test(v) && /if \(ordenVivo\.firma !== firma\) setOrdenVivo\(\{ firma, orden: ordenRevision\(items\) \}\)/.test(v))
   assert.ok(/if \(!porId\[actualId\]\) \{\s*const primera = primeraParaRevisar\(orden, porId, filtro\)\s*if \(primera && primera !== actualId\) setActualId\(primera\)/.test(v))
   assert.ok(/data-testid="sin-pregunta-actual">No hay preguntas para revisar\.</.test(v) && !/if \(!item\) return null/.test(v))
+})
+
+caso('tarjeta «Siguiente pregunta»: número, momento, tipo, enunciado completo, TODAS las opciones con la correcta marcada y la retroalimentación si existe; nada inventado ni editable', () => {
+  const t = leerFuente('src/components/video/TarjetaSiguientePregunta.jsx')
+  assert.ok(/Siguiente pregunta · Pregunta \{posicion\} de \{total\} · \{momento\} · \{TIPO_CORTO\[siguiente\.tipo\] \|\| 'Pregunta'\}/.test(t))
+  assert.ok(/const momento = Number\.isInteger\(siguiente\.timestampSeg\) \? formatearMinuto\(siguiente\.timestampSeg\) : 'sin momento'/.test(t))
+  assert.ok(/className="text-sm lg:text-base leading-snug text-on-surface whitespace-pre-wrap" data-testid="siguiente-enunciado"/.test(t), '~14 px en teléfono y tableta, ~16 px en escritorio: un escalón por debajo de la actual')
+  // opciones: verdadero/falso muestra las DOS; opción múltiple, TODAS las guardadas; abierta, ninguna
+  assert.ok(/const VF = \[\{ id: 'v', texto: 'Verdadero' \}, \{ id: 'f', texto: 'Falso' \}\]/.test(t))
+  assert.ok(/siguiente\.tipo === 'verdadero_falso' \? VF : siguiente\.tipo === 'opcion_multiple' && Array\.isArray\(siguiente\.opciones\) \? siguiente\.opciones : \[\]/.test(t))
+  assert.ok(/opciones\.map\(\(o\) => \(o\.id === siguiente\.respuestaCorrecta \?/.test(t) && /✓ \{o\.texto\} · Correcta/.test(t) && /• \{o\.texto\}/.test(t), 'la correcta, marcada; las demás, listadas')
+  assert.ok(/!hayCorrecta && <p className="text-xs text-muted">Respuesta correcta: no disponible\.<\/p>/.test(t), 'sin correcta guardada no se inventa')
+  assert.ok(/abierta && <p className="text-xs text-hint">Respuesta abierta: la califica el docente\.<\/p>/.test(t))
+  // retroalimentación solo si existe; en la abierta es la guía de respuesta que ya guarda la propuesta
+  assert.ok(/\{retro && \(/.test(t) && /\{abierta \? 'Guía de respuesta \(retroalimentación\)' : 'Retroalimentación'\}: \{retro\}/.test(t))
+  // completa e informativa: sin recortes, sin campos ni botones
+  assert.ok(!/line-clamp|truncate/.test(t), 'texto completo')
+  assert.ok(!/<button|<input|<textarea|onClick|onChange|setCampos/.test(t), 'no se puede editar ni navegar desde la tarjeta')
+  assert.ok(/border border-dashed border-outline-variant bg-surface-container/.test(t), 'fondo atenuado y borde discreto')
+  assert.ok(/data-testid="ultima-pregunta">Es la última pregunta</.test(t))
+  // la tarjeta no importa nada que escriba
+  assert.ok(!/firebase|propuestasVideoDb|evaluacionClave|useCreditosIA/.test(t))
+})
+
+caso('Deshacer / Rehacer junto a los controles circulares del momento (también sin momento); misma forma que ±, solo ícono en teléfono', () => {
+  const ct = leerFuente('src/components/video/ControlTiempoVideo.jsx')
+  const col = leerFuente('src/components/video/ColumnaVideoRevision.jsx')
+  const v = leerFuente('src/components/video/RevisionVideoModal.jsx')
+  // la ventana arma los botones; la columna los pasa; el control los pone al final de la fila de −5 … +5, tras un separador
+  assert.ok(/<ControlTiempoVideo item=\{item\} duracionSeg=\{dur \|\| null\} disabled=\{disabled\} onCambiar=\{alCambiar\} acciones=\{accionesTiempo\} \/>/.test(col))
+  const fila = ct.slice(ct.indexOf('data-testid="control-tiempo"'))
+  assert.ok(fila.indexOf('d > 0') < fila.indexOf('data-testid="acciones-tiempo"') && /aria-hidden="true" className="mx-0\.5 h-6 w-px bg-outline-variant"/.test(fila), 'después de +1/+5, con separador')
+  // sin momento: no hay ± (no se inventa una base), pero sí Deshacer / Rehacer
+  const sin = ct.slice(ct.indexOf('if (!Number.isInteger(seg)) {'), ct.indexOf('const v = validarTiempo'))
+  assert.ok(/data-testid="acciones-tiempo">\{acciones\}/.test(sin) && !/mover\(|<button/.test(sin))
+  // misma forma que los botones ± (44 px, redondos); en teléfono solo el ícono (nombre en aria-label y tooltip)
+  assert.ok(/const PASO_HISTORIAL = 'inline-flex items-center justify-center gap-1\.5 min-h-\[2\.75rem\] min-w-\[3rem\] px-2\.5 rounded-full border border-outline-variant/.test(v))
+  assert.ok(/<Undo2 size=\{ICONO\.sm\} \/><span className=\{TEXTO_HISTORIAL\}>Deshacer<\/span>/.test(v) && /<Redo2 size=\{ICONO\.sm\} \/><span className=\{TEXTO_HISTORIAL\}>Rehacer<\/span>/.test(v))
+  assert.ok(/const TEXTO_HISTORIAL = 'max-sm:hidden \[@media\(orientation:landscape\)_and_\(max-height:500px\)\]:hidden'/.test(v), 'teléfono vertical u horizontal: solo el ícono')
+  // separador + Deshacer + Rehacer son un bloque: si no caben, bajan juntos (nunca uno solo)
+  assert.ok(/<span className="inline-flex items-center gap-1\.5" data-testid="acciones-tiempo">\s*<span aria-hidden="true" className="mx-0\.5 h-6 w-px bg-outline-variant" \/>\s*\{acciones\}/.test(ct))
+  assert.ok(/aria-label=\{hist\.deshacer \? `Deshacer el último cambio en \$\{hist\.deshacer\}` : 'Deshacer: no hay cambios que deshacer'\}/.test(v))
+})
+
+caso('línea de tiempo: cada punto lleva el número de su pregunta (el de «Pregunta N de M»), también la bolita blanca y los puntos agrupados', () => {
+  const v = leerFuente('src/components/video/RevisionVideoModal.jsx')
+  const col = leerFuente('src/components/video/ColumnaVideoRevision.jsx')
+  const lt = leerFuente('src/components/video/LineaTiempoRevision.jsx')
+  // misma numeración que la lista: orden del video y filtro activo
+  assert.ok(/const numeros = Object\.fromEntries\(visibles\.map\(\(id, i\) => \[id, i \+ 1\]\)\)/.test(v) && /numeros=\{numeros\}/.test(v))
+  assert.ok(/<LineaTiempoRevision [^>]*numeros=\{numeros\} \/>/.test(col))
+  // punto de una pregunta: su número dentro, con el color de su estado; sin número en la lista (fuera del filtro), el punto de siempre
+  const punto = lt.slice(lt.indexOf('data-testid="punto-pregunta"'), lt.indexOf('data-testid="punto-grupo"'))
+  assert.ok(/const n = numeros\[o\.id\]/.test(lt) && /\{n \? \(/.test(punto) && /text-\[0\.625rem\] leading-none font-bold text-amber-950 tabular-nums \$\{COLOR_MARCA\[o\.estado\]/.test(punto) && /\{n\}/.test(punto))
+  assert.ok(/relative block w-2\.5 h-2\.5 rounded-full ring-2 ring-white/.test(punto), 'sin número: el punto pequeño de siempre')
+  assert.ok(/aria-label=\{`Ir a la pregunta \$\{n \? `\$\{n\} ` : ''\}del minuto/.test(punto), 'el nombre accesible también dice el número')
+  // varias en el mismo segundo: sus números («3·4»)
+  assert.ok(/const nums = g\.map\(\(it\) => numeros\[it\.id\]\)\.filter\(Boolean\)/.test(lt) && /Preguntas \$\{nums\.join\(', '\)\}/.test(lt))
+  // la bolita blanca (pregunta abierta) lleva su número; sigue sin ser control accesible (aria-hidden) y se arrastra igual
+  assert.ok(/data-testid="numero-bolita"/.test(lt) && /\{numeros\[itemId\] \?\? ''\}/.test(lt))
+  assert.ok(/data-testid="bolita-pregunta" data-sin-ubicar=\{sinUbicar \? 'true' : undefined\} aria-hidden="true" \{\.\.\.agarrar\(elegir, !disabled, soltarBolita\)\}/.test(lt))
 })
 
 caso('historial · deshacer, rehacer, rama futura y agrupación del texto (por pausa) y del arrastre (hasta soltar)', () => {
@@ -8689,8 +8748,12 @@ caso('historial · solo el borrador: nunca escribe; aprobar y descartar borran e
   assert.ok(/onCerrar=\{\(\) => \{ setRevisando\(false\); setHistoriales\(\{\}\) \}\}/.test(p), 'en memoria solo mientras la ventana está abierta')
   assert.ok(/guardar\(\{ \.\.\.it, timestampSeg: seg \}\)\s*cerrarPaso\(id\)/.test(p), 'soltar el punto cierra el paso del arrastre')
   // botones junto a «Editar pregunta», deshabilitados sin pasos, con estado visual claro; el «Deshacer» viejo (todo de golpe) ya no está
-  assert.ok(v.indexOf('data-testid="alternar-edicion"') < v.indexOf('data-testid="deshacer"') && v.indexOf('data-testid="deshacer"') < v.indexOf('data-testid="rehacer"'))
-  assert.ok(/disabled=\{sinEditar \|\| !hist\.deshacer\}/.test(v) && /disabled=\{sinEditar \|\| !hist\.rehacer\}/.test(v) && /disabled:opacity-40/.test(v))
+  // botones en la fila de los controles del momento (−5 … +5), deshabilitados sin pasos y con estado visual claro
+  assert.ok(v.indexOf('data-testid="deshacer"') < v.indexOf('data-testid="rehacer"') && /accionesTiempo=\{accionesHistorial\}/.test(v))
+  assert.ok(/disabled=\{bloqueadoHistorial \|\| !hist\.deshacer\}/.test(v) && /disabled=\{bloqueadoHistorial \|\| !hist\.rehacer\}/.test(v) && /disabled:opacity-40/.test(v))
+  assert.ok(/const bloqueadoHistorial = sinEditar \|\| item\.estado === ESTADO_REVISION\.DESCARTADA/.test(v))
+  const editar = v.slice(v.indexOf('data-testid="alternar-edicion"'), v.indexOf('data-testid="alternar-edicion"') + 600)
+  assert.ok(!/deshacer|rehacer/.test(editar), '«Editar pregunta» vuelve a estar solo')
   assert.ok(!/quitarBorrador/.test(v), 'sin el «Deshacer» que tiraba todo el borrador')
   // «Guardar todo» y el aviso al cerrar con cambios siguen
   assert.ok(/data-testid="guardar-todo"/.test(v) && /data-testid="cierre-guardar"/.test(v) && /onDeshacerTodo\(\); onCerrar\(\)/.test(v))
@@ -8727,7 +8790,7 @@ caso('ventana de revisión: ±5/−1/+1/+5 quedan como alternativa ACCESIBLE al 
   assert.ok(/data-testid="momento-pregunta"/.test(ct) && /aria-live="polite"/.test(ct), 'el momento se muestra (solo lectura) y se anuncia al cambiar')
   // por qué siguen los botones: la bolita no se maneja con teclado (aria-hidden) y el triángulo mueve el VIDEO, no la pregunta
   assert.ok(/data-testid="bolita-pregunta"[^>]*aria-hidden="true"/.test(lt))
-  assert.ok(/onClick=\{\(\) => mover\(d\)\}/.test(ct) && /function ControlTiempoVideo\(\{ item, duracionSeg, disabled = false, onCambiar \}\)/.test(ct))
+  assert.ok(/onClick=\{\(\) => mover\(d\)\}/.test(ct) && /function ControlTiempoVideo\(\{ item, duracionSeg, disabled = false, onCambiar, acciones = null \}\)/.test(ct))
   // fuera «Comprobar», «Usar» y «Sugerido por la IA», con el código que era solo suyo
   assert.ok(!/Comprobar|Repetir|comprobar|usar-sugerido|Usar|Sugerido por la IA|sugerido-ia|onComprobar/.test(ct + col + leerFuente('src/components/video/RevisionVideoModal.jsx')) && !/RotateCcw/.test(ct), 'sin Comprobar / Usar / Sugerido')
   assert.ok(!/objetivoRef|mostrarAviso|avisoT|setComprobado|PRE_SEG|Aquí aparecería/.test(col), 'sin el código de «Comprobar»')
@@ -8817,7 +8880,7 @@ caso('ventana de revisión: los controles llevan tooltip (data-tooltip, solo esc
   //  · «Guardar todo» cambia de lugar al acomodarse según el ancho: globo angosto. «Deshacer» y «Rehacer» van junto a «Editar pregunta»:
   //    globo alineado hacia dentro, igual que él
   assert.ok(/\$\{GLOBO_ANGOSTO\}`\} data-testid="guardar-todo"/.test(v))
-  assert.ok(/disabled:hover:bg-transparent \$\{GLOBO_DESDE_IZQ\}`\}>\s*<Undo2/.test(v) && /disabled:hover:bg-transparent \$\{GLOBO_DESDE_IZQ\}`\}>\s*<Redo2/.test(v))
+  assert.ok(/className=\{`\$\{PASO_HISTORIAL\} \$\{GLOBO_DESDE_IZQ\}`\}>\s*<Undo2/.test(v) && /className=\{`\$\{PASO_HISTORIAL\} \$\{GLOBO_DESDE_IZQ\}`\}>\s*<Redo2/.test(v))
   assert.ok(!/GLOBO_DESDE_IZQ\}`\} data-testid="guardar-todo"/.test(v), 'Guardar todo ya no lleva alineación fija')
   //  · Reproducir y la línea de tiempo salen hacia abajo: arriba los recortaría el borde de la zona con scroll
   assert.ok(/data-tooltip=\{reproduciendo \? 'Pausar el video' : 'Reproducir el video'\} data-tooltip-pos="bottom"/.test(col))
@@ -8864,7 +8927,7 @@ caso('ventana de revisión: la BOLITA BLANCA de la pregunta se arrastra, lleva e
   const v = leerFuente('src/components/video/RevisionVideoModal.jsx')
   const panel = leerFuente('src/components/video/PropuestasVideoPanel.jsx')
   // la bolita blanca (borde azul) es el punto de ESTA pregunta; el triángulo verde NO: es el tiempo del video
-  assert.ok(/<span className=\{`block w-3\.5 h-3\.5 rounded-full border-2 border-accent bg-surface-card \$\{sinUbicar \? 'border-dashed' : ''\}`\} \/>/.test(lt), 'bolita blanca con borde azul (punteado si aún no tiene momento)')
+  assert.ok(/rounded-full border-2 border-accent bg-surface-card text-\[0\.625rem\] leading-none font-bold text-accent tabular-nums \$\{sinUbicar \? 'border-dashed' : ''\}`\}>\s*\{numeros\[itemId\] \?\? ''\}/.test(lt), 'bolita blanca con borde azul y su número (punteada si aún no tiene momento)')
   assert.ok(/<span className="block w-0 h-0 border-x-\[8px\] border-x-transparent border-t-\[11px\] border-t-emerald-600" aria-hidden="true" \/>/.test(lt), 'triángulo verde')
   assert.ok(!/sugeridoSeg|marca-pregunta/.test(lt + col), 'sin anillo de referencia del sugerido ni punto duplicado')
   // YA NO HAY PUNTO AZUL: la «bolita» del control deslizante es transparente (el control sigue: tocar la línea salta, relleno de avance)
@@ -9062,7 +9125,7 @@ caso('ventana de revisión: tocar un punto verde de la línea de tiempo lleva a 
   assert.ok(!/punto:/.test(v), 'sin colores de puntos huérfanos')
   // cada otra pregunta es un botón que llama a onIr(id); el modal le pasa `ir` (la misma función de Anterior/Siguiente)
   assert.ok(/<button key=\{o\.id\} type="button" onClick=\{\(\) => onIr\?\.\(o\.id\)\} data-testid="punto-pregunta"/.test(lt))
-  assert.ok(/aria-label=\{`Ir a la pregunta del minuto \$\{formatearMinuto\(o\.timestampSeg\)\}/.test(lt))
+  assert.ok(/aria-label=\{`Ir a la pregunta \$\{n \? `\$\{n\} ` : ''\}del minuto \$\{formatearMinuto\(o\.timestampSeg\)\}/.test(lt))
   assert.ok(/onIr=\{ir\}/.test(v) && /onIr=\{onIr\}/.test(col) && /const ir = \(id, \{ sinSaltar = false \} = \{\}\) => \{ if \(id\) \{ setSinSaltarA\(sinSaltar \? id : null\); setActualId\(id\); setEditando\(false\) \} \}/.test(v))
   // el punto es clicable aunque la pregunta actual esté deshabilitada (descartada / parcial cerrado): ir a otra no depende de `disabled`
   assert.ok(!/onClick=\{\(\) => onIr\?\.\(o\.id\)\}[^>]*disabled/.test(lt))
@@ -9146,7 +9209,7 @@ caso('revisión · la línea agrupa, avisa las preguntas pendientes de ubicació
   const vp = leerFuente('src/components/video/VistaPreviaDocenteVideo.jsx')
   // línea: un punto por segundo; el de varias muestra la cantidad y abre un acceso a cada una (que usa onIr, como los puntos)
   assert.ok(/const grupos = agruparPorSegundo\(items, \{ duracionSeg: dur, excluirId: itemId \}\)/.test(lt))
-  assert.ok(/if \(g\.length === 1\) return \(/.test(lt) && /data-testid="punto-grupo"/.test(lt) && /\{g\.length\}/.test(lt))
+  assert.ok(/if \(g\.length === 1\) return \(/.test(lt) && /data-testid="punto-grupo"/.test(lt) && /\{nums\.length \? nums\.join\('·'\) : g\.length\}/.test(lt))
   assert.ok(/data-testid="acceso-grupo"/.test(lt) && /const irA = \(id\) => \{ setGrupoAbierto\(null\); onIr\?\.\(id\) \}/.test(lt))
   assert.ok(/const companeras = mismoSegundo\(items, itemId, valor\)/.test(lt) && /data-testid="acceso-mismo-segundo"/.test(lt))
   assert.ok(/e\.key === 'Escape'\) \{ e\.stopPropagation\(\); setGrupoAbierto\(null\) \}/.test(lt), 'Escape cierra solo la lista, no la ventana')
