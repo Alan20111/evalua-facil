@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import FocusLock from 'react-focus-lock'
-import { Check, ChevronLeft, ChevronRight, Eye, Pencil, RotateCcw, X } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Eye, Pencil, Redo2, RotateCcw, Undo2, X } from 'lucide-react'
 import Spinner from '../Spinner'
 import { useBackHandler } from '../../hooks/useBackHandler'
 import { useScrollLock } from '../../hooks/useScrollLock'
@@ -8,8 +8,8 @@ import RecomendacionesVideo from './RecomendacionesVideo'
 import ColumnaVideoRevision from './ColumnaVideoRevision'
 import EvidenciaVideo from './EvidenciaVideo'
 import {
-  ESTADO_REVISION, FILTRO_REVISION, GLOBO_ANGOSTO, GLOBO_DESDE_IZQ, GLOBO_HASTA_DER, accionEscape, coincideFiltro, contarSinGuardar, firmaOrden, formatearMinuto, franjaRevision, leerEvidencia, moverId, ordenRevision,
-  primeraParaRevisar, visiblesRevision,
+  ESTADO_REVISION, FILTRO_REVISION, GLOBO_ANGOSTO, GLOBO_DESDE_IZQ, GLOBO_HASTA_DER, TIPO_CORTO, accionEscape, coincideFiltro, contarSinGuardar, descripcionHistorial, firmaOrden, formatearMinuto, franjaRevision,
+  leerEvidencia, moverId, ordenRevision, primeraParaRevisar, visiblesRevision,
 } from './revisionVideo'
 
 import { Input, Radio } from '../ui'
@@ -37,7 +37,7 @@ const BOTON = 'inline-flex items-center justify-center gap-1.5 min-h-[2.75rem] p
 //   problema      (item) → texto del primer error de validación, o null
 //   pausarVideo   la vista previa está abierta encima: se desmonta el reproductor de esta ventana (no puede haber dos)
 export default function RevisionVideoModal({
-  items, duracionSeg, videoId, idioma = null, bloqueado, ocupada, setCampos, quitarBorrador, problema,
+  items, duracionSeg, videoId, idioma = null, bloqueado, ocupada, setCampos, problema, historiales = {}, onCerrarPaso, onDeshacer, onRehacer,
   onGuardar, onGuardarTiempo, onGuardarTodos, onDeshacerTodo, onAprobar, onDescartar, onRestaurar, onVistaPrevia, onCerrar, pausarVideo = false,
 }) {
   const porId = useMemo(() => Object.fromEntries(items.map((it) => [it.id, it])), [items])
@@ -99,7 +99,13 @@ export default function RevisionVideoModal({
   const antes = moverId(orden, porId, filtro, actualId, -1)
   const despues = moverId(orden, porId, filtro, actualId, 1)
   const { siguiente } = franjaRevision({ orden, porId, filtro, actualId })
+  const posSiguiente = siguiente ? visibles.indexOf(siguiente.id) + 1 : 0
   const momento = (it) => (Number.isInteger(it.timestampSeg) ? formatearMinuto(it.timestampSeg) : 'sin momento')
+  const hist = descripcionHistorial(historiales[item.id])
+  const sinEditar = trabajando || sinPermiso
+  // Texto: las pulsaciones seguidas son un solo paso para Deshacer (hasta una pausa o hasta salir del campo).
+  const escribir = (clave) => ({ grupo: { clave } })
+  const salirDelCampo = () => onCerrarPaso?.(item.id)
 
   const ir = (id, { sinSaltar = false } = {}) => { if (id) { setSinSaltarA(sinSaltar ? id : null); setActualId(id); setEditando(false) } }
   function cambiarFiltro(f) {
@@ -135,23 +141,6 @@ export default function RevisionVideoModal({
                 className={`w-11 h-11 rounded-full border border-outline-variant text-muted flex items-center justify-center hover:bg-surface-container ${GLOBO_HASTA_DER}`}><X size={ICONO.md} /></button>
             </div>
           </div>
-          {/* Franja «Ahora / Siguiente»: la pregunta abierta y la que sigue en el video, siempre a la vista (el encabezado no se desplaza).
-              Muestra el borrador en vivo (momento y texto mientras se arrastra o se edita); el enunciado completo está en la columna. */}
-          <div className="grid gap-1.5 sm:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] sm:gap-3 sm:items-center" data-testid="franja-ahora-siguiente">
-            <p className="min-w-0 border-l-4 border-accent pl-2 text-sm leading-snug text-on-surface line-clamp-2 [@media(orientation:landscape)_and_(max-height:500px)]:line-clamp-1" data-testid="franja-ahora">
-              <span className="font-bold text-accent">Ahora · {momento(item)}</span>{' '}
-              <span className="font-semibold">{item.enunciado.trim() || 'Pregunta sin texto'}</span>
-            </p>
-            {siguiente ? (
-              <button type="button" onClick={() => ir(despues)} data-testid="franja-siguiente"
-                aria-label={`Ir a la siguiente pregunta (${momento(siguiente)}): ${siguiente.enunciado}`}
-                className="min-w-0 min-h-[2.75rem] border-l-4 border-outline-variant pl-2 text-left text-xs leading-snug text-muted hover:text-on-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
-                <span className="line-clamp-1"><span className="font-semibold">Siguiente · {momento(siguiente)}</span>{' '}{siguiente.enunciado.trim() || 'Pregunta sin texto'}</span>
-              </button>
-            ) : (
-              <p className="min-w-0 border-l-4 border-outline-variant pl-2 text-xs font-semibold text-muted" data-testid="franja-ultima">Última pregunta</p>
-            )}
-          </div>
           <div className="flex flex-wrap items-center gap-1.5">
             {FILTROS.map(([valor, etiqueta, ayuda]) => {
               const n = items.filter((it) => coincideFiltro(it, valor)).length
@@ -173,7 +162,7 @@ export default function RevisionVideoModal({
               : (
                 <ColumnaVideoRevision videoId={videoId} duracionSeg={duracionSeg} idioma={idioma} sinSaltarA={sinSaltarA} item={item} items={items} onIr={ir} onSoltar={(seg) => onGuardarTiempo(item.id, seg)}
                   disabled={trabajando || sinPermiso || item.estado === ESTADO_REVISION.DESCARTADA}
-                  onCambiar={(seg) => setCampos(item.id, { timestampSeg: seg })} />
+                  onCambiar={(seg, info) => setCampos(item.id, { timestampSeg: seg }, info?.arrastre ? { grupo: { clave: 'arrastre', ventanaMs: Infinity } } : {})} />
               )}
 
             <div className="min-w-0 space-y-2" data-testid="pregunta-actual">
@@ -208,7 +197,7 @@ export default function RevisionVideoModal({
                 <div className="space-y-2 rounded-card border border-outline-variant bg-surface-card p-3 animate-aparece motion-reduce:animate-none" data-testid="panel-edicion">
                   <label className="block text-xs font-medium text-muted" htmlFor="rv-enun">Pregunta</label>
                   <textarea id="rv-enun" value={item.enunciado} rows={3} disabled={trabajando || sinPermiso}
-                    onChange={(e) => setCampos(item.id, { enunciado: e.target.value })}
+                    onChange={(e) => setCampos(item.id, { enunciado: e.target.value }, escribir('enunciado'))} onBlur={salirDelCampo}
                     className="w-full px-3 py-2 rounded-card border border-outline-variant text-sm bg-surface" />
                   {item.tipo === 'opcion_multiple' && (
                     <div className="space-y-1.5">
@@ -220,7 +209,8 @@ export default function RevisionVideoModal({
                               aria-label={`Marcar la opción ${String.fromCharCode(65 + j)} como correcta`} />
                           </span>
                           <Input type="text" value={o.texto} disabled={trabajando || sinPermiso} aria-label={`Opción ${String.fromCharCode(65 + j)}`}
-                            onChange={(e) => setCampos(item.id, { opciones: item.opciones.map((x) => (x.id === o.id ? { ...x, texto: e.target.value } : x)) })}
+                            onChange={(e) => setCampos(item.id, { opciones: item.opciones.map((x) => (x.id === o.id ? { ...x, texto: e.target.value } : x)) }, escribir(`opcion-${o.id}`))}
+                            onBlur={salirDelCampo}
                             className="flex-1" />
                         </div>
                       ))}
@@ -238,16 +228,31 @@ export default function RevisionVideoModal({
                   )}
                   <label className="block text-xs font-medium text-muted" htmlFor="rv-retro">Retroalimentación (opcional)</label>
                   <Input id="rv-retro" type="text" value={item.retroalimentacion} disabled={trabajando || sinPermiso}
-                    onChange={(e) => setCampos(item.id, { retroalimentacion: e.target.value })} />
+                    onChange={(e) => setCampos(item.id, { retroalimentacion: e.target.value }, escribir('retroalimentacion'))} onBlur={salirDelCampo} />
                 </div>
               )}
 
               {item.estado !== ESTADO_REVISION.DESCARTADA && (
+                <div className="flex flex-wrap items-center gap-1.5">
                 <button type="button" onClick={() => setEditando((v) => !v)} disabled={trabajando || sinPermiso} aria-expanded={editando} data-testid="alternar-edicion"
                   data-tooltip={editando ? 'Volver a la vista de la pregunta' : 'Corregir el texto, las opciones y la respuesta correcta'}
                   className={`inline-flex items-center gap-1.5 min-h-[2.5rem] px-3 rounded-full border border-outline-variant text-xs font-semibold text-on-surface hover:bg-surface-container disabled:opacity-60 ${GLOBO_DESDE_IZQ}`}>
                   <Pencil size={ICONO.xs} /> {editando ? 'Cerrar edición' : 'Editar pregunta'}
                 </button>
+                {/* Deshacer / Rehacer: solo cambios de ESTA pregunta que aún se pueden revertir (nunca aprobar, descartar ni restaurar). */}
+                <button type="button" onClick={() => onDeshacer?.(item.id)} disabled={sinEditar || !hist.deshacer} data-testid="deshacer"
+                  aria-label={hist.deshacer ? `Deshacer el último cambio en ${hist.deshacer}` : 'Deshacer: no hay cambios que deshacer'}
+                  data-tooltip={hist.deshacer ? `Deshacer el último cambio en ${hist.deshacer}` : 'No hay cambios que deshacer'}
+                  className={`inline-flex items-center gap-1.5 min-h-[2.5rem] px-3 rounded-full border border-outline-variant text-xs font-semibold text-on-surface hover:bg-surface-container disabled:opacity-40 disabled:hover:bg-transparent ${GLOBO_DESDE_IZQ}`}>
+                  <Undo2 size={ICONO.xs} /> Deshacer
+                </button>
+                <button type="button" onClick={() => onRehacer?.(item.id)} disabled={sinEditar || !hist.rehacer} data-testid="rehacer"
+                  aria-label={hist.rehacer ? `Rehacer el cambio en ${hist.rehacer}` : 'Rehacer: no hay cambios que rehacer'}
+                  data-tooltip={hist.rehacer ? `Rehacer el cambio en ${hist.rehacer}` : 'No hay cambios que rehacer'}
+                  className={`inline-flex items-center gap-1.5 min-h-[2.5rem] px-3 rounded-full border border-outline-variant text-xs font-semibold text-on-surface hover:bg-surface-container disabled:opacity-40 disabled:hover:bg-transparent ${GLOBO_DESDE_IZQ}`}>
+                  <Redo2 size={ICONO.xs} /> Rehacer
+                </button>
+                </div>
               )}
 
               {leerEvidencia(item.respaldo) && <EvidenciaVideo item={item} />}
@@ -265,8 +270,6 @@ export default function RevisionVideoModal({
                       data-tooltip="Guardar los cambios de esta pregunta">
                       {trabajando ? <Spinner size="sm" /> : <Check size={ICONO.sm} />} Guardar
                     </button>
-                    <button type="button" onClick={() => quitarBorrador(item.id)} disabled={!!ocupada} className={`${BOTON} border border-outline-variant text-muted ${GLOBO_ANGOSTO}`}
-                      data-tooltip="Quitar los cambios sin guardar de esta pregunta">Deshacer</button>
                   </>
                 )}
                 {sinGuardar > (item.sinGuardar ? 1 : 0) && (
@@ -296,6 +299,24 @@ export default function RevisionVideoModal({
                   )}
                 </div>
               </div>
+
+              {/* Siguiente pregunta: solo informa (para avanzar está «Siguiente»). Mismo orden y filtro que la navegación; texto completo,
+                  sin opciones ni respuesta, atenuada para no competir con la actual. */}
+              <section aria-label="Siguiente pregunta" data-testid="tarjeta-siguiente"
+                className="rounded-card border border-dashed border-outline-variant bg-surface-container px-3 py-2 space-y-1">
+                {siguiente ? (
+                  <>
+                    <p className="text-xs font-semibold text-muted" data-testid="siguiente-encabezado">
+                      Siguiente pregunta · Pregunta {posSiguiente} de {visibles.length} · {momento(siguiente)} · {TIPO_CORTO[siguiente.tipo] || 'Pregunta'}
+                    </p>
+                    <p className="text-sm lg:text-base leading-snug text-on-surface whitespace-pre-wrap" data-testid="siguiente-enunciado">
+                      {siguiente.enunciado.trim() || 'Pregunta sin texto'}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm font-semibold text-muted" data-testid="ultima-pregunta">Es la última pregunta</p>
+                )}
+              </section>
             </div>
           </div>
           <div className="px-3 pb-3"><RecomendacionesVideo compacto /></div>

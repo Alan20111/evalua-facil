@@ -110,11 +110,12 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, idioma = nu
     if (yt.listo) yt.saltarA(nuevo)
   }
   // Elegir el segundo de la pregunta (bolita blanca, botones ±, campo m:ss): borrador + video en ese segundo, en pausa.
-  function alCambiar(nuevo) {
+  // `info.arrastre`: el cambio viene de arrastrar el punto (todo el arrastre cuenta como un solo paso para Deshacer).
+  function alCambiar(nuevo, info) {
     marcarSalto(nuevo, item.id)
     sostenidoRef.current = { seg: nuevo, hasta: Date.now() + ESPERA_SALTO_MS }
     setPosicion(nuevo)
-    onCambiar(nuevo)
+    onCambiar(nuevo, info)
     if (yt.listo) { yt.saltarA(nuevo); if (reproduciendo) yt.pausar() }
   }
   const alternar = () => { if (reproduciendo) yt.pausar(); else yt.reproducir() }

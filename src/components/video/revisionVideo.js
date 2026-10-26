@@ -215,7 +215,7 @@ export function preguntasSinMinuto(items) {
   return (items || []).filter((it) => it && it.estado !== ESTADO_REVISION.DESCARTADA && !Number.isInteger(it.timestampSeg))
 }
 
-const TIPO_CORTO = { verdadero_falso: 'Verdadero/falso', opcion_multiple: 'Opción múltiple', respuesta_corta: 'Respuesta abierta' }
+export const TIPO_CORTO = { verdadero_falso: 'Verdadero/falso', opcion_multiple: 'Opción múltiple', respuesta_corta: 'Respuesta abierta' }
 
 // Texto corto de un acceso directo a una pregunta: tipo · estado — inicio del enunciado.
 export function etiquetaPregunta(it, max = 60) {
@@ -288,6 +288,63 @@ export function franjaRevision({ orden, porId, filtro, actualId }) {
   const actual = porId?.[actualId] || null
   const idSiguiente = actual ? moverId(orden, porId, filtro, actualId, 1) : null
   return { actual, siguiente: idSiguiente ? porId[idSiguiente] : null, ultima: !!actual && !idSiguiente }
+}
+
+// ── Deshacer / Rehacer (historial de edición por pregunta) ──────────────────────────────────────────────────
+// Un historial por pregunta, en memoria mientras la ventana está abierta. Cada paso guarda la FOTO de los campos editables tal como
+// estaban ANTES del cambio (con el borrador aplicado). Deshacer y Rehacer solo devuelven una foto para ponerla como BORRADOR: nunca
+// escriben en el servidor. Si la foto difiere de lo guardado, la pregunta queda «Sin guardar» y se guarda por la ruta de siempre.
+// No entran: aprobar, descartar, restaurar, generar con IA ni créditos (el panel borra el historial al aprobar o descartar).
+//   pasado  pasos que se pueden deshacer (el último es el más reciente): { foto, campo }
+//   futuro  pasos que se pueden rehacer (el último es el próximo)
+//   grupo   paso abierto que sigue acumulando cambios del mismo tipo: { clave, hasta } (texto: hasta una pausa; arrastre: hasta soltar)
+export const HISTORIAL_VACIO = Object.freeze({ pasado: [], futuro: [], grupo: null })
+export const AGRUPAR_TEXTO_MS = 800
+export const MAX_PASOS_HISTORIAL = 100
+
+// Foto de los campos que el historial puede restaurar (los mismos del borrador).
+export function fotoEdicion(item) {
+  const foto = {}
+  for (const c of CAMPOS_BORRADOR) foto[c] = c === 'opciones' && Array.isArray(item?.[c]) ? item[c].map((o) => ({ ...o })) : (item?.[c] ?? null)
+  return foto
+}
+
+// Registra un cambio. `foto` = cómo estaba la pregunta ANTES. `grupo` (opcional) agrupa cambios seguidos en un solo paso:
+// { clave, ventanaMs } — mismo `clave` dentro de la ventana → no se agrega otro paso. Cualquier cambio nuevo borra lo que había para rehacer.
+export function registrarEdicion(hist, foto, { campo, grupo = null, ahora = Date.now() } = {}) {
+  const h = hist || HISTORIAL_VACIO
+  const abierto = h.grupo
+  if (grupo && abierto && abierto.clave === grupo.clave && ahora - abierto.desde <= (grupo.ventanaMs ?? AGRUPAR_TEXTO_MS)) {
+    return { ...h, futuro: [], grupo: { ...abierto, desde: ahora } }
+  }
+  const pasado = [...h.pasado, { foto, campo }].slice(-MAX_PASOS_HISTORIAL)
+  return { pasado, futuro: [], grupo: grupo ? { clave: grupo.clave, desde: ahora } : null }
+}
+
+// Cierra el paso abierto (al salir de un campo de texto, al soltar el punto): el siguiente cambio será un paso nuevo.
+export const cerrarGrupo = (hist) => (hist?.grupo ? { ...hist, grupo: null } : (hist || HISTORIAL_VACIO))
+
+// Deshace el último paso: devuelve el historial nuevo y la foto que debe quedar como borrador; null si no hay nada que deshacer.
+export function deshacerEdicion(hist, fotoActual) {
+  const h = hist || HISTORIAL_VACIO
+  if (!h.pasado.length) return null
+  const paso = h.pasado[h.pasado.length - 1]
+  return { hist: { pasado: h.pasado.slice(0, -1), futuro: [...h.futuro, { foto: fotoActual, campo: paso.campo }], grupo: null }, foto: paso.foto }
+}
+
+export function rehacerEdicion(hist, fotoActual) {
+  const h = hist || HISTORIAL_VACIO
+  if (!h.futuro.length) return null
+  const paso = h.futuro[h.futuro.length - 1]
+  return { hist: { pasado: [...h.pasado, { foto: fotoActual, campo: paso.campo }], futuro: h.futuro.slice(0, -1), grupo: null }, foto: paso.foto }
+}
+
+// Qué revertiría cada botón (para su ayuda). null = no hay nada.
+const NOMBRE_CAMPO = { enunciado: 'el texto de la pregunta', opciones: 'las opciones', respuestaCorrecta: 'la respuesta correcta', retroalimentacion: 'la retroalimentación', timestampSeg: 'el momento' }
+export function descripcionHistorial(hist) {
+  const h = hist || HISTORIAL_VACIO
+  const nombre = (paso) => (paso ? NOMBRE_CAMPO[paso.campo] || 'el último cambio' : null)
+  return { deshacer: nombre(h.pasado[h.pasado.length - 1]), rehacer: nombre(h.futuro[h.futuro.length - 1]) }
 }
 
 // «Todas» = lo que se revisa o ya está aprobado (sin las descartadas, que tienen su propio filtro).

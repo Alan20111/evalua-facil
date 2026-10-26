@@ -12,7 +12,10 @@ import { actualizarPregunta } from '../../utils/evaluacionClave'
 import RevisionVideoModal from './RevisionVideoModal'
 import VistaPreviaDocenteVideo from './VistaPreviaDocenteVideo'
 import ReportarIA from '../ReportarIA'
-import { ESTADO_REVISION, construirItems, contarPorEstadoRevision, preguntasSinMinuto, validarTiempo } from './revisionVideo'
+import {
+  ESTADO_REVISION, cerrarGrupo, construirItems, contarPorEstadoRevision, deshacerEdicion, fotoEdicion, preguntasSinMinuto, registrarEdicion,
+  rehacerEdicion, validarTiempo,
+} from './revisionVideo'
 import { ICONO } from '../../config/iconos'
 
 const BOTON = 'inline-flex items-center justify-center gap-1.5 min-h-[2.75rem] px-4 rounded-full text-sm font-semibold transition-colors disabled:opacity-60'
@@ -42,6 +45,8 @@ export default function PropuestasVideoPanel({
   const toast = useToast()
   const [propuestas, setPropuestas] = useState(null)
   const [borradores, setBorradores] = useState({})
+  // Deshacer / Rehacer: un historial por pregunta, solo en memoria mientras la ventana está abierta (ver revisionVideo.js).
+  const [historiales, setHistoriales] = useState({})
   const [ocupada, setOcupada] = useState(null)
   const [revisando, setRevisando] = useState(false)
   const [vistaPrevia, setVistaPrevia] = useState(null) // { inicioSeg, reproducir }
@@ -66,8 +71,27 @@ export default function PropuestasVideoPanel({
 
   const persistida = (id) => (propuestas || []).find((p) => p.id === id)
   const reemplazar = (id, cambios) => setPropuestas((prev) => prev.map((p) => (p.id === id ? { ...p, ...cambios } : p)))
-  const setCampos = (id, campos) => setBorradores((b) => ({ ...b, [id]: { ...b[id], ...campos } }))
+  // Todo cambio del docente pasa por aquí: queda como borrador y, si de verdad cambió algo, como un paso del historial (la foto de cómo
+  // estaba ANTES). `grupo` junta cambios seguidos en un solo paso (escribir: hasta una pausa; arrastrar el punto: hasta soltarlo).
+  const setCampos = (id, campos, { grupo = null } = {}) => {
+    const it = itemsRef.current.find((x) => x.id === id)
+    if (it && Object.entries(campos).some(([k, v]) => JSON.stringify(v) !== JSON.stringify(it[k]))) {
+      const foto = fotoEdicion(it)
+      setHistoriales((h) => ({ ...h, [id]: registrarEdicion(h[id], foto, { campo: Object.keys(campos)[0], grupo }) }))
+    }
+    setBorradores((b) => ({ ...b, [id]: { ...b[id], ...campos } }))
+  }
   const quitarBorrador = (id) => setBorradores((b) => Object.fromEntries(Object.entries(b).filter(([k]) => k !== id)))
+  const cerrarPaso = (id) => setHistoriales((h) => (h[id]?.grupo ? { ...h, [id]: cerrarGrupo(h[id]) } : h))
+  const olvidarHistorial = (id) => setHistoriales((h) => Object.fromEntries(Object.entries(h).filter(([k]) => k !== id)))
+  // Deshacer / Rehacer solo cambian el BORRADOR (nunca escriben): si lo restaurado difiere de lo guardado, la pregunta queda «Sin guardar».
+  function moverHistorial(id, fn) {
+    const it = itemsRef.current.find((x) => x.id === id)
+    const r = it ? fn(historiales[id], fotoEdicion(it)) : null
+    if (!r) return
+    setHistoriales((h) => ({ ...h, [id]: r.hist }))
+    setBorradores((b) => ({ ...b, [id]: r.foto }))
+  }
 
   // Ejecuta una operación sobre una pregunta con aviso de éxito o de error. Devuelve true si salió bien.
   async function ejecutar(it, accion, exito) {
@@ -127,6 +151,7 @@ export default function PropuestasVideoPanel({
   const guardarTiempo = (id, seg) => {
     const it = itemsRef.current.find((x) => x.id === id)
     if (it) guardar({ ...it, timestampSeg: seg })
+    cerrarPaso(id)
   }
 
   // Guarda todas las preguntas con cambios. Las que tengan un error de validación se saltan y se avisa cuál; devuelve true solo si
@@ -148,15 +173,21 @@ export default function PropuestasVideoPanel({
   async function aprobar(it) {
     if (bloqueado) { toast('El parcial está cerrado: ya no se pueden agregar preguntas.', 'error'); return false }
     if (!cabeOtraPregunta(activas)) { toast('El video ya tiene el máximo de preguntas.', 'error'); return false }
-    return ejecutar(it, async () => {
+    const ok = await ejecutar(it, async () => {
       // Con cambios sin guardar: primero se guardan y después se aprueba (la pregunta publicada lleva lo que el docente ve).
       const propuesta = (await guardarBorrador(it)) || persistida(it.id)
       const plan = await aprobarPropuesta({ activityId, propuesta, activas, pendientes: cuenta.pendiente, duracionSeg })
       reemplazar(it.id, { estado: ESTADO_PROPUESTA.APROBADA, preguntaId: it.id })
       if (!plan.yaAprobada) onAprobada?.(plan)
     }, 'Pregunta aprobada: ya forma parte de la evaluación')
+    if (ok) olvidarHistorial(it.id)
+    return ok
   }
-  const descartar = (it) => ejecutar(it, async () => { await rechazarPropuesta(activityId, persistida(it.id)); reemplazar(it.id, { estado: ESTADO_PROPUESTA.RECHAZADA }); quitarBorrador(it.id) }, 'Pregunta descartada: no se publicará')
+  const descartar = async (it) => {
+    const ok = await ejecutar(it, async () => { await rechazarPropuesta(activityId, persistida(it.id)); reemplazar(it.id, { estado: ESTADO_PROPUESTA.RECHAZADA }); quitarBorrador(it.id) }, 'Pregunta descartada: no se publicará')
+    if (ok) olvidarHistorial(it.id)
+    return ok
+  }
   const restaurar = (it) => ejecutar(it, async () => { await restaurarPropuesta(activityId, persistida(it.id)); reemplazar(it.id, { estado: ESTADO_PROPUESTA.PENDIENTE }) })
 
   const abrirVista = (inicioSeg = 0, reproducir = false) => {
@@ -214,11 +245,12 @@ export default function PropuestasVideoPanel({
       {revisando && (
         <RevisionVideoModal
           items={items} duracionSeg={duracionSeg} videoId={videoId} idioma={idioma} bloqueado={bloqueado} ocupada={ocupada}
-          setCampos={setCampos} quitarBorrador={quitarBorrador} problema={problema}
+          setCampos={setCampos} problema={problema} historiales={historiales} onCerrarPaso={cerrarPaso}
+          onDeshacer={(id) => moverHistorial(id, deshacerEdicion)} onRehacer={(id) => moverHistorial(id, rehacerEdicion)}
           onGuardar={guardar} onGuardarTiempo={guardarTiempo} onGuardarTodos={guardarTodos} onDeshacerTodo={() => setBorradores({})}
           onAprobar={aprobar} onDescartar={descartar} onRestaurar={restaurar}
           onVistaPrevia={abrirVista} pausarVideo={!!vistaPrevia}
-          onCerrar={() => setRevisando(false)}
+          onCerrar={() => { setRevisando(false); setHistoriales({}) }}
         />
       )}
 
