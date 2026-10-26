@@ -115,9 +115,9 @@ export default function SugerenciaEF({ className = '', iconSize = ICONO.sm, chil
         )}
       >
         <div className="space-y-4">
-          {/* Aviso de uso respetuoso: texto autorizado por Kike (24-oct-2026). */}
+          {/* Aviso de uso respetuoso: texto autorizado por Kike (25-oct-2026). */}
           <p className="text-sm text-muted">
-            Utiliza este espacio con respeto. Comparte problemas, dificultades y propuestas de mejora. Los mensajes con posibles insultos o amenazas podrán revisarse antes de ser atendidos.
+            Comparte tus inquietudes, dificultades o propuestas de mejora. Tu opinión es importante para construir un mejor ambiente de aprendizaje.
           </p>
           <RadioGroup
             label="¿De qué se trata?"
