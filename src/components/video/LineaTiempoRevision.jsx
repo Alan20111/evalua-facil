@@ -49,7 +49,7 @@ export default function LineaTiempoRevision({ duracionSeg, posicion = null, valo
   }
   // El estado del arrastre vive en el propio elemento (data-*): distancia puntero–centro al agarrar (no «salta» al tomarlo de la orilla)
   // y último segundo elegido con la bolita (para guardarlo al soltar).
-  const elegir = (s, el) => { if (!disabled && Number.isInteger(s) && s !== v) { el.dataset.ultimo = String(s); onCambiar(s) } }
+  const elegir = (s, el) => { if (!disabled && Number.isInteger(s) && s !== v) { el.dataset.ultimo = String(s); onCambiar(s, { arrastre: true }) } }
   const saltar = (s) => { if (s !== Math.round(real)) onSaltar?.(s) }
   // Arrastre con captura de puntero (mouse o dedo). `habilitado` y `alSoltar` distinguen la bolita del triángulo.
   const agarrar = (accion, habilitado, alSoltar) => ({
