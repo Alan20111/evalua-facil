@@ -3,7 +3,7 @@ import { AlertTriangle, Pause, Play } from 'lucide-react'
 import useYouTubePlayer, { ESTADO_YT, mensajeErrorYouTube } from '../../hooks/useYouTubePlayer'
 import ControlTiempoVideo from './ControlTiempoVideo'
 import LineaTiempoRevision from './LineaTiempoRevision'
-import { GLOBO_DESDE_IZQ, formatearMinuto, paradaDePregunta } from './revisionVideo'
+import { GLOBO_DESDE_IZQ, etiquetaPregunta, formatearMinuto, paradaDePregunta, preguntasSinMinuto } from './revisionVideo'
 import { requiereControlesAudio, esSaltoExterno, TEXTO_AYUDA_AUDIO } from '../../utils/videoAudio'
 import { ICONO } from '../../config/iconos'
 
@@ -118,6 +118,8 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, idioma = nu
     if (yt.listo) { yt.saltarA(nuevo); if (reproduciendo) yt.pausar() }
   }
   const alternar = () => { if (reproduciendo) yt.pausar(); else yt.reproducir() }
+  // Preguntas sin minuto: la línea de tiempo no las puede dibujar, así que se avisan aquí con un acceso a cada una.
+  const sinMinuto = preguntasSinMinuto(items)
 
   return (
     <div className="space-y-2 min-w-0" data-testid="columna-video-revision">
@@ -135,16 +137,34 @@ export default function ColumnaVideoRevision({ videoId, duracionSeg, idioma = nu
           <button type="button" onClick={yt.reintentar} className="font-semibold underline">Reintentar</button>
         </div>
       )}
-      <div className="flex items-center gap-2">
+      {/* items-start + mt-1.5: el botón queda centrado con la línea (h-14) aunque debajo se abra la lista de un punto agrupado. */}
+      <div className="flex items-start gap-2">
         <button type="button" onClick={alternar} disabled={!yt.listo} aria-label={reproduciendo ? 'Pausar' : 'Reproducir'}
           data-tooltip={reproduciendo ? 'Pausar el video' : 'Reproducir el video'} data-tooltip-pos="bottom"
-          className={`w-11 h-11 flex-shrink-0 rounded-full bg-accent text-white flex items-center justify-center disabled:opacity-60 ${GLOBO_DESDE_IZQ}`}>
+          className={`mt-1.5 w-11 h-11 flex-shrink-0 rounded-full bg-accent text-white flex items-center justify-center disabled:opacity-60 ${GLOBO_DESDE_IZQ}`}>
           {reproduciendo ? <Pause size={ICONO.md} /> : <Play size={ICONO.md} className="ml-0.5" />}
         </button>
         <div className="flex-1 min-w-0">
           <LineaTiempoRevision duracionSeg={dur} posicion={yt.listo ? posicion : null} valor={seg} onCambiar={alCambiar} onSoltar={onSoltar} onSaltar={saltar} items={items} onIr={onIr} itemId={item.id} disabled={disabled} />
         </div>
       </div>
+      {sinMinuto.length > 0 && (
+        <div data-testid="aviso-sin-minuto" className="rounded-card border border-amber-300 bg-amber-50 px-3 py-2 space-y-1.5 text-amber-950">
+          <p className="text-xs">
+            <span className="font-semibold">{sinMinuto.length === 1 ? '1 pregunta sin minuto' : `${sinMinuto.length} preguntas sin minuto`}:</span>{' '}
+            no {sinMinuto.length === 1 ? 'aparece' : 'aparecen'} en la línea de tiempo ni se {sinMinuto.length === 1 ? 'puede' : 'pueden'} aprobar hasta que elijas cuándo {sinMinuto.length === 1 ? 'aparece' : 'aparecen'}.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {sinMinuto.map((o) => (
+              <button key={o.id} type="button" onClick={() => onIr?.(o.id)} disabled={o.id === item.id} aria-current={o.id === item.id ? 'true' : undefined}
+                data-testid="acceso-sin-minuto"
+                className="inline-flex items-center min-h-[2.75rem] max-w-full px-3 rounded-full border border-amber-400 bg-white/70 text-xs font-semibold text-amber-950 text-left hover:bg-white disabled:opacity-70 disabled:hover:bg-white/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                <span className="truncate">{o.id === item.id ? 'Abierta ahora · ' : ''}{etiquetaPregunta(o)}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <p className="text-xs text-muted tabular-nums" aria-live="polite">
         Video en {formatearMinuto(Math.floor(posicion))}
       </p>

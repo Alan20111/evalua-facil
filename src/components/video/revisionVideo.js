@@ -184,6 +184,54 @@ export function contarPorEstadoRevision(items) {
   return cuenta
 }
 
+// ── Puntos de la línea de tiempo y preguntas sin minuto ──────────────────────────────────
+// Solo ordenan lo que el docente ve: no cambian tiempos, estados ni nada que se guarde.
+
+// Los puntos que dibuja la línea de tiempo de la revisión (minuto entero dentro del video), agrupados por segundo: varias
+// preguntas en el mismo segundo son UN punto con su cantidad (antes se encimaban y parecía que faltaban). `excluirId` es la
+// pregunta abierta, que va como bolita blanca y no como punto.
+export function agruparPorSegundo(items, { duracionSeg, excluirId = null } = {}) {
+  const d = num(duracionSeg)
+  const tope = d && d > 0 ? Math.floor(d) : Infinity
+  const grupos = new Map()
+  for (const it of items || []) {
+    if (!it || it.id === excluirId || !Number.isInteger(it.timestampSeg) || it.timestampSeg > tope) continue
+    if (!grupos.has(it.timestampSeg)) grupos.set(it.timestampSeg, [])
+    grupos.get(it.timestampSeg).push(it)
+  }
+  return [...grupos.entries()].sort((a, b) => a[0] - b[0]).map(([seg, lista]) => ({ seg, items: lista }))
+}
+
+// Color de un punto agrupado: si hay alguna pendiente se ve como pendiente (es lo que falta revisar); si no, aprobada.
+export function estadoDeGrupo(lista) {
+  for (const e of [ESTADO_REVISION.PENDIENTE, ESTADO_REVISION.APROBADA, ESTADO_REVISION.DESCARTADA]) {
+    if ((lista || []).some((it) => it?.estado === e)) return e
+  }
+  return ESTADO_REVISION.PENDIENTE
+}
+
+// Las OTRAS preguntas que caen en el mismo segundo que la pregunta abierta (`seg`): quedan debajo de la bolita blanca.
+export function mismoSegundo(items, itemId, seg) {
+  if (!Number.isInteger(seg)) return []
+  return (items || []).filter((o) => o && o.id !== itemId && o.timestampSeg === seg)
+}
+
+// Preguntas que todavía no tienen minuto (la IA no pudo fijarlo): no aparecen en la línea de tiempo y no se pueden aprobar
+// hasta que el docente lo elija. Las descartadas no cuentan: no se publican.
+export function preguntasSinMinuto(items) {
+  return (items || []).filter((it) => it && it.estado !== ESTADO_REVISION.DESCARTADA && !Number.isInteger(it.timestampSeg))
+}
+
+const TIPO_CORTO = { verdadero_falso: 'Verdadero/falso', opcion_multiple: 'Opción múltiple', respuesta_corta: 'Respuesta abierta' }
+
+// Texto corto de un acceso directo a una pregunta: tipo · estado — inicio del enunciado.
+export function etiquetaPregunta(it, max = 60) {
+  const texto = String(it?.enunciado || '').replace(/\s+/g, ' ').trim()
+  const corto = texto.length > max ? `${texto.slice(0, max - 1).trimEnd()}…` : texto
+  const estado = Object.values(ESTADO_REVISION).includes(it?.estado) ? it.estado : ESTADO_REVISION.PENDIENTE
+  return `${TIPO_CORTO[it?.tipo] || 'Pregunta'} · ${estado}${corto ? ` — ${corto}` : ''}`
+}
+
 // ── Vista previa ─────────────────────────────────────────────────────────────────────────
 // Lo que reproduce la vista previa: aprobadas y pendientes (marcadas), nunca las descartadas.
 // Usa lo que el docente ve en pantalla, guardado o no, y no lee nada de Firestore.
