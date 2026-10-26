@@ -191,7 +191,7 @@ async function resolverReferencias(datos, reportante) {
 
   const pedidos = [ids.entregaId, ids.actividadId, ids.asignaturaId].filter(Boolean).length
   const resueltos = ['entrega', 'actividad', 'asignatura'].filter((k) => ref[k]).length
-  if (pedidos && !resueltos && !ref.aviso) ref.aviso = 'Los ids del reporte no corresponden a datos de quien reportó o ya no existen.'
+  if (pedidos && !resueltos && !ref.aviso) ref.aviso = 'Los ids del comentario no corresponden a datos de quien lo envió o ya no existen.'
   return ref
 }
 
@@ -240,7 +240,7 @@ function filasDelCorreo(coleccion, datos, contexto) {
     filas.push(['Ruta', datos.ruta])
   } else {
     const ubicacion = catalogo.describirUbicacionIA(datos.ubicacion)
-    filas.push(['Tipo', 'Reporte de IA'])
+    filas.push(['Tipo', 'Comentario sobre la IA'])
     filas.push(['Motivo', catalogo.etiquetaMotivoIA(datos.motivo)])
     filas.push(['Operación de IA', catalogo.nombreOperacionIA(datos.operacion)])
     filas.push(['Módulo', ubicacion?.modulo])
@@ -274,7 +274,7 @@ const AVISO_RETENIDA = 'La descripción no se incluye en este correo: la revisi�
 // Reportes de IA: el comentario libre puede traer nombres, calificaciones o
 // cualquier otro dato personal, así que NO viaja en el correo. Se queda en el
 // registro (solo lo lee el admin) y el correo solo avisa que existe.
-const AVISO_COMENTARIO_IA = 'Hay un comentario de quien reportó. Por privacidad no se incluye en este correo: consúltalo en el panel de administración.'
+const AVISO_COMENTARIO_IA = 'Quien envió el comentario escribió detalles. Por privacidad no se incluyen en este correo: consúltalos en el panel de administración.'
 
 function construirCorreo({ coleccion, id, datos, contexto }) {
   const esSugerencia = coleccion === 'sugerencias'
@@ -284,10 +284,10 @@ function construirCorreo({ coleccion, id, datos, contexto }) {
     ? `[Sugerencia a Evalúa Fácil] Retenida para revisión · ${motivosRetencion}`
     : esSugerencia
       ? `[Sugerencia a Evalúa Fácil] ${catalogo.etiquetaCategoriaSugerencia(datos.categoria)}`
-      : `[Reporte de IA] ${catalogo.etiquetaMotivoIA(datos.motivo)} · ${corto(catalogo.nombreOperacionIA(datos.operacion), 60)}`
+      : `[Comentario sobre la IA] ${catalogo.etiquetaMotivoIA(datos.motivo)} · ${corto(catalogo.nombreOperacionIA(datos.operacion), 60)}`
   const filas = filasDelCorreo(coleccion, datos, contexto)
   if (retenida) filas.splice(2, 0, ['Revisión automática', `Retenida: ${motivosRetencion}`])
-  const tituloTexto = esSugerencia ? 'Descripción' : 'Comentario'
+  const tituloTexto = esSugerencia ? 'Descripción' : 'Detalles'
   const comentarioIA = String(datos.comentario || '').trim()
   const texto = retenida
     ? AVISO_RETENIDA
@@ -295,7 +295,7 @@ function construirCorreo({ coleccion, id, datos, contexto }) {
       ? String(datos.descripcion || '').trim()
       : (comentarioIA ? AVISO_COMENTARIO_IA : '')
   const enlace = enlaceAlCaso(coleccion, id)
-  const encabezado = esSugerencia ? 'Nueva Sugerencia a Evalúa Fácil' : 'Nuevo Reporte de IA'
+  const encabezado = esSugerencia ? 'Nueva Sugerencia a Evalúa Fácil' : 'Nuevo comentario sobre una respuesta de la IA'
 
   const html = `<!doctype html><html><body style="margin:0;padding:24px;background:#f4f5f7;font-family:Arial,Helvetica,sans-serif;color:#1f2937">
 <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;padding:24px">
@@ -304,8 +304,8 @@ function construirCorreo({ coleccion, id, datos, contexto }) {
 ${filas.map(([k, v]) => `<tr><td style="padding:6px 12px 6px 0;color:#6b7280;vertical-align:top;white-space:nowrap">${esc(k)}</td><td style="padding:6px 0;vertical-align:top">${esc(v)}</td></tr>`).join('\n')}
 </table>
 <h2 style="font-size:14px;margin:20px 0 6px;color:#6b7280">${esc(tituloTexto)}</h2>
-<p style="font-size:14px;margin:0;white-space:pre-wrap">${texto ? esc(texto) : '<em style="color:#6b7280">Sin comentario.</em>'}</p>
-${esSugerencia ? '' : '<p style="font-size:12px;color:#6b7280;margin:16px 0 0">La respuesta de la IA que se reportó no viaja en el correo: se consulta en el panel.</p>'}
+<p style="font-size:14px;margin:0;white-space:pre-wrap">${texto ? esc(texto) : '<em style="color:#6b7280">Sin detalles.</em>'}</p>
+${esSugerencia ? '' : '<p style="font-size:12px;color:#6b7280;margin:16px 0 0">La respuesta de la IA comentada no viaja en el correo: se consulta en el panel.</p>'}
 <p style="margin:24px 0 0"><a href="${esc(enlace)}" style="display:inline-block;background:#1d4ed8;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:8px;font-size:14px">Abrir en el panel de administración</a></p>
 </div></body></html>`
 
@@ -315,7 +315,7 @@ ${esSugerencia ? '' : '<p style="font-size:12px;color:#6b7280;margin:16px 0 0">L
     ...filas.map(([k, v]) => `${k}: ${v}`),
     '',
     `${tituloTexto}:`,
-    texto || '(sin comentario)',
+    texto || '(sin detalles)',
     '',
     `Abrir en el panel: ${enlace}`,
   ].join('\n')

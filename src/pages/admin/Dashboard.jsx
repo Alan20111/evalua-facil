@@ -27,7 +27,7 @@ const TAB_TITLES = {
   registros: 'Registros',
   creditos: 'Compras de créditos',
   costosIA: 'Costos de IA',
-  reportesIA: 'Reportes de IA',
+  reportesIA: 'Comentarios sobre la IA',
   sugerencias: 'Sugerencias a Evalúa Fácil',
   zonas: 'Ventas por zona',
   cobros: 'Configuración de cobros',

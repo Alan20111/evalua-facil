@@ -79,9 +79,9 @@ export default function Privacidad() {
               almacenamos números de tarjeta.
             </li>
             <li>
-              <span className="font-semibold text-on-surface">Reportes de IA:</span> cuando
-              reportas una respuesta de la inteligencia artificial, guardamos esa respuesta,
-              el motivo y tu comentario.
+              <span className="font-semibold text-on-surface">Comentarios sobre la IA:</span> cuando
+              envías un comentario sobre una respuesta de la inteligencia artificial, guardamos
+              esa respuesta, el motivo que elegiste y los detalles que escribiste.
             </li>
           </ul>
         </Seccion>
@@ -167,8 +167,8 @@ export default function Privacidad() {
             </li>
             <li>
               Lo que la IA produce es una propuesta: el docente la revisa y decide la
-              calificación final. La IA puede equivocarse; cualquier usuario puede reportar
-              una respuesta desde la misma pantalla con el botón «Reportar».
+              calificación final. La IA puede equivocarse; cualquier usuario puede enviar un
+              comentario sobre una respuesta desde la misma pantalla con el botón «Enviar comentario».
             </li>
           </ul>
           <p>

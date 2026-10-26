@@ -209,7 +209,7 @@ function CasoReporteIA({ r }) {
       <Dato etiqueta="Enviado por">{remitente(r)}</Dato>
       {r.comentario && <p className="text-sm text-on-surface">«{r.comentario}»</p>}
       {c.aviso && <p className="text-xs text-hint">{c.aviso}</p>}
-      <Disclosure summary="Ver la respuesta reportada" buttonClassName="text-sm">
+      <Disclosure summary="Ver la respuesta comentada" buttonClassName="text-sm">
         <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs text-on-surface bg-surface rounded-card p-3">
           {r.texto || '(sin texto)'}
         </pre>
@@ -232,9 +232,9 @@ export default function ReportesIAPanel({ caso, onCambio }) {
       icono={Flag}
       caso={caso}
       onCambio={onCambio}
-      descripcion="Respuestas de la IA que docentes y alumnos reportaron. Revisa cada una; si el problema viene de cómo se le pide a la IA, ajusta el prompt de esa operación."
-      vacioNuevos="No hay reportes en este estado"
-      vacioTodos="Todavía no hay reportes"
+      descripcion="Comentarios de docentes y alumnos sobre respuestas de la IA. Revisa cada uno; si el problema viene de cómo se le pide a la IA, ajusta el prompt de esa operación."
+      vacioNuevos="No hay comentarios en este estado"
+      vacioTodos="Todavía no hay comentarios"
       renderCaso={(r) => <CasoReporteIA r={r} />}
     />
   )
