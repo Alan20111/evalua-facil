@@ -25,7 +25,10 @@ export default function VistaPregunta({ pregunta, respuestas, area, correcta = n
   const plan = useMemo(() => (pregunta.tipo === 'opcion_unica' ? planOpciones(pregunta.enunciado, pregunta.opciones, area.ancho, area.alto, tEstimar) : null), [pregunta, area.ancho, area.alto, tEstimar])
   const altoTitulo = altoEnunciado(pregunta.enunciado, area.ancho, area.alto, tEstimar)
   const altoEncabezado = encabezado ? (acento ? Math.round(t.pregunta * 1.9) : Math.round(t.resto * 1.8)) : 0
-  const areaCuerpo = { ancho: Math.round(area.ancho * 0.92), alto: Math.max(120, area.alto - altoTitulo - altoEncabezado) }
+  // El cuerpo se separa del enunciado con mt-[4vmin] (antes 1.5vmin): esos 2.5vmin extra se descuentan aquí para que la nube
+  // (que usa este alto en px) y las estimaciones de páginas sigan cabiendo igual que antes. vmin = el de la ventana, como en CSS.
+  const margenExtra = typeof window === 'undefined' ? 0 : Math.round(Math.min(window.innerWidth, window.innerHeight) * 0.025)
+  const areaCuerpo = { ancho: Math.round(area.ancho * 0.92), alto: Math.max(120, area.alto - altoTitulo - altoEncabezado - margenExtra) }
   const nubeCabe = visualizacionDe(pregunta) === 'nube' // ya validada: solo con opciones de una o dos palabras
   return (
     <div className="h-full w-full flex flex-col text-slate-900 px-[4%]">
@@ -36,8 +39,8 @@ export default function VistaPregunta({ pregunta, respuestas, area, correcta = n
           {acento}
         </div>
       )}
-      <h1 className="font-bold leading-tight break-words" style={{ fontSize: t.pregunta, minHeight: altoTitulo - Math.round(t.pregunta * 0.4) }}>{pregunta.enunciado}</h1>
-      <div key={manual ? pregunta.id : undefined} className="flex-1 min-h-0 mt-[1.5vmin] overflow-hidden" data-vivo-cuerpo>
+      <h1 className="font-bold leading-tight break-words text-blue-700" style={{ fontSize: t.pregunta, minHeight: altoTitulo - Math.round(t.pregunta * 0.4) }}>{pregunta.enunciado}</h1>
+      <div key={manual ? pregunta.id : undefined} className="flex-1 min-h-0 mt-[4vmin] overflow-hidden" data-vivo-cuerpo>
         {pregunta.tipo === 'opcion_unica' && nubeCabe && (
           <NubePalabras opciones={opcionesNube} area={areaCuerpo} tam={t} correcta={correcta} revelar={revelar} autoPaginar={autoPaginar} />
         )}
