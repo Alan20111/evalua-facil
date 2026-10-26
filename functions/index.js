@@ -58,6 +58,8 @@ const ia = require('./ia')
 exports.ejecutarOperacionIA = ia.ejecutarOperacionIA
 // Misma lógica con 540 s de margen, solo para la Planeación Didáctica.
 exports.ejecutarPlaneacionIA = ia.ejecutarPlaneacionIA
+// Misma lógica con 540 s de margen, solo para generar las preguntas del Video interactivo.
+exports.ejecutarVideoIA = ia.ejecutarVideoIA
 exports.mantenimientoCreditosIA = ia.mantenimientoCreditosIA
 exports.onRespuestaVivoEscrita = ia.onRespuestaVivoEscrita
 exports.onSesionVivoActualizada = ia.onSesionVivoActualizada

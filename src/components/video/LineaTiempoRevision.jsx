@@ -35,18 +35,21 @@ export default function LineaTiempoRevision({ duracionSeg, posicion = null, valo
   const irA = (id) => { setGrupoAbierto(null); onIr?.(id) }
   // Escape cierra solo los accesos del punto agrupado (no la ventana de revisión, que escucha en window).
   const alTeclearAccesos = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setGrupoAbierto(null) } }
-  const v = Math.min(Math.max(0, Number.isInteger(valor) ? valor : dur), dur)
-  const real = Number.isFinite(posicion) ? Math.min(Math.max(0, posicion), dur) : v
+  // Sin momento (propuesta de la versión anterior): la bolita queda ESTACIONADA fuera de la pista; ninguna posición se toma como su
+  // tiempo hasta que el docente la arrastra y la suelta sobre la línea.
+  const sinUbicar = !Number.isInteger(valor)
+  const v = sinUbicar ? null : Math.min(Math.max(0, valor), dur)
+  const real = Number.isFinite(posicion) ? Math.min(Math.max(0, posicion), dur) : (v ?? 0)
   const pct = (s) => `${(Math.min(Math.max(s, 0), dur) / dur) * 100}%`
   // x ↔ segundo, sobre la franja por la que corre el centro del control de la línea (`pista`: el contenedor de los puntos)
   const segEn = (clientX, pista) => {
     const r = pista?.getBoundingClientRect()
-    if (!r || r.width <= 0) return v
+    if (!r || r.width <= 0) return null
     return Math.min(dur, Math.max(0, Math.round(((clientX - r.left) / r.width) * dur)))
   }
   // El estado del arrastre vive en el propio elemento (data-*): distancia puntero–centro al agarrar (no «salta» al tomarlo de la orilla)
   // y último segundo elegido con la bolita (para guardarlo al soltar).
-  const elegir = (s, el) => { if (!disabled && s !== v) { el.dataset.ultimo = String(s); onCambiar(s) } }
+  const elegir = (s, el) => { if (!disabled && Number.isInteger(s) && s !== v) { el.dataset.ultimo = String(s); onCambiar(s) } }
   const saltar = (s) => { if (s !== Math.round(real)) onSaltar?.(s) }
   // Arrastre con captura de puntero (mouse o dedo). `habilitado` y `alSoltar` distinguen la bolita del triángulo.
   const agarrar = (accion, habilitado, alSoltar) => ({
@@ -117,10 +120,11 @@ export default function LineaTiempoRevision({ duracionSeg, posicion = null, valo
           })}
           {/* La BOLITA BLANCA: el momento de la pregunta actual. Se arrastra y, al soltarla, el tiempo se guarda solo. Es solo un agarre del
               puntero: el control accesible de la línea (teclado, lector de pantalla) es el triángulo. */}
-          <div data-testid="bolita-pregunta" aria-hidden="true" {...agarrar(elegir, !disabled, soltarBolita)}
-            className={`absolute top-0 -translate-x-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center touch-none pointer-events-auto ${disabled ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'}`}
-            style={{ left: pct(v) }}>
-            <span className="block w-3.5 h-3.5 rounded-full border-2 border-accent bg-surface-card" />
+          {/* Sin momento: el MISMO elemento queda estacionado arriba a la izquierda, punteado (al arrastrarlo no se pierde el puntero). */}
+          <div data-testid="bolita-pregunta" data-sin-ubicar={sinUbicar ? 'true' : undefined} aria-hidden="true" {...agarrar(elegir, !disabled, soltarBolita)}
+            className={`absolute -translate-x-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center touch-none pointer-events-auto ${sinUbicar ? '-top-6' : 'top-0'} ${disabled ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'}`}
+            style={{ left: sinUbicar ? '0%' : pct(v) }}>
+            <span className={`block w-3.5 h-3.5 rounded-full border-2 border-accent bg-surface-card ${sinUbicar ? 'border-dashed' : ''}`} />
           </div>
           {/* El TRIÁNGULO verde: el tiempo actual del video. Se arrastra o se mueve con las flechas para recorrer el video. */}
           {/* eslint-disable-next-line jsx-a11y/prefer-tag-over-role --

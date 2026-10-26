@@ -117,8 +117,8 @@ export default function VistaPreviaDocenteVideo({ videoId, duracionSeg, idioma =
           <RecomendacionesVideo compacto />
           {sinMinuto > 0 && (
             <p data-testid="vista-previa-sin-minuto" className="rounded-card border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs text-amber-950">
-              <span className="font-semibold">{sinMinuto === 1 ? '1 pregunta sin minuto' : `${sinMinuto} preguntas sin minuto`}:</span>{' '}
-              en esta vista previa {sinMinuto === 1 ? 'aparece' : 'aparecen'} al terminar el video. Elige su minuto en «Revisar preguntas».
+              <span className="font-semibold">{sinMinuto === 1 ? '1 pregunta sin momento' : `${sinMinuto} preguntas sin momento`}:</span>{' '}
+              en esta vista previa {sinMinuto === 1 ? 'aparece' : 'aparecen'} al final. Ubícala{sinMinuto === 1 ? '' : 's'} en «Revisar preguntas».
             </p>
           )}
           <div className="flex flex-wrap items-center gap-1.5">
@@ -130,8 +130,8 @@ export default function VistaPreviaDocenteVideo({ videoId, duracionSeg, idioma =
               <button key={p.id} type="button" onClick={() => pantallaRef.current?.probarDesde(inicioDePrueba(p.timestampSeg, duracionSeg))}
                 data-testid={conMinuto ? undefined : 'probar-sin-minuto'}
                 className={`inline-flex items-center gap-1 min-h-[2.25rem] px-2.5 rounded-full border text-xs font-semibold ${p.revision === 'pendiente' ? 'border-amber-400 bg-amber-50 text-amber-900' : 'border-outline-variant text-on-surface hover:bg-surface-container'}`}
-                aria-label={`Probar la pregunta ${i + 1} desde unos segundos antes, ${conMinuto ? `minuto ${formatearTiempo(p.timestampSeg)}` : 'sin minuto (aparece al terminar el video)'}${p.revision === 'pendiente' ? ' (pendiente, no publicada)' : ''}`}>
-                <Play size={ICONO.xs} /> {i + 1} · {conMinuto ? formatearTiempo(p.timestampSeg) : <span className="font-extrabold">sin minuto</span>}{p.revision === 'pendiente' ? ' · pendiente' : ''}
+                aria-label={`Probar la pregunta ${i + 1} desde unos segundos antes, ${conMinuto ? `minuto ${formatearTiempo(p.timestampSeg)}` : 'sin momento (aparece al final)'}${p.revision === 'pendiente' ? ' (pendiente, no publicada)' : ''}`}>
+                <Play size={ICONO.xs} /> {i + 1} · {conMinuto ? formatearTiempo(p.timestampSeg) : <span className="font-extrabold">sin momento</span>}{p.revision === 'pendiente' ? ' · pendiente' : ''}
               </button>
               )
             })}

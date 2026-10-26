@@ -24,7 +24,10 @@ import {
 import { idiomaParaGuardar } from './videoAudio.js'
 
 export const OPERACION_VIDEO = 'generar_preguntas_video'
-export const TIMEOUT_GENERACION_MS = 290000
+// La generación la atiende `ejecutarVideoIA` (540 s en el servidor: leer el video + generar, validar y sustituir las preguntas que
+// no pasan). El cliente espera 20 s más que el servidor, igual que la Planeación (560 s con 540 s).
+export const CALLABLE_VIDEO = 'ejecutarVideoIA'
+export const TIMEOUT_GENERACION_MS = 560000
 export const MIN_NOMBRE = 3
 export const MAX_NOMBRE = 120
 
@@ -65,7 +68,7 @@ export function validarConfiguracion({ nombre, url, distribucion }, costoPorPreg
 // Textos del costo: el docente ve SIEMPRE lo que se va a cobrar y qué pasa si la IA entrega menos.
 export function textoCostoGeneracion(total, costoPorPregunta = VIDEO_CFG.CREDITOS_POR_PREGUNTA) {
   const creditos = Math.round(total * costoPorPregunta * 100) / 100
-  return `Generar ${total} ${total === 1 ? 'pregunta' : 'preguntas'}: hasta ${creditos} ${creditos === 1 ? 'crédito' : 'créditos'} (${costoPorPregunta} por pregunta). Solo se cobran las preguntas que realmente se entreguen.`
+  return `Generar ${total} ${total === 1 ? 'pregunta' : 'preguntas'}: hasta ${creditos} ${creditos === 1 ? 'crédito' : 'créditos'} (${costoPorPregunta} por pregunta). Si alguna no se puede comprobar con el video, recibirás menos y solo pagarás las que recibas.`
 }
 
 // ── Documento de la actividad ─────────────────────────────────────────────────────────
@@ -143,7 +146,7 @@ export async function generarEnActividad(deps, actividadId, intento) {
 
   let data
   try {
-    data = await deps.ejecutar(OPERACION_VIDEO, params, dist.total, { timeoutMs: TIMEOUT_GENERACION_MS, idempotencyKey: intento.idempotencyKey })
+    data = await deps.ejecutar(OPERACION_VIDEO, params, dist.total, { timeoutMs: TIMEOUT_GENERACION_MS, callable: CALLABLE_VIDEO, idempotencyKey: intento.idempotencyKey })
   } catch (err) {
     const clase = clasificarErrorGeneracion(err)
     if (clase === CLASES.SIN_COBRO) {

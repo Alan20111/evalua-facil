@@ -156,6 +156,12 @@ const PROMPT_EXTRACCION =
   '- Omite los tramos sin contenido relevante (música, créditos). No inventes nada que no aparezca en el video.\n' +
   '- NO escribas preguntas, evaluaciones ni opiniones.'
 
+// Segunda lectura (solo si la primera no trajo frases con tiempo fiable): se insiste en las frases, que son lo único con
+// lo que se puede ubicar una pregunta con precisión.
+const REFUERZO_FRASES =
+  '\n\nIMPORTANTE: debajo de CADA tramo escribe TODAS sus frases con el prefijo «> [m:ss]», una cada 3 a 12 segundos, con la marca ' +
+  'EXACTA del instante en que empieza cada una. No omitas tramos ni frases, no dejes tramos sin frases y no repitas marcas.'
+
 // ── Lectura de la respuesta de Gemini ──────────────────────────────────────
 // Línea de segmento: «[00:12] texto», «[1:02:05] texto», «[00:12-00:40] texto»
 // (también con viñeta o negritas). Lo que no tiene marca se une al segmento anterior.
@@ -428,11 +434,15 @@ async function unaLlamada({ clave, modelo, videoUrl, timeoutMs, prompt = PROMPT_
 
 // ── Punto de entrada ───────────────────────────────────────────────────────
 // `opciones.dormir` / `opciones.ahora` existen para las pruebas (sin esperas reales).
+// `opciones.refuerzoFrases`: segunda lectura que insiste en las frases. `opciones.presupuestoTotalMs`: tope menor que el normal
+// (cuando ya se gastó tiempo en una primera lectura).
 async function extraerContenidoVideo(url, opciones = {}) {
   const videoId = extraerVideoIdYouTube(url)
   if (!videoId) throw crearError('URL_INVALIDA')
   const clave = leerClave() // antes de cualquier red
   const cfg = configuracion()
+  if (Number.isFinite(opciones.presupuestoTotalMs) && opciones.presupuestoTotalMs > 0) cfg.presupuestoTotalMs = Math.min(cfg.presupuestoTotalMs, opciones.presupuestoTotalMs)
+  const prompt = opciones.refuerzoFrases ? PROMPT_EXTRACCION + REFUERZO_FRASES : PROMPT_EXTRACCION
   const dormir = opciones.dormir || ((ms) => new Promise((r) => setTimeout(r, ms)))
   const ahora = opciones.ahora || Date.now
   const inicio = ahora()
@@ -446,7 +456,7 @@ async function extraerContenidoVideo(url, opciones = {}) {
     intentos = intento
     const t0 = ahora()
     try {
-      const r = await unaLlamada({ clave, modelo: cfg.modelo, videoUrl, timeoutMs: Math.min(cfg.timeoutLlamadaMs, restante) })
+      const r = await unaLlamada({ clave, modelo: cfg.modelo, videoUrl, timeoutMs: Math.min(cfg.timeoutLlamadaMs, restante), prompt })
       const contenido = construirContenido({ ...r, videoId, modelo: cfg.modelo, intentos, ms: ahora() - inicio })
       logger.info('EXTRACCION_VIDEO_OK', {
         videoId, modelo: cfg.modelo, intento, segmentos: contenido.segmentos.length, caracteres: contenido.caracteres,
@@ -478,7 +488,7 @@ async function extraerContenidoVideo(url, opciones = {}) {
 module.exports = {
   extraerContenidoVideo, evaluarSuficiencia, exigirSuficiencia, ErrorExtraccion, formatearMinuto,
   _pruebas: {
-    parsearRespuesta, resolverDuracion, clasificarHttp, leerTiempo, textoConTiempos, PROMPT_EXTRACCION, MAX_SEGMENTO_SEG, TOLERANCIA_DURACION_PCT, MAX_FRASE_SEG, construirFrases, configuracion, DEFAULTS,
+    parsearRespuesta, resolverDuracion, clasificarHttp, leerTiempo, textoConTiempos, PROMPT_EXTRACCION, REFUERZO_FRASES, MAX_SEGMENTO_SEG, TOLERANCIA_DURACION_PCT, MAX_FRASE_SEG, construirFrases, configuracion, DEFAULTS,
     sobreescribir: (o) => { sobreescritos = { ...sobreescritos, ...o } },
     restaurar: () => { sobreescritos = {} },
   },

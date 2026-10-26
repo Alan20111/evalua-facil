@@ -223,6 +223,11 @@ const REGLA_EVIDENCIA_EXPLICITA =
   'Una afirmación verdadera exige un fragmento que la diga; una falsa exige un fragmento que diga lo contrario o la excluya de forma explícita ' +
   '(que el tema simplemente no se mencione, o que se pueda deducir que es falsa, no basta). Si solo se puede contestar por inferencia, puedeResponderse = false.'
 
+// Opción múltiple: además de la correcta, ninguna otra opción puede ser también correcta según lo que dicen las frases.
+const REGLA_UNICA_CORRECTA =
+  '"unicaCorrecta": true solo si, según esas frases, EXACTAMENTE UNA opción es correcta y ninguna otra también lo es (ni equivalente ni ' +
+  'parcialmente correcta); false si dos o más opciones podrían darse por buenas.'
+
 function promptPrefijo(q, unidades, k, modo = 'resumen') {
   const frases = modo === 'frases'
   return (
@@ -236,7 +241,10 @@ function promptPrefijo(q, unidades, k, modo = 'resumen') {
       ? 'Si puede, indica la respuesta que daría y sus componentes con cita literal. "evidenciaExplicita" = true solo si cada dato necesario está dicho expresamente (sin inferir).\n'
       : 'Si puede, indica la respuesta que daría y las citas literales que la respaldan. "evidenciaExplicita" = true solo si cada dato necesario está dicho expresamente (sin inferir).\n') +
     `${frases ? FORMATO_RESPUESTA_FRASES : FORMATO_RESPUESTA}\n\n` +
-    (frases
+    (frases && q.tipo === 'opcion_multiple' ? `${REGLA_UNICA_CORRECTA}\n` : '') +
+    (frases && q.tipo === 'opcion_multiple'
+      ? 'Responde SOLO con este JSON: {"puedeResponderse": true|false, "evidenciaExplicita": true|false, "respuesta": <ver arriba>, "unicaCorrecta": true|false, "componentes": [{"afirmacion": "<idea>", "segmento": <n>, "cita": "<copia literal>"}]}'
+      : frases
       ? 'Responde SOLO con este JSON: {"puedeResponderse": true|false, "evidenciaExplicita": true|false, "respuesta": <ver arriba>, "componentes": [{"afirmacion": "<idea>", "segmento": <n>, "cita": "<copia literal>"}]}'
       : 'Responde SOLO con este JSON: {"puedeResponderse": true|false, "evidenciaExplicita": true|false, "respuesta": <ver arriba>, "citas": [{"segmento": <n>, "texto": "<copia literal>"}]}')
   )
@@ -332,6 +340,8 @@ async function pruebaPrefijo(q, k, ctx) {
     if (!citas) return { estado: 'no', motivo: 'cita_invalida' }
   }
   if (q.tipo === 'opcion_multiple' && aEntero(datos.respuesta) !== q.correcta) return { estado: 'no', motivo: 'respuesta_no_coincide' }
+  // Modo frases: una opción múltiple con más de una opción defendible no es válida (distractores ambiguos).
+  if (frases && q.tipo === 'opcion_multiple' && datos.unicaCorrecta !== true) return { estado: 'no', motivo: 'opciones_ambiguas' }
   if (q.tipo === 'verdadero_falso' && aVF(datos.respuesta) !== q.correcta) return { estado: 'no', motivo: 'respuesta_no_coincide' }
   return { estado: 'ok', citas, componentes }
 }
@@ -429,7 +439,9 @@ async function verificarPreguntaFrases(q, ctx) {
 
   const kcSeg = Number.isInteger(q.respaldo?.hastaSegmento) ? q.respaldo.hastaSegmento : null
   let kc = null
-  if (kcSeg !== null && kcSeg >= 1 && kcSeg <= ctx.segmentos.length) kc = ultimaFraseHasta(ctx.unidades, ctx.segmentos[kcSeg - 1].finSeg)
+  // El generador que ya trabaja con FRASES declara directamente la frase (respaldo.unidad = 'frase'); el anterior declaraba un tramo.
+  if (q.respaldo?.unidad === 'frase') { if (kcSeg !== null && kcSeg >= 1 && kcSeg <= ctx.unidades.length) kc = kcSeg }
+  else if (kcSeg !== null && kcSeg >= 1 && kcSeg <= ctx.segmentos.length) kc = ultimaFraseHasta(ctx.unidades, ctx.segmentos[kcSeg - 1].finSeg)
   if (kc !== null && T(kc) === null) { anotar({ evento: 'candidato_ignorado', k: kc }); kc = null }
 
   const loc = await localizar(q, ctx)
@@ -549,6 +561,6 @@ module.exports = {
   _pruebas: {
     promptPrefijo, promptLocalizar, promptJuez, validarCitas, validarComponentes, tiempoDeSegmento, tiempoDeUnidad, verificarPregunta, extraerObjetoJSON,
     validarRespuestaPrefijo, validarRespuestaPrefijoFrases, validarRespuestaLocalizacion, validarRespuestaJuez, ultimaFraseHasta,
-    SISTEMA_VERIFICADOR, SISTEMA_JUEZ, MAX_SEGMENTO_FIABLE_SEG, MAX_FRASE_FIABLE_SEG, MARGEN_FRASES_SEG, PRESUPUESTO_MS,
+    SISTEMA_VERIFICADOR, SISTEMA_JUEZ, REGLA_UNICA_CORRECTA, MAX_SEGMENTO_FIABLE_SEG, MAX_FRASE_FIABLE_SEG, MARGEN_FRASES_SEG, PRESUPUESTO_MS,
   },
 }

@@ -3400,7 +3400,7 @@ const verificadorSegunPrompt = (req) => {
   const cita = (n) => ({ segmento: n, texto: segs.find((x) => x.n === n).texto.slice(0, 30) })
   if (prompt.includes('primerSegmento')) return { primerSegmento: v.fin, citas: [cita(v.fin)] }
   if (maxN < v.fin) return { puedeResponderse: false }
-  return { puedeResponderse: true, evidenciaExplicita: true, respuesta: v.correcta ?? undefined, componentes: [{ afirmacion: 'Se dice el concepto de la pregunta', segmento: v.fin, cita: cita(v.fin).texto }] }
+  return { puedeResponderse: true, evidenciaExplicita: true, respuesta: v.correcta ?? undefined, unicaCorrecta: true, componentes: [{ afirmacion: 'Se dice el concepto de la pregunta', segmento: v.fin, cita: cita(v.fin).texto }] }
 }
 // Juez simulado: da por demostrados todos los componentes (los casos de rechazo lo sustituyen).
 const juezSegunPrompt = (req) => ({ componentes: Array.from({ length: (textoDelPedido(req).match(/^C\d+\)/gm) || []).length }, (_, i) => ({ i: i + 1, soporta: true })), cubreTodo: true, faltante: '' })
@@ -3411,9 +3411,9 @@ const preguntasSegunPrompt = (req) => {
   const texto = textoDelPedido(req)
   const pide = (tipo) => generosoIA(Number((new RegExp(`(\\d+) × ${tipo}`).exec(texto) || [0, 0])[1]), vueltaIA)
   const out = []
-  // El modelo declara segmentos (1..20, a 15 s cada uno), no tiempos: cada pregunta se menciona en el
-  // segmento k y queda explicada en el k+1 → el servidor la ubica al terminar el k+1.
-  const nuevo = (o) => { const k = (out.length % 19) + 1; verdadVideo.set(`Pregunta ${vueltaIA}.${out.length + 1} (${o.tipo})`, { fin: k + 1, correcta: o.correcta ?? null }); out.push({ enunciado: `Pregunta ${vueltaIA}.${out.length + 1} (${o.tipo})`, introduceEn: k, completaEn: k + 1, retroalimentacion: 'Porque el video lo explica.', ...o }) }
+  // El modelo declara la FRASE (1..20, una por tramo de 15 s) donde queda explicada y la cita literalmente; no escribe tiempos:
+  // cada pregunta queda explicada en la frase k+1 → la validación la ubica al terminar la k+1.
+  const nuevo = (o) => { const k = (out.length % 19) + 1; verdadVideo.set(`Pregunta ${vueltaIA}.${out.length + 1} (${o.tipo})`, { fin: k + 1, correcta: o.correcta ?? null }); out.push({ enunciado: `Pregunta ${vueltaIA}.${out.length + 1} (${o.tipo})`, explicadaEn: k + 1, citas: [{ frase: k + 1, texto: `Se dice el concepto número ${k + 1} con` }], retroalimentacion: 'Porque el video lo explica.', ...o }) }
   const cuantas_verdadero_falso = pide('verdadero_falso'), cuantas_opcion_multiple = pide('opcion_multiple'), cuantas_respuesta_corta = pide('respuesta_corta')
   for (let i = 0; i < cuantas_verdadero_falso; i += 1) nuevo({ tipo: 'verdadero_falso', correcta: i % 2 ? 'f' : 'v' })
   for (let i = 0; i < cuantas_opcion_multiple; i += 1) nuevo({ tipo: 'opcion_multiple', opciones: ['uno', 'dos', 'tres', 'cuatro'], correcta: i % 4 })
@@ -3478,13 +3478,14 @@ await caso('video: 10 preguntas (4 V/F + 4 opción múltiple + 2 abiertas) → e
   assert.strictEqual(c.estado, 'ejecutado'); assert.strictEqual(c.creditosReales, 20)
   assert.strictEqual(pedidosIA.length, 1, 'una sola llamada al modelo'); assert.strictEqual(pedidosIA[0].model, 'claude-haiku-4-5')
   assert.strictEqual(llamadasGemini, 1, 'una sola extracción')
-  // el contenido del video viajó al modelo como dato, con sus minutos
-  assert.ok(textoDelPedido(pedidosIA[0]).includes('#1 [0:00–0:15] Se explica el concepto número 1'))
+  // el contenido del video viajó al modelo como FRASES con su minuto; el resumen por tramos no
+  assert.ok(textoDelPedido(pedidosIA[0]).includes('#1 [0:00] Se dice el concepto número 1'))
+  assert.ok(!textoDelPedido(pedidosIA[0]).includes('Se explica el concepto número 1'))
   // cada tiempo es el fin REAL de un segmento (múltiplo de 15) posterior a la mención; el respaldo guarda ese fragmento
   // cada tiempo = fin REAL de una frase (múltiplo de 15) posterior a la mención + margen de 3.5 s (redondeado hacia arriba); el respaldo guarda esa frase
   assert.ok(res.preguntas.every((p) => (p.timestampSeg - 4) % 15 === 0 && p.timestampSeg >= 34))
   assert.ok(res.preguntas.every((p) => p.respaldo && p.respaldo.unidad === 'frase' && p.respaldo.finSeg + 4 === p.timestampSeg && p.respaldo.texto.includes(`concepto número ${p.respaldo.hastaSegmento} `) && !p.respaldo.texto.includes(`concepto número ${p.respaldo.hastaSegmento + 1} `)))
-  assert.ok(/NO una transcripción literal/.test(textoDelPedido(pedidosIA[0])))
+  assert.ok(res.preguntas.every((p) => p.versionValidacion === 2 && !('minutoSugerido' in p)), 'todas validadas; sin pistas')
   // de dónde salió el contenido, sin pretender que sea una transcripción
   assert.deepStrictEqual(
     [res.generacion.fuenteContenido.tipo, res.generacion.fuenteContenido.modelo, res.generacion.fuenteContenido.segmentos, res.generacion.fuenteContenido.duracionConfiable],
@@ -3623,7 +3624,7 @@ await caso('video: respuesta vacía o sin marcas de tiempo → se reintenta y, s
   }
 })
 
-await caso('video: contenido insuficiente para las preguntas pedidas → se detiene sin cobrar y dice cuántas SÍ alcanzan; con menos preguntas sí procede', async () => {
+await caso('video: contenido insuficiente para las preguntas pedidas → se detiene sin cobrar y dice cuántas SÍ alcanzan (sin releer el video); con menos preguntas pasa esa revisión', async () => {
   await reiniciarVideo()
   // un video de 19 s con un solo tramo de ~100 caracteres: no hay para 10 preguntas
   const corto = 'IDIOMA: es\nHABLA: si\nDURACION: 0:19\n[0:00] Un joven describe frente a unos elefantes lo largas que son sus trompas y lo genial que le parece.'
@@ -3632,8 +3633,11 @@ await caso('video: contenido insuficiente para las preguntas pedidas → se deti
   assert.strictEqual(codigoDe(e), 'failed-precondition', e?.message); assert.strictEqual(e.details?.codigo, 'CONTENIDO_INSUFICIENTE'); assert.strictEqual(e.details?.reintentable, false)
   assert.ok(/unas 2 preguntas/.test(e.message) && /pediste 10/.test(e.message) && e.message.includes('No se descontaron créditos'), e.message)
   await sinCobroVideo()
-  const r = await generarVideo({ distribucion: { vf: 1, om: 0, abiertas: 0 } })
-  assert.strictEqual(r.resultado.preguntas.length, 1); assert.strictEqual((await creditosDe()).saldo, 98)
+  assert.strictEqual(llamadasGemini, 1, 'no alcanza: no se relee el video')
+  // con 1 pregunta el contenido alcanza, pero este video no trae frases con tiempo: no se puede ubicar ninguna con precisión
+  const e2 = await generarVideo({ distribucion: { vf: 1, om: 0, abiertas: 0 } }).then(() => null, (x) => x)
+  assert.strictEqual(e2?.details?.codigo, 'FRASES_NO_FIABLES', e2?.message)
+  await sinCobroVideo()
 })
 
 await caso('video: distribución inválida (vacía, >20, negativa, decimal, texto) → rechazada sin tocar Gemini, sin IA, sin cobro', async () => {
@@ -3690,17 +3694,18 @@ await caso('video: si la IA entrega menos de lo pedido, se cobra SOLO lo entrega
   assert.strictEqual(r.resultado.generacion.estado, 'incompleta'); assert.strictEqual(r.resultado.generacion.faltantes, 2)
   assert.strictEqual(r.resultado.generacion.numeroPreguntas, 3); assert.strictEqual(r.resultado.generacion.solicitado.numeroPreguntas, 5)
   assert.strictEqual(r.creditosReales, 6); assert.strictEqual((await creditosDe()).saldo, 94)
-  assert.strictEqual(pedidosIA.length, 2, 'una pasada normal + una de reparación')
+  assert.strictEqual(pedidosIA.length, 3, 'la ronda normal + 2 de reemplazo, ni una más')
 })
 
-await caso('video: la pasada de reparación completa lo que faltó sin cobrar de más', async () => {
+await caso('video: la ronda de reemplazo completa lo que faltó sin cobrar de más', async () => {
   await reiniciarVideo()
   generosoIA = (n, vuelta) => (vuelta === 1 ? Math.min(n, 2) : n)
   // primera vuelta: 2 de 5 V/F; la reparación pide 3 y las recibe
   const r = await generarVideo({ distribucion: { vf: 5, om: 0, abiertas: 0 } })
   assert.strictEqual(r.resultado.preguntas.length, 5); assert.strictEqual(r.resultado.generacion.estado, 'completa')
   assert.strictEqual((await creditosDe()).saldo, 90)
-  assert.ok(textoDelPedido(pedidosIA[1]).includes('YA PROPUESTAS'), 'la reparación recibe lo ya generado para no repetirlo')
+  assert.ok(textoDelPedido(pedidosIA[1]).includes('YA PROPUESTAS'), 'el reemplazo recibe lo ya generado para no repetirlo')
+  assert.ok(textoDelPedido(pedidosIA[1]).includes('EXACTAMENTE 5 preguntas'), 'pide 1.5× lo que falta (5 por 3); el sobrante no se entrega ni se cobra')
 })
 
 await caso('video: si la IA no produce NINGUNA pregunta utilizable → se reembolsa todo', async () => {
@@ -3741,7 +3746,16 @@ await caso('video: la operación NO escribe actividades ni preguntas (solo propo
 
 // ── Verificación independiente del momento (functions/videoVerificacion.js) con el flujo completo y el libro de créditos ──
 // El generador falso declara que el concepto queda explicado en el segmento 1 (solo se menciona); en realidad se explica en el 9.
-const generadorPrematuro = (enunciado) => () => ({ preguntas: [{ tipo: 'verdadero_falso', enunciado, introduceEn: 1, completaEn: 1, correcta: 'v', retroalimentacion: 'Porque el video lo explica.' }] })
+const generadorPrematuro = (enunciado) => () => ({ preguntas: [{ tipo: 'verdadero_falso', enunciado, explicadaEn: 1, citas: [{ frase: 1, texto: 'Se dice el concepto número 1 con' }], correcta: 'v', retroalimentacion: 'Porque el video lo explica.' }] })
+// Lo que una generación que no logra NINGUNA pregunta válida debe dejar: error claro, reembolso íntegro, consumo no ejecutado.
+const sinPreguntasValidas = async (promesa, k, saldo = 100) => {
+  const e = await promesa.then(() => null, (x) => x)
+  assert.ok(e, 'debe fallar')
+  assert.strictEqual(e.details?.codigo, 'SIN_PREGUNTAS_VALIDAS')
+  assert.ok(/No se descontaron créditos/.test(e.message))
+  assert.strictEqual((await creditosDe()).saldo, saldo, 'reembolso íntegro')
+  assert.strictEqual((await consumoDe(k)).estado, 'fallido', 'la reserva se devolvió entera')
+}
 
 await caso('video: concepto mencionado en el segmento 1 y explicado en el 9 → la pregunta se corrige al fin del 9 y no hay cobro extra', async () => {
   await reiniciarVideo()
@@ -3766,59 +3780,57 @@ await caso('video: concepto mencionado en el segmento 1 y explicado en el 9 → 
   assert.strictEqual(r.creditosReales, 2); assert.strictEqual((await creditosDe()).saldo, 98, 'el cobro sigue siendo 2 créditos por pregunta')
 })
 
-await caso('video: explicación INSUFICIENTE (el verificador no la localiza) → la pregunta se entrega sin tiempo, se cobra igual y la generación sigue completa', async () => {
+await caso('video: explicación INSUFICIENTE (el verificador no la localiza) → no se entrega; sin ninguna válida, reembolso íntegro', async () => {
   await reiniciarVideo()
   respuestaIA = generadorPrematuro('Nunca se explica')
   respuestaVerificador = (req) => (textoDelPedido(req).includes('primerSegmento') ? { primerSegmento: null, citas: [] } : { puedeResponderse: false })
-  const r = await generarVideo({ distribucion: { vf: 1, om: 0, abiertas: 0 } })
-  const [p] = r.resultado.preguntas
-  assert.deepStrictEqual([p.timestampSeg, p.verificacion.estado, p.verificacion.motivo], [null, 'sin_verificar', 'no_localizada'])
-  assert.strictEqual(r.resultado.generacion.estado, 'completa')
-  assert.deepStrictEqual(r.resultado.generacion.verificacion, { verificadas: 0, corregidas: 0, sinVerificar: 1 })
-  assert.strictEqual(r.creditosReales, 2); assert.strictEqual((await creditosDe()).saldo, 98)
+  const k = clave()
+  await sinPreguntasValidas(generarVideo({ distribucion: { vf: 1, om: 0, abiertas: 0 }, k }), k)
+  assert.ok(pedidosIA.length <= 3, 'rondas acotadas')
 })
 
-await caso('video: si el verificador FALLA no se cancela la generación ni se cobra distinto; reintentar la misma clave no cobra de nuevo ni verifica otra vez', async () => {
+await caso('video: una pregunta que no pasa se SUSTITUYE por otra válida y solo se cobra lo entregado (los reemplazos no cuestan)', async () => {
+  await reiniciarVideo()
+  respuestaVerificador = (req) => (/Pregunta: Pregunta 1\.1 /.test(textoDelPedido(req)) ? (textoDelPedido(req).includes('primerSegmento') ? { primerSegmento: null, citas: [] } : { puedeResponderse: false }) : verificadorOJuez(req))
+  const k = clave()
+  const r = await generarVideo({ distribucion: { vf: 3, om: 0, abiertas: 0 }, k })
+  assert.strictEqual(r.resultado.preguntas.length, 3); assert.strictEqual(r.resultado.generacion.estado, 'completa')
+  assert.ok(!r.resultado.preguntas.some((p) => p.enunciado.startsWith('Pregunta 1.1 ')), 'la que falló no se entrega')
+  assert.ok(r.resultado.preguntas.every((p) => Number.isInteger(p.timestampSeg) && p.verificacion.estado === 'verificada'))
+  assert.strictEqual(pedidosIA.length, 2, 'la ronda normal + un reemplazo')
+  assert.ok(textoDelPedido(pedidosIA[1]).includes('SUSTITUYEN') && textoDelPedido(pedidosIA[1]).includes('Pregunta 1.1 '), 'el reemplazo no repite la fallida')
+  assert.strictEqual(r.creditosReales, 6); assert.strictEqual((await creditosDe()).saldo, 94, '2 cr × 3 entregadas, ni un crédito por el reemplazo')
+  assert.strictEqual((await db.collection('iaConsumos').get()).size, 1, 'un solo consumo')
+  assert.deepStrictEqual(r.resultado.generacion.validacion.motivos, { no_localizada: 1 })
+})
+
+await caso('video: si el verificador FALLA no se entrega nada sin validar: reembolso íntegro, y reintentar la misma clave no cobra', async () => {
   await reiniciarVideo()
   respuestaVerificador = () => { throw new Error('Anthropic caído') }
   const k = clave()
-  const r = await generarVideo({ k })
-  assert.strictEqual(r.resultado.preguntas.length, 10); assert.strictEqual(r.resultado.generacion.estado, 'completa')
-  assert.ok(r.resultado.preguntas.every((p) => p.timestampSeg === null && p.verificacion.motivo === 'verificador_no_disponible'))
-  assert.deepStrictEqual(r.resultado.generacion.verificacion, { verificadas: 0, corregidas: 0, sinVerificar: 10 })
-  assert.strictEqual(r.creditosReales, 20); assert.strictEqual((await creditosDe()).saldo, 80, 'las mismas 2 cr × 10, sin devolución ni recargo')
-  const c = await consumoDe(k)
-  assert.strictEqual(c.estado, 'ejecutado'); assert.strictEqual(c.creditosReales, 20)
-  const llamadas = pedidosVerificador.length
-  assert.strictEqual(llamadas, 20, 'por pregunta: la localización con UN reintento y nada más (si falla no se sigue)')
-  const otra = await generarVideo({ k })
-  assert.strictEqual(otra.repetida, true); assert.deepStrictEqual(otra.resultado.preguntas, r.resultado.preguntas)
-  assert.strictEqual(pedidosVerificador.length, llamadas, 'no se volvió a verificar'); assert.strictEqual((await creditosDe()).saldo, 80)
+  await sinPreguntasValidas(generarVideo({ k }), k)
+  assert.strictEqual(pedidosIA.length, 3, 'rondas acotadas')
+  const otra = await generarVideo({ k }).then(() => null, (x) => x)
+  assert.ok(otra && otra.details?.estadoPrevio === 'fallido', 'la misma clave dice que falló antes (y no se cobró)')
+  assert.strictEqual((await creditosDe()).saldo, 100)
   assert.strictEqual((await db.collection('iaConsumos').get()).size, 1)
 })
 
-await caso('video: una respuesta del verificador con citas inventadas no da un tiempo verificado', async () => {
+await caso('video: una respuesta del verificador con citas inventadas no valida ninguna pregunta: no se entregan ni se cobran', async () => {
   await reiniciarVideo()
   respuestaVerificador = () => ({ puedeResponderse: true, respuesta: 'v', citas: [{ segmento: 1, texto: 'una frase que el video jamás dice' }], primerSegmento: 1 })
-  const r = await generarVideo({ distribucion: { vf: 2, om: 0, abiertas: 0 } })
-  assert.ok(r.resultado.preguntas.every((p) => p.timestampSeg === null && p.verificacion.estado === 'sin_verificar'))
-  assert.strictEqual(r.creditosReales, 4)
+  const k = clave()
+  await sinPreguntasValidas(generarVideo({ distribucion: { vf: 2, om: 0, abiertas: 0 }, k }), k)
 })
 
-await caso('video: segmentos de más de 45 s → sin reintento de extracción; las preguntas afectadas quedan sin minuto, se cobra igual y se registra la única extracción', async () => {
+await caso('video: tramos de 70 s (frases sin tiempo fiable) → se lee UNA vez más y, si siguen así, se rechaza ANTES de reservar: cero créditos', async () => {
   await reiniciarVideo()
-  // Gemini devuelve 5 tramos de 70 s: se usa tal cual, marcados como dudosos (sin segunda extracción).
   comportamientoGemini = async () => respGeminiOk(textoGeminiOk({ n: 5, paso: 70 }))
-  const k = clave()
-  const r = await generarVideo({ distribucion: { vf: 2, om: 0, abiertas: 0 }, k })
-  assert.strictEqual(llamadasGemini, 1, 'una sola extracción: no hay reintento estricto')
-  assert.strictEqual(r.resultado.preguntas.length, 2)
-  assert.ok(r.resultado.preguntas.every((p) => p.timestampSeg === null && p.verificacion.estado === 'sin_verificar'), 'las que dependen de tramos largos esperan al docente')
-  assert.deepStrictEqual([r.resultado.generacion.fuenteContenido.segmentacion.dudosa, r.resultado.generacion.fuenteContenido.segmentacion.reintento], [true, false])
-  assert.strictEqual(r.creditosReales, 4); assert.strictEqual((await creditosDe()).saldo, 96, 'el cobro no cambia')
-  let interno = null
-  for (let i = 0; i < 20 && !interno; i += 1) { interno = (await db.doc(`iaConsumosInterno/${k}`).get()).data(); if (!interno) await new Promise((x) => setTimeout(x, 150)) }
-  assert.deepStrictEqual([interno.geminiExtracciones, interno.geminiTokensEntrada, interno.geminiSegmentosLargos], [1, 27300, 4], 'el costo de la única extracción queda registrado')
+  const e = await generarVideo({ distribucion: { vf: 2, om: 0, abiertas: 0 } }).then(() => null, (x) => x)
+  assert.ok(e && e.details?.codigo === 'FRASES_NO_FIABLES' && codigoDe(e) === 'failed-precondition')
+  assert.ok(/suficiente precisión para ubicar las preguntas/.test(e.message) && /No se descontaron créditos/.test(e.message))
+  assert.strictEqual(llamadasGemini, 2, 'una segunda lectura, nada más')
+  await sinCobroVideo()
 })
 
 await caso('video: una duración declarada que no coincide (>3 %) con los tokens deja SIN minuto la pregunta del último segmento', async () => {
@@ -3828,8 +3840,8 @@ await caso('video: una duración declarada que no coincide (>3 %) con los tokens
   const r = await generarVideo({ distribucion: { vf: 4, om: 0, abiertas: 0 }, unidades: 4 })
   const fuente = r.resultado.generacion.fuenteContenido
   assert.deepStrictEqual([fuente.duracionConfiable, fuente.duracionFuente], [false, 'estimada_por_tokens'])
-  // ninguna pregunta con tiempo cae después de la explicación en el último segmento (22): el último nunca recibe minuto automático
-  assert.ok(r.resultado.preguntas.every((p) => p.timestampSeg === null || p.respaldo.hastaSegmento < 22))
+  // toda pregunta entregada tiene un momento verificado, y ninguna depende del último tramo (22), cuyo fin no es fiable
+  assert.ok(r.resultado.preguntas.every((p) => Number.isInteger(p.timestampSeg) && p.respaldo.hastaSegmento < 22))
 })
 
 await caso('video: el verificador responde con TEXTO alrededor del JSON → se lee igual, se verifica y el cobro no cambia', async () => {
@@ -3840,45 +3852,47 @@ await caso('video: el verificador responde con TEXTO alrededor del JSON → se l
   assert.strictEqual(r.creditosReales, 6); assert.strictEqual((await creditosDe()).saldo, 94)
 })
 
-await caso('video: evidencia que el verificador declara NO explícita (inferencia) → sin minuto, se entrega y se cobra igual', async () => {
+await caso('video: evidencia que el verificador declara NO explícita (inferencia) → no se entrega; sin ninguna válida, reembolso íntegro', async () => {
   await reiniciarVideo()
   // Es la situación de «toda la noche»: el verificador puede deducir la respuesta, pero el video aún no la dice expresamente.
   respuestaVerificador = (req) => { const r = verificadorSegunPrompt(req); return r.puedeResponderse === true ? { ...r, evidenciaExplicita: false } : r }
-  const r = await generarVideo({ distribucion: { vf: 2, om: 0, abiertas: 0 } })
-  assert.ok(r.resultado.preguntas.every((p) => p.timestampSeg === null && p.verificacion.estado === 'sin_verificar'))
-  assert.ok(r.resultado.preguntas.every((p) => p.verificacion.motivo === 'evidencia_no_explicita'))
-  assert.strictEqual(r.creditosReales, 4); assert.strictEqual((await creditosDe()).saldo, 96)
+  const k = clave()
+  await sinPreguntasValidas(generarVideo({ distribucion: { vf: 2, om: 0, abiertas: 0 }, k }), k)
   assert.strictEqual((await db.collection('iaConsumos').get()).size, 1, 'un solo consumo: sin cobros duplicados')
 })
 
-await caso('video: la extracción no trae frases fiables → ninguna pregunta recibe minuto automático (sin_frases), se cobra igual y el verificador no se llama', async () => {
+await caso('video: la extracción no trae frases fiables → segunda lectura y, si tampoco, rechazo ANTES de reservar (nada se cobra ni se verifica)', async () => {
   await reiniciarVideo()
-  // Solo resúmenes por tramo, sin frases (una sola extracción).
+  // Solo resúmenes por tramo, sin frases.
   const soloResumenes = `IDIOMA: es\nHABLA: si\nDURACION: 5:00\n${Array.from({ length: 20 }, (_, i) => `[${marcaG(i * 15)}] Se explica el concepto número ${i + 1} con un ejemplo concreto del tema y sus consecuencias.`).join('\n')}`
   comportamientoGemini = async () => respGeminiOk(soloResumenes)
-  const r = await generarVideo({ distribucion: { vf: 2, om: 0, abiertas: 0 } })
-  assert.strictEqual(llamadasGemini, 1, 'una sola extracción')
-  assert.ok(r.resultado.preguntas.every((p) => p.timestampSeg === null && p.verificacion.motivo === 'sin_frases' && p.verificacion.nivel === 'frases' && p.minutoSugerido === null))
+  const e = await generarVideo({ distribucion: { vf: 2, om: 0, abiertas: 0 } }).then(() => null, (x) => x)
+  assert.strictEqual(e?.details?.codigo, 'FRASES_NO_FIABLES')
+  assert.strictEqual(llamadasGemini, 2, 'una segunda lectura pidiendo las frases')
   assert.strictEqual(pedidosVerificador.length, 0, 'sin frases no se llama al verificador')
-  assert.strictEqual(r.resultado.generacion.fuenteContenido.frases, 0)
-  assert.strictEqual(r.creditosReales, 4); assert.strictEqual((await creditosDe()).saldo, 96, 'el cobro no cambia')
+  await sinCobroVideo()
+  // si la segunda lectura sí trae frases, la operación sigue normal y cobra lo entregado
+  await reiniciarVideo()
+  let n = 0
+  comportamientoGemini = async () => { n += 1; return respGeminiOk(n === 1 ? soloResumenes : textoGeminiOk()) }
+  const ok = await generarVideo({ distribucion: { vf: 2, om: 0, abiertas: 0 } })
+  assert.strictEqual(ok.resultado.preguntas.length, 2); assert.strictEqual(llamadasGemini, 2)
+  assert.strictEqual(ok.resultado.generacion.fuenteContenido.segmentacion.reintento, true)
+  assert.strictEqual((await creditosDe()).saldo, 96)
 })
 
-await caso('video: el juez de demostración (solo respuesta corta) rechaza → sin minuto, con minuto SUGERIDO (prefijo verificado), se cobra igual y un solo consumo; verdadero/falso no pasa por el juez', async () => {
+await caso('video: el juez de demostración (solo respuesta corta) rechaza → esas preguntas se excluyen sin cobrar; verdadero/falso no pasa por el juez y se entrega', async () => {
   await reiniciarVideo()
   respuestaVerificador = (req) => (textoDelPedido(req).includes('JUEZ DE DEMOSTRACIÓN') ? { componentes: [{ i: 1, soporta: false }], cubreTodo: false, faltante: 'la cita solo describe el tema' } : verificadorSegunPrompt(req))
-  const r = await generarVideo({ distribucion: { vf: 0, om: 0, abiertas: 2 } })
-  assert.ok(r.resultado.preguntas.every((p) => p.timestampSeg === null && p.verificacion.estado === 'sin_verificar' && p.verificacion.motivo === 'demostracion_insuficiente'))
-  assert.ok(r.resultado.preguntas.every((p) => Number.isInteger(p.minutoSugerido) && p.minutoSugerido === p.verificacion.sugerenciaSeg && p.verificacion.sugerenciaNivel === 'prefijo_verificado'), 'la sugerencia viaja aparte del minuto verificado')
-  assert.deepStrictEqual(r.resultado.generacion.verificacion, { verificadas: 0, corregidas: 0, sinVerificar: 2 })
-  assert.strictEqual(r.creditosReales, 4); assert.strictEqual((await creditosDe()).saldo, 96)
+  const k = clave()
+  const r = await generarVideo({ distribucion: { vf: 2, om: 0, abiertas: 1 }, k })
+  const tipos = r.resultado.preguntas.map((p) => p.tipo)
+  assert.deepStrictEqual([tipos.length, tipos.every((t) => t === 'verdadero_falso')], [2, true], 'la abierta no demostrada no se entrega')
+  assert.ok(r.resultado.preguntas.every((p) => Number.isInteger(p.timestampSeg) && !('minutoSugerido' in p)))
+  assert.deepStrictEqual([r.resultado.generacion.estado, r.resultado.generacion.faltantes, r.resultado.generacion.verificacion.sinVerificar], ['incompleta', 1, 0])
+  assert.strictEqual(r.creditosReales, 4); assert.strictEqual((await creditosDe()).saldo, 96, 'solo las 2 entregadas')
   assert.strictEqual((await db.collection('iaConsumos').get()).size, 1)
-  // verdadero/falso con el MISMO juez hostil: el juez no interviene y las preguntas salen con minuto verificado
-  await reiniciarVideo()
-  respuestaVerificador = (req) => (textoDelPedido(req).includes('JUEZ DE DEMOSTRACIÓN') ? { componentes: [{ i: 1, soporta: false }], cubreTodo: false, faltante: 'x' } : verificadorSegunPrompt(req))
-  const vf = await generarVideo({ distribucion: { vf: 2, om: 0, abiertas: 0 } })
-  assert.ok(vf.resultado.preguntas.every((p) => Number.isInteger(p.timestampSeg) && p.minutoSugerido === null))
-  assert.ok(!pedidosVerificador.some((req) => textoDelPedido(req).includes('JUEZ DE DEMOSTRACIÓN')))
+  assert.strictEqual(pedidosIA.length, 3, 'la abierta se intentó reemplazar 2 veces, ni una más')
 })
 
 globalThis.fetch = fetchRealVideo

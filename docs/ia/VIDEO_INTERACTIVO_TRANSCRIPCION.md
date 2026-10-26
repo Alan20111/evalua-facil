@@ -205,6 +205,33 @@ recuperación sigue sin cobrar dos veces, pero vuelve a leer el video.
 actividades de video; nace `pendiente`; el tipo no cambia; `pendiente → aprobada|rechazada`, `rechazada → pendiente`;
 `aprobada` es terminal (tampoco se borra). **No se despliegan solas**: `firebase deploy --only firestore:rules`.
 
+### Validar, sustituir y excluir (26-oct-2026) — reemplaza el «sin minuto» de la sección siguiente
+
+Decisión de Kike: **ninguna pregunta llega al docente sin un momento verificado**. Lo que no se pueda respaldar con el video o
+ubicar con precisión se sustituye automáticamente o se excluye sin cobrarlo. El docente solo arrastra el punto o edita el texto.
+
+- **Generación desde frases** (`functions/videoInteractivoIA.js`): Haiku recibe las FRASES casi literales con su minuto (el resumen
+  por tramos ya no viaja) y declara `explicadaEn` (la frase al terminar la cual ya se dijo todo) y 1-3 `citas` literales ≤ esa
+  frase. El servidor comprueba las citas sin llamar a ningún modelo; si no existen, la pregunta no es válida.
+- **Validación** (`functions/videoVerificacion.js`, modo frases): localizador ciego → prueba de prefijo ciega (la respuesta que
+  deriva debe coincidir con la clave) → en opción múltiple, `unicaCorrecta: true` (una sola opción defendible) → en respuesta corta,
+  juez ciego. Momento = `ceil(fin de la frase verificada + 3.5 s)`. La frase que declaró el generador es el candidato.
+- **Sustitución**: ronda 0 + **como máximo 2 rondas de reemplazo**; cada una pide 1.5× lo que falta, con las fallidas y aceptadas
+  como «no repitas». Lo que siga faltando se **excluye**: la generación queda `incompleta` y se cobran solo las entregadas
+  (`unidadesReales`; el ledger cobra `min(unidadesReales, reservadas)`). Sin ninguna válida: `SIN_PREGUNTAS_VALIDAS` y reembolso íntegro.
+- **Frases no fiables**: el precheck relee el video UNA vez pidiendo las frases; si siguen sin llegar, `FRASES_NO_FIABLES` antes de
+  reservar (cero créditos). La suficiencia se revisa en la primera lectura, antes de releer.
+- **Tiempo**: función dedicada `ejecutarVideoIA` (540 s, como `ejecutarPlaneacionIA`); el cliente espera 560 s. El ejecutor recibe
+  `venceEn` (tiempo de la función que lo atiende − 30 s) y no arranca otra ronda con menos de 45 s; si el frontend llega antes que la
+  función, `useCreditosIA` cae a `ejecutarOperacionIA` (300 s) con la misma clave y el ejecutor simplemente hace menos rondas.
+- **Revisión docente**: sin campo `m:ss`, sin pista y sin casilla de confirmación. ±1/±5 quedan solo como alternativa accesible al
+  arrastre (la bolita no se maneja con teclado). Las propuestas guardan `versionValidacion: 2`.
+- **Propuestas antiguas** (sin `versionValidacion`): se identifican al leerlas, sin reescribir datos ni cobrar. Si no tienen momento
+  quedan «pendientes de ubicación»: su bolita queda estacionada fuera de la línea y solo toma un momento cuando el docente la arrastra
+  y la suelta (o la descarta). Las aprobadas y sus tiempos no se tocan.
+- **Sin medir con llamadas reales**: tasa de reemplazo/exclusión, costo por pregunta (generación + validación + reemplazos) y tiempo
+  total en videos largos. Medirlo antes de dar por cerrada la calidad.
+
 ### Minuto de las preguntas: verificación en frases (integración, 19-oct-2026)
 
 Antes, Haiku escribía `timestampSeg`. Ahora **el minuto nunca lo escribe el modelo**: sale del fin de una frase real de la extracción de Gemini + 3.5 s,

@@ -2,16 +2,14 @@ import { Lightbulb } from 'lucide-react'
 import { RECOMENDACIONES_VIDEO, REGLA_VIDEO } from './recomendacionesTexto'
 import { ICONO } from '../../config/iconos'
 
-// Las tres recomendaciones que el docente debe tener presentes ANTES de publicar un video interactivo.
-// Se muestran siempre completas en la creación y en la revisión (no se pliegan ni se ocultan), y en forma corta
-// en la vista previa. La regla de fondo: la IA propone; el docente revisa, corrige, prueba, aprueba o descarta.
-// Aprobar NO es una verificación automática de que el contenido sea exacto: es la decisión del docente.
+// Lo que el docente debe saber ANTES de publicar un video interactivo: el sistema genera, comprueba y ubica cada pregunta; el
+// docente solo la mueve o edita y decide cuáles aprobar. Completas en la creación; en forma corta en la revisión y la vista previa.
 export default function RecomendacionesVideo({ compacto = false }) {
   if (compacto) {
     return (
       <p className="text-xs text-amber-900" data-testid="recomendaciones-video">
-        <span className="font-semibold">Antes de publicar, asegúrate:</span>{' '}
-        {RECOMENDACIONES_VIDEO.map((r, i) => <span key={r.corto}>{i + 1}. {r.corto}{i < 2 ? ' · ' : '.'}</span>)}
+        <span className="font-semibold">Antes de publicar:</span>{' '}
+        {RECOMENDACIONES_VIDEO.map((r, i) => <span key={r.corto}>{i + 1}. {r.corto}{i < RECOMENDACIONES_VIDEO.length - 1 ? ' · ' : '.'}</span>)}
       </p>
     )
   }
