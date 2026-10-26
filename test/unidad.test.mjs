@@ -8562,6 +8562,60 @@ caso('ventana de revisión: los cambios sin guardar se cuentan y sobreviven al i
   assert.ok(!/useState\(\{\}\)/.test(ventana), 'la ventana no guarda borradores propios')
 })
 
+caso('franja «Ahora / Siguiente»: la pregunta abierta y la que le sigue EN EL VIDEO, con el filtro de «Siguiente»; «Última pregunta» al final', () => {
+  const items = itemsVentana(); const por = mapaDe(items); const orden = RVD.ordenRevision(items)
+  const F = RVD.FILTRO_REVISION
+  const f = (actualId, filtro = F.ACTIVAS) => RVD.franjaRevision({ orden, porId: por, filtro, actualId })
+  // orden del video (b 1:00, c 2:00, a 5:00, e 7:30), no el de creación (a, b, c, d, e)
+  assert.deepStrictEqual([f('b').actual.id, f('b').siguiente.id, f('b').ultima], ['b', 'c', false])
+  assert.strictEqual(f('c').siguiente.id, 'a', 'se salta la descartada d, como el botón «Siguiente»')
+  assert.strictEqual(f('b', F.PENDIENTES).siguiente.id, 'a', 'con «Pendientes» la siguiente es la siguiente pendiente')
+  assert.deepStrictEqual([f('e').siguiente, f('e').ultima], [null, true], 'la última: «Última pregunta»')
+  assert.deepStrictEqual(f('zzz'), { actual: null, siguiente: null, ultima: false }, 'sin pregunta abierta no hay franja')
+  // la franja muestra el BORRADOR en vivo (momento y texto mientras se arrastra o se edita), sin cambiar cuál es la siguiente
+  const conBorrador = itemsVentana({ b: { timestampSeg: 95, enunciado: 'b editada' } })
+  const fb = RVD.franjaRevision({ orden: RVD.ordenRevision(conBorrador), porId: mapaDe(conBorrador), filtro: F.ACTIVAS, actualId: 'b' })
+  assert.deepStrictEqual([fb.actual.timestampSeg, fb.actual.enunciado, fb.siguiente.id], [95, 'b editada', 'c'])
+})
+
+caso('orden de la ventana: se recalcula cuando cambia un momento GUARDADO (al soltar el punto), nunca con el borrador (no salta al arrastrar)', () => {
+  const base = itemsVentana()
+  // arrastrar (borrador): la huella no cambia → la lista no salta
+  assert.strictEqual(RVD.firmaOrden(itemsVentana({ b: { timestampSeg: 480 } })), RVD.firmaOrden(base))
+  assert.strictEqual(RVD.firmaOrden(itemsVentana({ b: { enunciado: 'otro texto' } })), RVD.firmaOrden(base), 'editar el texto tampoco')
+  // soltar = se guarda b en 8:00: cambia la huella y el nuevo orden pone a b al final, así que la siguiente de c es a… y de e, b
+  const guardada = RVD.construirItems({
+    propuestas: [propuestaV('a', 300), propuestaV('b', 480), propuestaV('c', 120, { estado: 'aprobada', preguntaId: 'c' }), propuestaV('d', 200, { estado: 'rechazada' }), propuestaV('e', 450)],
+    activas: [{ id: 'c', tipo: 'opcion_multiple', enunciado: 'c', opciones: opcsV('c'), respuestaCorrecta: 'c-A', timestampSeg: 120 }],
+  })
+  assert.notStrictEqual(RVD.firmaOrden(guardada), RVD.firmaOrden(base))
+  const orden = RVD.ordenRevision(guardada)
+  assert.deepStrictEqual(orden, ['c', 'd', 'a', 'e', 'b'])
+  assert.strictEqual(RVD.franjaRevision({ orden, porId: mapaDe(guardada), filtro: RVD.FILTRO_REVISION.ACTIVAS, actualId: 'e' }).siguiente.id, 'b')
+  // la huella no depende del orden en que lleguen los elementos
+  assert.strictEqual(RVD.firmaOrden([...base].reverse()), RVD.firmaOrden(base))
+})
+
+caso('ventana de revisión: franja «Ahora / Siguiente» fija en el encabezado; orden derivado de la huella; sin pregunta abierta se abre la primera por revisar', () => {
+  const v = leerFuente('src/components/video/RevisionVideoModal.jsx')
+  // la franja vive en el <header> (no se desplaza con el contenido), con la actual destacada y la siguiente atenuada
+  const header = v.slice(v.indexOf('<header'), v.indexOf('</header>'))
+  assert.ok(/data-testid="franja-ahora-siguiente"/.test(header) && /data-testid="franja-ahora"/.test(header) && /data-testid="franja-siguiente"/.test(header) && /data-testid="franja-ultima"/.test(header))
+  assert.ok(/border-l-4 border-accent[^"]*line-clamp-2/.test(header) && /font-bold text-accent">Ahora · \{momento\(item\)\}/.test(header), 'la actual: acento, negritas y momento')
+  assert.ok(/border-l-4 border-outline-variant[^"]*text-muted/.test(header) && /Siguiente · \{momento\(siguiente\)\}/.test(header), 'la siguiente: atenuada, con su momento')
+  assert.ok(/>Última pregunta</.test(header))
+  assert.ok(/\[@media\(orientation:landscape\)_and_\(max-height:500px\)\]:line-clamp-1/.test(header), 'teléfono horizontal: una línea')
+  assert.ok(/onClick=\{\(\) => ir\(despues\)\} data-testid="franja-siguiente"/.test(header), 'tocar la siguiente la abre (misma ruta que «Siguiente»)')
+  assert.ok(/min-h-\[2\.75rem\]/.test(header.slice(header.indexOf('franja-siguiente'))), 'objetivo táctil de 44 px')
+  assert.ok(/const \{ siguiente \} = franjaRevision\(\{ orden, porId, filtro, actualId \}\)/.test(v))
+  // el orden se recalcula solo con la huella de lo guardado
+  assert.ok(/const firma = firmaOrden\(items\)/.test(v) && /if \(ordenVivo\.firma !== firma\) setOrdenVivo\(\{ firma, orden: ordenRevision\(items\) \}\)/.test(v))
+  assert.ok(!/const \[orden\] = useState/.test(v), 'ya no es un orden fijo para siempre')
+  // sin pregunta abierta: se abre la primera por revisar; sin ninguna: un aviso claro en lugar de una ventana vacía
+  assert.ok(/if \(!porId\[actualId\]\) \{\s*const primera = primeraParaRevisar\(orden, porId, filtro\)\s*if \(primera && primera !== actualId\) setActualId\(primera\)/.test(v))
+  assert.ok(/data-testid="sin-pregunta-actual">No hay preguntas para revisar\.</.test(v) && !/if \(!item\) return null/.test(v))
+})
+
 caso('ventana de revisión: una sola ventana, una pregunta a la vez, una sola línea de tiempo', () => {
   const v = leerFuente('src/components/video/RevisionVideoModal.jsx')
   assert.ok(/Pregunta \{pos\} de \{visibles\.length\}/.test(v), '«Pregunta X de N»')

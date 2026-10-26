@@ -8,8 +8,8 @@ import RecomendacionesVideo from './RecomendacionesVideo'
 import ColumnaVideoRevision from './ColumnaVideoRevision'
 import EvidenciaVideo from './EvidenciaVideo'
 import {
-  ESTADO_REVISION, FILTRO_REVISION, GLOBO_ANGOSTO, GLOBO_DESDE_IZQ, GLOBO_HASTA_DER, accionEscape, coincideFiltro, contarSinGuardar, leerEvidencia, moverId, ordenRevision, primeraParaRevisar,
-  visiblesRevision,
+  ESTADO_REVISION, FILTRO_REVISION, GLOBO_ANGOSTO, GLOBO_DESDE_IZQ, GLOBO_HASTA_DER, accionEscape, coincideFiltro, contarSinGuardar, firmaOrden, formatearMinuto, franjaRevision, leerEvidencia, moverId, ordenRevision,
+  primeraParaRevisar, visiblesRevision,
 } from './revisionVideo'
 
 import { Input, Radio } from '../ui'
@@ -41,7 +41,12 @@ export default function RevisionVideoModal({
   onGuardar, onGuardarTiempo, onGuardarTodos, onDeshacerTodo, onAprobar, onDescartar, onRestaurar, onVistaPrevia, onCerrar, pausarVideo = false,
 }) {
   const porId = useMemo(() => Object.fromEntries(items.map((it) => [it.id, it])), [items])
-  const [orden] = useState(() => ordenRevision(items)) // fijo mientras la ventana está abierta
+  // Orden del video según los momentos GUARDADOS: se recalcula solo cuando uno cambia (al soltar el punto, al guardar), nunca con el
+  // borrador, para que la lista siga el video sin saltar mientras se arrastra (estado derivado: ver firmaOrden).
+  const firma = firmaOrden(items)
+  const [ordenVivo, setOrdenVivo] = useState(() => ({ firma, orden: ordenRevision(items) }))
+  if (ordenVivo.firma !== firma) setOrdenVivo({ firma, orden: ordenRevision(items) })
+  const orden = ordenVivo.orden
   const [filtro, setFiltro] = useState(FILTRO_REVISION.ACTIVAS)
   const [actualId, setActualId] = useState(() => primeraParaRevisar(ordenRevision(items), Object.fromEntries(items.map((it) => [it.id, it]))))
   const [editando, setEditando] = useState(false)
@@ -49,6 +54,11 @@ export default function RevisionVideoModal({
   // Id de la pregunta a la que se llegó APROBANDO: el video no se mueve ni se pausa (ver ColumnaVideoRevision). Cualquier otra navegación lo borra.
   const [sinSaltarA, setSinSaltarA] = useState(null)
 
+  // Sin pregunta abierta (la que estaba ya no existe): se abre la que hay que revisar primero.
+  if (!porId[actualId]) {
+    const primera = primeraParaRevisar(orden, porId, filtro)
+    if (primera && primera !== actualId) setActualId(primera)
+  }
   const visibles = visiblesRevision(orden, porId, filtro, actualId)
   const item = porId[actualId] || null
   const sinGuardar = contarSinGuardar(items)
@@ -69,7 +79,18 @@ export default function RevisionVideoModal({
     return () => window.removeEventListener('keydown', alTeclear)
   })
 
-  if (!item) return null
+  if (!item) {
+    return (
+      <FocusLock returnFocus>
+        {/* eslint-disable-next-line jsx-a11y/prefer-tag-over-role -- mismo patrón de diálogo que la ventana completa (abajo). */}
+        <div role="dialog" aria-modal="true" aria-label="Revisión de las preguntas del video" data-testid="ventana-revision"
+          className="fixed top-0 left-0 w-full h-dvh z-menu bg-surface flex flex-col items-center justify-center gap-3 p-6 text-center">
+          <p className="text-base text-on-surface" data-testid="sin-pregunta-actual">No hay preguntas para revisar.</p>
+          <button type="button" onClick={onCerrar} className={`${BOTON} border border-outline-variant text-on-surface`}>Cerrar</button>
+        </div>
+      </FocusLock>
+    )
+  }
   const pos = Math.max(0, visibles.indexOf(actualId)) + 1
   const est = ESTADOS[item.estado]
   const trabajando = ocupada === item.id
@@ -77,6 +98,8 @@ export default function RevisionVideoModal({
   const err = item.estado === ESTADO_REVISION.DESCARTADA ? null : problema(item)
   const antes = moverId(orden, porId, filtro, actualId, -1)
   const despues = moverId(orden, porId, filtro, actualId, 1)
+  const { siguiente } = franjaRevision({ orden, porId, filtro, actualId })
+  const momento = (it) => (Number.isInteger(it.timestampSeg) ? formatearMinuto(it.timestampSeg) : 'sin momento')
 
   const ir = (id, { sinSaltar = false } = {}) => { if (id) { setSinSaltarA(sinSaltar ? id : null); setActualId(id); setEditando(false) } }
   function cambiarFiltro(f) {
@@ -111,6 +134,23 @@ export default function RevisionVideoModal({
                 data-tooltip="Cerrar la revisión" data-tooltip-pos="bottom"
                 className={`w-11 h-11 rounded-full border border-outline-variant text-muted flex items-center justify-center hover:bg-surface-container ${GLOBO_HASTA_DER}`}><X size={ICONO.md} /></button>
             </div>
+          </div>
+          {/* Franja «Ahora / Siguiente»: la pregunta abierta y la que sigue en el video, siempre a la vista (el encabezado no se desplaza).
+              Muestra el borrador en vivo (momento y texto mientras se arrastra o se edita); el enunciado completo está en la columna. */}
+          <div className="grid gap-1.5 sm:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] sm:gap-3 sm:items-center" data-testid="franja-ahora-siguiente">
+            <p className="min-w-0 border-l-4 border-accent pl-2 text-sm leading-snug text-on-surface line-clamp-2 [@media(orientation:landscape)_and_(max-height:500px)]:line-clamp-1" data-testid="franja-ahora">
+              <span className="font-bold text-accent">Ahora · {momento(item)}</span>{' '}
+              <span className="font-semibold">{item.enunciado.trim() || 'Pregunta sin texto'}</span>
+            </p>
+            {siguiente ? (
+              <button type="button" onClick={() => ir(despues)} data-testid="franja-siguiente"
+                aria-label={`Ir a la siguiente pregunta (${momento(siguiente)}): ${siguiente.enunciado}`}
+                className="min-w-0 min-h-[2.75rem] border-l-4 border-outline-variant pl-2 text-left text-xs leading-snug text-muted hover:text-on-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                <span className="line-clamp-1"><span className="font-semibold">Siguiente · {momento(siguiente)}</span>{' '}{siguiente.enunciado.trim() || 'Pregunta sin texto'}</span>
+              </button>
+            ) : (
+              <p className="min-w-0 border-l-4 border-outline-variant pl-2 text-xs font-semibold text-muted" data-testid="franja-ultima">Última pregunta</p>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             {FILTROS.map(([valor, etiqueta, ayuda]) => {

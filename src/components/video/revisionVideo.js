@@ -266,13 +266,28 @@ export function compararConPropuesta(item, respuesta) {
 }
 
 // ── Navegación de la ventana de revisión (una pregunta a la vez) ───────────────────────────────────────────
-// La lista se ORDENA UNA SOLA VEZ, con los momentos ya guardados (`guardado`): si se ordenara con el borrador, al arrastrar el
-// marcador la pregunta cambiaría de lugar y «Pregunta 3 de 8» saltaría a otra. Los ids quedan fijos mientras la ventana está abierta.
+// La lista se ordena por el MOMENTO GUARDADO de cada pregunta (`guardado`), nunca con el borrador: si se ordenara con el borrador,
+// al arrastrar el marcador la pregunta cambiaría de lugar a cada segundo y «Pregunta 3 de 8» saltaría a otra. La ventana vuelve a
+// ordenar solo cuando cambia un momento guardado (al soltar el punto, al guardar): así la lista sigue el orden del video sin saltar
+// mientras se arrastra (ver `firmaOrden`).
 export const FILTRO_REVISION = { ACTIVAS: 'activas', PENDIENTES: 'pendientes', DESCARTADAS: 'descartadas' }
 
 export function ordenRevision(items) {
   const t = (it) => (Number.isInteger(it.guardado?.timestampSeg) ? it.guardado.timestampSeg : Infinity)
   return [...(items || [])].sort((a, b) => t(a) - t(b) || String(a.id).localeCompare(String(b.id))).map((it) => it.id)
+}
+
+// Huella de lo que decide el orden: las preguntas y su momento GUARDADO. Un borrador (arrastrar, editar) no la cambia.
+export function firmaOrden(items) {
+  return (items || []).map((it) => `${it.id}:${Number.isInteger(it.guardado?.timestampSeg) ? it.guardado.timestampSeg : '-'}`).sort().join('|')
+}
+
+// Franja «Ahora / Siguiente» de la ventana: la pregunta abierta y la que le sigue en el video, con el mismo filtro que el botón
+// «Siguiente». `ultima` = hay pregunta abierta y ninguna después.
+export function franjaRevision({ orden, porId, filtro, actualId }) {
+  const actual = porId?.[actualId] || null
+  const idSiguiente = actual ? moverId(orden, porId, filtro, actualId, 1) : null
+  return { actual, siguiente: idSiguiente ? porId[idSiguiente] : null, ultima: !!actual && !idSiguiente }
 }
 
 // «Todas» = lo que se revisa o ya está aprobado (sin las descartadas, que tienen su propio filtro).
