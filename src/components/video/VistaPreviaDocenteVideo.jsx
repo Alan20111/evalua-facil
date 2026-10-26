@@ -8,7 +8,7 @@ import { estaRespondida as estaRespondidaPura } from '../../utils/evaluacionResp
 import { formatearTiempo } from '../../utils/videoProgreso'
 import VideoInteractivoPantalla from './VideoInteractivoPantalla'
 import RecomendacionesVideo from './RecomendacionesVideo'
-import { compararConPropuesta, inicioDePrueba, limpiarRespuestasDesde, preguntasVistaPrevia } from './revisionVideo'
+import { compararConPropuesta, inicioDePrueba, limpiarRespuestasDesde, preguntasSinMinuto, preguntasVistaPrevia } from './revisionVideo'
 import { Button } from '../ui'
 import { ICONO } from '../../config/iconos'
 
@@ -47,6 +47,8 @@ export default function VistaPreviaDocenteVideo({ videoId, duracionSeg, idioma =
   useBackHandler(onCerrar, true)
 
   const preguntas = useMemo(() => preguntasVistaPrevia(items), [items])
+  // Sin minuto: el reproductor (el mismo del estudiante, sin cambios) las muestra al terminar el video; aquí solo se rotulan.
+  const sinMinuto = useMemo(() => preguntasSinMinuto(items).length, [items])
   const porId = useMemo(() => new Map((items || []).map((it) => [it.id, it])), [items])
   const activity = useMemo(
     // `idioma` solo decide si el reproductor muestra la barra nativa (menú «Pista de audio»); ver videoAudio.js.
@@ -113,16 +115,26 @@ export default function VistaPreviaDocenteVideo({ videoId, duracionSeg, idioma =
         {mostrarBarra && (
         <div className="px-3 py-2 space-y-1.5 border-b border-outline-variant bg-surface-card animate-aparece motion-reduce:animate-none">
           <RecomendacionesVideo compacto />
+          {sinMinuto > 0 && (
+            <p data-testid="vista-previa-sin-minuto" className="rounded-card border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs text-amber-950">
+              <span className="font-semibold">{sinMinuto === 1 ? '1 pregunta sin minuto' : `${sinMinuto} preguntas sin minuto`}:</span>{' '}
+              en esta vista previa {sinMinuto === 1 ? 'aparece' : 'aparecen'} al terminar el video. Elige su minuto en «Revisar preguntas».
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="text-xs text-muted mr-1">Probar desde unos segundos antes de:</span>
             {preguntas.length === 0 && <span className="text-sm text-muted">No hay preguntas para probar (las descartadas no se reproducen).</span>}
-            {preguntas.map((p, i) => (
+            {preguntas.map((p, i) => {
+              const conMinuto = Number.isInteger(p.timestampSeg)
+              return (
               <button key={p.id} type="button" onClick={() => pantallaRef.current?.probarDesde(inicioDePrueba(p.timestampSeg, duracionSeg))}
+                data-testid={conMinuto ? undefined : 'probar-sin-minuto'}
                 className={`inline-flex items-center gap-1 min-h-[2.25rem] px-2.5 rounded-full border text-xs font-semibold ${p.revision === 'pendiente' ? 'border-amber-400 bg-amber-50 text-amber-900' : 'border-outline-variant text-on-surface hover:bg-surface-container'}`}
-                aria-label={`Probar la pregunta ${i + 1} desde unos segundos antes, minuto ${formatearTiempo(p.timestampSeg)}${p.revision === 'pendiente' ? ' (pendiente, no publicada)' : ''}`}>
-                <Play size={ICONO.xs} /> {i + 1} · {formatearTiempo(p.timestampSeg)}{p.revision === 'pendiente' ? ' · pendiente' : ''}
+                aria-label={`Probar la pregunta ${i + 1} desde unos segundos antes, ${conMinuto ? `minuto ${formatearTiempo(p.timestampSeg)}` : 'sin minuto (aparece al terminar el video)'}${p.revision === 'pendiente' ? ' (pendiente, no publicada)' : ''}`}>
+                <Play size={ICONO.xs} /> {i + 1} · {conMinuto ? formatearTiempo(p.timestampSeg) : <span className="font-extrabold">sin minuto</span>}{p.revision === 'pendiente' ? ' · pendiente' : ''}
               </button>
-            ))}
+              )
+            })}
             <Button variant="secondary" className="ml-auto min-h-[2.25rem]" onClick={() => setVerRespuestaIA((v) => !v)} aria-pressed={verRespuestaIA} data-testid="alternar-respuesta-ia">
               {verRespuestaIA ? <EyeOff size={ICONO.xs} /> : <Eye size={ICONO.xs} />} {verRespuestaIA ? 'Ocultar' : 'Mostrar'} la respuesta propuesta por la IA
             </Button>

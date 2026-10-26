@@ -48,6 +48,12 @@ export default function ControlTiempoVideo({ item, duracionSeg, disabled = false
         {(errorTexto || !v.ok) && <span role="alert" className="text-error">{errorTexto || v.error}</span>}
         {v.ok && v.aviso && <span className="text-amber-800">{v.aviso}</span>}
       </div>
+      {!Number.isInteger(seg) && (
+        <p className="text-xs text-amber-900" data-testid="explicacion-sin-minuto">
+          Esta pregunta todavía no tiene minuto: no aparece en la línea de tiempo y no se puede aprobar. Busca en el video cuándo ya se
+          explicó lo que pregunta y escribe ese minuto aquí, o usa los botones −5 a +5.
+        </p>
+      )}
       {!Number.isInteger(seg) && Number.isInteger(item.minutoSugerido) && (
         <p className="text-xs text-muted" data-testid="minuto-sugerido">
           Pista de la IA (no confirmada): lo necesario ya se dice hacia el minuto {formatearMinuto(item.minutoSugerido)}. Revísalo en el video y escribe tú el minuto.

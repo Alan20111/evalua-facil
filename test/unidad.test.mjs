@@ -8521,7 +8521,7 @@ caso('ventana de revisión: la BOLITA BLANCA de la pregunta se arrastra, lleva e
   assert.ok(!/slider-thumb\]:bg-accent|range-thumb\]:bg-accent|slider-thumb\]:border-white|range-thumb\]:border-white/.test(lt), 'sin bolita azul ni borde blanco')
   assert.ok(/<input type="range" min=\{0\} max=\{dur\} step="any" value=\{real\}/.test(lt) && /bg-accent-light/.test(lt), 'el control y el relleno de avance siguen')
   // los puntos van encima del control de la línea: nada los tapa
-  assert.ok(lt.indexOf('<input type="range"') < lt.indexOf('items.filter(') && lt.indexOf('<input type="range"') < lt.indexOf('data-testid="bolita-pregunta"') && lt.indexOf('data-testid="bolita-pregunta"') < lt.indexOf('data-testid="marca-video"'))
+  assert.ok(lt.indexOf('<input type="range"') < lt.indexOf('grupos.map(') && lt.indexOf('<input type="range"') < lt.indexOf('data-testid="bolita-pregunta"') && lt.indexOf('data-testid="bolita-pregunta"') < lt.indexOf('data-testid="marca-video"'))
   // arrastre con captura de puntero; el agarre se comparte (la bolita elige el segundo de la pregunta, el triángulo salta el video)
   assert.ok(/onPointerDown: \(e\) => \{\s*if \(!habilitado\) return\s*e\.preventDefault\(\)\s*e\.currentTarget\.setPointerCapture\(e\.pointerId\)/.test(lt))
   assert.ok(/e\.currentTarget\.dataset\.agarre = String\(e\.clientX - \(r\.left \+ r\.width \/ 2\)\)/.test(lt), 'no salta al tomarla de la orilla')
@@ -8724,6 +8724,95 @@ caso('ventana de revisión: tocar un punto verde de la línea de tiempo lleva a 
   assert.ok(/o\.sinGuardar && <span className="absolute -top-1 -right-1/.test(lt))
   // el control de la línea va debajo de los puntos: no los tapa
   assert.ok(lt.indexOf('<input type="range"') < lt.indexOf('data-testid="punto-pregunta"'))
+})
+
+// ── Video interactivo · revisión: puntos agrupados por segundo y preguntas sin minuto (solo interfaz del docente) ──
+// Caso real (Compartir archivos, 25-oct-2026): 10 preguntas → 2 en el mismo segundo (6:01) y 3 sin minuto; la línea mostraba
+// 6 puntos + la bolita y parecía que faltaban preguntas. Nada de esto cambia tiempos, estados, cobros ni el reproductor.
+const ITEMS_REALES = [
+  { id: 'q0', estado: 'aprobada', tipo: 'verdadero_falso', enunciado: 'Para compartir archivos entre dos ordenadores…', timestampSeg: 30 },
+  { id: 'q1', estado: 'pendiente', tipo: 'opcion_multiple', enunciado: '¿Cuál es el paso inicial?', timestampSeg: 294 },
+  { id: 'q2', estado: 'pendiente', tipo: 'opcion_multiple', enunciado: '¿Cuál es el método sugerido?', timestampSeg: 361 },
+  { id: 'q3', estado: 'pendiente', tipo: 'verdadero_falso', enunciado: 'La carpeta compartida es visible…', timestampSeg: 361 },
+  { id: 'q4', estado: 'pendiente', tipo: 'opcion_multiple', enunciado: 'Requisito del ordenador remoto', timestampSeg: 524 },
+  { id: 'q5', estado: 'pendiente', tipo: 'opcion_multiple', enunciado: 'Cómo se demuestra la copia', timestampSeg: 561 },
+  { id: 'q6', estado: 'pendiente', tipo: 'opcion_multiple', enunciado: 'Permisos por defecto', timestampSeg: 674 },
+  { id: 'q7', estado: 'pendiente', tipo: 'opcion_multiple', enunciado: 'Acceder a la carpeta', timestampSeg: null },
+  { id: 'q8', estado: 'pendiente', tipo: 'opcion_multiple', enunciado: 'Eliminar un documento', timestampSeg: null },
+  { id: 'q9', estado: 'pendiente', tipo: 'opcion_multiple', enunciado: 'Icono o indicador visual', timestampSeg: null },
+]
+
+caso('revisión · agruparPorSegundo: el caso real da 5 puntos (uno con 2) y las 10 preguntas quedan a la vista entre puntos, bolita y sin minuto', () => {
+  const grupos = RVD.agruparPorSegundo(ITEMS_REALES, { duracionSeg: 711, excluirId: 'q0' })
+  assert.deepStrictEqual(grupos.map((g) => [g.seg, g.items.length]), [[294, 1], [361, 2], [524, 1], [561, 1], [674, 1]])
+  assert.deepStrictEqual(grupos.find((g) => g.seg === 361).items.map((o) => o.id), ['q2', 'q3'], 'cada una sigue siendo accesible por su id')
+  const enPuntos = grupos.reduce((a, g) => a + g.items.length, 0)
+  assert.strictEqual(enPuntos + 1 + RVD.preguntasSinMinuto(ITEMS_REALES).length, 10, 'puntos + bolita + sin minuto = todas')
+  // con la pregunta de 6:01 abierta, su gemela queda bajo la bolita y se ofrece aparte
+  assert.deepStrictEqual(RVD.agruparPorSegundo(ITEMS_REALES, { duracionSeg: 711, excluirId: 'q2' }).find((g) => g.seg === 361).items.map((o) => o.id), ['q3'])
+  assert.deepStrictEqual(RVD.mismoSegundo(ITEMS_REALES, 'q2', 361).map((o) => o.id), ['q3'])
+  assert.deepStrictEqual(RVD.mismoSegundo(ITEMS_REALES, 'q1', 294), [])
+  assert.deepStrictEqual(RVD.mismoSegundo(ITEMS_REALES, 'q7', null), [], 'sin minuto no comparte segundo con nadie')
+})
+
+caso('revisión · agruparPorSegundo: mismas reglas de dibujo que antes (minuto entero dentro del video) y grupos de 3', () => {
+  const its = [
+    { id: 'a', estado: 'pendiente', timestampSeg: 100 }, { id: 'b', estado: 'aprobada', timestampSeg: 100 }, { id: 'c', estado: 'descartada', timestampSeg: 100 },
+    { id: 'd', estado: 'pendiente', timestampSeg: 120 }, { id: 'e', estado: 'pendiente', timestampSeg: 120 },
+    { id: 'f', estado: 'pendiente', timestampSeg: 12.5 }, { id: 'g', estado: 'pendiente', timestampSeg: 999 }, { id: 'h', estado: 'pendiente', timestampSeg: 300 },
+    null,
+  ]
+  const g = RVD.agruparPorSegundo(its, { duracionSeg: 300.9 })
+  assert.deepStrictEqual(g.map((x) => [x.seg, x.items.map((o) => o.id).join('')]), [[100, 'abc'], [120, 'de'], [300, 'h']], 'decimales y fuera del video no se dibujan; el final exacto sí')
+  assert.deepStrictEqual(RVD.agruparPorSegundo([], { duracionSeg: 10 }), [])
+  assert.deepStrictEqual(RVD.agruparPorSegundo(undefined), [])
+  // color del punto agrupado: pendiente manda, luego aprobada
+  assert.strictEqual(RVD.estadoDeGrupo(g[0].items), 'pendiente')
+  assert.strictEqual(RVD.estadoDeGrupo([{ estado: 'aprobada' }, { estado: 'descartada' }]), 'aprobada')
+  assert.strictEqual(RVD.estadoDeGrupo([{ estado: 'descartada' }]), 'descartada')
+})
+
+caso('revisión · preguntasSinMinuto: cuenta pendientes y aprobadas sin minuto entero; las descartadas no', () => {
+  assert.deepStrictEqual(RVD.preguntasSinMinuto(ITEMS_REALES).map((o) => o.id), ['q7', 'q8', 'q9'])
+  assert.deepStrictEqual(RVD.preguntasSinMinuto([{ id: 'x', estado: 'descartada', timestampSeg: null }, { id: 'y', estado: 'aprobada', timestampSeg: undefined }, { id: 'z', estado: 'pendiente', timestampSeg: 4.2 }]).map((o) => o.id), ['y', 'z'])
+  assert.deepStrictEqual(RVD.preguntasSinMinuto([{ id: 'w', estado: 'pendiente', timestampSeg: 0 }]), [], 'el segundo 0 es un minuto válido')
+  assert.deepStrictEqual(RVD.preguntasSinMinuto(null), [])
+  // con el borrador aplicado: elegir un minuto (sin guardar todavía) ya la saca de la lista
+  const items = RVD.construirItems({ propuestas: [{ id: 'p1', estado: 'pendiente', tipo: 'verdadero_falso', enunciado: 'X', timestampSeg: null }], activas: [], borradores: { p1: { timestampSeg: 40 } } })
+  assert.deepStrictEqual(RVD.preguntasSinMinuto(items), [])
+  // las de la vista previa (sin descartadas) se cuentan igual
+  assert.strictEqual(RVD.preguntasSinMinuto(RVD.preguntasVistaPrevia(ITEMS_REALES)).length, 3)
+})
+
+caso('revisión · etiquetaPregunta: tipo · estado — inicio del enunciado, recortado', () => {
+  assert.strictEqual(RVD.etiquetaPregunta(ITEMS_REALES[3]), 'Verdadero/falso · pendiente — La carpeta compartida es visible…')
+  const largo = RVD.etiquetaPregunta({ tipo: 'opcion_multiple', estado: 'aprobada', enunciado: 'a'.repeat(80) }, 20)
+  assert.ok(largo.startsWith('Opción múltiple · aprobada — ') && largo.endsWith('…') && largo.length === 'Opción múltiple · aprobada — '.length + 20)
+  assert.strictEqual(RVD.etiquetaPregunta({ tipo: 'raro', estado: 'otro', enunciado: '' }), 'Pregunta · pendiente')
+  assert.strictEqual(RVD.etiquetaPregunta({ tipo: 'respuesta_corta', estado: 'descartada', enunciado: '  Hola\n mundo ' }), 'Respuesta abierta · descartada — Hola mundo')
+})
+
+caso('revisión · la línea agrupa, avisa las preguntas sin minuto y nada de esto toca reproductor, guardado ni créditos', () => {
+  const lt = leerFuente('src/components/video/LineaTiempoRevision.jsx')
+  const col = leerFuente('src/components/video/ColumnaVideoRevision.jsx')
+  const ct = leerFuente('src/components/video/ControlTiempoVideo.jsx')
+  const panel = leerFuente('src/components/video/PropuestasVideoPanel.jsx')
+  const vp = leerFuente('src/components/video/VistaPreviaDocenteVideo.jsx')
+  // línea: un punto por segundo; el de varias muestra la cantidad y abre un acceso a cada una (que usa onIr, como los puntos)
+  assert.ok(/const grupos = agruparPorSegundo\(items, \{ duracionSeg: dur, excluirId: itemId \}\)/.test(lt))
+  assert.ok(/if \(g\.length === 1\) return \(/.test(lt) && /data-testid="punto-grupo"/.test(lt) && /\{g\.length\}/.test(lt))
+  assert.ok(/data-testid="acceso-grupo"/.test(lt) && /const irA = \(id\) => \{ setGrupoAbierto\(null\); onIr\?\.\(id\) \}/.test(lt))
+  assert.ok(/const companeras = mismoSegundo\(items, itemId, valor\)/.test(lt) && /data-testid="acceso-mismo-segundo"/.test(lt))
+  assert.ok(/e\.key === 'Escape'\) \{ e\.stopPropagation\(\); setGrupoAbierto\(null\) \}/.test(lt), 'Escape cierra solo la lista, no la ventana')
+  // avisos de preguntas sin minuto: columna (con accesos), campo de minuto, panel y vista previa
+  assert.ok(/const sinMinuto = preguntasSinMinuto\(items\)/.test(col) && /data-testid="aviso-sin-minuto"/.test(col) && /onClick=\{\(\) => onIr\?\.\(o\.id\)\}/.test(col))
+  assert.ok(/data-testid="explicacion-sin-minuto"/.test(ct))
+  assert.ok(/preguntasSinMinuto\(items\)\.length/.test(panel) && /data-testid="resumen-sin-minuto"/.test(panel))
+  assert.ok(/preguntasSinMinuto\(items\)\.length/.test(vp) && /data-testid="vista-previa-sin-minuto"/.test(vp) && /'probar-sin-minuto'/.test(vp))
+  // fuera de alcance a propósito: nada de esto escribe ni llama a la IA, y el reproductor del estudiante no se usa ni se toca aquí
+  assert.ok(!/setDoc|updateDoc|firebase|fetch\(|ejecutarOperacionIA|useCreditosIA/.test(lt + col + ct))
+  assert.ok(!/LineaTiempoVideo/.test(lt + col))
+  assert.ok(!/agruparPorSegundo|preguntasSinMinuto|sin minuto/.test(leerFuente('src/components/video/LineaTiempoVideo.jsx') + leerFuente('src/components/video/VideoInteractivoPantalla.jsx') + leerFuente('src/utils/videoProgreso.js')), 'el reproductor del estudiante no cambia')
 })
 
 caso('ventana de revisión: cerrar con cambios sin guardar ofrece guardar, descartar o seguir editando', () => {

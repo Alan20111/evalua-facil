@@ -12,7 +12,7 @@ import { actualizarPregunta } from '../../utils/evaluacionClave'
 import RevisionVideoModal from './RevisionVideoModal'
 import VistaPreviaDocenteVideo from './VistaPreviaDocenteVideo'
 import ReportarIA from '../ReportarIA'
-import { ESTADO_REVISION, construirItems, contarPorEstadoRevision, validarTiempo } from './revisionVideo'
+import { ESTADO_REVISION, construirItems, contarPorEstadoRevision, preguntasSinMinuto, validarTiempo } from './revisionVideo'
 import { ICONO } from '../../config/iconos'
 
 const BOTON = 'inline-flex items-center justify-center gap-1.5 min-h-[2.75rem] px-4 rounded-full text-sm font-semibold transition-colors disabled:opacity-60'
@@ -58,6 +58,7 @@ export default function PropuestasVideoPanel({
 
   const items = useMemo(() => construirItems({ propuestas: propuestas || [], activas: activas || [], borradores, activasListas }), [propuestas, activas, borradores, activasListas])
   const cuenta = useMemo(() => contarPorEstadoRevision(items), [items])
+  const sinMinuto = useMemo(() => preguntasSinMinuto(items).length, [items]) // no se dibujan en la línea de tiempo: se avisan
   const itemsRef = useRef(items) // lo último que se ve en pantalla, para guardar al soltar la bolita sin depender de un cierre viejo
   useEffect(() => { itemsRef.current = items })
 
@@ -194,6 +195,11 @@ export default function PropuestasVideoPanel({
           <span className="font-semibold text-green-800">{cuenta.aprobada}</span> {cuenta.aprobada === 1 ? 'aprobada (se publica)' : 'aprobadas (se publican)'} ·{' '}
           <span className="font-semibold text-amber-800">{cuenta.pendiente}</span> {cuenta.pendiente === 1 ? 'pendiente (NO se publica hasta que la apruebes)' : 'pendientes (NO se publican hasta que las apruebes)'} ·{' '}
           <span className="font-semibold text-red-800">{cuenta.descartada}</span> {cuenta.descartada === 1 ? 'descartada' : 'descartadas'}
+          {sinMinuto > 0 && (
+            <span data-testid="resumen-sin-minuto">
+              {' '}· <span className="font-semibold text-amber-900">{sinMinuto} sin minuto</span> (elige cuándo {sinMinuto === 1 ? 'aparece' : 'aparecen'} en «Revisar preguntas»)
+            </span>
+          )}
         </p>
         {sucias > 0 && <p className="text-sm font-semibold text-amber-900">Tienes cambios sin guardar. Guárdalos para que cuenten al publicar.</p>}
         <div className="flex flex-wrap gap-2">

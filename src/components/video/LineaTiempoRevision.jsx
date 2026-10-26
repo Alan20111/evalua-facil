@@ -1,6 +1,10 @@
-import { ESTADO_REVISION, formatearMinuto } from './revisionVideo'
+import { useState } from 'react'
+import { X } from 'lucide-react'
+import { ESTADO_REVISION, agruparPorSegundo, estadoDeGrupo, etiquetaPregunta, formatearMinuto, mismoSegundo } from './revisionVideo'
+import { ICONO } from '../../config/iconos'
 
 const COLOR_MARCA = { pendiente: 'bg-amber-400', aprobada: 'bg-emerald-500', descartada: 'bg-red-300' }
+const ACCESO = 'inline-flex items-center min-h-[2.75rem] max-w-full px-3 rounded-full border border-outline-variant bg-surface-card text-xs font-semibold text-on-surface text-left hover:bg-surface-container focus:outline-none focus-visible:ring-2 focus-visible:ring-accent'
 
 // La ÚNICA línea de tiempo de la ventana de revisión. Tiene DOS ejes que no se mezclan:
 //   · EL VIDEO: el TRIÁNGULO verde (`marca-video`) es el tiempo actual del video (`posicion`): avanza al reproducir. Arrastrarlo,
@@ -10,6 +14,8 @@ const COLOR_MARCA = { pendiente: 'bg-amber-400', aprobada: 'bg-emerald-500', des
 //     IA o lo que el docente ya corrigió). Se arrastra (mouse o dedo): cada segundo nuevo cambia el borrador y lleva el video ahí
 //     (`onCambiar`), y al soltarla avisa (`onSoltar(seg)`) para que el panel guarde ese tiempo solo, sin pulsar «Guardar».
 // Los puntos de las demás preguntas van ENCIMA del control de la línea (nada los tapa) y TOCAR UNO lleva a esa pregunta (`onIr`).
+// Varias preguntas en el MISMO segundo son un solo punto con su cantidad («2»): tocarlo abre, debajo de la línea, un acceso
+// directo a cada una. Las que comparten segundo con la pregunta abierta (quedan bajo la bolita blanca) se listan siempre ahí.
 //   duracionSeg  largo del video (sin él no hay línea y la ventana usa solo el campo m:ss)
 //   posicion     segundo real del reproductor (si falta, el triángulo cae en el momento de la pregunta)
 //   valor        segundo elegido para la pregunta actual (la bolita blanca)
@@ -20,8 +26,15 @@ const COLOR_MARCA = { pendiente: 'bg-amber-400', aprobada: 'bg-emerald-500', des
 //   onSaltar     (seg) → solo mover el video
 //   onIr         (id) → ir a esa pregunta
 export default function LineaTiempoRevision({ duracionSeg, posicion = null, valor, onCambiar, onSoltar, onSaltar, onIr, items = [], itemId, disabled = false }) {
+  const [grupoAbierto, setGrupoAbierto] = useState(null) // segundo del punto agrupado cuyos accesos se ven debajo
   const dur = Number.isFinite(duracionSeg) && duracionSeg > 0 ? Math.floor(duracionSeg) : 0
   if (!dur) return null
+  const grupos = agruparPorSegundo(items, { duracionSeg: dur, excluirId: itemId })
+  const abierto = grupos.find((g) => g.seg === grupoAbierto && g.items.length > 1) || null
+  const companeras = mismoSegundo(items, itemId, valor)
+  const irA = (id) => { setGrupoAbierto(null); onIr?.(id) }
+  // Escape cierra solo los accesos del punto agrupado (no la ventana de revisión, que escucha en window).
+  const alTeclearAccesos = (e) => { if (e.key === 'Escape') { e.stopPropagation(); setGrupoAbierto(null) } }
   const v = Math.min(Math.max(0, Number.isInteger(valor) ? valor : dur), dur)
   const real = Number.isFinite(posicion) ? Math.min(Math.max(0, posicion), dur) : v
   const pct = (s) => `${(Math.min(Math.max(s, 0), dur) / dur) * 100}%`
@@ -75,7 +88,9 @@ export default function LineaTiempoRevision({ duracionSeg, posicion = null, valo
             [&::-moz-range-thumb]:border-4 [&::-moz-range-thumb]:border-transparent" />
         {/* Encima del control de la línea (después en el DOM): puntos de navegación, bolita blanca y triángulo. */}
         <div className="absolute inset-x-3.5 top-1/2 h-0 pointer-events-none">
-          {items.filter((o) => o.id !== itemId && Number.isInteger(o.timestampSeg) && o.timestampSeg <= dur).map((o) => (
+          {grupos.map(({ seg: s, items: g }) => {
+            const o = g[0]
+            if (g.length === 1) return (
             <button key={o.id} type="button" onClick={() => onIr?.(o.id)} data-testid="punto-pregunta"
               aria-label={`Ir a la pregunta del minuto ${formatearMinuto(o.timestampSeg)}${o.sinGuardar ? ', con cambios sin guardar' : ''}`}
               className="absolute top-0 -translate-x-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full pointer-events-auto cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
@@ -84,7 +99,22 @@ export default function LineaTiempoRevision({ duracionSeg, posicion = null, valo
                 {o.sinGuardar && <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-accent ring-1 ring-white" />}
               </span>
             </button>
-          ))}
+            )
+            // Varias en el mismo segundo: un punto más grande con la cantidad; tocarlo muestra un acceso a cada una.
+            const sucio = g.some((it) => it.sinGuardar)
+            return (
+              <button key={`grupo-${s}`} type="button" onClick={() => setGrupoAbierto(grupoAbierto === s ? null : s)} data-testid="punto-grupo"
+                aria-expanded={grupoAbierto === s}
+                aria-label={`${g.length} preguntas en el minuto ${formatearMinuto(s)}${sucio ? ', alguna con cambios sin guardar' : ''}: elegir cuál abrir`}
+                className="absolute top-0 -translate-x-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center rounded-full pointer-events-auto cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                style={{ left: pct(s) }}>
+                <span className={`relative flex items-center justify-center w-[1.125rem] h-[1.125rem] rounded-full ring-2 ring-white text-[0.625rem] leading-none font-bold text-amber-950 tabular-nums ${COLOR_MARCA[estadoDeGrupo(g)]}`}>
+                  {g.length}
+                  {sucio && <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-accent ring-1 ring-white" />}
+                </span>
+              </button>
+            )
+          })}
           {/* La BOLITA BLANCA: el momento de la pregunta actual. Se arrastra y, al soltarla, el tiempo se guarda solo. Es solo un agarre del
               puntero: el control accesible de la línea (teclado, lector de pantalla) es el triángulo. */}
           <div data-testid="bolita-pregunta" aria-hidden="true" {...agarrar(elegir, !disabled, soltarBolita)}
@@ -112,6 +142,37 @@ export default function LineaTiempoRevision({ duracionSeg, posicion = null, valo
         </div>
       </div>
       <div className="flex justify-between text-xs text-muted tabular-nums" aria-hidden="true"><span>0:00</span><span>{formatearMinuto(dur)}</span></div>
+      {abierto && (
+        // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- solo atrapa Escape de los botones de adentro
+        <div className="mt-1.5 rounded-card border border-outline-variant bg-surface-card px-3 py-2 space-y-1.5" data-testid="accesos-grupo" onKeyDown={alTeclearAccesos}>
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-semibold text-on-surface flex-1">En el minuto {formatearMinuto(abierto.seg)} hay {abierto.items.length} preguntas:</p>
+            <button type="button" onClick={() => setGrupoAbierto(null)} aria-label="Cerrar la lista de preguntas de este minuto"
+              className="w-11 h-11 -my-2 -mr-2 flex items-center justify-center rounded-full text-muted hover:bg-surface-container focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+              <X size={ICONO.sm} />
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {abierto.items.map((o) => (
+              <button key={o.id} type="button" onClick={() => irA(o.id)} data-testid="acceso-grupo" className={ACCESO}>
+                <span className="truncate">{etiquetaPregunta(o)}{o.sinGuardar ? ' · sin guardar' : ''}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {companeras.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5" data-testid="mismo-segundo">
+          <span className="text-xs text-muted">
+            {companeras.length === 1 ? 'Otra pregunta' : `Otras ${companeras.length} preguntas`} en este mismo minuto ({formatearMinuto(valor)}):
+          </span>
+          {companeras.map((o) => (
+            <button key={o.id} type="button" onClick={() => irA(o.id)} data-testid="acceso-mismo-segundo" className={ACCESO}>
+              <span className="truncate">{etiquetaPregunta(o)}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
