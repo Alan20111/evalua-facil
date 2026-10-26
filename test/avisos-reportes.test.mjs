@@ -106,7 +106,7 @@ await caso('Sugerencia: asunto con [Sugerencia a Evalúa Fácil], categoría, pa
   assert.ok(!/reporte/i.test(c.asunto + c.html + c.texto), 'la sugerencia no se llama «reporte»')
 })
 
-await caso('Reporte de IA: asunto con [Reporte de IA], motivo y operación legible; NO lleva la respuesta de la IA', async () => {
+await caso('Comentario sobre la IA: asunto con [Comentario sobre la IA], motivo y operación legible; NO lleva la respuesta de la IA', async () => {
   const c = AV.construirCorreo({
     coleccion: 'reportesIA', id: 'R1', datos: reporteIA({ ubicacion: 'revision_entrega', ruta: '/activity/:id' }),
     contexto: {
@@ -116,10 +116,10 @@ await caso('Reporte de IA: asunto con [Reporte de IA], motivo y operación legib
       entrega: { id: 'SUB1', alumno: 'Guadalupe Pérez' },
     },
   })
-  assert.strictEqual(c.asunto, '[Reporte de IA] Incorrecto o inventado · Calificación de entregable con IA')
-  for (const t of ['Reporte de IA', 'Incorrecto o inventado', 'Calificación de entregable con IA', 'Evaluación de actividades',
+  assert.strictEqual(c.asunto, '[Comentario sobre la IA] Incorrecto o inventado · Calificación de entregable con IA')
+  for (const t of ['Comentario sobre la IA', 'Nuevo comentario sobre una respuesta de la IA', 'Incorrecto o inventado', 'Calificación de entregable con IA', 'Evaluación de actividades',
     'Revisión de una entrega', '/activity/:id', 'Mantenimiento de impresoras · Grupo 3D', 'Diagrama: instalar impresora',
-    'Hay una entrega relacionada', 'Ana López · Docente · ana@escuela.mx', 'Hay un comentario de quien reportó', 'tab=reportesIA&caso=R1']) {
+    'Hay una entrega relacionada', 'Ana López · Docente · ana@escuela.mx', 'Quien envió el comentario escribió detalles', 'tab=reportesIA&caso=R1']) {
     assert.ok(c.texto.includes(t), `falta «${t}»`)
   }
   assert.ok(!c.html.includes('RESPUESTA-PRIVADA') && !c.texto.includes('RESPUESTA-PRIVADA'))
@@ -135,10 +135,20 @@ await caso('Reporte de IA (privacidad): ni el comentario libre ni el nombre del 
   for (const dato of ['Guadalupe', 'Pérez', 'merecía 6', '5512345678']) {
     assert.ok(!c.html.includes(dato) && !c.texto.includes(dato) && !c.asunto.includes(dato), `el correo no lleva «${dato}»`)
   }
-  assert.ok(c.texto.includes('Hay un comentario de quien reportó') && c.texto.includes('panel de administración'))
+  assert.ok(c.texto.includes('Quien envió el comentario escribió detalles') && c.texto.includes('panel de administración'))
   // Sin comentario: lo dice, sin inventar uno.
   const sin = AV.construirCorreo({ coleccion: 'reportesIA', id: 'R3', datos: reporteIA({ comentario: '' }), contexto: {} })
-  assert.ok(sin.texto.includes('(sin comentario)') && !sin.texto.includes('Hay un comentario'))
+  assert.ok(sin.texto.includes('(sin detalles)') && !sin.texto.includes('escribió detalles'))
+})
+
+await caso('Comentario sobre la IA: ningún texto visible del correo dice «reporte» ni «reportar»', async () => {
+  const c = AV.construirCorreo({
+    coleccion: 'reportesIA', id: 'R1', datos: reporteIA({ ubicacion: 'revision_entrega', ruta: '/activity/:id' }),
+    contexto: { reportante: { rol: 'docente', nombre: 'Ana López' }, actividad: { id: 'A1', nombre: 'Diagrama' }, entrega: { id: 'SUB1', alumno: 'X' }, aviso: 'Los ids del comentario no corresponden a datos de quien lo envió o ya no existen.' },
+  })
+  // El enlace lleva el parámetro técnico `tab=reportesIA` (no se cambia): se quita antes de revisar.
+  const visible = [c.asunto, c.texto, c.html].join('\n').replace(/https?:\/\/\S+/g, '')
+  assert.ok(!/report/i.test(visible), `quedó texto visible con «report»: ${visible.match(/.{0,30}report.{0,30}/i)?.[0]}`)
 })
 
 await caso('Reporte viejo sin ubicación: no se inventan módulo ni pantalla', async () => {
@@ -531,9 +541,9 @@ await caso('Los Reportes de IA no pasan por la moderación; su comentario se gua
   await AV.procesarAviso({ coleccion: 'reportesIA', ref, enviar, ahora: AHORA, evaluar: () => { llamadasDetector++; return { estado: 'retenida', motivos: ['insulto'] } } })
   assert.strictEqual(llamadasDetector, 0)
   assert.strictEqual((await leer(ref)).moderacion, undefined)
-  assert.ok(enviar.llamadas[0].asunto.startsWith('[Reporte de IA]'))
+  assert.ok(enviar.llamadas[0].asunto.startsWith('[Comentario sobre la IA]'))
   assert.ok(!enviar.llamadas[0].texto.includes('la IA es una idiota'), 'el comentario no viaja en el correo (opción B)')
-  assert.ok(enviar.llamadas[0].texto.includes('Hay un comentario de quien reportó'))
+  assert.ok(enviar.llamadas[0].texto.includes('Quien envió el comentario escribió detalles'))
   assert.strictEqual((await leer(ref)).comentario, 'la IA es una idiota', 'el comentario se conserva en el registro')
 })
 

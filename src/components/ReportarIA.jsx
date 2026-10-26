@@ -1,4 +1,9 @@
-// «Reportar» junto a una respuesta de la IA (docs/PLAN_GOOGLE_PLAY.md, B2).
+// «Enviar comentario» junto a una respuesta de la IA (docs/PLAN_GOOGLE_PLAY.md, B2).
+//
+// Texto visible (25-oct-2026, decisión de Kike): en la interfaz NO se usa
+// «Reporte» ni «Reportar»; el botón dice «Enviar comentario». Los nombres
+// internos (este componente, la colección `reportesIA`, las funciones) se
+// quedan como estaban: no los ve nadie y cambiarlos obligaría a migrar datos.
 //
 // Va pegado a cada resultado que la IA le muestra al usuario tal cual salió:
 // el mensaje del asistente, la calificación sugerida, la rúbrica o las
@@ -64,7 +69,7 @@ export default function ReportarIA({
       cambiarAbierto(false)
       toast('Gracias. Revisaremos esta respuesta de la IA.')
     } catch {
-      toast('No se pudo enviar el reporte. Inténtalo de nuevo.', 'error')
+      toast('No se pudo enviar tu comentario. Inténtalo de nuevo.', 'error')
     } finally {
       setEnviando(false)
     }
@@ -80,12 +85,12 @@ export default function ReportarIA({
         disabled={enviado}
         onClick={() => cambiarAbierto(true)}
       >
-        {enviado ? 'Reportado' : 'Reportar'}
+        {enviado ? 'Comentario enviado' : 'Enviar comentario'}
       </Button>
       <Modal
         open={abierto}
         onClose={() => cambiarAbierto(false)}
-        title="Reportar respuesta de la IA"
+        title="Comentario sobre la respuesta de la IA"
         variant="centered"
         size="sm"
         busy={enviando}
@@ -96,7 +101,7 @@ export default function ReportarIA({
                 Cancelar
               </Button>
               <Button onClick={enviar} disabled={!motivo} busy={enviando}>
-                Enviar reporte
+                Enviar comentario
               </Button>
             </div>
             <MotivoApagado faltan={motivo ? [] : ['el motivo']} />
@@ -105,7 +110,7 @@ export default function ReportarIA({
       >
         <div className="space-y-4">
           <p className="text-sm text-muted">
-            La IA puede equivocarse. Tu reporte nos ayuda a corregirla; lo revisa una persona del equipo de Evalúa Fácil.
+            La IA puede equivocarse. Tu comentario nos ayuda a corregirla; lo revisa una persona del equipo de Evalúa Fácil.
           </p>
           <RadioGroup
             label="¿Qué problema tiene?"
@@ -114,7 +119,7 @@ export default function ReportarIA({
             onChange={setMotivo}
           />
           <Textarea
-            label="Comentario"
+            label="Detalles"
             optional
             rows={3}
             maxLength={LARGO_MAX_COMENTARIO_REPORTE}

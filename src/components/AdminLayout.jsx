@@ -29,7 +29,7 @@ const TABS = [
   { id: 'resumen', label: 'Resumen', icon: LayoutDashboard },
   { id: 'creditos', label: 'Compras de créditos', icon: Sparkles },
   { id: 'costosIA', label: 'Costos de IA', icon: TrendingUp },
-  { id: 'reportesIA', label: 'Reportes de IA', icon: Flag },
+  { id: 'reportesIA', label: 'Comentarios sobre la IA', icon: Flag },
   { id: 'sugerencias', label: 'Sugerencias a Evalúa Fácil', icon: MessageSquarePlus },
   { id: 'errores', label: 'Errores', icon: Bug },
   { id: 'registros', label: 'Registros', icon: UserPlus },
@@ -44,7 +44,7 @@ const TABS = [
 // zona admin entera —tarjetas, tablas, botones— comparte esa misma paleta a
 // través de --accent, así que un solo lugar la define.
 //
-// `nuevos`: { [idDePestaña]: número } — casos nuevos sin atender (Reportes de IA
+// `nuevos`: { [idDePestaña]: número } — casos nuevos sin atender (Comentarios sobre la IA
 // y Sugerencias a Evalúa Fácil). Se muestran junto al nombre de la pestaña.
 export default function AdminLayout({ activeTab, onTabChange, nuevos = {}, children }) {
   const { userProfile } = useAuth()

@@ -43,7 +43,7 @@ Marca **Recopilado = Sí** en cada uno. Ninguno se procesa solo de forma efímer
 | **Información financiera → Otra información financiera** | Opcional | Funcionalidad de la app | Comprobante de transferencia que sube el docente en la web. **No** se recopilan números de tarjeta ni de cuenta. |
 | **Fotos y videos → Fotos** | Opcional | Funcionalidad de la app | Foto de perfil y fotos que se entregan como evidencia. |
 | **Archivos y documentos → Archivos y documentos** | Opcional | Funcionalidad de la app | Entregas de los alumnos (PDF, Word, imágenes) y materiales del docente. Pueden ir a la IA al calificar con IA. |
-| **Mensajes → Otros mensajes en la app** | Opcional | Funcionalidad de la app | Avisos del docente, comentarios, mensajes al Asistente IA y reportes de IA. |
+| **Mensajes → Otros mensajes en la app** | Opcional | Funcionalidad de la app | Avisos del docente, comentarios, mensajes al Asistente IA, comentarios sobre las respuestas de la IA y sugerencias a Evalúa Fácil. |
 | **Actividad en la app → Otro contenido generado por el usuario** | Obligatorio | Funcionalidad de la app | Calificaciones, actividades, evaluaciones, respuestas de exámenes y asistencia. |
 | **Actividad en la app → Interacciones con la app** | Obligatorio | Funcionalidad de la app | Avance del video interactivo y lecturas de avisos. |
 | **ID del dispositivo u otros → ID del dispositivo u otros** | Opcional | Funcionalidad de la app | Token de notificaciones (FCM). Solo si se permiten las notificaciones. |

@@ -38,8 +38,8 @@ CON AYUDA DE INTELIGENCIA ARTIFICIAL
 • Convierte un video de YouTube en una actividad con preguntas.
 • Las funciones de IA usan créditos. Al crear tu cuenta recibes 30 créditos de
   regalo para probarlas; todo lo demás es gratis.
-• ¿La IA respondió algo incorrecto o inapropiado? Repórtalo desde la misma
-  pantalla.
+• ¿La IA respondió algo incorrecto o inapropiado? Envía un comentario desde
+  la misma pantalla.
 
 EN TU CELULAR
 
@@ -87,8 +87,8 @@ de Educación Pública (SEP) ni a ninguna dependencia de gobierno.
 - La viñeta del video de YouTube solo va si el Video interactivo ya opera en
   producción: necesita el secreto `GEMINI_API_KEY` (CLAUDE.md, «Credencial de
   Gemini»). Prometer una función que no funciona es motivo de rechazo.
-- La viñeta de «Repórtalo» depende de B2 (reportar contenido de IA): no la
-  publiques antes de que esa función esté en producción.
+- La viñeta de «Envía un comentario» depende de B2 (comentarios sobre las
+  respuestas de la IA, en producción desde el 25-oct-2026).
 - La descripción corta va a **62 caracteres** (bajo el límite de 80).
 - Puedes ajustar el texto a tu gusto; está redactado para ser claro y honesto con lo
   que la app realmente hace (sin prometer funciones que no existan, que es motivo de

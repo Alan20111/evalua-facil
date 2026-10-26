@@ -20,7 +20,7 @@ clasificación resultante será la más baja (apta para todos / 3+). Responde as
 | ¿Los usuarios pueden **interactuar o comunicarse** entre sí? | **Sí**, de forma acotada. El docente publica avisos para su grupo y los alumnos le entregan trabajos; todo queda dentro de la asignatura, sin chat libre entre alumnos ni perfiles públicos. Es mejor declararlo: ocultarlo y que el revisor lo encuentre es motivo de rechazo. |
 | ¿Comparte la **ubicación** del usuario con otros? | **No** |
 | ¿Permite **compras digitales**? | **No.** Desde oct-2026 la app de Android no vende nada; los créditos de IA se compran solo en la web (`docs/PLAN_GOOGLE_PLAY.md` B1). |
-| ¿Contiene **contenido generado por IA**? (si la pregunta aparece) | **Sí**: rúbricas, preguntas, retroalimentación y análisis para el docente, que los revisa antes de publicarlos. Se pueden reportar desde la app con «Reportar» (B2). |
+| ¿Contiene **contenido generado por IA**? (si la pregunta aparece) | **Sí**: rúbricas, preguntas, retroalimentación y análisis para el docente, que los revisa antes de publicarlos. Se pueden señalar desde la app con el botón «Enviar comentario» (B2). |
 | ¿Contenido generado por usuarios visible públicamente? | **No** (el contenido es privado entre docente y sus alumnos). |
 
 ## Resultado esperado
