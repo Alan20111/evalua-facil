@@ -4633,6 +4633,8 @@ ok('F-05 · admin CAN read publicProfiles')
     retoParticipantes: (dueno) => ({ docenteId: dueno, sesionId: 'RETO1', alumnoId: 'ST_JUAN', nombre: 'Juan Real', alias: 'Tigre', expulsado: false }),
     retoRespuestas: (dueno) => ({ docenteId: dueno, sesionId: 'RETO1', preguntaId: 'p1', participanteId: 'RETO1_ST_JUAN', opcionSeleccionada: 'b', recibidaMs: 5 }),
     retoResultados: (dueno) => ({ docenteId: dueno, sesionId: 'RETO1', realizadas: 10, clasificacion: [] }),
+    // Clasificación provisional (4-nov-2026): misma regla de lectura; la escribe solo el servidor.
+    retoParcial: (dueno) => ({ docenteId: dueno, sesionId: 'RETO1', actividadId: 'ARETO', cerradas: 2, clasificacion: [] }),
   }
   const PRIVADAS = {
     retoClaves: (dueno) => ({ docenteId: dueno, sesionId: 'RETO1', claves: { p1: { respuestaCorrecta: 'b' } } }),
@@ -4696,6 +4698,12 @@ ok('F-05 · admin CAN read publicProfiles')
     }
   })
   ok('RETO · después de todos los intentos de escritura, los datos siguen intactos')
+
+  // El proyector escucha retoParcial antes de que el servidor la cree (primera pregunta todavía abierta).
+  await assertSucceeds(getDoc(doc(asT1, 'retoParcial', 'AUN_NO_EXISTE')))
+  await assertFails(getDoc(doc(asJuan, 'retoParcial', 'AUN_NO_EXISTE')))
+  await assertFails(getDoc(doc(asAnon, 'retoParcial', 'AUN_NO_EXISTE')))
+  ok('RETO PARCIAL · un docente escucha la provisional aún inexistente; un estudiante o alguien sin sesión, no')
 }
 
 // ── Reto Exprés · etapa 1-bis: candado de la modalidad externa ──

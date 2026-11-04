@@ -32,7 +32,7 @@ import {
   normalizarAlias, claveAlias, variantesAlias, validarAlias, claveNombre, formasNombreReal,
   modalidadValida, esCalificable, validarConfiguracionReto, cambioModalidadPermitido, modoIdentidadDe, calificacionPropuestaReto,
   abrirAcceso, cerrarAcceso, reservarCupo, formatoTokenValido, idParticipante, registroParticipante, expulsarParticipante,
-  vistaResultadosParticipante,
+  vistaResultadosParticipante, distanciaAlSiguiente, preguntasCerradas, clasificacionParcialReto, vistaClasificacionParcial,
   reactivoCompatibleReto, MOTIVOS_INCOMPATIBLE, preguntaRetoDesdeReactivo, preguntaRetoDesdePropuestaIA, nuevoIdOpcion,
   estadoPreguntasReto, datosNuevoReto, cambiosDatosReto, propuestasCalificacionReto,
   DURACIONES_RETO_SEG, duracionValida, textoDuracion, tiempoRespuestaMs, duracionTotalMs,
@@ -912,7 +912,10 @@ function resultadosDe13() {
 caso('top: los puestos 1 a 10, con empates completos (aquí 11 filas)', () => {
   const v = vistaResultadosParticipante(resultadosDe13(), 'R_0', { modalidad: 'externo' })
   assert.deepStrictEqual(v.top.map((f) => f.posicion), [1, 2, 2, 4, 5, 5, 5, 8, 9, 9, 9])
-  for (const f of v.top) assert.deepStrictEqual(Object.keys(f).sort(), ['aciertos', 'nombreVisible', 'posicion'])
+  for (const f of v.top) {
+    const llaves = f.nombreVisible === 'Alias 00' ? ['aciertos', 'esPropia', 'nombreVisible', 'posicion'] : ['aciertos', 'nombreVisible', 'posicion']
+    assert.deepStrictEqual(Object.keys(f).sort(), llaves) // solo la fila propia lleva la marca, nunca ids
+  }
 })
 
 caso('el participante ve su propia posición aunque quede fuera del top', () => {
@@ -1263,6 +1266,126 @@ caso('R · todo en 20 s da EXACTAMENTE los mismos turnos que antes (regresión)'
   for (let t = T0; t <= T0 + 10 * TURNO + 1000; t += 997) {
     assert.deepStrictEqual(faseReto(nuevo, t), faseReto(viejo, t), `instante ${t - T0}`)
   }
+})
+
+// ── S. Clasificación en vivo (4-nov-2026) ──────────────────────────────────
+grupo('S. Clasificación provisional durante la competencia')
+
+const PREGS_S = Array.from({ length: 10 }, (_, i) => ({ id: `p${i}`, tipo: 'opcion_multiple' }))
+const CLAVES_S = Object.fromEntries(PREGS_S.map((p) => [p.id, { respuestaCorrecta: 'a' }]))
+const PART_S = [
+  { id: 'X_ana', nombre: 'Ana', alias: 'Tigre' },
+  { id: 'X_beto', nombre: 'Beto', alias: 'Puma' },
+  { id: 'X_caro', nombre: 'Caro', alias: 'Lince' },
+  { id: 'X_dani', nombre: 'Dani', alias: 'Oso', expulsado: true },
+  { id: 'X_eva', nombre: 'Eva', alias: 'Zorro', unidoMs: abre(2) + 100 }, // ingreso tardío
+]
+// Quién acierta cada pregunta (los demás contestan 'b'); todos responden 1 s después de abrir.
+const ACIERTAN = { 0: ['X_ana', 'X_beto', 'X_dani'], 1: ['X_ana', 'X_caro'], 2: ['X_beto', 'X_caro', 'X_eva'], 3: ['X_ana'] }
+function respuestasS(hasta = 10) {
+  const salida = []
+  for (let i = 0; i < hasta; i++) {
+    for (const pa of PART_S) {
+      if (pa.unidoMs && abre(i) + 1000 < pa.unidoMs) continue
+      salida.push({ id: `${pa.id}_${i}`, participanteId: pa.id, preguntaId: `p${i}`, opcionSeleccionada: (ACIERTAN[i] || []).includes(pa.id) ? 'a' : 'b', recibidaMs: abre(i) + 1000 })
+    }
+  }
+  return salida
+}
+const datosS = (extra = {}) => ({ sesion: sesionEnCurso({ modoIdentidad: 'alias', ...extra }), preguntas: PREGS_S, claves: CLAVES_S, participantes: PART_S, respuestas: respuestasS() })
+const sinDetalle = (c) => c.map(({ participanteId, nombreVisible, aciertos, respondidas, posicion }) => ({ participanteId, nombreVisible, aciertos, respondidas, posicion }))
+
+caso('S · preguntas cerradas: las anteriores a la que está en turno (también en pausa)', () => {
+  const s = sesionEnCurso()
+  assert.strictEqual(preguntasCerradas({ estado: ESTADOS_RETO.espera }, T0), 0)
+  assert.strictEqual(preguntasCerradas(s, T0 + 10), 0)
+  assert.strictEqual(preguntasCerradas(s, cierra(0) - 1), 0)
+  assert.strictEqual(preguntasCerradas(s, cierra(0)), 1)
+  assert.strictEqual(preguntasCerradas(s, abre(3) + 5), 3)
+  const pausada = aplicar(s, pausarReto(s, abre(4) + 100))
+  assert.strictEqual(preguntasCerradas(pausada, abre(4) + 60000), 4)
+  assert.strictEqual(preguntasCerradas(s, cierra(9) + 1), 10)
+})
+
+caso('S · la provisional con N cerradas es IGUAL a la final si se hubiera terminado al cerrar la N', () => {
+  for (const n of [1, 2, 3, 4, 7, 10]) {
+    const p = clasificacionParcialReto({ ...datosS(), cerradas: n })
+    assert.ok(p.ok, p.codigo)
+    const final = calcularResultadosReto({ ...datosS(n < 10 ? { terminadaMs: cierra(n - 1) } : {}) })
+    assert.strictEqual(final.realizadas, n)
+    assert.deepStrictEqual(p.clasificacion, sinDetalle(final.clasificacion))
+  }
+})
+
+caso('S · solo cuentan las cerradas: la respuesta de la pregunta en turno no mueve a nadie', () => {
+  const tras2 = clasificacionParcialReto({ ...datosS(), respuestas: respuestasS(2), cerradas: 2 })
+  const conAbierta = clasificacionParcialReto({ ...datosS(), respuestas: respuestasS(3), cerradas: 2 })
+  assert.deepStrictEqual(conAbierta, tras2)
+  assert.strictEqual(tras2.clasificacion.find((f) => f.participanteId === 'X_ana').aciertos, 2)
+})
+
+caso('S · mismas reglas: empates comparten lugar, sin rapidez, expulsado fuera, ingreso tardío con 0 antes', () => {
+  // Tras 3: Ana 2, Beto 2, Caro 2, Eva 1 (entró en la 3), Dani expulsado.
+  const p = clasificacionParcialReto({ ...datosS(), cerradas: 3 })
+  assert.deepStrictEqual(p.clasificacion.map((f) => [f.nombreVisible, f.aciertos, f.posicion]),
+    [['Lince', 2, 1], ['Puma', 2, 1], ['Tigre', 2, 1], ['Zorro', 1, 4]])
+  assert.ok(!p.clasificacion.some((f) => f.participanteId === 'X_dani'))
+  // Responder antes no da más: mismo resultado si Ana contesta en el último milisegundo.
+  const tarde = respuestasS(3).map((r) => (r.participanteId === 'X_ana' ? { ...r, recibidaMs: cierra(Number(r.preguntaId.slice(1))) - 1 } : r))
+  assert.deepStrictEqual(clasificacionParcialReto({ ...datosS(), respuestas: tarde, cerradas: 3 }).clasificacion, p.clasificacion)
+})
+
+caso('S · con pausas: el cierre real se corre lo que duró la pausa', () => {
+  let s = sesionEnCurso({ modoIdentidad: 'alias' })
+  s = aplicar(s, pausarReto(s, abre(1) + 500))
+  s = aplicar(s, reanudarReto(s, abre(1) + 500 + 60000))
+  // La 2.ª cierra 60 s más tarde: una respuesta 50 s después de la hora en que cerraría sin pausa (ya reanudada) vale.
+  const resp = [{ id: 'r1', participanteId: 'X_caro', preguntaId: 'p1', opcionSeleccionada: 'a', recibidaMs: cierra(1) + 50000 }]
+  const p = clasificacionParcialReto({ sesion: s, preguntas: PREGS_S, claves: CLAVES_S, participantes: PART_S, respuestas: resp, cerradas: 2 })
+  assert.ok(p.ok, p.codigo)
+  assert.strictEqual(p.clasificacion.find((f) => f.participanteId === 'X_caro').aciertos, 1)
+})
+
+caso('S · sin preguntas cerradas o fuera de rango: no hay provisional', () => {
+  assert.strictEqual(clasificacionParcialReto({ ...datosS(), cerradas: 0 }).codigo, 'SIN_CERRADAS')
+  assert.strictEqual(clasificacionParcialReto({ ...datosS(), cerradas: 11 }).codigo, 'SIN_CERRADAS')
+  assert.strictEqual(vistaClasificacionParcial(null, 'X_ana'), null)
+  assert.strictEqual(vistaClasificacionParcial({ cerradas: 0, clasificacion: [] }, 'X_ana'), null)
+})
+
+caso('S · distancia al lugar de arriba: falta, empate en 1.º y solo en 1.º', () => {
+  const c = asignarPosiciones([
+    { participanteId: 'a', nombreVisible: 'A', aciertos: 9 }, { participanteId: 'b', nombreVisible: 'B', aciertos: 9 },
+    { participanteId: 'c', nombreVisible: 'C', aciertos: 8 }, { participanteId: 'd', nombreVisible: 'D', aciertos: 8 },
+    { participanteId: 'e', nombreVisible: 'E', aciertos: 7 }, { participanteId: 'f', nombreVisible: 'F', aciertos: 4 },
+  ])
+  assert.deepStrictEqual(distanciaAlSiguiente(c, 'a'), { primero: true, empatados: 1 })
+  assert.deepStrictEqual(distanciaAlSiguiente(c, 'c'), { primero: false, posicion: 1, faltan: 1 })
+  assert.deepStrictEqual(distanciaAlSiguiente(c, 'e'), { primero: false, posicion: 3, faltan: 1 })
+  assert.deepStrictEqual(distanciaAlSiguiente(c, 'f'), { primero: false, posicion: 5, faltan: 3 })
+  assert.strictEqual(distanciaAlSiguiente(c, 'zz'), null)
+  assert.deepStrictEqual(distanciaAlSiguiente(asignarPosiciones([{ participanteId: 'a', nombreVisible: 'A', aciertos: 0 }]), 'a'), { primero: true, empatados: 0 })
+})
+
+caso('S · vista del celular: su lugar, puntos, total y qué le falta; sin ids, claves ni corrección', () => {
+  const p = clasificacionParcialReto({ ...datosS(), cerradas: 3 })
+  const v = vistaClasificacionParcial(p, 'X_eva')
+  assert.deepStrictEqual(v.propia, { posicion: 4, nombreVisible: 'Zorro', aciertos: 1 })
+  assert.strictEqual(v.totalParticipantes, 4)
+  assert.deepStrictEqual(v.siguiente, { primero: false, posicion: 1, faltan: 1 })
+  assert.strictEqual(v.cerradas, 3)
+  assert.deepStrictEqual(v.top.filter((f) => f.esPropia).map((f) => f.nombreVisible), ['Zorro'])
+  const texto = JSON.stringify(v)
+  for (const prohibido of ['participanteId', 'X_', 'respuestaCorrecta', 'correccion', 'opcionSeleccionada', 'Ana', 'Eva']) assert.ok(!texto.includes(prohibido), prohibido)
+  assert.strictEqual(vistaClasificacionParcial(p, 'X_dani').propia, null) // expulsado: sin posición
+})
+
+caso('S · final completa: todos los lugares (no solo 10), fila propia marcada; sin `completa`, como antes', () => {
+  const v = vistaResultadosParticipante(resultadosDe13(), 'R_12', { modalidad: 'externo', completa: true })
+  assert.strictEqual(v.top.length, 13)
+  assert.strictEqual(v.totalParticipantes, 13)
+  assert.deepStrictEqual(v.top[12], { posicion: 13, nombreVisible: 'Alias 12', aciertos: 1, esPropia: true })
+  assert.strictEqual(vistaResultadosParticipante(resultadosDe13(), 'R_12', { modalidad: 'externo' }).top.length, 11)
 })
 
 console.log(`\n${pasadas} pasaron, ${fallos} fallaron`)

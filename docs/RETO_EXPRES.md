@@ -88,8 +88,22 @@ La modalidad se elige al **crear** el reto y **nunca cambia** (E10). Para cambia
 - Resultados calculados siempre **desde cero** a partir de las respuestas guardadas (sin contadores acumulados).
 - **Empates**: comparten posición y la siguiente salta (**1, 1, 3**). Dentro del empate, orden alfabético; nunca la
   rapidez.
-- **En el celular**: los puestos 1 a 10 y la posición propia, aunque quede fuera. Con empates puede haber más de 10
-  filas (nadie empatado en un puesto visible se queda fuera). Las filas no llevan ids.
+- **Durante la competencia** (4-nov-2026): el celular muestra la **clasificación provisional**: posición, puntos,
+  cuántos compiten, qué le falta para alcanzar el lugar de arriba («Te falta 1 punto para alcanzar el 3.º lugar»;
+  en 1.º, «¡Vas en primer lugar!» o «Compartes el 1.º lugar…») y los puestos 1 a 10 con su fila resaltada. Tarjeta
+  grande en «Prepárate…», en pausa y en la lista; una franja de una línea mientras responde.
+  - La calcula **el servidor** al cerrar cada pregunta con la misma `calcularResultadosReto` (sesión «terminada» justo
+    en ese cierre): mismas reglas, empates, expulsados e ingresos tardíos. **Nunca incluye la pregunta abierta.**
+  - Se guarda en `retoParcial/{código}`, una vez por pregunta, con el mismo «turno» que el registro definitivo, 1.5 s
+    después del cierre (margen para respuestas aceptadas en el límite; cabe en los 4 s de preparación).
+  - El celular manda `parcialVisto` (cuántas cerradas ya tiene) y solo recibe la clasificación cuando hay una más
+    nueva: no se lee en cada consulta.
+  - Ver los puntos le deja saber a cada uno, después del cierre, si acertó la pregunta que cerró. La opción correcta
+    nunca viaja (tampoco a un externo: E11 sigue para la corrección). Aceptado por Kike el 4-nov-2026.
+  - El proyector muestra los 5 primeros provisionales en «Prepárense…» (lee `retoParcial`; no la calcula).
+- **Al final, en el celular**: la clasificación **completa** (todos los lugares), con los 3 primeros destacados, su
+  fila resaltada, puntos y respuestas correctas (son el mismo número: 1 punto por acierto). Las filas no llevan ids.
+  El proyector sigue mostrando los 10 primeros, con los 3 primeros destacados.
 - Expulsados: fuera de la clasificación; sus respuestas se conservan (nada se borra solo).
 
 ### Calificación — solo inscritos (D7)
@@ -164,6 +178,7 @@ Mismo mecanismo que Participación en vivo, en las **dos** modalidades:
 | `retoParticipantes/{id}` | Inscrito: inscripción, nombre, alias · Externo: alias, huella del token | Servidor | Dueño, admin |
 | `retoRespuestas/{id}` | Opción elegida y hora del servidor | Servidor | Dueño, admin |
 | `retoResultados/{código}` | Registro definitivo: clasificación, detalle y descartadas | Servidor | Dueño, admin |
+| `retoParcial/{código}` | Clasificación provisional tras la última pregunta cerrada (4-nov-2026) | Servidor | Dueño (también ausente), admin |
 | `retoClaves/{código}` | Copia congelada de la clave al iniciar | Servidor | Nadie desde un cliente |
 | `retoAlias/{id}` | Reserva de alias únicos | Servidor | Nadie desde un cliente |
 | `retoCupos/{código}_{n}` | Lugar n (1 a 40) del cupo de externos (R4) | Servidor | Nadie desde un cliente |
@@ -351,7 +366,8 @@ con una nota existente protegida, «Reemplazar», pasar a práctica oculta el pa
 - **E7** Máximo inicial 40 externos, atómico en el servidor; no se presenta como capacidad garantizada sin carga.
 - **E8** ~~Alias y respuestas 30 días tras finalizar; luego borrado automático fiable y probado; solo agregados.~~
   *Reemplazada el 3-nov-2026: nada se borra solo (ver §4).*
-- **E9** Celular: top 10 y posición propia; empates según lo definido; nunca identidad real.
+- **E9** Celular: top 10 y posición propia; empates según lo definido; nunca identidad real. *Ampliada el
+  4-nov-2026: clasificación provisional durante la competencia y lista completa al final.*
 - **E10** Modalidad fija; un externo nunca se vuelve calificable ni de inscritos.
 - **E11** Externos: sin respuestas correctas ni corrección; inscritos: corrección completa.
 

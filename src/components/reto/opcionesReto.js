@@ -21,3 +21,20 @@ export function textoContador(segundos) {
 
 /** Opciones del selector de tiempo (las mismas duraciones que valida el servidor). */
 export const OPCIONES_TIEMPO_RETO = DURACIONES_RETO_SEG.map((s) => ({ value: s, label: textoDuracion(s) }))
+
+// ── Clasificación (4-nov-2026) ──────────────────────────────────────────────
+/** «4.º» */
+export const ordinal = (n) => `${n}.º`
+
+/** «1 punto» / «7 puntos» (1 punto por acierto: puntos y respuestas correctas son el mismo número). */
+export const textoPuntos = (n) => `${n} ${n === 1 ? 'punto' : 'puntos'}`
+
+/** Lo que le falta para subir, a partir de `siguiente` (distanciaAlSiguiente del servidor). */
+export function textoSiguiente(siguiente) {
+  if (!siguiente) return ''
+  if (siguiente.primero) {
+    if (!siguiente.empatados) return '¡Vas en primer lugar!'
+    return `Compartes el 1.º lugar con ${siguiente.empatados} ${siguiente.empatados === 1 ? 'participante' : 'participantes'} más.`
+  }
+  return `Te ${siguiente.faltan === 1 ? 'falta' : 'faltan'} ${textoPuntos(siguiente.faltan)} para alcanzar el ${ordinal(siguiente.posicion)} lugar.`
+}

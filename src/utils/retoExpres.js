@@ -695,20 +695,81 @@ export function propuestasCalificacionReto({ reto, maxCalif = 10, resultados, pa
  *   · `propia`: su posición y aciertos aunque quede fuera del top; null si fue expulsado o no participó;
  *   · `correccion`: solo en un reto de inscritos (su respuesta, la correcta y si acertó, de las preguntas
  *     realizadas). En un reto externo NUNCA se incluye (E11): no se revelan las claves.
+ *   · `completa` (4-nov-2026, clasificación definitiva): `top` lleva TODOS los lugares, no solo los 10 primeros;
+ *   · la fila del propio participante dentro de `top` lleva `esPropia: true` (para resaltarla sin mandar ids);
+ *   · `totalParticipantes` y `siguiente` (distanciaAlSiguiente): cuántos compiten y qué le falta para subir.
  * `resultados` = lo que devuelve calcularResultadosReto (con nombres visibles ya según la modalidad).
  */
-export function vistaResultadosParticipante(resultados, participanteId, { modalidad } = {}) {
+export function vistaResultadosParticipante(resultados, participanteId, { modalidad, completa = false } = {}) {
   const base = { realizadas: resultados?.realizadas ?? 0, top: [], propia: null }
   if (!resultados?.ok || resultados.sinResultados) return base
   const fila = (f) => ({ posicion: f.posicion, nombreVisible: f.nombreVisible, aciertos: f.aciertos })
   const clasificacion = Array.isArray(resultados.clasificacion) ? resultados.clasificacion : []
-  const top = clasificacion.filter((f) => f.posicion <= RETO_CFG.TOP_CLASIFICACION).map(fila)
+  const top = (completa ? clasificacion : clasificacion.filter((f) => f.posicion <= RETO_CFG.TOP_CLASIFICACION))
+    .map((f) => (f.participanteId === participanteId ? { ...fila(f), esPropia: true } : fila(f)))
   const mia = clasificacion.find((f) => f.participanteId === participanteId)
-  const vista = { ...base, top, propia: mia ? fila(mia) : null }
+  const vista = {
+    ...base, top, propia: mia ? fila(mia) : null, totalParticipantes: clasificacion.length,
+    siguiente: mia ? distanciaAlSiguiente(clasificacion, participanteId) : null,
+  }
   if (modalidad === 'inscritos' && mia && Array.isArray(resultados.detalle?.[participanteId])) {
     vista.correccion = resultados.detalle[participanteId].map((d) => ({ ...d }))
   }
   return vista
+}
+
+/**
+ * Qué le falta a un participante para subir (4-nov-2026). Con empates compartidos, subir es alcanzar los puntos del
+ * grupo inmediato superior (y compartir su lugar). En el primer lugar: { primero: true, empatados } (cuántos más lo
+ * comparten). Si no: { primero: false, posicion, faltan }. null si no está en la clasificación (expulsado).
+ */
+export function distanciaAlSiguiente(clasificacion, participanteId) {
+  const lista = Array.isArray(clasificacion) ? clasificacion : []
+  const mia = lista.find((f) => f.participanteId === participanteId)
+  if (!mia) return null
+  if (mia.posicion === 1) return { primero: true, empatados: lista.filter((f) => f.posicion === 1).length - 1 }
+  const menor = Math.min(...lista.filter((f) => f.aciertos > mia.aciertos).map((f) => f.aciertos))
+  const grupo = lista.find((f) => f.aciertos === menor)
+  return { primero: false, posicion: grupo.posicion, faltan: menor - mia.aciertos }
+}
+
+// ── Clasificación provisional durante la competencia (4-nov-2026) ─────────────
+// Se calcula con las preguntas ya CERRADAS y con la misma regla del final: es calcularResultadosReto sobre una copia de
+// la sesión «terminada» justo al cerrar la última pregunta cerrada. Nada de la pregunta en turno entra en ella (no
+// revela nada mientras se puede responder) y hacia el celular no viajan claves, detalle ni ids.
+
+/** Preguntas cerradas en `ahoraMs`: las anteriores a la que está en turno (0 antes de empezar). */
+export function preguntasCerradas(sesion, ahoraMs) {
+  const f = faseReto(sesion, ahoraMs)
+  if (f.fase === FASES_RETO.terminada || f.fase === FASES_RETO.finalizada) return preguntasRealizadas(sesion)
+  return Number.isInteger(f.indice) ? f.indice : 0
+}
+
+/**
+ * Clasificación provisional con las primeras `cerradas` preguntas. Mismas entradas que calcularResultadosReto.
+ * Devuelve { ok: true, cerradas, clasificacion: [{ participanteId, nombreVisible, aciertos, respondidas, posicion }] }
+ * u { ok: false, codigo, error }.
+ */
+export function clasificacionParcialReto({ sesion, preguntas, claves, participantes, respuestas, cerradas }) {
+  const total = Array.isArray(preguntas) ? preguntas.length : 0
+  if (!Number.isInteger(cerradas) || cerradas < 1 || cerradas > total) return { ok: false, codigo: 'SIN_CERRADAS', error: 'Todavía no se cierra ninguna pregunta.' }
+  const turnos = turnosDe({ ...sesion, preguntas, totalPreguntas: total })
+  const cierre = momentoRealMs(sesion, turnos.slice(0, cerradas).reduce((a, b) => a + b, 0))
+  if (cierre == null) return { ok: false, codigo: 'SIN_CIERRE', error: 'La pregunta todavía no se cierra.' }
+  const r = calcularResultadosReto({ sesion: { ...sesion, terminadaMs: cierre }, preguntas, claves, participantes, respuestas })
+  if (!r.ok) return r
+  if (r.realizadas !== cerradas) return { ok: false, codigo: 'CIERRE_INCONSISTENTE', error: 'No se pudo calcular la clasificación.' }
+  return {
+    ok: true, cerradas,
+    clasificacion: r.clasificacion.map(({ participanteId, nombreVisible, aciertos, respondidas, posicion }) => ({ participanteId, nombreVisible, aciertos, respondidas, posicion })),
+  }
+}
+
+/** Lo que recibe UN celular de la clasificación provisional: lo mismo que la vista final, sin corrección. */
+export function vistaClasificacionParcial(parcial, participanteId) {
+  if (!parcial || !Number.isInteger(parcial.cerradas) || parcial.cerradas < 1) return null
+  const v = vistaResultadosParticipante({ ok: true, realizadas: parcial.cerradas, clasificacion: parcial.clasificacion }, participanteId)
+  return { cerradas: parcial.cerradas, top: v.top, propia: v.propia, totalParticipantes: v.totalParticipantes, siguiente: v.siguiente }
 }
 
 // ── Conservación de los datos ──────────────────────────────────────────────

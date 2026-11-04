@@ -11,10 +11,11 @@ import { aplicarCors } from './cors.js'
 import {
   getDb, FieldValue, ErrorReto, leerBody, leerCodigo, refs, ahoraReto, huellaToken, esOfensivo, nombresProtegidos,
   nombreRealEstudiante, participanteDeLaPeticion, estudianteInscrito, leerSesion, finalizarSiToca, responderError, resumenTiempo,
+  cerradasParaParcial, parcialAlDia,
 } from './retoComun.js'
 import {
   RETO_CFG, ESTADOS_RETO, FASES_RETO, modoIdentidadDe, faseReto, puedeFinalizar, puedeUnirse, registroParticipante, idParticipante,
-  validarAlias, puedeResponder, nombreVisible, vistaResultadosParticipante, tiempoRespuestaMs,
+  validarAlias, puedeResponder, nombreVisible, vistaResultadosParticipante, tiempoRespuestaMs, vistaClasificacionParcial,
 } from '../../src/utils/retoExpres.js'
 
 const metodoNoPermitido = (res) => res.status(405).json({ error: 'Método no permitido' })
@@ -164,9 +165,20 @@ export async function estadoReto(db, req, codigo, body) {
     salida.pregunta = { indice: t.indice, id: q.id, tipo: q.tipo, enunciado: q.enunciado, opciones: q.opciones, tiempoSeg: tiempoRespuestaMs(q) / 1000 }
     salida.yaRespondio = (await refs(db, codigo).respuesta(p.id, t.indice).get()).exists
   }
+  // Clasificación provisional (4-nov-2026): solo de preguntas ya cerradas y solo cuando hay una más nueva que la que el
+  // celular ya tiene (`parcialVisto`), para no leerla en cada consulta. Si falla, la competencia sigue igual.
+  if (sesion.estado === ESTADOS_RETO.en_curso) {
+    const visto = Number.isInteger(body?.parcialVisto) && body.parcialVisto >= 0 ? body.parcialVisto : 0
+    if (cerradasParaParcial(sesion, ahora) > visto) {
+      try {
+        const parcial = await parcialAlDia(db, codigo, sesion)
+        if ((parcial?.cerradas ?? 0) > visto) salida.parcial = vistaClasificacionParcial(parcial, p.id)
+      } catch (e) { console.error('reto-estado: no se pudo leer la clasificación provisional', codigo, e?.message) }
+    }
+  }
   if (sesion.estado === ESTADOS_RETO.finalizada) {
     const res = (await refs(db, codigo).resultados.get()).data()
-    if (res) salida.resultados = vistaResultadosParticipante(res, p.id, { modalidad: sesion.modalidad })
+    if (res) salida.resultados = vistaResultadosParticipante(res, p.id, { modalidad: sesion.modalidad, completa: true })
     // Inscritos (D9): para leer su corrección necesitan el texto de las preguntas REALIZADAS (las de su corrección).
     // Las que nunca se abrieron no se muestran; un externo no recibe nada de esto (E11).
     if (salida.resultados?.correccion) {

@@ -1440,6 +1440,13 @@ service cloud.firestore {
       allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
       allow write: if false;
     }
+    // Clasificación provisional durante la competencia (4-nov-2026): la calcula y escribe solo el servidor; el docente
+    // dueño la lee para el proyector. Los celulares la reciben por /api/subject/reto-estado, nunca de aquí. Antes de
+    // la primera pregunta cerrada todavía no existe: el proyector ya la escucha, por eso se permite leerla ausente.
+    match /retoParcial/{sesionId} {
+      allow read: if isAdmin() || (isDocente() && (resource == null || resource.data.docenteId == request.auth.uid));
+      allow write: if false;
+    }
     // Copia congelada de la clave al iniciar y reserva de alias únicos: solo el servidor. Ningún cliente las lee,
     // ni el docente ni el admin (la clave del docente sigue en activities/{id}/clave).
     match /retoClaves/{sesionId} {
