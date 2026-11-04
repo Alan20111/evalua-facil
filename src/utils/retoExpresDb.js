@@ -61,6 +61,11 @@ export async function quitarPregunta(activityId, preguntaId, restantes) {
   await sincronizarCantidad(activityId, restantes)
 }
 
+/** Pone el mismo tiempo para responder a todas las preguntas del reto (botón «Aplicar a todas»). */
+export async function aplicarTiempoATodas(activityId, preguntas, tiempoSeg) {
+  await Promise.all(preguntas.map((p) => actualizarPregunta(activityId, p.id, { tiempoSeg })))
+}
+
 /** Intercambia el orden de dos preguntas (subir / bajar). */
 export async function intercambiarOrden(activityId, a, b) {
   await Promise.all([

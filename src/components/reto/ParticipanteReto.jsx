@@ -17,7 +17,17 @@ import { muestraDeDesfase } from '../../utils/participacionVivo'
 import { ICONO } from '../../config/iconos'
 import { RETO_CFG } from '../../utils/retoExpres'
 import { guardarTokenReto, leerTokenReto, llamarReto } from '../../utils/retoExpresDb'
-import { COLORES_OPCION, letraOpcion, segundosRestantes, textoOpcion } from './opcionesReto'
+import { COLORES_OPCION, letraOpcion, segundosRestantes, textoContador, textoOpcion } from './opcionesReto'
+import { textoDuracion } from '../../utils/retoExpres'
+
+// «20 s cada una» si todas duran lo mismo; «de 20 s a 3 min» si no. Sin datos (servidor anterior), nada.
+function textoTiempos(tiempos) {
+  const lista = Array.isArray(tiempos) ? tiempos.filter((s) => Number.isFinite(s) && s > 0) : []
+  if (!lista.length) return ''
+  const min = Math.min(...lista)
+  const max = Math.max(...lista)
+  return min === max ? `${textoDuracion(min)} cada una` : `de ${textoDuracion(min)} a ${textoDuracion(max)} por pregunta`
+}
 
 const INTERVALO_MS = 2000
 
@@ -232,7 +242,7 @@ export default function ParticipanteReto({ codigo: codigoUrl = null, actividadId
         <div className="text-center">
           <p className="text-sm font-semibold text-accent">Reto Exprés</p>
           <h1 className="text-xl font-semibold text-on-surface">{titulo}</h1>
-          <p className="text-base text-muted mt-1">{RETO_CFG.TOTAL_PREGUNTAS} preguntas · 20 segundos cada una</p>
+          <p className="text-base text-muted mt-1">{RETO_CFG.TOTAL_PREGUNTAS} preguntas{textoTiempos(sesion.tiemposSeg) ? ` · ${textoTiempos(sesion.tiemposSeg)}` : ''}</p>
         </div>
         <form className="bg-surface-card rounded-card shadow-card p-4 space-y-4" onSubmit={(e) => { e.preventDefault(); entrar() }}>
           {conAlias && (
@@ -291,7 +301,7 @@ export default function ParticipanteReto({ codigo: codigoUrl = null, actividadId
       <div className="px-4 py-4 max-w-md mx-auto space-y-4">
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm font-semibold text-accent">Pregunta {n} de {sesion.totalPreguntas}</p>
-          <p className={`text-2xl font-bold tabular-nums ${s != null && s <= 5 ? 'text-red-800' : 'text-on-surface'}`} aria-live="off" aria-label={`Quedan ${s} segundos`}>{s}</p>
+          <p className={`text-2xl font-bold tabular-nums ${s != null && s <= 5 ? 'text-red-800' : 'text-on-surface'}`} aria-live="off" aria-label={`Quedan ${s} segundos`}>{textoContador(s)}</p>
         </div>
         <h1 className="text-xl font-semibold text-on-surface break-words">{q?.enunciado}</h1>
         {respondida ? (

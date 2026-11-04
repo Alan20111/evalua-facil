@@ -15,6 +15,7 @@ import ConfirmacionCreditosModal from '../../components/ConfirmacionCreditosModa
 import ReactivosIAReview from '../../components/evaluacion/ReactivosIAReview'
 import FuentesIAInput from '../../components/ia/FuentesIAInput'
 import EditorPreguntaReto from '../../components/reto/EditorPreguntaReto'
+import { OPCIONES_TIEMPO_RETO } from '../../components/reto/opcionesReto'
 import ImportarReactivosReto from '../../components/reto/ImportarReactivosReto'
 import HistorialRetoSesiones from '../../components/reto/HistorialRetoSesiones'
 import { EsqueletoRetoDocente } from '../../components/esqueletos'
@@ -25,12 +26,15 @@ import { reactivosDesdePropuesta } from '../../utils/reactivosIA'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { TEACHER_CONTAINER } from '../../config/layout'
 import {
-  MODALIDADES_RETO, MOTIVOS_INCOMPATIBLE, RETO_CFG, estadoPreguntasReto, preguntaRetoDesdePropuestaIA, puedeFinalizar,
-  preguntaRetoDesdeReactivo, reactivoCompatibleReto,
+  MODALIDADES_RETO, MOTIVOS_INCOMPATIBLE, RETO_CFG, TIEMPO_POR_OMISION_SEG, duracionTotalMs, duracionValida, estadoPreguntasReto,
+  preguntaRetoDesdePropuestaIA, puedeFinalizar, preguntaRetoDesdeReactivo, reactivoCompatibleReto, textoDuracion, tiempoRespuestaMs,
 } from '../../utils/retoExpres'
 import {
-  agregarPreguntas, cargarReto, controlarReto, crearSesionReto, editarPregunta, guardarDatosReto, intercambiarOrden, quitarPregunta, sesionesDeReto,
+  agregarPreguntas, aplicarTiempoATodas, cargarReto, controlarReto, crearSesionReto, editarPregunta, guardarDatosReto, intercambiarOrden, quitarPregunta, sesionesDeReto,
 } from '../../utils/retoExpresDb'
+
+// Tiempo por omisión del reto: el guardado si es válido; si no (retos anteriores a esta opción), 20 s.
+const tiempoDelReto = (actividad) => (duracionValida(actividad?.reto?.tiempoSeg) ? actividad.reto.tiempoSeg : TIEMPO_POR_OMISION_SEG)
 
 const MIN_QUIERE_EVALUAR = 40 // mismo mínimo que exige el servidor para `reactivos`
 const TIPOS_IA = [
@@ -54,6 +58,7 @@ function TarjetaPregunta({ p, i, total, onEditar, onQuitar, onMover }) {
         <span className="text-sm font-semibold text-accent flex-shrink-0">{i + 1}.</span>
         <div className="flex-1 min-w-0 space-y-1">
           <p className="text-base text-on-surface break-words">{p.enunciado}</p>
+          <p className="text-xs text-hint">Tiempo: {textoDuracion(tiempoRespuestaMs(p) / 1000)}</p>
           <ul className="text-sm text-muted space-y-0.5">
             {(p.opciones || []).map((o) => (
               <li key={o.id} className={o.id === p.respuestaCorrecta ? 'text-emerald-700 font-medium' : undefined}>
@@ -85,7 +90,8 @@ export default function RetoPage() {
   const [actividad, setActividad] = useState(null)
   const [asignatura, setAsignatura] = useState(null)
   const [preguntas, setPreguntas] = useState([])
-  const [datos, setDatos] = useState({ nombre: '', instrucciones: '', modoIdentidad: 'nombre', calificable: false })
+  const [datos, setDatos] = useState({ nombre: '', instrucciones: '', modoIdentidad: 'nombre', calificable: false, tiempoSeg: TIEMPO_POR_OMISION_SEG })
+  const [aplicandoTiempo, setAplicandoTiempo] = useState(false)
   const [guardandoDatos, setGuardandoDatos] = useState(false)
   const [editor, setEditor] = useState(null) // { pregunta } | { pregunta: null } para nueva
   const [importando, setImportando] = useState(false)
@@ -130,6 +136,7 @@ export default function RetoPage() {
           setDatos({
             nombre: r.actividad.nombre || '', instrucciones: r.actividad.instrucciones || '',
             modoIdentidad: r.actividad.reto?.modoIdentidad || 'nombre', calificable: r.actividad.reto?.calificable === true,
+            tiempoSeg: tiempoDelReto(r.actividad),
           })
           getDoc(doc(db, 'subjects', r.actividad.asignaturaId))
             .then((s) => { if (vigente) setAsignatura(s.exists() ? { id: s.id, ...s.data() } : null) })
@@ -152,20 +159,25 @@ export default function RetoPage() {
 
   const externo = actividad.reto?.modalidad === 'externo'
   const estado = estadoPreguntasReto(preguntas)
-  const original = { nombre: actividad.nombre || '', instrucciones: actividad.instrucciones || '', modoIdentidad: actividad.reto?.modoIdentidad || 'nombre', calificable: actividad.reto?.calificable === true }
+  const original = { nombre: actividad.nombre || '', instrucciones: actividad.instrucciones || '', modoIdentidad: actividad.reto?.modoIdentidad || 'nombre', calificable: actividad.reto?.calificable === true, tiempoSeg: tiempoDelReto(actividad) }
+  const tiempoReto = tiempoDelReto(actividad)
+  // ¿Alguna pregunta tiene un tiempo distinto del elegido? Entonces tiene sentido «Aplicar a todas».
+  const tiemposDistintos = preguntas.some((p) => tiempoRespuestaMs(p) !== datos.tiempoSeg * 1000)
+  const duracionAprox = preguntas.length ? Math.ceil(duracionTotalMs({ totalPreguntas: preguntas.length, preguntas }) / 60000) : 0
   const sucio = JSON.stringify(datos) !== JSON.stringify(original)
 
   async function guardarDatos() {
     setGuardandoDatos(true)
     try {
       const cambios = externo
-        ? { nombre: datos.nombre, instrucciones: datos.instrucciones }
-        : { nombre: datos.nombre, instrucciones: datos.instrucciones, modoIdentidad: datos.modoIdentidad, calificable: datos.calificable }
+        ? { nombre: datos.nombre, instrucciones: datos.instrucciones, tiempoSeg: datos.tiempoSeg }
+        : { nombre: datos.nombre, instrucciones: datos.instrucciones, modoIdentidad: datos.modoIdentidad, calificable: datos.calificable, tiempoSeg: datos.tiempoSeg }
       const patch = await guardarDatosReto(actividad, cambios)
       setActividad((a) => ({
         ...a, ...('nombre' in patch && { nombre: patch.nombre }), ...('instrucciones' in patch && { instrucciones: patch.instrucciones }),
         ...('sinCalificacion' in patch && { sinCalificacion: patch.sinCalificacion }),
-        reto: { ...a.reto, ...('reto.modoIdentidad' in patch && { modoIdentidad: patch['reto.modoIdentidad'] }), ...('reto.calificable' in patch && { calificable: patch['reto.calificable'] }) },
+        reto: { ...a.reto, ...('reto.modoIdentidad' in patch && { modoIdentidad: patch['reto.modoIdentidad'] }), ...('reto.calificable' in patch && { calificable: patch['reto.calificable'] }),
+          ...('reto.tiempoSeg' in patch && { tiempoSeg: patch['reto.tiempoSeg'] }) },
       }))
       toast('Datos del reto guardados')
     } catch (e) {
@@ -175,14 +187,28 @@ export default function RetoPage() {
     }
   }
 
+  // «Aplicar a todas»: el tiempo elegido en Datos del reto pasa a todas las preguntas que ya tiene.
+  async function aplicarTiempo() {
+    setAplicandoTiempo(true)
+    try {
+      await aplicarTiempoATodas(activityId, preguntas, datos.tiempoSeg)
+      setPreguntas((ps) => ps.map((p) => ({ ...p, tiempoSeg: datos.tiempoSeg })))
+      toast(`Todas las preguntas tienen ${textoDuracion(datos.tiempoSeg)} para responder`)
+    } catch (e) {
+      toast(e.message || 'No se pudo cambiar el tiempo', 'error')
+    } finally {
+      setAplicandoTiempo(false)
+    }
+  }
+
   async function guardarPregunta(datosPregunta) {
     try {
       if (editor?.pregunta) {
-        const base = preguntaRetoDesdeReactivo(datosPregunta, { orden: editor.pregunta.orden })
+        const base = preguntaRetoDesdeReactivo(datosPregunta, { orden: editor.pregunta.orden, tiempoSeg: datosPregunta.tiempoSeg })
         await editarPregunta(activityId, editor.pregunta.id, base)
         setPreguntas((ps) => ps.map((p) => (p.id === editor.pregunta.id ? { ...p, ...base } : p)))
       } else {
-        const nueva = preguntaRetoDesdeReactivo(datosPregunta, { orden: siguienteOrden(preguntas) })
+        const nueva = preguntaRetoDesdeReactivo(datosPregunta, { orden: siguienteOrden(preguntas), tiempoSeg: datosPregunta.tiempoSeg })
         setPreguntas(await agregarPreguntas(activityId, preguntas, [nueva]))
       }
       setEditor(null)
@@ -225,7 +251,7 @@ export default function RetoPage() {
 
   async function importar(seleccion) {
     let orden = siguienteOrden(preguntas)
-    const nuevas = seleccion.map(({ reactivo, deBanco }) => preguntaRetoDesdeReactivo(reactivo, { orden: orden++, origenBancoId: deBanco ? reactivo.id : null })).filter(Boolean)
+    const nuevas = seleccion.map(({ reactivo, deBanco }) => preguntaRetoDesdeReactivo(reactivo, { orden: orden++, origenBancoId: deBanco ? reactivo.id : null, tiempoSeg: tiempoReto })).filter(Boolean)
     try {
       setPreguntas(await agregarPreguntas(activityId, preguntas, nuevas))
       setImportando(false)
@@ -291,7 +317,7 @@ export default function RetoPage() {
 
   async function guardarPropuesta(items) {
     let orden = siguienteOrden(preguntas)
-    const nuevas = items.map((it) => preguntaRetoDesdePropuestaIA(it, { orden: orden++ })).filter(Boolean)
+    const nuevas = items.map((it) => preguntaRetoDesdePropuestaIA(it, { orden: orden++, tiempoSeg: tiempoReto })).filter(Boolean)
     const omitidas = items.length - nuevas.length
     const caben = nuevas.slice(0, Math.max(0, RETO_CFG.TOTAL_PREGUNTAS - preguntas.length))
     try {
@@ -340,6 +366,15 @@ export default function RetoPage() {
               )}
             </>
           )}
+          <div className="space-y-2">
+            <Select label="Tiempo por pregunta" value={datos.tiempoSeg} onChange={(v) => setDatos((d) => ({ ...d, tiempoSeg: Number(v) }))}
+              options={OPCIONES_TIEMPO_RETO} hint="Las preguntas nuevas nacen con este tiempo. Cada una puede tener el suyo desde su editor." />
+            {preguntas.length > 0 && tiemposDistintos && (
+              <Button variant="secondary" size="sm" busy={aplicandoTiempo} onClick={aplicarTiempo}>
+                Aplicar {textoDuracion(datos.tiempoSeg)} a todas las preguntas
+              </Button>
+            )}
+          </div>
           <p className="text-xs text-hint">La modalidad no se puede cambiar. Para usar la otra, crea otro reto.</p>
           <div className="flex justify-end">
             <Button icon={Save} onClick={guardarDatos} busy={guardandoDatos} disabled={!sucio || !datos.nombre.trim()}>Guardar datos</Button>
@@ -354,7 +389,8 @@ export default function RetoPage() {
           <p className="text-sm text-muted">
             {estado.completo ? 'El reto tiene sus 10 preguntas.'
               : estado.sobran ? `${estado.sobran === 1 ? 'Sobra' : 'Sobran'} ${estado.sobran}: quita las que no vayas a usar.`
-                : `${estado.faltan === 1 ? 'Falta' : 'Faltan'} ${estado.faltan} para completar las 10. Cada pregunta se responde en 20 segundos.`}
+                : `${estado.faltan === 1 ? 'Falta' : 'Faltan'} ${estado.faltan} para completar las 10.`}
+            {duracionAprox > 0 && ` Duración aproximada: ${duracionAprox} min${estado.faltan ? ' con las preguntas actuales' : ''}.`}
           </p>
           {preguntas.length > 0 && (
             <ol className="space-y-2">
@@ -388,7 +424,7 @@ export default function RetoPage() {
         </div>
       </div>
 
-      {editor && <EditorPreguntaReto open pregunta={editor.pregunta} onClose={() => setEditor(null)} onGuardar={guardarPregunta} />}
+      {editor && <EditorPreguntaReto open pregunta={editor.pregunta} tiempoPorOmision={tiempoReto} onClose={() => setEditor(null)} onGuardar={guardarPregunta} />}
       {importando && (
         <ImportarReactivosReto open asignaturaId={actividad.asignaturaId} docenteId={currentUser?.uid} faltan={estado.faltan}
           onClose={() => setImportando(false)} onImportar={importar} />

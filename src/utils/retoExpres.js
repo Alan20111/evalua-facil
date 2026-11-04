@@ -11,8 +11,9 @@
 //     RELOJ DEL SERVIDOR. La pregunta en curso, su apertura y su cierre se CALCULAN desde ahí; nadie tiene
 //     que «avanzar» la competencia. Por eso el avance automático no depende del proyector: cerrarlo,
 //     recargar o perder la conexión no reinicia ni detiene el tiempo.
-//   · Cada pregunta ocupa un turno fijo: PREPARACION_MS («Prepárate…», sin contenido) + TIEMPO_RESPUESTA_MS.
-//     Al terminar un turno empieza el siguiente.
+//   · Cada pregunta ocupa un turno: PREPARACION_MS («Prepárate…», sin contenido) + SU tiempo para responder
+//     (`tiempoSeg`, de DURACIONES_RETO_SEG; 4-nov-2026). Al terminar un turno empieza el siguiente. La sesión congela el
+//     tiempo de cada pregunta al crearse; una pregunta sin tiempo válido usa el de siempre (20 s).
 //   · Una pausa congela ese reloj (en preparación o con la pregunta abierta). Mientras dura, nadie puede
 //     responder; al reanudar se conserva el tiempo que faltaba.
 //   · Las pausas solo se agregan al final (con `desdeMs` ≥ la hora en que se pide), de modo que el estado en un
@@ -39,7 +40,7 @@ export const RETO_CFG = {
   CATEGORIA: 'reto',
   TOTAL_PREGUNTAS: 10, // exactamente 10 (D12)
   PREPARACION_MS: 4000, // mismo margen que Participación en vivo: todos reciben la pregunta antes de que abra
-  TIEMPO_RESPUESTA_MS: 20000, // 20 segundos por pregunta
+  TIEMPO_RESPUESTA_MS: 20000, // tiempo POR OMISIÓN para responder (20 s): el de una pregunta sin `tiempoSeg` válido
   MAX_PAUSAS: 30, // acota el tamaño del documento de la sesión
   ALIAS_MIN: 3,
   ALIAS_MAX: 20,
@@ -48,6 +49,30 @@ export const RETO_CFG = {
   // ¿Se puede marcar un reto de inscritos como calificable? Estuvo apagado hasta la etapa 5 (aplicar calificaciones):
   // sin ella, un reto calificable publicado contaba como 0 para todo el grupo sin forma de corregirlo.
   CALIFICABLE_DISPONIBLE: true,
+}
+
+// Tiempo para responder cada pregunta (4-nov-2026): solo estas duraciones, en segundos. El docente elige una por reto
+// (la de las preguntas nuevas) y puede cambiarla en cada pregunta.
+export const DURACIONES_RETO_SEG = [20, 30, 60, 120, 180, 300]
+export const TIEMPO_POR_OMISION_SEG = RETO_CFG.TIEMPO_RESPUESTA_MS / 1000
+
+/** ¿Es una de las duraciones permitidas? */
+export function duracionValida(seg) {
+  return DURACIONES_RETO_SEG.includes(seg)
+}
+
+/** «20 s», «1 min», «2 min 30 s»: cómo se lee una duración. */
+export function textoDuracion(seg) {
+  if (!Number.isFinite(seg) || seg < 0) return ''
+  const m = Math.floor(seg / 60)
+  const s = Math.round(seg % 60)
+  if (!m) return `${s} s`
+  return s ? `${m} min ${s} s` : `${m} min`
+}
+
+/** Tiempo para responder la pregunta, en ms. Sin `tiempoSeg` válido, el de siempre (20 s). */
+export function tiempoRespuestaMs(pregunta) {
+  return duracionValida(pregunta?.tiempoSeg) ? pregunta.tiempoSeg * 1000 : RETO_CFG.TIEMPO_RESPUESTA_MS
 }
 
 // Tipos que se califican solos: los mismos objetivos de las evaluaciones (opción múltiple y verdadero/falso).
@@ -119,7 +144,27 @@ export const FASES_RETO = {
   finalizada: 'finalizada', // resultados calculados
 }
 
-const duracionTurno = () => RETO_CFG.PREPARACION_MS + RETO_CFG.TIEMPO_RESPUESTA_MS
+// Duración de cada turno (preparación + tiempo de esa pregunta) según las preguntas congeladas en la sesión.
+function turnosDe(sesion) {
+  const preguntas = Array.isArray(sesion?.preguntas) ? sesion.preguntas : []
+  return Array.from({ length: totalDe(sesion) }, (_, i) => RETO_CFG.PREPARACION_MS + tiempoRespuestaMs(preguntas[i]))
+}
+
+/** En qué turno cae `efectivoMs`: { indice, inicio, turno }. indice = total cuando ya pasó la última pregunta. */
+function ubicarTurno(sesion, efectivoMs) {
+  const turnos = turnosDe(sesion)
+  let inicio = 0
+  for (let i = 0; i < turnos.length; i++) {
+    if (efectivoMs < inicio + turnos[i]) return { indice: i, inicio, turno: turnos[i] }
+    inicio += turnos[i]
+  }
+  return { indice: turnos.length, inicio, turno: 0 }
+}
+
+/** Duración total de la competencia sin pausas, en ms (preparación incluida). */
+export function duracionTotalMs(sesion) {
+  return turnosDe(sesion).reduce((a, b) => a + b, 0)
+}
 
 const esEnteroNoNegativo = (n) => Number.isInteger(n) && n >= 0
 
@@ -216,17 +261,16 @@ export function faseReto(sesion, ahoraMs) {
     return { fase: FASES_RETO.espera, ...vacio }
   }
   const total = totalDe(sesion)
-  const turno = duracionTurno()
   const efectivo = tiempoEfectivoMs(sesion, ahoraMs)
-  if (efectivo >= total * turno) return { fase: FASES_RETO.terminada, ...vacio }
+  const { indice, inicio, turno } = ubicarTurno(sesion, efectivo)
+  if (indice >= total) return { fase: FASES_RETO.terminada, ...vacio }
 
-  const indice = Math.floor(efectivo / turno)
-  const dentro = efectivo - indice * turno
+  const dentro = efectivo - inicio
   const enPreparacion = dentro < RETO_CFG.PREPARACION_MS
   const pausada = pausadaEn(sesion, ahoraMs)
   const base = {
     indice,
-    restanteMs: enPreparacion ? null : RETO_CFG.PREPARACION_MS + RETO_CFG.TIEMPO_RESPUESTA_MS - dentro,
+    restanteMs: enPreparacion ? null : turno - dentro,
     faltaParaAbrirMs: enPreparacion ? RETO_CFG.PREPARACION_MS - dentro : null,
   }
   if (pausada) {
@@ -236,8 +280,8 @@ export function faseReto(sesion, ahoraMs) {
     fase: enPreparacion ? FASES_RETO.preparando : FASES_RETO.abierta,
     faseAlPausar: null,
     ...base,
-    abreMs: momentoRealMs(sesion, indice * turno + RETO_CFG.PREPARACION_MS),
-    cierraMs: momentoRealMs(sesion, (indice + 1) * turno),
+    abreMs: momentoRealMs(sesion, inicio + RETO_CFG.PREPARACION_MS),
+    cierraMs: momentoRealMs(sesion, inicio + turno),
   }
 }
 
@@ -319,16 +363,16 @@ export function preguntasRealizadas(sesion) {
   const total = totalDe(sesion)
   if (!esEnteroNoNegativo(sesion?.inicioMs)) return 0
   if (!esEnteroNoNegativo(sesion?.terminadaMs)) return total
-  return Math.min(total, Math.floor(tiempoEfectivoMs(sesion, sesion.terminadaMs) / duracionTurno()))
+  return Math.min(total, ubicarTurno(sesion, tiempoEfectivoMs(sesion, sesion.terminadaMs)).indice)
 }
 
 /** Índice de la pregunta que estaba ABIERTA (o pausada ya abierta) cuando el docente terminó; null si ninguna. */
 export function preguntaInterrumpida(sesion) {
   if (!esEnteroNoNegativo(sesion?.inicioMs) || !esEnteroNoNegativo(sesion?.terminadaMs)) return null
-  const realizadas = preguntasRealizadas(sesion)
-  if (realizadas >= totalDe(sesion)) return null
-  const dentro = tiempoEfectivoMs(sesion, sesion.terminadaMs) - realizadas * duracionTurno()
-  return dentro >= RETO_CFG.PREPARACION_MS ? realizadas : null
+  const { indice, inicio } = ubicarTurno(sesion, tiempoEfectivoMs(sesion, sesion.terminadaMs))
+  if (indice >= totalDe(sesion)) return null
+  const dentro = tiempoEfectivoMs(sesion, sesion.terminadaMs) - inicio
+  return dentro >= RETO_CFG.PREPARACION_MS ? indice : null
 }
 
 // ── Participantes ───────────────────────────────────────────────────────────
@@ -870,11 +914,13 @@ export const MOTIVOS_INCOMPATIBLE = {
  * nunca enlaza ni modifica el original (D10). null si no es compatible. `orden` = posición en el reto.
  * Devuelve los datos para crearPreguntasEnLote (que separa la clave).
  */
-export function preguntaRetoDesdeReactivo(r, { orden, origenBancoId = null } = {}) {
+export function preguntaRetoDesdeReactivo(r, { orden, origenBancoId = null, tiempoSeg } = {}) {
   if (!reactivoCompatibleReto(r).ok) return null
   const base = {
     tipo: r.tipo, enunciado: texto(r.enunciado, RETO_LIMITES.MAX_ENUNCIADO), ponderacion: 1,
     retroalimentacion: null, imagenUrl: null, orden: Number.isInteger(orden) ? orden : 0, origenBancoId,
+    // Tiempo para responder: el que se pida (el del reto o el elegido en el editor); si no es válido, el de siempre.
+    tiempoSeg: duracionValida(tiempoSeg) ? tiempoSeg : TIEMPO_POR_OMISION_SEG,
   }
   if (r.tipo === 'verdadero_falso') return { ...base, opciones: OPCIONES_VF.map((o) => ({ ...o })), respuestaCorrecta: r.respuestaCorrecta }
   const opciones = r.opciones
@@ -888,9 +934,9 @@ export function preguntaRetoDesdeReactivo(r, { orden, origenBancoId = null } = {
  * ({ tipo, enunciado, opciones: [texto×4], correcta: índice | 'v' | 'f' }). Mismo armado que el editor de
  * evaluaciones. null si no queda una pregunta válida para el reto.
  */
-export function preguntaRetoDesdePropuestaIA(item, { orden, nuevoId = nuevoIdOpcion } = {}) {
+export function preguntaRetoDesdePropuestaIA(item, { orden, nuevoId = nuevoIdOpcion, tiempoSeg } = {}) {
   if (item?.tipo === 'verdadero_falso') {
-    return preguntaRetoDesdeReactivo({ tipo: 'verdadero_falso', enunciado: item.enunciado, respuestaCorrecta: item.correcta === 'f' ? 'f' : 'v' }, { orden })
+    return preguntaRetoDesdeReactivo({ tipo: 'verdadero_falso', enunciado: item.enunciado, respuestaCorrecta: item.correcta === 'f' ? 'f' : 'v' }, { orden, tiempoSeg })
   }
   if (item?.tipo !== 'opcion_multiple') return null
   const textos = (Array.isArray(item.opciones) ? item.opciones : []).map((t) => texto(t, RETO_LIMITES.MAX_OPCION))
@@ -898,7 +944,7 @@ export function preguntaRetoDesdePropuestaIA(item, { orden, nuevoId = nuevoIdOpc
   const opciones = conTexto.map((x) => ({ id: nuevoId(), texto: x.t }))
   const idx = conTexto.findIndex((x) => x.i === item.correcta)
   if (idx < 0) return null // la correcta quedó sin texto: el docente debe corregirla
-  return preguntaRetoDesdeReactivo({ tipo: 'opcion_multiple', enunciado: item.enunciado, opciones, respuestaCorrecta: opciones[idx].id }, { orden })
+  return preguntaRetoDesdeReactivo({ tipo: 'opcion_multiple', enunciado: item.enunciado, opciones, respuestaCorrecta: opciones[idx].id }, { orden, tiempoSeg })
 }
 
 /**
@@ -941,7 +987,8 @@ export function datosNuevoReto({ nombre, modalidad, modoIdentidad, calificable =
       oculta: true, publishAt: null, publishedAt: null, maxCalif: 10, notificarDocente: false,
       sinCalificacion: conf.config.sinCalificacion,
       parcial, orden: Number.isInteger(orden) && orden > 0 ? orden : 1, asignaturaId, docenteId,
-      reto: { modalidad: conf.config.modalidad, modoIdentidad: conf.config.modoIdentidad, calificable: conf.config.calificable },
+      // tiempoSeg: el tiempo con el que nacen las preguntas de este reto (cada una puede cambiarlo).
+      reto: { modalidad: conf.config.modalidad, modoIdentidad: conf.config.modoIdentidad, calificable: conf.config.calificable, tiempoSeg: TIEMPO_POR_OMISION_SEG },
     },
   }
 }
@@ -950,7 +997,7 @@ export function datosNuevoReto({ nombre, modalidad, modoIdentidad, calificable =
  * Cambios permitidos al editar los datos de un reto: nombre, instrucciones, identidad (solo inscritos) y
  * calificable (solo inscritos). La modalidad nunca. Devuelve { ok: true, patch } o { ok: false, codigo, error }.
  */
-export function cambiosDatosReto(reto, { nombre, instrucciones, modoIdentidad, calificable } = {}) {
+export function cambiosDatosReto(reto, { nombre, instrucciones, modoIdentidad, calificable, tiempoSeg } = {}) {
   const modalidad = reto?.reto?.modalidad
   if (!modalidadValida(modalidad)) return { ok: false, codigo: 'MODALIDAD_INVALIDA', error: 'Este reto no está bien configurado.' }
   const patch = {}
@@ -960,6 +1007,11 @@ export function cambiosDatosReto(reto, { nombre, instrucciones, modoIdentidad, c
     patch.nombre = nom
   }
   if (instrucciones !== undefined) patch.instrucciones = texto(instrucciones, 1000)
+  // Tiempo por omisión del reto (las dos modalidades): el de las preguntas que se agreguen desde ahora.
+  if (tiempoSeg !== undefined) {
+    if (!duracionValida(tiempoSeg)) return { ok: false, codigo: 'TIEMPO_INVALIDO', error: 'Elige un tiempo de la lista.' }
+    patch['reto.tiempoSeg'] = tiempoSeg
+  }
   if (modalidad === 'externo') {
     if ((modoIdentidad !== undefined && modoIdentidad !== 'alias') || calificable === true) {
       return { ok: false, codigo: 'EXTERNO_FIJO', error: 'Un reto externo siempre usa alias y nunca es calificable.' }

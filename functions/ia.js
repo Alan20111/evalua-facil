@@ -2162,13 +2162,13 @@ const REACTIVOS_PADRES_VALIDOS = { cuestionario: 'cuestionario', examen: 'examen
 // Reto Exprés (docs/RETO_EXPRES.md, D2/D12/S4): SOLO 'reactivos' acepta un reto como padre. Va en un mapa aparte a
 // propósito: REACTIVOS_PADRES_VALIDOS también lo usa crear_evaluacion_ia, que no debe aceptar un reto.
 // Con un reto como padre: solo opción múltiple y verdadero/falso, nunca más de los que faltan para llegar a 10,
-// enunciados breves (se responden en 20 s desde un celular) y el cobro se etiqueta «Reto Exprés» (detalle.funcion).
+// enunciados breves (se leen y responden desde un celular) y el cobro se etiqueta «Reto Exprés» (detalle.funcion).
 const REACTIVOS_PADRE_RETO = 'reto'
 const RETO_TOTAL_PREGUNTAS = 10 // espejo de RETO_CFG.TOTAL_PREGUNTAS (src/utils/retoExpres.js); una prueba los compara
 const RETO_TIPOS_PERMITIDOS = ['opcion_multiple', 'verdadero_falso'] // espejo de TIPOS_OBJETIVOS
 // S4: solo para Reto Exprés; las instrucciones de cuestionarios y exámenes no cambian.
 const RETO_INSTRUCCION_BREVEDAD =
-  'ES UN RETO EXPRÉS: una competencia en vivo en la que cada pregunta se lee y se responde en 20 segundos desde un ' +
+  'ES UN RETO EXPRÉS: una competencia en vivo en la que cada pregunta se lee y se responde con tiempo límite desde un ' +
   'celular. Cada enunciado debe ser breve y directo, de 200 caracteres como máximo. Cada opción debe ser concisa: ' +
   'una frase corta que se lea de un vistazo en la pantalla de un teléfono.\n\n'
 const MIN_QUIERE_EVALUAR = 40

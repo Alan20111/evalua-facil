@@ -33,7 +33,7 @@ function detector() {
   return moderacion
 }
 
-// Reloj del servidor. Las pruebas lo sustituyen (fijarRelojReto) para recorrer los 20 s de cada pregunta sin esperar.
+// Reloj del servidor. Las pruebas lo sustituyen (fijarRelojReto) para recorrer el tiempo de cada pregunta sin esperar.
 let reloj = () => Date.now()
 export const ahoraReto = () => reloj()
 export function fijarRelojReto(fn) { reloj = typeof fn === 'function' ? fn : () => Date.now() }

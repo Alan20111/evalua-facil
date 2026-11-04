@@ -2,8 +2,9 @@
 // «Otra». La validación es la misma que se usa al importar (reactivoCompatibleReto).
 import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
-import { Button, IconButton, Input, Modal, Radio, RadioGroup, Textarea } from '../ui'
-import { MOTIVOS_INCOMPATIBLE, RETO_LIMITES, nuevoIdOpcion, reactivoCompatibleReto } from '../../utils/retoExpres'
+import { Button, IconButton, Input, Modal, Radio, RadioGroup, Select, Textarea } from '../ui'
+import { MOTIVOS_INCOMPATIBLE, RETO_LIMITES, TIEMPO_POR_OMISION_SEG, duracionValida, nuevoIdOpcion, reactivoCompatibleReto } from '../../utils/retoExpres'
+import { OPCIONES_TIEMPO_RETO } from './opcionesReto'
 
 const TIPOS = [
   { value: 'opcion_multiple', label: 'Opción múltiple' },
@@ -25,8 +26,11 @@ function nuevaOpcion() {
   return { id: nuevoIdOpcion(), texto: '' }
 }
 
-export default function EditorPreguntaReto({ open, pregunta = null, onClose, onGuardar }) {
+// `tiempoPorOmision`: el del reto, con el que nace una pregunta nueva (o una vieja sin tiempo propio).
+export default function EditorPreguntaReto({ open, pregunta = null, tiempoPorOmision = TIEMPO_POR_OMISION_SEG, onClose, onGuardar }) {
   const [f, setF] = useState(() => inicial(pregunta))
+  const [tiempoSeg, setTiempoSeg] = useState(() => (duracionValida(pregunta?.tiempoSeg) ? pregunta.tiempoSeg
+    : duracionValida(tiempoPorOmision) ? tiempoPorOmision : TIEMPO_POR_OMISION_SEG))
   const [guardando, setGuardando] = useState(false)
   const [tocado, setTocado] = useState(false)
 
@@ -47,7 +51,7 @@ export default function EditorPreguntaReto({ open, pregunta = null, onClose, onG
     if (!validez.ok) return
     setGuardando(true)
     try {
-      await onGuardar(datos)
+      await onGuardar({ ...datos, tiempoSeg })
     } finally {
       setGuardando(false)
     }
@@ -66,7 +70,7 @@ export default function EditorPreguntaReto({ open, pregunta = null, onClose, onG
         <div>
           <Textarea label="Enunciado" value={f.enunciado} rows={3} autoResize maxLength={RETO_LIMITES.MAX_ENUNCIADO}
             onChange={(e) => setF((s) => ({ ...s, enunciado: e.target.value }))}
-            hint={`${largo} caracteres · se recomiendan ${RETO_LIMITES.ENUNCIADO_RECOMENDADO} como máximo para leerla en 20 segundos`}
+            hint={`${largo} caracteres · se recomiendan ${RETO_LIMITES.ENUNCIADO_RECOMENDADO} como máximo para leerla rápido en el celular`}
             error={tocado && !largo ? 'Escribe el enunciado.' : undefined} />
         </div>
         {f.tipo === 'opcion_multiple' ? (
@@ -90,6 +94,8 @@ export default function EditorPreguntaReto({ open, pregunta = null, onClose, onG
           <RadioGroup label="Respuesta correcta" name="reto-vf" value={f.correctaVF} onChange={(v) => setF((s) => ({ ...s, correctaVF: v }))}
             options={[{ value: 'v', label: 'Verdadero' }, { value: 'f', label: 'Falso' }]} />
         )}
+        <Select label="Tiempo para responder" value={tiempoSeg} onChange={(v) => setTiempoSeg(Number(v))} options={OPCIONES_TIEMPO_RETO}
+          hint="Empieza a contar cuando aparece la pregunta; al terminar, se cierra sola." />
         {tocado && !validez.ok && largo > 0 && (
           <p role="alert" className="text-sm text-red-600">{MOTIVOS_INCOMPATIBLE[validez.motivo] || 'Revisa la pregunta.'}</p>
         )}

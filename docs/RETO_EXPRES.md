@@ -3,9 +3,8 @@
 Competencia educativa en vivo, inspirada en Kahoot, dentro de Evalúa Fácil. El docente organiza y proyecta la
 competencia desde su computadora; los participantes responden desde el celular.
 
-> Estado (3-nov-2026): etapas 0 y 0-bis (lógica pura), 1 (reglas de las colecciones `reto*`), 1-bis (candado de
-> la modalidad externa en `activities` y `submissions`, y `retoCupos`), 2 (crear y armar el reto), 3 (servidor en
-> vivo), 4 (pantallas) y 5 (aplicar a calificaciones) implementadas en una rama sin publicar. Nada de esto está en producción. Cada etapa se autoriza por separado
+> Estado (4-nov-2026): etapas 0 a 5 EN PRODUCCIÓN (PR #1694), con archivos de referencia en la IA (#1696). El tiempo
+> configurable por pregunta (§2, «Tiempo») está en una rama aparte. Falta la etapa 6 (prueba con 40 teléfonos). Cada etapa se autoriza por separado
 > (ver `AGENTS.md`), y las etapas 2, 3 y 4 se fusionan JUNTAS cuando estén terminadas y verificadas (S1).
 
 - Lógica pura: `src/utils/retoExpres.js` · pruebas: `test/reto-expres.test.mjs` (`node test/reto-expres.test.mjs`)
@@ -52,8 +51,17 @@ La modalidad se elige al **crear** el reto y **nunca cambia** (E10). Para cambia
 - No consumen créditos: entrar, responder, el temporizador, la clasificación ni consultar resultados.
 - El movimiento se muestra como «Reto Exprés» sin alterar el ledger, importes, saldos ni otras etiquetas.
 
-### Tiempo (D3, etapa 0)
-- Cada pregunta: **4 s de preparación** (no se muestra ni se responde) + **20 s** para responder.
+### Tiempo (D3, etapa 0; tiempo por pregunta desde el 4-nov-2026)
+- Cada pregunta: **4 s de preparación** (no se muestra ni se responde) + **su tiempo para responder**, que elige el
+  docente: **20 s, 30 s, 1 min, 2 min, 3 min o 5 min** (`DURACIONES_RETO_SEG`).
+  - **Tiempo del reto** (`reto.tiempoSeg`, en «Datos del reto»): el de las preguntas nuevas, sean escritas, importadas o
+    de la IA. El botón «Aplicar … a todas las preguntas» lo pone en las que ya existen.
+  - **Tiempo de cada pregunta** (`tiempoSeg` en `activities/{id}/preguntas`): se cambia en su editor.
+  - La sesión **congela** el tiempo de cada pregunta al crearse (`crearSesionReto`): editarlo después no cambia una
+    competencia ya creada. Sin `tiempoSeg` (retos anteriores) = 20 s; un valor fuera de la lista impide crear la sesión.
+  - `faseReto` suma los turnos (4 s + tiempo de cada pregunta): servidor, proyector y celulares siguen calculando
+    lo mismo con la misma función. El contador se ve en segundos («45») y desde un minuto como «2:30».
+  - La puntuación no cambia: no hay puntos por rapidez (D6).
 - **Avance automático** calculado con el reloj del servidor: la sesión guarda `inicioMs` y la lista de `pausas`;
   la pregunta en curso se calcula. Cerrar el proyector, recargar o perder la conexión no reinicia ni detiene nada.
 - **Pausar / reanudar**: congela el tiempo; nadie responde durante la pausa; al reanudar sigue con el tiempo que
@@ -308,7 +316,7 @@ con una nota existente protegida, «Reemplazar», pasar a práctica oculta el pa
 ### D1–D12 (27-oct-2026)
 - **D1** Categoría propia `reto` y colecciones independientes; no mezclar con Participación en vivo.
 - **D2** IA con la operación `reactivos`, sin archivos; 1 crédito por reactivo entregado; sin tocar tarifas.
-- **D3** Avance automático a los 20 s; pausar y reanudar; el tiempo depende del servidor.
+- **D3** Avance automático al agotarse el tiempo de la pregunta (20 s hasta el 4-nov-2026; desde entonces lo elige el docente por pregunta); pausar y reanudar; el tiempo depende del servidor.
 - **D4** Ingreso tardío de inscritos; las anteriores valen 0; no se alteran resultados anteriores.
 - **D5** Alias: el docente renombra y expulsa; longitud, unicidad y ofensivos; identidad real solo para el docente.
 - **D6** Empates comparten posición; nunca rapidez.
