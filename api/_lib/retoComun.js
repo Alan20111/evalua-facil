@@ -16,8 +16,22 @@ export const { FieldValue } = admin.firestore
 
 // Detector de palabras ofensivas (T8): el MISMO de functions/moderacionSugerencias.js, que es CommonJS. Se carga con
 // require (y no con import) para que Vite en desarrollo no intente convertirlo: un `import` de ese archivo rompía el
-// servidor local de /api/subject completo («module is not defined»). En Node (pruebas y Vercel) da lo mismo.
-const moderacion = createRequire(import.meta.url)('../../functions/moderacionSugerencias.js')
+// servidor local de /api/subject completo («module is not defined»). Vercel lo incluye en el paquete por `includeFiles`
+// (vercel.json). Se carga la PRIMERA vez que hace falta y no al importar este módulo: si faltara, solo fallaría
+// elegir alias en Reto Exprés, no todo /api/subject (Participación en vivo, activación por QR, contenido…).
+const requerir = createRequire(import.meta.url)
+let moderacion
+function detector() {
+  if (moderacion === undefined) {
+    try {
+      moderacion = requerir('../../functions/moderacionSugerencias.js')
+    } catch (e) {
+      console.error('reto: no se pudo cargar el detector de palabras ofensivas', e?.message)
+      moderacion = null
+    }
+  }
+  return moderacion
+}
 
 // Reloj del servidor. Las pruebas lo sustituyen (fijarRelojReto) para recorrer los 20 s de cada pregunta sin esperar.
 let reloj = () => Date.now()
@@ -54,8 +68,15 @@ export async function huellaToken(token) {
   return createHash('sha256').update(String(token)).digest('hex')
 }
 
-/** Detector de palabras ofensivas del servidor (functions/moderacionSugerencias.js): no viaja al navegador. */
-export const esOfensivo = (texto) => moderacion.evaluarTexto(texto).estado !== 'limpia'
+/**
+ * Detector de palabras ofensivas del servidor (functions/moderacionSugerencias.js): no viaja al navegador. Sin el
+ * detector no se acepta ningún alias (falla cerrada) y se dice que es un problema del servidor, no del alias.
+ */
+export function esOfensivo(texto) {
+  const m = detector()
+  if (!m) throw new ErrorReto(503, 'No se pudo revisar el alias en este momento. Avisa a tu docente.', 'SIN_DETECTOR')
+  return m.evaluarTexto(texto).estado !== 'limpia'
+}
 
 /** Nombre real que ve el grupo (modo «nombre real»): nombre y apellidos tal como los registró el docente. */
 export function nombreRealEstudiante(e) {
