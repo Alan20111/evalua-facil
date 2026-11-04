@@ -23,9 +23,14 @@ function nombreDe(f) { return f instanceof File ? f.name : f.nombre }
 // evaluación y reactivos): muestra ANTES de generar el máximo de páginas de los
 // documentos visuales. Es siempre el mismo número (30) y sale de la MISMA
 // definición que valida el servidor (utils/limiteDocumentosVisuales.js).
+// `descripcion` (opcional): reemplaza el párrafo de ayuda SOLO donde no aplica el de siempre. Reto Exprés no usa las
+// Fuentes de la Asignatura, solo lo que se adjunta aquí. Sin la prop, el componente se ve exactamente como antes.
+const DESCRIPCION_FUENTES = 'Las Fuentes para todo el curso y las de este parcial (pestaña Planeación Didáctica) ya se usan ' +
+  'automáticamente — aquí puedes agregar hasta 3 documentos extra (PDF o Word) solo para esta operación.'
+
 export default function FuentesIAInput({
   files, onChange, disabled = false, fuentesGuardadas = [],
-  mostrarLimiteVisual = false,
+  mostrarLimiteVisual = false, titulo = 'Fuentes adicionales para la IA (opcional)', descripcion = DESCRIPCION_FUENTES,
 }) {
   const toast = useToast()
   const maxVisual = DOCUMENTOS_VISUALES.maxPaginas
@@ -61,11 +66,8 @@ export default function FuentesIAInput({
 
   return (
     <div>
-      <p className="block text-sm text-on-surface mb-1">Fuentes adicionales para la IA (opcional)</p>
-      <p className="text-sm text-muted mb-1.5">
-        Las Fuentes para todo el curso y las de este parcial (pestaña Planeación Didáctica) ya se usan
-        automáticamente — aquí puedes agregar hasta 3 documentos extra (PDF o Word) solo para esta operación.
-      </p>
+      <p className="block text-sm text-on-surface mb-1">{titulo}</p>
+      <p className="text-sm text-muted mb-1.5">{descripcion}</p>
       {mostrarLimiteVisual && (
         <div role="note" className="rounded-card border border-outline-variant bg-surface-container px-2.5 py-2 mb-1.5">
           <p className="text-sm font-semibold text-on-surface">Documentos visuales: máximo {maxVisual} páginas</p>

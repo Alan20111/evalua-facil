@@ -13,11 +13,14 @@ import { Badge, Button, Checkbox, IconButton, Input, RadioGroup, Select, Switch,
 import ConfirmModal from '../../components/ConfirmModal'
 import ConfirmacionCreditosModal from '../../components/ConfirmacionCreditosModal'
 import ReactivosIAReview from '../../components/evaluacion/ReactivosIAReview'
+import FuentesIAInput from '../../components/ia/FuentesIAInput'
 import EditorPreguntaReto from '../../components/reto/EditorPreguntaReto'
 import ImportarReactivosReto from '../../components/reto/ImportarReactivosReto'
 import HistorialRetoSesiones from '../../components/reto/HistorialRetoSesiones'
 import { EsqueletoRetoDocente } from '../../components/esqueletos'
 import useCreditosIA from '../../hooks/useCreditosIA'
+import useFuentesAsignatura from '../../hooks/useFuentesAsignatura'
+import { avisarFuentesOmitidas, resolverFuentes } from '../../utils/fuentesIA'
 import { reactivosDesdePropuesta } from '../../utils/reactivosIA'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { TEACHER_CONTAINER } from '../../config/layout'
@@ -90,11 +93,14 @@ export default function RetoPage() {
   const [iaConfig, setIaConfig] = useState(null) // { quiereEvaluar, cantidad, tipos, mismoTema }
   const [iaTrabajando, setIaTrabajando] = useState(false)
   const [iaPropuesta, setIaPropuesta] = useState(null)
+  const [iaArchivos, setIaArchivos] = useState([]) // material de referencia (PDF o Word), como en crear examen
   const [sesiones, setSesiones] = useState(null) // null = cargando
   const [iniciando, setIniciando] = useState(false)
   const [versionSesiones, setVersionSesiones] = useState(0)
 
   const uid = currentUser?.uid
+  // Archivos ya guardados en Fuentes de la Asignatura: se reutilizan sin subir otra copia (FuentesIAInput).
+  const fuentesGuardadas = useFuentesAsignatura(actividad?.asignaturaId, uid)
   useEffect(() => {
     if (!uid) return undefined
     let vigente = true
@@ -231,14 +237,18 @@ export default function RetoPage() {
 
   function abrirIA() {
     setIaConfig({ quiereEvaluar: '', cantidad: estado.faltan, tipos: TIPOS_IA.map((t) => t.value), mismoTema: preguntas.length > 0 })
+    setIaArchivos([])
   }
   const usarMismoTema = !!iaConfig?.mismoTema && preguntas.length > 0
   const iaValida = !!iaConfig && iaConfig.tipos.length > 0 && iaConfig.cantidad >= 1 && iaConfig.cantidad <= estado.faltan &&
-    (usarMismoTema || iaConfig.quiereEvaluar.trim().length >= MIN_QUIERE_EVALUAR)
+    // Texto, archivos o ambos: con al menos un archivo, describir el contenido es opcional.
+    (usarMismoTema || iaArchivos.length > 0 || iaConfig.quiereEvaluar.trim().length >= MIN_QUIERE_EVALUAR)
 
   async function generarConIA() {
     setIaTrabajando(true)
     try {
+      // Los archivos se suben ANTES de llamar a la IA: si la subida falla, no hay llamada ni cobro.
+      const fuentes = iaArchivos.length ? await resolverFuentes(iaArchivos) : []
       const r = await creditosIA.ejecutar('reactivos', {
         actividadId: activityId,
         asignaturaId: actividad.asignaturaId,
@@ -249,9 +259,13 @@ export default function RetoPage() {
         tipos: iaConfig.tipos,
         mismoTema: usarMismoTema,
         reactivosExistentes: usarMismoTema ? preguntas.map((p) => ({ tipo: p.tipo, enunciado: p.enunciado })) : [],
-      }, iaConfig.cantidad)
+        ...(fuentes.length ? { fuentes } : {}),
+      }, iaConfig.cantidad, fuentes.length ? { timeoutMs: 240000 } : undefined) // leer documentos tarda más (como crear examen)
+      // Un documento que no se pudo usar no detiene la generación, pero se avisa.
+      avisarFuentesOmitidas(toast, r?.resultado?.avisos)
       setIaPropuesta(reactivosDesdePropuesta(r?.resultado, iaConfig.cantidad))
       setIaConfig(null)
+      setIaArchivos([])
     } catch (e) {
       toast(e.message, 'error')
     } finally {
@@ -401,8 +415,14 @@ export default function RetoPage() {
             {!usarMismoTema && (
               <Textarea label="¿Qué quieres evaluar?" rows={3} autoResize maxLength={4000} value={iaConfig.quiereEvaluar}
                 onChange={(e) => setIaConfig((c) => ({ ...c, quiereEvaluar: e.target.value }))}
-                hint={`Describe el contenido con detalle (mínimo ${MIN_QUIERE_EVALUAR} caracteres).`} />
+                optional={iaArchivos.length > 0}
+                hint={iaArchivos.length
+                  ? 'Opcional: con archivos adjuntos, la IA puede generar solo a partir de ellos.'
+                  : `Describe el contenido con detalle (mínimo ${MIN_QUIERE_EVALUAR} caracteres), o adjunta archivos.`} />
             )}
+            <FuentesIAInput files={iaArchivos} onChange={setIaArchivos} disabled={iaTrabajando} fuentesGuardadas={fuentesGuardadas}
+              mostrarLimiteVisual titulo="Archivos de referencia (opcional)"
+              descripcion="Adjunta hasta 3 documentos (PDF o Word) para que la IA genere las preguntas a partir de ellos, solos o junto con lo que describas." />
             <Select label="¿Cuántas?" value={iaConfig.cantidad} onChange={(v) => setIaConfig((c) => ({ ...c, cantidad: Number(v) }))}
               options={Array.from({ length: estado.faltan }, (_, i) => ({ value: i + 1, label: String(i + 1) }))} />
             <fieldset className="space-y-2">
