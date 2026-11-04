@@ -2253,8 +2253,15 @@ async function precheckReactivos({ uid, params }) {
   const reactivosExistentes = sanitizarReactivosExistentes(params?.reactivosExistentes)
   const mismoTema = params?.mismoTema === true && reactivosExistentes.length > 0
 
+  // Reto Exprés (4-nov-2026, autorizado por Kike): EXCEPCIÓN a «agregar reactivos no lee documentos» (7-oct-2026),
+  // solo cuando la actividad madre es un reto. Se leen ÚNICAMENTE los archivos que el docente adjuntó aquí (nunca los
+  // materiales permanentes de la asignatura): sin archivos, el reto genera exactamente igual que antes. Con archivos,
+  // describir el contenido pasa a ser opcional. Cuestionarios y exámenes siguen ignorando `params.fuentes`.
+  const urlsReto = esReto && Array.isArray(params?.fuentes)
+    ? params.fuentes.filter((u) => typeof u === 'string' && u.trim()).slice(0, fuentesIA.MAX_FUENTES)
+    : []
   const quiereEvaluar = String(params?.quiereEvaluar || '').trim().slice(0, MAX_QUIERE_EVALUAR)
-  if (!mismoTema && quiereEvaluar.length < MIN_QUIERE_EVALUAR) {
+  if (!mismoTema && !urlsReto.length && quiereEvaluar.length < MIN_QUIERE_EVALUAR) {
     throw new HttpsError('failed-precondition',
       `Describe con más detalle qué quieres evaluar (mínimo ${MIN_QUIERE_EVALUAR} caracteres) para que la IA pueda generar reactivos fundamentados. No se descontaron créditos.`,
       { codigo: 'CONTEXTO_INSUFICIENTE' })
@@ -2296,6 +2303,12 @@ async function precheckReactivos({ uid, params }) {
     }
   }
 
+  // Reto con archivos: se leen ANTES de reservar créditos, con el mismo tope fijo de 30 páginas visuales que crear
+  // evaluación. Un archivo ilegible, o que rebase el tope, detiene la operación sin cobrar (fuentesManualRequeridas).
+  const fuentesReto = urlsReto.length
+    ? await fuentesIA.fuentesManualRequeridas(urlsReto, { maxPaginasVisual: fuentesIA.MAX_PAGINAS_VISUAL, rechazarExcedente: true })
+    : null
+
   // Agregar reactivos a una evaluación que ya existe NO lee documentos (7-oct-2026,
   // decisión de Kike): ni los que el docente adjuntaba, ni los materiales
   // permanentes de la asignatura. `params.fuentes` se IGNORA — una pestaña vieja
@@ -2313,9 +2326,10 @@ async function precheckReactivos({ uid, params }) {
     cantidad,
     tipoSolicitado: seleccion.modo === 'legado' ? seleccion.tipos[0] : (seleccion.modo === 'arreglo' ? seleccion.tipos : 'mixto'),
     tipos: tiposParaLote(seleccion.modo === 'arreglo' ? seleccion.tipos : (seleccion.modo === 'legado' ? seleccion.tipos[0] : 'mixto'), cantidad),
-    bloqueFuentes: null,
-    fuentesBloques: [],
-    fuentesAvisos: [],
+    // Solo un reto con archivos trae fuentes; en cualquier otro caso, lo mismo que antes (sin documentos).
+    bloqueFuentes: fuentesReto?.texto || null,
+    fuentesBloques: fuentesReto?.bloques || [],
+    fuentesAvisos: fuentesReto?.avisos || [],
   }
 }
 
@@ -2417,7 +2431,10 @@ function promptReactivos(ctx, asignatura) {
       )
     : (
         (ctx.tema ? `Tema: ${ctx.tema}\n` : '') +
-        `\nQUÉ QUIERE EVALUAR EL DOCENTE (${tieneFuentes(ctx) ? 'fuente principal' : 'única fuente'} del contenido):\n"""${ctx.quiereEvaluar}"""\n` +
+        (ctx.quiereEvaluar
+          ? `\nQUÉ QUIERE EVALUAR EL DOCENTE (${tieneFuentes(ctx) ? 'fuente principal' : 'única fuente'} del contenido):\n"""${ctx.quiereEvaluar}"""\n`
+          // Solo un reto con archivos puede llegar sin descripción: entonces la fuente son los documentos.
+          : '\nEL DOCENTE NO DESCRIBIÓ EL CONTENIDO: genera los reactivos a partir de los documentos de referencia que adjuntó.\n') +
         (ctx.bloqueFuentes ? `\n${ctx.bloqueFuentes}\n` : '\n') +
         `Genera EXACTAMENTE ${ctx.cantidad} reactivos, uno por cada tipo, EN ESTE ORDEN:\n${listaTipos}\n\n` +
         `IMPORTANTE: cada reactivo debe cubrir un aspecto distinto del contenido — no repitas el mismo concepto aunque lo redactes de otra forma.\n\n`

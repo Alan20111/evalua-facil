@@ -265,5 +265,73 @@ await caso('un entregable sigue sin poder ser madre de reactivos', async () => {
   assert.ok(error && /Solo un cuestionario o un examen pueden generar reactivos con IA/.test(error.message))
 })
 
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('E. Archivos de referencia: solo en Reto Exprés (4-nov-2026)')
+
+// La lectura de documentos se simula: docExtract.clasificarDocumento es lo único que descarga y clasifica.
+const docExtract = require('../functions/docExtract.js')
+const clasificarReal = docExtract.clasificarDocumento
+const leidos = []
+const DOCS = {
+  'https://res.cloudinary.com/demo/raw/upload/v1/celula.pdf': { tipo: 'texto', texto: 'La mitocondria produce energía (ATP) para la célula.', paginas: 2 },
+  'https://res.cloudinary.com/demo/raw/upload/v1/esquema.pdf': { tipo: 'visual', texto: '', paginas: 5 },
+  'https://res.cloudinary.com/demo/raw/upload/v1/libro.pdf': { tipo: 'visual', texto: '', paginas: 31 },
+  'https://res.cloudinary.com/demo/raw/upload/v1/roto.pdf': { tipo: 'ilegible', motivo: 'El PDF está dañado.' },
+}
+docExtract.clasificarDocumento = async (url) => { leidos.push(url); return { ...(DOCS[url] || { tipo: 'ilegible', motivo: 'No existe.' }) } }
+const [CELULA, ESQUEMA, LIBRO, ROTO] = Object.keys(DOCS)
+
+await preparar()
+await caso('reto con un archivo y SIN descripción: el texto del documento llega a la IA y se cobra lo de siempre', async () => {
+  await crearReto('reto_arch')
+  respuestaIA = () => reactivosFalsos(alternados(3))
+  const k = clave()
+  const r = await generar({ actividadId: 'reto_arch', cantidad: 3, tipos: ['opcion_multiple', 'verdadero_falso'], k, extra: { quiereEvaluar: '', fuentes: [CELULA] } })
+  assert.strictEqual(r.resultado.reactivos.length, 3)
+  const texto = textoDelPedido(pedidosIA.at(-1))
+  assert.ok(texto.includes('La mitocondria produce energía'), 'el documento llega al prompt')
+  assert.ok(texto.includes('EL DOCENTE NO DESCRIBIÓ EL CONTENIDO'))
+  assert.ok(!texto.includes('QUÉ QUIERE EVALUAR EL DOCENTE'))
+  assert.ok(/documentos de referencia/.test(pedidosIA.at(-1).system), 'el sistema autoriza usar los documentos')
+  assert.strictEqual(await saldo(), 97, '1 crédito por reactivo, sin recargo por el archivo')
+})
+
+await caso('reto con descripción Y un PDF de imágenes: ambos llegan (el PDF como documento nativo)', async () => {
+  await crearReto('reto_ambos')
+  respuestaIA = () => reactivosFalsos(alternados(2))
+  await generar({ actividadId: 'reto_ambos', cantidad: 2, tipos: ['opcion_multiple', 'verdadero_falso'], extra: { fuentes: [ESQUEMA] } })
+  const req = pedidosIA.at(-1)
+  assert.ok(textoDelPedido(req).includes(QUIERE))
+  const docs = req.messages[0].content.filter((b) => b.type === 'document')
+  assert.strictEqual(docs.length, 1)
+  assert.strictEqual(docs[0].source.url, ESQUEMA)
+})
+
+await crearReto('reto_rech')
+await caso('archivo ilegible: se rechaza ANTES de reservar, sin cobro ni llamada a la IA', async () => {
+  await rechazaSinCobro({ actividadId: 'reto_rech', cantidad: 2, tipos: ['verdadero_falso'], extra: { fuentes: [ROTO] } }, null)
+})
+
+await caso('PDF de imágenes de más de 30 páginas: EXCEDE_PAGINAS_VISUALES, sin cobro', async () => {
+  await rechazaSinCobro({ actividadId: 'reto_rech', cantidad: 2, tipos: ['verdadero_falso'], extra: { fuentes: [LIBRO] } }, 'EXCEDE_PAGINAS_VISUALES')
+})
+
+await caso('reto sin archivos y sin descripción: se sigue pidiendo describir (igual que antes)', async () => {
+  await rechazaSinCobro({ actividadId: 'reto_rech', cantidad: 2, tipos: ['verdadero_falso'], extra: { quiereEvaluar: 'corto' } }, 'CONTEXTO_INSUFICIENTE')
+})
+
+await caso('cuestionario y examen: los archivos se siguen IGNORANDO (ni se leen ni llegan a la IA)', async () => {
+  for (const actividadId of ['cuest_1', 'examen_1']) {
+    leidos.length = 0
+    respuestaIA = () => reactivosFalsos(['verdadero_falso', 'verdadero_falso'])
+    await generar({ actividadId, cantidad: 2, tipos: ['verdadero_falso'], extra: { fuentes: [CELULA, ROTO] } })
+    assert.deepStrictEqual(leidos, [], `${actividadId}: no se leyó ningún documento`)
+    assert.ok(!textoDelPedido(pedidosIA.at(-1)).includes('mitocondria'))
+  }
+  // Y sin descripción siguen exigiéndola aunque traigan archivos.
+  await rechazaSinCobro({ actividadId: 'cuest_1', cantidad: 2, tipos: ['verdadero_falso'], extra: { quiereEvaluar: '', fuentes: [CELULA] } }, 'CONTEXTO_INSUFICIENTE')
+})
+docExtract.clasificarDocumento = clasificarReal
+
 await limpiar()
 resumen('Reto Exprés · reactivos con IA')
