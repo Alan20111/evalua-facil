@@ -35,6 +35,9 @@ export function esCopiable(a) {
   // Participación en vivo: sus respuestas correctas y criterios viven en `clave/` y sus sesiones son de
   // ESE grupo; una copia llegaría sin clave y sin sentido. Se genera de nuevo en la asignatura destino.
   if (a?.categoria === 'participacion') return false
+  // Reto Exprés (S2), en sus dos modalidades: sus sesiones y preguntas pertenecen al reto original. Además, una
+  // copia visible de un reto externo la rechazarían las reglas (nace oculto y no calificable).
+  if (a?.categoria === 'reto') return false
   if (!esJuego(a)) return true
   return a?.juego?.estado === 'juego_confirmado'
 }

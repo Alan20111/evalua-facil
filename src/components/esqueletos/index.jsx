@@ -404,3 +404,67 @@ export function EsqueletoVideoInteractivo() {
     </SkeletonGroup>
   )
 }
+
+// ── Docente · Reto Exprés (/reto/:id): encabezado + tarjeta de datos + tarjeta de preguntas ──
+export function EsqueletoRetoDocente({ filas = 4 }) {
+  return (
+    <SkeletonGroup etiqueta="Cargando el reto…">
+      <div data-esq="reto-contenedor" className={`${TEACHER_CONTAINER} px-4 py-4 space-y-4`}>
+        <Skeleton className="h-8 w-36 rounded-full" />
+        <div className="space-y-2">
+          <SkeletonLine texto="text-xl font-semibold" className="w-56" />
+          <div className="flex gap-2">
+            <Skeleton className="h-5 w-24 rounded-full" />
+            <Skeleton className="h-5 w-40 rounded-full" />
+          </div>
+        </div>
+        <div data-esq="reto-datos" className="bg-surface-card rounded-card shadow-card p-4 space-y-4">
+          <SkeletonLine texto="text-lg font-semibold" className="w-40" />
+          <Skeleton className="h-control w-full rounded-full" />
+          <Skeleton className="h-20 w-full rounded-card" />
+        </div>
+        <div data-esq="reto-preguntas" className="bg-surface-card rounded-card shadow-card p-4 space-y-4">
+          <SkeletonLine texto="text-lg font-semibold" className="w-32" />
+          {Array.from({ length: filas }, (_, i) => (
+            <Skeleton key={i} className="h-16 w-full rounded-card" />
+          ))}
+        </div>
+      </div>
+    </SkeletonGroup>
+  )
+}
+
+// Reto Exprés · celular del participante (etapa 4): la tarjeta centrada con la que abre cualquier estado
+// (ParticipanteReto · Aviso).
+export function EsqueletoRetoParticipante() {
+  return (
+    <SkeletonGroup etiqueta="Cargando el reto…">
+      <div data-esq="reto-part" className="text-center px-6 py-12 max-w-md mx-auto">
+        <Skeleton className="mx-auto mb-4 size-16 rounded-full" />
+        <SkeletonLine texto="text-xl font-semibold" className="w-48 mx-auto mb-2" />
+        <SkeletonLine texto="text-base" className="w-64 mx-auto" />
+      </div>
+    </SkeletonGroup>
+  )
+}
+
+// Reto Exprés · pantalla en vivo del docente (etapa 4): encabezado, área principal y barra de controles.
+export function EsqueletoRetoEnVivo() {
+  return (
+    <SkeletonGroup etiqueta="Abriendo la competencia…">
+      <div data-esq="reto-vivo" className="min-h-dvh bg-surface flex flex-col">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <Skeleton className="h-control-sm w-20 rounded-full" />
+          <SkeletonLine texto="text-lg font-semibold" className="w-56" />
+        </div>
+        <div className="flex-1 flex items-center justify-center px-6 py-6">
+          <Skeleton className="size-64 rounded-card" />
+        </div>
+        <div className="flex justify-center gap-3 px-4 py-3">
+          <Skeleton className="h-control w-36 rounded-full" />
+          <Skeleton className="h-control w-28 rounded-full" />
+        </div>
+      </div>
+    </SkeletonGroup>
+  )
+}

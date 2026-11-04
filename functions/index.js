@@ -89,6 +89,15 @@ exports.onParticipacionBorrada = onDocumentDeleted('activities/{activityId}', as
 exports.onSesionVivoBorrada = onDocumentDeleted('vivoSesiones/{codigo}', async (event) => {
   await require('./participacionVivo').limpiarVivoDeSesion({ sesionId: event.params.codigo })
 })
+// Reto Exprés: lo mismo cuando el docente borra el reto o una de sus sesiones (functions/retoLimpieza.js). Nada se borra
+// solo: sin barrido ni caducidad.
+exports.onRetoBorrado = onDocumentDeleted('activities/{activityId}', async (event) => {
+  if (event.data?.data()?.categoria !== 'reto') return
+  await require('./retoLimpieza').limpiarRetoDeActividad({ activityId: event.params.activityId })
+})
+exports.onSesionRetoBorrada = onDocumentDeleted('retoSesiones/{codigo}', async (event) => {
+  await require('./retoLimpieza').limpiarRetoDeSesion({ sesionId: event.params.codigo })
+})
 // Análisis integral de asignatura con IA (functions/analisisAcademico.js): la
 // preparación gratuita del diálogo (qué fuentes tienen datos y cuánto cuesta
 // la selección) y la limpieza del historial al borrar la asignatura. La

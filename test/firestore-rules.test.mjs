@@ -4624,5 +4624,328 @@ ok('F-05 · admin CAN read publicProfiles')
   ok('VIVO NOTAS · el cliente no las borra (lo hace el servidor junto con la sesión) y siguen intactas')
 }
 
+// ── Reto Exprés: colecciones propias, escritas SOLO por el servidor (Admin SDK) ──
+// Lectura: docente dueño (docenteId del documento) y admin. retoClaves y retoAlias: nadie desde un cliente.
+{
+  const asAnon = testEnv.unauthenticatedContext().firestore()
+  const LEGIBLES = {
+    retoSesiones: (dueno) => ({ docenteId: dueno, actividadId: 'ARETO', asignaturaId: 'S1', estado: 'en_curso', inicioMs: 1, pausas: [] }),
+    retoParticipantes: (dueno) => ({ docenteId: dueno, sesionId: 'RETO1', alumnoId: 'ST_JUAN', nombre: 'Juan Real', alias: 'Tigre', expulsado: false }),
+    retoRespuestas: (dueno) => ({ docenteId: dueno, sesionId: 'RETO1', preguntaId: 'p1', participanteId: 'RETO1_ST_JUAN', opcionSeleccionada: 'b', recibidaMs: 5 }),
+    retoResultados: (dueno) => ({ docenteId: dueno, sesionId: 'RETO1', realizadas: 10, clasificacion: [] }),
+  }
+  const PRIVADAS = {
+    retoClaves: (dueno) => ({ docenteId: dueno, sesionId: 'RETO1', claves: { p1: { respuestaCorrecta: 'b' } } }),
+    retoAlias: (dueno) => ({ docenteId: dueno, sesionId: 'RETO1', participanteId: 'RETO1_ST_JUAN' }),
+  }
+  const TODAS = { ...LEGIBLES, ...PRIVADAS }
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    for (const [col, datos] of Object.entries(TODAS)) {
+      await setDoc(doc(db, col, 'R_T1'), datos(T1))
+      await setDoc(doc(db, col, 'R_T2'), datos(T2))
+      await setDoc(doc(db, col, 'R_JUAN'), datos(U_JUAN)) // un docenteId con el uid de un estudiante no le da acceso
+    }
+  })
+
+  for (const col of Object.keys(LEGIBLES)) {
+    await assertSucceeds(getDoc(doc(asT1, col, 'R_T1')))
+    await assertSucceeds(getDocs(query(collection(asT1, col), where('docenteId', '==', T1), where('sesionId', '==', 'RETO1'))))
+    await assertSucceeds(getDoc(doc(asAdmin, col, 'R_T1')))
+    ok(`RETO · ${col}: el docente dueño (también por consulta con su docenteId) y el admin leen`)
+
+    await assertFails(getDoc(doc(asT1, col, 'R_T2')))
+    await assertFails(getDoc(doc(asT2, col, 'R_T1')))
+    await assertFails(getDoc(doc(asMallory, col, 'R_T1')))
+    await assertFails(getDocs(query(collection(asT1, col), where('sesionId', '==', 'RETO1'))))
+    ok(`RETO · ${col}: otro docente no lee, el dueño no lee lo ajeno y una consulta sin filtro de docente se rechaza`)
+
+    await assertFails(getDoc(doc(asJuan, col, 'R_T1')))
+    await assertFails(getDoc(doc(asJuan, col, 'R_JUAN')))
+    await assertFails(getDocs(query(collection(asJuan, col), where('docenteId', '==', U_JUAN))))
+    await assertFails(getDoc(doc(asAnon, col, 'R_T1')))
+    ok(`RETO · ${col}: un estudiante (aunque el documento lleve su uid) y alguien sin sesión no leen`)
+  }
+
+  for (const col of Object.keys(PRIVADAS)) {
+    for (const [quien, ctxDb] of [['dueño', asT1], ['admin', asAdmin], ['otro docente', asT2], ['estudiante', asJuan], ['sin sesión', asAnon]]) {
+      await assertFails(getDoc(doc(ctxDb, col, 'R_T1')), `${col} legible por ${quien}`)
+    }
+    await assertFails(getDocs(query(collection(asT1, col), where('docenteId', '==', T1))))
+    await assertFails(getDocs(query(collection(asAdmin, col), where('docenteId', '==', T1))))
+    ok(`RETO · ${col}: nadie lo lee desde un cliente (ni el dueño ni el admin)`)
+  }
+
+  for (const [col, datos] of Object.entries(TODAS)) {
+    for (const [quien, ctxDb, uid] of [['dueño', asT1, T1], ['admin', asAdmin, T1], ['otro docente', asT2, T2], ['estudiante', asJuan, U_JUAN], ['sin sesión', asAnon, T1]]) {
+      await assertFails(setDoc(doc(ctxDb, col, `NUEVO_${uid}`), datos(uid)), `${col}: crea ${quien}`)
+      await assertFails(setDoc(doc(ctxDb, col, 'R_T1'), datos(T1)), `${col}: sobrescribe ${quien}`)
+      await assertFails(updateDoc(doc(ctxDb, col, 'R_T1'), { docenteId: uid }), `${col}: modifica ${quien}`)
+      // Etapa 3: el docente dueño SÍ borra una sesión suya (como en Participación en vivo); se prueba en «RETO 3».
+      if (!(col === 'retoSesiones' && quien === 'dueño')) await assertFails(deleteDoc(doc(ctxDb, col, 'R_T1')), `${col}: borra ${quien}`)
+    }
+    ok(`RETO · ${col}: ningún cliente crea, modifica ni borra (ni el dueño, ni el admin, ni un estudiante, ni sin sesión; salvo que el dueño borre su sesión)`)
+  }
+
+  // Tras todos los intentos, los documentos siguen intactos y no apareció ninguno nuevo.
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    for (const [col, datos] of Object.entries(TODAS)) {
+      assert.deepStrictEqual((await getDoc(doc(db, col, 'R_T1'))).data(), datos(T1), `${col} cambió`)
+      assert.strictEqual((await getDocs(collection(db, col))).size, 3, `${col} tiene documentos nuevos`)
+    }
+  })
+  ok('RETO · después de todos los intentos de escritura, los datos siguen intactos')
+}
+
+// ── Reto Exprés · etapa 1-bis: candado de la modalidad externa ──
+// Cada rechazo sobre un reto EXTERNO va junto a la misma acción sobre un reto de INSCRITOS (o un cuestionario), que
+// sí pasa: así se comprueba que lo que rechaza es el candado y no otra regla. Las dos actividades de prueba son
+// iguales salvo la modalidad (y lo que la modalidad externa exige).
+{
+  const asAnon = testEnv.unauthenticatedContext().firestore()
+  const baseReto = { docenteId: T1, asignaturaId: 'S1', categoria: 'reto', tipo: 'archivo', parcial: 1, maxCalif: 10, nombre: 'Reto' }
+  const retoExterno = (extra = {}) => ({
+    ...baseReto, sinCalificacion: true, oculta: true, publishAt: null, publishedAt: null,
+    reto: { modalidad: 'externo', modoIdentidad: 'alias', calificable: false }, ...extra,
+  })
+  const retoInscritos = (extra = {}) => ({
+    ...baseReto, sinCalificacion: false, oculta: true, publishAt: null, publishedAt: null,
+    reto: { modalidad: 'inscritos', modoIdentidad: 'nombre', calificable: true }, ...extra,
+  })
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, 'activities', 'RX_EXT'), retoExterno())
+    await setDoc(doc(db, 'activities', 'RX_EXT_BORRAR'), retoExterno())
+    await setDoc(doc(db, 'activities', 'RX_INS'), retoInscritos())
+    await setDoc(doc(db, 'activities', 'RX_CUEST'), { docenteId: T1, asignaturaId: 'S1', categoria: 'cuestionario', tipo: 'evaluacion', parcial: 1, oculta: true, nombre: 'Cuestionario' })
+    // Entrega de un reto externo que solo podría existir por un error del servidor (Admin SDK).
+    await setDoc(doc(db, 'submissions', 'RX_EXT_ST_JUAN'), { alumnoId: 'ST_JUAN', actividadId: 'RX_EXT', archivoURL: 'x' })
+    await setDoc(doc(db, 'retoCupos', 'R_T1'), { docenteId: T1, sesionId: 'RETO1', ocupados: 7 })
+  })
+
+  // — Crear —
+  await assertSucceeds(setDoc(doc(asT1, 'activities', 'RX_NUEVO_EXT'), retoExterno()))
+  await assertSucceeds(setDoc(doc(asT1, 'activities', 'RX_NUEVO_INS'), retoInscritos()))
+  await assertSucceeds(setDoc(doc(asT1, 'activities', 'RX_NUEVO_INS_NC'), retoInscritos({ sinCalificacion: true, oculta: false, reto: { modalidad: 'inscritos', modoIdentidad: 'alias', calificable: false } })))
+  ok('RETO 1-BIS · se crean un reto externo bien formado y retos de inscritos (calificable o no, ocultos o visibles)')
+
+  await assertFails(setDoc(doc(asT1, 'activities', 'RX_MAL_1'), { ...baseReto, sinCalificacion: true, oculta: true }))
+  await assertFails(setDoc(doc(asT1, 'activities', 'RX_MAL_2'), retoExterno({ reto: { modalidad: 'publico', modoIdentidad: 'alias', calificable: false } })))
+  await assertFails(setDoc(doc(asT1, 'activities', 'RX_MAL_3'), retoExterno({ reto: 'externo' })))
+  ok('RETO 1-BIS · un reto sin `reto`, con modalidad desconocida o mal formado no se crea')
+
+  for (const [motivo, cambio] of [
+    ['con número y promedio', { sinCalificacion: false }],
+    ['sin sinCalificacion', { sinCalificacion: undefined }],
+    ['visible para los inscritos', { oculta: false }],
+    ['con publicación programada', { publishAt: '2026-12-01T08:00' }],
+    ['ya publicado', { publishedAt: '2026-10-01T08:00' }],
+    ['calificable', { reto: { modalidad: 'externo', modoIdentidad: 'alias', calificable: true } }],
+    ['con nombre real', { reto: { modalidad: 'externo', modoIdentidad: 'nombre', calificable: false } }],
+  ]) {
+    const datos = retoExterno(cambio)
+    for (const k of Object.keys(datos)) if (datos[k] === undefined) delete datos[k]
+    await assertFails(setDoc(doc(asT1, 'activities', `RX_MAL_EXT_${motivo.length}`), datos), `externo ${motivo} se creó`)
+  }
+  ok('RETO 1-BIS · un reto externo no nace con nota, visible, programado, publicado, calificable ni con nombre real')
+
+  // — Actualizar un reto externo —
+  const refExt = doc(asT1, 'activities', 'RX_EXT')
+  for (const [motivo, cambio] of [
+    ['publicarlo', { oculta: false, publishAt: null, publishedAt: '2026-10-27T08:00' }],
+    ['solo mostrarlo', { oculta: false }],
+    ['programarlo', { publishAt: '2026-12-01T08:00' }],
+    ['ponerle número', { sinCalificacion: false }],
+    ['volverlo calificable', { 'reto.calificable': true }],
+    ['pasarlo a nombre real', { 'reto.modoIdentidad': 'nombre' }],
+    ['cambiar su modalidad', { 'reto.modalidad': 'inscritos' }],
+    ['quitarle la modalidad', { reto: deleteField() }],
+    ['cambiar su categoría', { categoria: 'cuestionario' }],
+  ]) {
+    await assertFails(updateDoc(refExt, cambio), `externo: se pudo ${motivo}`)
+  }
+  ok('RETO 1-BIS · un reto externo no se publica, programa, califica, cambia de modalidad ni de categoría')
+
+  await assertSucceeds(updateDoc(refExt, { nombre: 'Reto de práctica', instrucciones: 'Responde rápido' }))
+  await assertSucceeds(updateDoc(refExt, { parcial: 2, oculta: true, publishedAt: null, publishAt: null })) // mover de parcial (deja borrador)
+  await assertSucceeds(deleteDoc(doc(asT1, 'activities', 'RX_EXT_BORRAR')))
+  ok('RETO 1-BIS · en un reto externo sí se edita el nombre e instrucciones, se mueve de parcial y se borra')
+
+  // — Actualizar un reto de inscritos: conserva sus permisos —
+  const refIns = doc(asT1, 'activities', 'RX_INS')
+  await assertSucceeds(updateDoc(refIns, { oculta: false, publishAt: null, publishedAt: '2026-10-27T08:00' }))
+  await assertSucceeds(updateDoc(refIns, { sinCalificacion: true, 'reto.calificable': false }))
+  await assertSucceeds(updateDoc(refIns, { sinCalificacion: false, 'reto.calificable': true, nombre: 'Reto del parcial' }))
+  ok('RETO 1-BIS · un reto de inscritos se publica y cambia de calificable a no calificable y de regreso')
+  await assertFails(updateDoc(refIns, { 'reto.modalidad': 'externo', 'reto.modoIdentidad': 'alias', 'reto.calificable': false, sinCalificacion: true, oculta: true, publishedAt: null }))
+  await assertFails(updateDoc(refIns, { categoria: 'cuestionario' }))
+  ok('RETO 1-BIS · un reto de inscritos no se convierte en externo (aunque cumpla todo) ni cambia de categoría')
+
+  // — Las demás actividades no cambian —
+  const refCuest = doc(asT1, 'activities', 'RX_CUEST')
+  await assertSucceeds(updateDoc(refCuest, { nombre: 'Cuestionario 2', oculta: false, publishedAt: '2026-10-27T08:00' }))
+  await assertSucceeds(updateDoc(refCuest, { categoria: 'examen' }))
+  await assertFails(updateDoc(refCuest, { categoria: 'reto', reto: { modalidad: 'externo', modoIdentidad: 'alias', calificable: false }, sinCalificacion: true, oculta: true, publishedAt: null }))
+  await assertSucceeds(setDoc(doc(asT1, 'activities', 'RX_NORMAL'), { docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', parcial: 1, nombre: 'Entregable' }))
+  ok('RETO 1-BIS · las demás actividades se editan, publican y cambian de categoría como antes; ninguna se convierte en reto')
+
+  // — Entregas —
+  const entrega = (actId, alumnoId, extra = {}) => ({ alumnoId, actividadId: actId, archivoURL: 'x', ...extra })
+  await assertFails(setDoc(doc(asJuan, 'submissions', 'RX_NUEVO_EXT_ST_JUAN'), entrega('RX_NUEVO_EXT', 'ST_JUAN')))
+  await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'RX_NORMAL_ST_JUAN'), entrega('RX_NORMAL', 'ST_JUAN')))
+  ok('RETO 1-BIS · un estudiante inscrito no crea entregas de un reto externo (la misma entrega en un entregable sí)')
+  // Etapa 3 (T3): un estudiante tampoco crea entregas de un reto de INSCRITOS (ver «RETO 3»). La entrega con la que se
+  // siguen probando los permisos del docente en un reto de inscritos la crea aquí el servidor.
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'submissions', 'RX_NUEVO_INS_ST_JUAN'), entrega('RX_NUEVO_INS', 'ST_JUAN'))
+  })
+
+  await assertFails(setDoc(doc(asT1, 'submissions', 'RX_NUEVO_EXT_ST_OTRO'), entrega('RX_NUEVO_EXT', 'ST_OTRO', { calificacion: 8, estado: 'calificado' })))
+  await assertFails(setDoc(doc(asT1, 'submissions', 'RX_NUEVO_EXT_ST_OTRO'), { alumnoId: 'ST_OTRO', actividadId: 'RX_NUEVO_EXT', calificacion: 0, comentario: '', estado: 'calificado', sinEntrega: true, cierreParcial: true, fechaEntrega: '2026-10-27' }))
+  await assertSucceeds(setDoc(doc(asT1, 'submissions', 'RX_NUEVO_INS_ST_OTRO'), entrega('RX_NUEVO_INS', 'ST_OTRO', { calificacion: 8, estado: 'calificado' })))
+  ok('RETO 1-BIS · el docente no registra calificaciones de un reto externo, ni con forma de nota de cierre (en inscritos sí)')
+
+  await assertFails(updateDoc(doc(asT1, 'submissions', 'RX_EXT_ST_JUAN'), { calificacion: 9 }))
+  await assertFails(updateDoc(doc(asT1, 'submissions', 'RX_EXT_ST_JUAN'), { comentario: 'bien' }))
+  await assertFails(updateDoc(doc(asJuan, 'submissions', 'RX_EXT_ST_JUAN'), { archivoURL: 'y' }))
+  await assertSucceeds(updateDoc(doc(asT1, 'submissions', 'RX_NUEVO_INS_ST_JUAN'), { calificacion: 9, comentario: 'bien' }))
+  ok('RETO 1-BIS · una entrega de reto externo que existiera por error no la modifica nadie (en inscritos el docente califica)')
+
+  await assertFails(setDoc(doc(asT1, 'submissions', 'RX_EXT_ST_JUAN', 'respuestas', 'p1'), { puntosObtenidos: 1 }))
+  await assertFails(setDoc(doc(asJuan, 'submissions', 'RX_EXT_ST_JUAN', 'respuestas', 'p1'), { valor: 'a' }))
+  await assertSucceeds(setDoc(doc(asT1, 'submissions', 'RX_NUEVO_INS_ST_JUAN', 'respuestas', 'p1'), { puntosObtenidos: 1 }))
+  await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'RX_NUEVO_INS_ST_JUAN', 'respuestas', 'p2'), { valor: 'a' }))
+  ok('RETO 1-BIS · nadie escribe respuestas en una entrega de reto externo (en inscritos, docente y estudiante sí)')
+
+  await assertFails(updateDoc(doc(asT2, 'submissions', 'RX_EXT_ST_JUAN'), { calificacion: 9 }))
+  await assertSucceeds(deleteDoc(doc(asT1, 'submissions', 'RX_EXT_ST_JUAN')))
+  ok('RETO 1-BIS · borrar una entrega sigue igual que antes: el docente dueño puede limpiarla, otro docente no la toca')
+
+  // — retoCupos —
+  for (const [quien, ctxDb] of [['dueño', asT1], ['admin', asAdmin], ['otro docente', asT2], ['estudiante', asJuan], ['sin sesión', asAnon]]) {
+    await assertFails(getDoc(doc(ctxDb, 'retoCupos', 'R_T1')), `retoCupos legible por ${quien}`)
+    await assertFails(getDocs(query(collection(ctxDb, 'retoCupos'), where('docenteId', '==', T1))), `retoCupos consultable por ${quien}`)
+    await assertFails(setDoc(doc(ctxDb, 'retoCupos', 'R_NUEVO'), { docenteId: T1, ocupados: 0 }), `retoCupos: crea ${quien}`)
+    await assertFails(updateDoc(doc(ctxDb, 'retoCupos', 'R_T1'), { ocupados: 0 }), `retoCupos: modifica ${quien}`)
+    await assertFails(deleteDoc(doc(ctxDb, 'retoCupos', 'R_T1')), `retoCupos: borra ${quien}`)
+  }
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    assert.deepStrictEqual((await getDoc(doc(db, 'retoCupos', 'R_T1'))).data(), { docenteId: T1, sesionId: 'RETO1', ocupados: 7 })
+    assert.strictEqual((await getDocs(collection(db, 'retoCupos'))).size, 1)
+    // El reto externo quedó como estaba en lo que importa: oculto, sin nota, no calificable y externo.
+    const ext = (await getDoc(doc(db, 'activities', 'RX_EXT'))).data()
+    assert.deepStrictEqual([ext.oculta, ext.sinCalificacion, ext.publishAt, ext.publishedAt, ext.reto], [true, true, null, null, { modalidad: 'externo', modoIdentidad: 'alias', calificable: false }])
+    assert.strictEqual((await getDoc(doc(db, 'submissions', 'RX_NUEVO_EXT_ST_JUAN'))).exists(), false)
+    assert.strictEqual((await getDoc(doc(db, 'submissions', 'RX_NUEVO_EXT_ST_OTRO'))).exists(), false)
+  })
+  ok('RETO 1-BIS · retoCupos: ningún cliente lo lee, consulta, crea, modifica ni borra; los datos siguen intactos')
+}
+
+// ── Reto Exprés · etapa 3 ──
+// T3: un estudiante nunca crea ni modifica entregas de un reto (en ninguna modalidad). Con una entrega «en progreso»
+// podía pedir a /api/exam/questions las 10 preguntas antes de la competencia. El docente conserva sus permisos.
+// Borrado: el docente dueño borra una sesión suya, como en Participación en vivo (el servidor limpia el resto).
+{
+  const asAnon = testEnv.unauthenticatedContext().firestore()
+  const reto = (modalidad) => ({
+    docenteId: T1, asignaturaId: 'S1', categoria: 'reto', tipo: 'archivo', parcial: 1, maxCalif: 10, nombre: `Reto ${modalidad}`,
+    sinCalificacion: modalidad === 'externo', oculta: true, publishAt: null, publishedAt: null,
+    reto: { modalidad, modoIdentidad: modalidad === 'externo' ? 'alias' : 'nombre', calificable: modalidad !== 'externo' },
+  })
+  const ses = (dueno, extra = {}) => ({ docenteId: dueno, actividadId: 'R3_INS', asignaturaId: 'S1', estado: 'finalizada', inicioMs: 1, pausas: [], ...extra })
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, 'activities', 'R3_INS'), reto('inscritos'))
+    await setDoc(doc(db, 'activities', 'R3_EXT'), reto('externo'))
+    await setDoc(doc(db, 'activities', 'R3_CUEST'), { docenteId: T1, asignaturaId: 'S1', categoria: 'cuestionario', tipo: 'evaluacion', parcial: 1, oculta: true, nombre: 'Cuestionario', maxCalif: 10 })
+    await setDoc(doc(db, 'submissions', 'R3_INS_ST_JUAN'), { alumnoId: 'ST_JUAN', actividadId: 'R3_INS', estadoEvaluacion: 'finalizado' })
+    for (const id of ['R3SESDUENO', 'R3SESOTRO1', 'R3SESOTRO2', 'R3SESOTRO3']) await setDoc(doc(db, 'retoSesiones', id), ses(T1))
+  })
+
+  const enProgreso = (actId) => ({ alumnoId: 'ST_JUAN', actividadId: actId, estadoEvaluacion: 'en_progreso', respuestas: {} })
+  await assertFails(setDoc(doc(asJuan, 'submissions', 'R3_INS_ST_JUAN_X'), enProgreso('R3_INS')), 'id incorrecto')
+  await assertFails(setDoc(doc(asJuan, 'submissions', 'R3_EXT_ST_JUAN'), enProgreso('R3_EXT')))
+  await testEnv.withSecurityRulesDisabled(async (ctx) => { await deleteDoc(doc(ctx.firestore(), 'submissions', 'R3_INS_ST_JUAN')) })
+  await assertFails(setDoc(doc(asJuan, 'submissions', 'R3_INS_ST_JUAN'), enProgreso('R3_INS')), 'estudiante abre un intento de un reto de inscritos')
+  await assertFails(setDoc(doc(asJuan, 'submissions', 'R3_INS_ST_JUAN'), { alumnoId: 'ST_JUAN', actividadId: 'R3_INS', archivoURL: 'x' }))
+  await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'R3_CUEST_ST_JUAN'), enProgreso('R3_CUEST')))
+  ok('RETO 3 · un estudiante no crea entregas ni intentos de un reto, en ninguna modalidad (en un cuestionario sí)')
+
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'submissions', 'R3_INS_ST_JUAN'), { alumnoId: 'ST_JUAN', actividadId: 'R3_INS', estadoEvaluacion: 'finalizado' })
+  })
+  await assertFails(updateDoc(doc(asJuan, 'submissions', 'R3_INS_ST_JUAN'), { estadoEvaluacion: 'en_progreso' }))
+  await assertFails(updateDoc(doc(asJuan, 'submissions', 'R3_INS_ST_JUAN'), { archivoURL: 'y' }))
+  await assertSucceeds(updateDoc(doc(asJuan, 'submissions', 'R3_CUEST_ST_JUAN'), { respuestas: { p1: 'a' } }))
+  ok('RETO 3 · un estudiante no modifica una entrega de reto que exista (la suya de un cuestionario sí)')
+
+  await assertSucceeds(updateDoc(doc(asT1, 'submissions', 'R3_INS_ST_JUAN'), { calificacion: 8, comentario: 'bien' }))
+  await assertSucceeds(setDoc(doc(asT1, 'submissions', 'R3_INS_ST_OTRO'), { alumnoId: 'ST_OTRO', actividadId: 'R3_INS', calificacion: 7, estado: 'calificado' }))
+  ok('RETO 3 · el docente dueño sigue registrando calificaciones de un reto de inscritos')
+
+  await assertFails(deleteDoc(doc(asT2, 'retoSesiones', 'R3SESOTRO1')), 'otro docente borra')
+  await assertFails(deleteDoc(doc(asJuan, 'retoSesiones', 'R3SESOTRO2')), 'estudiante borra')
+  await assertFails(deleteDoc(doc(asAnon, 'retoSesiones', 'R3SESOTRO3')), 'sin sesión borra')
+  await assertSucceeds(deleteDoc(doc(asT1, 'retoSesiones', 'R3SESDUENO')))
+  await assertFails(setDoc(doc(asT1, 'retoSesiones', 'R3SESNUEVA'), ses(T1)), 'el dueño crea')
+  await assertFails(updateDoc(doc(asT1, 'retoSesiones', 'R3SESOTRO1'), { estado: 'en_curso' }), 'el dueño modifica')
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    assert.strictEqual((await getDoc(doc(db, 'retoSesiones', 'R3SESDUENO'))).exists(), false)
+    for (const id of ['R3SESOTRO1', 'R3SESOTRO2', 'R3SESOTRO3']) assert.deepStrictEqual((await getDoc(doc(db, 'retoSesiones', id))).data(), ses(T1))
+  })
+  ok('RETO 3 · el docente dueño borra una sesión suya; nadie más la borra y nadie la crea ni la modifica')
+}
+
+// ── Reto Exprés · etapa 5: aplicar resultados como calificación ──
+// Solo un reto de inscritos marcado calificable recibe nota, y solo del docente dueño (PanelCalificacionReto escribe
+// lo mismo que la calificación manual de una Observación). Un reto de práctica nunca: ni crear ni modificar.
+{
+  const HOY5 = new Date().toISOString()
+  const reto5 = (calificable, extra = {}) => ({
+    docenteId: T1, asignaturaId: 'S1', categoria: 'reto', tipo: 'archivo', parcial: 1, maxCalif: 10, nombre: 'Reto 5',
+    sinCalificacion: !calificable, oculta: false, publishAt: null, publishedAt: HOY5,
+    reto: { modalidad: 'inscritos', modoIdentidad: 'nombre', calificable }, ...extra,
+  })
+  const nota = (actId, alumnoId, cal, extra = {}) => ({
+    actividadId: actId, alumnoId, calificacion: cal, comentario: '', estado: 'calificado',
+    ultimaCalificacionPor: 'docente', sinEntrega: true, fechaEntrega: serverTimestamp(), ...extra,
+  })
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, 'subjects', 'S5_CERR'), { docenteId: T1, escuelaId: 'E1', parciales: 3, nombre: 'Cerrada', parcialesCerrados: { 1: HOY5 } })
+    await setDoc(doc(db, 'activities', 'R5_CAL'), reto5(true))
+    await setDoc(doc(db, 'activities', 'R5_PRAC'), reto5(false))
+    await setDoc(doc(db, 'activities', 'R5_CAMBIA'), reto5(true))
+    await setDoc(doc(db, 'activities', 'R5_CERR'), reto5(true, { asignaturaId: 'S5_CERR' }))
+    // Una nota de práctica que solo podría existir por un error (Admin SDK).
+    await setDoc(doc(db, 'submissions', 'R5_PRAC_ST_JUAN'), { actividadId: 'R5_PRAC', alumnoId: 'ST_JUAN', calificacion: 5, estado: 'calificado' })
+  })
+
+  await assertSucceeds(setDoc(doc(asT1, 'submissions', 'R5_CAL_ST_JUAN'), nota('R5_CAL', 'ST_JUAN', 9)))
+  await assertSucceeds(updateDoc(doc(asT1, 'submissions', 'R5_CAL_ST_JUAN'), { calificacion: 8.5, ultimaCalificacionPor: 'docente' }))
+  await assertFails(setDoc(doc(asT1, 'submissions', 'R5_CAL_ST_OTRO'), nota('R5_CAL', 'ST_OTRO', 11)), 'fuera de rango')
+  await assertFails(setDoc(doc(asT2, 'submissions', 'R5_CAL_ST_OTRO'), nota('R5_CAL', 'ST_OTRO', 7)), 'otro docente')
+  await assertFails(setDoc(doc(asJuan, 'submissions', 'R5_CAL_ST_JUAN2'), nota('R5_CAL', 'ST_JUAN', 10)), 'el estudiante')
+  ok('RETO 5 · el docente dueño aplica y corrige la nota de un reto calificable (en rango; otro docente o el estudiante no)')
+
+  await assertFails(setDoc(doc(asT1, 'submissions', 'R5_PRAC_ST_OTRO'), nota('R5_PRAC', 'ST_OTRO', 7)))
+  await assertFails(setDoc(doc(asT1, 'submissions', 'R5_PRAC_ST_OTRO'), nota('R5_PRAC', 'ST_OTRO', 0, { cierreParcial: true })))
+  await assertFails(updateDoc(doc(asT1, 'submissions', 'R5_PRAC_ST_JUAN'), { calificacion: 9 }))
+  await assertSucceeds(deleteDoc(doc(asT1, 'submissions', 'R5_PRAC_ST_JUAN')))
+  ok('RETO 5 · un reto de práctica nunca recibe nota (ni con forma de cierre); una que existiera no se cambia, sí se borra')
+
+  await assertSucceeds(setDoc(doc(asT1, 'submissions', 'R5_CAMBIA_ST_JUAN'), nota('R5_CAMBIA', 'ST_JUAN', 6)))
+  await assertSucceeds(updateDoc(doc(asT1, 'activities', 'R5_CAMBIA'), { 'reto.calificable': false, sinCalificacion: true }))
+  await assertFails(updateDoc(doc(asT1, 'submissions', 'R5_CAMBIA_ST_JUAN'), { calificacion: 7 }))
+  await assertFails(setDoc(doc(asT1, 'submissions', 'R5_CAMBIA_ST_OTRO'), nota('R5_CAMBIA', 'ST_OTRO', 7)))
+  ok('RETO 5 · al volver a práctica deja de aceptar notas nuevas o cambios')
+
+  await assertFails(setDoc(doc(asT1, 'submissions', 'R5_CERR_ST_JUAN'), nota('R5_CERR', 'ST_JUAN', 9)))
+  ok('RETO 5 · el parcial cerrado sigue rechazando la nota de un reto calificable')
+}
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

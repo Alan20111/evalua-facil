@@ -43,6 +43,11 @@ export default async function handler(req, res) {
         return res.status(403).json({ error: 'No tienes permiso para esta actividad' })
       }
     } else {
+      // Reto Exprés (T3): las preguntas de un reto solo las ve su docente aquí; los participantes las reciben de
+      // /api/subject/reto-estado, una por una y solo mientras están abiertas.
+      if (actData.categoria === 'reto') {
+        return res.status(403).json({ error: 'Las preguntas del reto se muestran durante la competencia.' })
+      }
       // Student path: verify enrollment in subject + active submission
       const subjectId = actData.asignaturaId
       const studentSnap = await db.collection('students')

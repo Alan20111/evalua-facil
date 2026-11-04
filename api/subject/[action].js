@@ -15,6 +15,8 @@ import { ocultarPesosNoPublicados } from '../../src/utils/ponderacion.js'
 import { exigirAppCheck } from '../_lib/appCheck.js'
 import { handleVivoEstado, handleVivoResponder } from '../_lib/vivo.js'
 import { handleVivoControl, handleVivoReloj } from '../_lib/vivoControl.js'
+import { handleRetoUnirse, handleRetoEstado, handleRetoResponder } from '../_lib/reto.js'
+import { handleRetoCrear, handleRetoControl } from '../_lib/retoControl.js'
 
 // ── /api/subject/info ──────────────────────────────────────────────────────
 // F-11 (2026-09-07): endpoint público para el flujo de activación QR.
@@ -500,6 +502,9 @@ async function handleSignUpload(req, res) {
 // │ delete-resources                │ Sí    │ Borra recursos/materiales   │
 // │ vivo-estado / vivo-responder    │ Según │ Participación en vivo (api/_lib/vivo.js);
 // │                                 │ sesión│ 'grupo' exige sesión de estudiante, 'externo' no │
+// │ reto-unirse / reto-estado /     │ Según │ Reto Exprés (api/_lib/reto.js); 'inscritos'  │
+// │ reto-responder                  │ sesión│ exige estudiante, 'externo' usa token        │
+// │ reto-crear / reto-control       │ Sí    │ Docente dueño (api/_lib/retoControl.js)      │
 // └─────────────────────────────────┴───────┴─────────────────────────────┘
 
 export default async function handler(req, res) {
@@ -517,6 +522,11 @@ export default async function handler(req, res) {
     if (action === 'vivo-responder')            return await handleVivoResponder(req, res)
     if (action === 'vivo-control')              return await handleVivoControl(req, res)
     if (action === 'vivo-reloj')                return await handleVivoReloj(req, res)
+    if (action === 'reto-unirse')               return await handleRetoUnirse(req, res)
+    if (action === 'reto-estado')               return await handleRetoEstado(req, res)
+    if (action === 'reto-responder')            return await handleRetoResponder(req, res)
+    if (action === 'reto-crear')                return await handleRetoCrear(req, res)
+    if (action === 'reto-control')              return await handleRetoControl(req, res)
     return res.status(404).json({ error: 'Acción no encontrada.' })
   } catch (err) {
     return res.status(err.status || 500).json({ error: err.message || 'Error interno.' })

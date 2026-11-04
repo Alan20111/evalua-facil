@@ -53,9 +53,13 @@ const paginas = {
   EvaluacionRunner: () => import('./pages/student/EvaluacionRunner'),
   JuegoRunner: () => import('./pages/student/JuegoRunner'),
   ParticipacionDocente: () => import('./pages/teacher/ParticipacionPage'),
+  RetoDocente: () => import('./pages/teacher/RetoPage'),
   ProyeccionVivo: () => import('./pages/teacher/ProyeccionVivoPage'),
   ParticipacionAlumno: () => import('./pages/student/ParticipacionPage'),
   ParticipacionPublica: () => import('./pages/ParticipacionPublica'),
+  RetoEnVivo: () => import('./pages/teacher/RetoEnVivoPage'),
+  RetoAlumno: () => import('./pages/student/RetoPage'),
+  RetoPublica: () => import('./pages/RetoPublica'),
   EvaluacionRevision: () => import('./pages/student/EvaluacionRevision'),
   NotificationSettings: () => import('./pages/student/NotificationSettings'),
   StudentAgenda: () => import('./pages/student/Agenda'),
@@ -111,9 +115,13 @@ const StudentActivityPage = lazy(paginas.StudentActivityPage)
 const EvaluacionRunner = lazy(paginas.EvaluacionRunner)
 const JuegoRunner = lazy(paginas.JuegoRunner)
 const ParticipacionDocente = lazy(paginas.ParticipacionDocente)
+const RetoDocente = lazy(paginas.RetoDocente)
 const ProyeccionVivo = lazy(paginas.ProyeccionVivo)
 const ParticipacionAlumno = lazy(paginas.ParticipacionAlumno)
 const ParticipacionPublica = lazy(paginas.ParticipacionPublica)
+const RetoEnVivo = lazy(paginas.RetoEnVivo)
+const RetoAlumno = lazy(paginas.RetoAlumno)
+const RetoPublica = lazy(paginas.RetoPublica)
 const EvaluacionRevision = lazy(paginas.EvaluacionRevision)
 const NotificationSettings = lazy(paginas.NotificationSettings)
 const StudentAgenda = lazy(paginas.StudentAgenda)
@@ -335,6 +343,8 @@ export default function App() {
             <Route path="/privacy" element={<Privacidad />} />
             {/* Participación en vivo, acceso externo: sin cuenta ni sesión (api/_lib/vivo.js decide qué puede ver). */}
             <Route path="/p/:codigo" element={<ParticipacionPublica />} />
+            {/* Reto Exprés por QR o enlace (externo sin cuenta; inscrito con su sesión). */}
+            <Route path="/r/:codigo" element={<RetoPublica />} />
             <Route path="/eliminar-cuenta" element={<EliminarCuenta />} />
 
             {/* Descarga directa del APK de Android — ruta NO listada, a propósito.
@@ -357,11 +367,15 @@ export default function App() {
                 ver TeacherLayoutRoute arriba. */}
             {/* Ventana de proyección de Participación en vivo: pantalla completa, sin layout, solo lectura. */}
             <Route path="/proyeccion-vivo/:codigo" element={<ProtectedTeacher><ProyeccionVivo /></ProtectedTeacher>} />
+            {/* Reto Exprés en vivo: control y proyección en la misma ventana, sin el menú del docente. */}
+            <Route path="/reto/:activityId/en-vivo/:codigo" element={<ProtectedTeacher><RetoEnVivo /></ProtectedTeacher>} />
             <Route element={<ProtectedTeacher><TeacherLayoutRoute /></ProtectedTeacher>}>
               <Route path="/dashboard" element={<TeacherDashboard />} />
               <Route path="/subject/:subjectId" element={<SubjectPage />} />
               <Route path="/activity/:activityId" element={<ActivityPage />} />
               <Route path="/participacion/:activityId" element={<ParticipacionDocente />} />
+              {/* Reto Exprés: armar el reto (docs/RETO_EXPRES.md). */}
+              <Route path="/reto/:activityId" element={<RetoDocente />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/perfil-ia" element={<PerfilIA />} />
               <Route path="/calendario" element={<CalendarPage />} />
@@ -378,6 +392,7 @@ export default function App() {
             <Route path="/alumno/evaluacion/:activityId/revision" element={<ProtectedStudent><EvaluacionRevision /></ProtectedStudent>} />
             <Route path="/alumno/juego/:activityId" element={<ProtectedStudent><JuegoRunner /></ProtectedStudent>} />
             <Route path="/alumno/participacion/:activityId" element={<ProtectedStudent><ParticipacionAlumno /></ProtectedStudent>} />
+            <Route path="/alumno/reto/:activityId" element={<ProtectedStudent><RetoAlumno /></ProtectedStudent>} />
             <Route path="/alumno/notificaciones" element={<ProtectedStudent><NotificationSettings /></ProtectedStudent>} />
             <Route path="/alumno/agenda" element={<ProtectedStudent><StudentAgenda /></ProtectedStudent>} />
             <Route path="/alumno/perfil" element={<ProtectedStudent><StudentProfile /></ProtectedStudent>} />

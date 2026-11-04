@@ -2159,6 +2159,18 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
 // la IA solo redacta el contenido pedagógico de cada uno, en el orden pedido.
 
 const REACTIVOS_PADRES_VALIDOS = { cuestionario: 'cuestionario', examen: 'examen' }
+// Reto Exprés (docs/RETO_EXPRES.md, D2/D12/S4): SOLO 'reactivos' acepta un reto como padre. Va en un mapa aparte a
+// propósito: REACTIVOS_PADRES_VALIDOS también lo usa crear_evaluacion_ia, que no debe aceptar un reto.
+// Con un reto como padre: solo opción múltiple y verdadero/falso, nunca más de los que faltan para llegar a 10,
+// enunciados breves (se responden en 20 s desde un celular) y el cobro se etiqueta «Reto Exprés» (detalle.funcion).
+const REACTIVOS_PADRE_RETO = 'reto'
+const RETO_TOTAL_PREGUNTAS = 10 // espejo de RETO_CFG.TOTAL_PREGUNTAS (src/utils/retoExpres.js); una prueba los compara
+const RETO_TIPOS_PERMITIDOS = ['opcion_multiple', 'verdadero_falso'] // espejo de TIPOS_OBJETIVOS
+// S4: solo para Reto Exprés; las instrucciones de cuestionarios y exámenes no cambian.
+const RETO_INSTRUCCION_BREVEDAD =
+  'ES UN RETO EXPRÉS: una competencia en vivo en la que cada pregunta se lee y se responde en 20 segundos desde un ' +
+  'celular. Cada enunciado debe ser breve y directo, de 200 caracteres como máximo. Cada opción debe ser concisa: ' +
+  'una frase corta que se lea de un vistazo en la pantalla de un teléfono.\n\n'
 const MIN_QUIERE_EVALUAR = 40
 const MAX_QUIERE_EVALUAR = 4000
 const MIN_REACTIVOS = 2 // SOLO el examen que propone el Chat (sanearPropuestaAccionChat): no se toca
@@ -2224,11 +2236,12 @@ async function precheckReactivos({ uid, params }) {
   const act = snap.data()
   if (act.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta actividad no es tuya')
 
-  const clase = REACTIVOS_PADRES_VALIDOS[act.categoria] || null
+  const clase = REACTIVOS_PADRES_VALIDOS[act.categoria] || (act.categoria === REACTIVOS_PADRE_RETO ? REACTIVOS_PADRE_RETO : null)
   if (!clase) {
     throw new HttpsError('failed-precondition',
       'Solo un cuestionario o un examen pueden generar reactivos con IA.')
   }
+  const esReto = clase === REACTIVOS_PADRE_RETO
 
   // "Mismo tema que los reactivos anteriores": cuando el docente marca esa
   // opción y sí hay reactivos previos, la IA infiere el tema de los enunciados
@@ -2256,6 +2269,31 @@ async function precheckReactivos({ uid, params }) {
     throw new HttpsError('invalid-argument',
       'Selecciona al menos un tipo de reactivo. No se descontaron créditos.',
       { codigo: 'TIPOS_VACIOS' })
+  }
+
+  // Reto Exprés: los tipos y la cantidad se validan aquí, ANTES de reservar, y nada se ajusta en silencio
+  // (se cobraría por reactivos que el reto no puede usar). Solo opción múltiple y verdadero/falso, en un arreglo
+  // explícito; y no más de los que faltan para completar las 10 preguntas.
+  if (esReto) {
+    const crudos = Array.isArray(params?.tipos) ? params.tipos : null
+    if (!crudos || !crudos.length || !crudos.every((t) => RETO_TIPOS_PERMITIDOS.includes(t))) {
+      throw new HttpsError('invalid-argument',
+        'En Reto Exprés solo se generan reactivos de opción múltiple y verdadero/falso. No se descontaron créditos.',
+        { codigo: 'RETO_TIPOS_NO_PERMITIDOS' })
+    }
+    const pedida = Number(params?.cantidad)
+    const existentes = (await db.collection(`activities/${actividadId}/preguntas`).count().get()).data().count
+    const faltan = Math.max(0, RETO_TOTAL_PREGUNTAS - existentes)
+    if (faltan === 0) {
+      throw new HttpsError('failed-precondition',
+        `Este reto ya tiene sus ${RETO_TOTAL_PREGUNTAS} preguntas. No se descontaron créditos.`,
+        { codigo: 'RETO_COMPLETO' })
+    }
+    if (!Number.isInteger(pedida) || pedida < 1 || pedida > faltan) {
+      throw new HttpsError('invalid-argument',
+        `Puedes generar de 1 a ${faltan} ${faltan === 1 ? 'reactivo' : 'reactivos'} para completar el reto. No se descontaron créditos.`,
+        { codigo: 'RETO_CANTIDAD_INVALIDA', faltan })
+    }
   }
 
   // Agregar reactivos a una evaluación que ya existe NO lee documentos (7-oct-2026,
@@ -2361,7 +2399,7 @@ function promptReactivos(ctx, asignatura) {
   const listaTipos = ctx.tipos.map((t, i) => `${i + 1}. ${ETIQUETA_TIPO_REACTIVO[t] || t}`).join('\n')
   const cabecera =
     `Asignatura: ${asignatura || 'la asignatura del docente'} (bachillerato).\n` +
-    `${ctx.clase === 'examen' ? 'EXAMEN' : 'CUESTIONARIO'}: "${ctx.nombre}".\n`
+    `${ctx.clase === REACTIVOS_PADRE_RETO ? 'RETO EXPRÉS' : (ctx.clase === 'examen' ? 'EXAMEN' : 'CUESTIONARIO')}: "${ctx.nombre}".\n`
 
   // Rama "mismo tema": los reactivos existentes son la referencia del tema, y
   // se le pide explícitamente al modelo cubrir el MISMO dominio con enunciados
@@ -2393,9 +2431,10 @@ function promptReactivos(ctx, asignatura) {
     '- respuesta_corta: enunciado + una respuesta esperada breve o criterio de respuesta correcta ' +
     '(es una guía para que el docente califique a mano; el alumno nunca la ve).\n' +
     '- subir_archivo: enunciado con la instrucción de qué debe subir el alumno (sin respuesta).\n\n' +
+    (ctx.clase === REACTIVOS_PADRE_RETO ? RETO_INSTRUCCION_BREVEDAD : '') +
     'Responde SOLO con este JSON:\n' +
     '{\n  "reactivos": [\n' +
-    '    {"tipo": "<tipo exacto de la lista>", "enunciado": "<máx 400 caracteres>", ' +
+    `    {"tipo": "<tipo exacto de la lista>", "enunciado": "<máx ${ctx.clase === REACTIVOS_PADRE_RETO ? 200 : 400} caracteres>", ` +
     '"opciones": ["<solo si opcion_multiple>", "..."], "correcta": "<índice 0-3 si opcion_multiple, ' +
     '\'v\'/\'f\' si verdadero_falso>", "respuestaEsperada": "<solo si respuesta_corta, máx 200 caracteres>"}\n' +
     '  ]\n}'
@@ -6981,6 +7020,9 @@ function crearCallableIA(opciones, { soloOperacion = null } = {}) {
           operacionCategoria: operacion,
           // Calificación de evidencias: se reserva EXACTAMENTE lo confirmado.
           ...(costoCalificacion && { costoCalculado: costoCalificacion.total, detalle: detalleCalificacion(costoCalificacion) }),
+          // Reto Exprés (D11): mismo cobro de 'reactivos'; solo se anota de dónde vino para que el movimiento diga
+          // «Reto Exprés». Usa el campo opcional `detalle` que el ledger ya guarda; no cambia importes ni saldos.
+          ...(operacion === 'reactivos' && precontexto?.clase === REACTIVOS_PADRE_RETO && { detalle: { funcion: 'reto' } }),
         })
       } catch (e) {
         throw comoHttpsError(e)
@@ -7255,6 +7297,7 @@ exports._pruebas = {
   contextoDeActividad, condicionesEntregable, esCriterioTemporal, elementosTemporales, peticionTemporalExplicita, sistemaInstrumento, bloqueContexto, bloqueConsideraciones, INSTRUMENTO_SISTEMA, textoPlano, precheckInstrumento, PADRES_VALIDOS, MIN_INSTRUCCIONES,
   precheckReactivos, tiposParaLote, normalizarReactivos, TIPOS_REACTIVO, MIN_QUIERE_EVALUAR, MIN_REACTIVOS, MIN_REACTIVOS_GENERACION_IA, MIN_REACTIVOS_CREAR_EVALUACION_IA, MAX_REACTIVOS,
   promptReactivos, sanitizarReactivosExistentes,
+  RETO_TOTAL_PREGUNTAS, RETO_TIPOS_PERMITIDOS, RETO_INSTRUCCION_BREVEDAD,
   agregarResultados, normalizarAnalisis, precheckAnalisisResultados, MIN_ENTREGAS_ANALISIS, TIPOS_OBJETIVOS_ANALISIS,
   agregarResultadosEncuesta, normalizarAnalisisEncuestaContexto, promptAnalisisEncuestaContexto, ENCUESTA_CONTEXTO_SISTEMA,
   promptAnalisis, ANALISIS_SISTEMA, bloqueConsideracionesAnalisis, MAX_CONSIDERACIONES_ANALISIS_CHARS,
