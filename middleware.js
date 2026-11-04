@@ -41,6 +41,11 @@ const RULES = [
   { pattern: '/api/subject/vivo-responder',   limit: 400, windowSec: 60 },
   // Hora del servidor: la usa el proyector (una consulta al abrir y una cada 30 s); sin sesión.
   { pattern: '/api/subject/vivo-reloj',       limit: 120, windowSec: 60 },
+  // Reto Exprés (externo sin sesión): mismos márgenes que Participación en vivo para un salón detrás de una IP.
+  // Entrar: una vez por participante (más reconexiones); 120/min cubre 40 externos con holgura.
+  { pattern: '/api/subject/reto-estado',      limit: 2400, windowSec: 60 },
+  { pattern: '/api/subject/reto-responder',   limit: 400, windowSec: 60 },
+  { pattern: '/api/subject/reto-unirse',      limit: 120, windowSec: 60 },
 ]
 
 // Orígenes CORS permitidos (mismo conjunto que api/_lib/cors.js) — se incluyen
@@ -112,5 +117,8 @@ export const config = {
     '/api/subject/vivo-estado',
     '/api/subject/vivo-responder',
     '/api/subject/vivo-reloj',
+    '/api/subject/reto-estado',
+    '/api/subject/reto-responder',
+    '/api/subject/reto-unirse',
   ],
 }

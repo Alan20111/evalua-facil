@@ -1226,6 +1226,7 @@ export default function ActivityPage() {
   // Participación en vivo tiene su propia pantalla (revisar, iniciar, proyectar): la lista de actividades
   // sigue apuntando aquí y desde aquí se redirige.
   if (activity?.categoria === 'participacion') return <Navigate to={`/participacion/${activityId}`} replace />
+  if (activity?.categoria === 'reto') return <Navigate to={`/reto/${activityId}`} replace />
 
   // Eliminar actividad — un solo nodo, reutilizado en las dos ramas del
   // ternario de abajo (evaluación y entregable/observación) para que

@@ -300,6 +300,52 @@ service cloud.firestore {
       return v == null || v == '';
     }
 
+    // ── Reto Exprés: candado de modalidad (etapa 1-bis, docs/RETO_EXPRES.md) ──
+    // Un reto (`categoria: 'reto'`) declara su modalidad en `reto.modalidad`: 'inscritos' o 'externo'. Un reto
+    // EXTERNO nunca es calificable: nace y se queda oculto para los inscritos, sin número ni promedio, sin publicación
+    // programada, con alias y no calificable; nada entra ni sale de la categoría reto y la modalidad no cambia. Las
+    // actividades que no son reto no pasan por ninguna de estas condiciones.
+    function esRetoExternoData(d) {
+      return d.get('categoria', null) == 'reto' && d.get('reto', {}).get('modalidad', null) == 'externo';
+    }
+    function esRetoExterno(actId) {
+      return exists(/databases/$(database)/documents/activities/$(actId)) &&
+        esRetoExternoData(get(/databases/$(database)/documents/activities/$(actId)).data);
+    }
+    // Etapa 3 (T3): un estudiante nunca crea ni modifica entregas de un reto, en ninguna modalidad. Con una entrega
+    // «en progreso» podía pedir a /api/exam/questions las 10 preguntas antes de la competencia. Las calificaciones
+    // de un reto de inscritos las registra el docente (o el servidor), no el estudiante.
+    function esReto(actId) {
+      return exists(/databases/$(database)/documents/activities/$(actId)) &&
+        get(/databases/$(database)/documents/activities/$(actId)).data.get('categoria', null) == 'reto';
+    }
+    // Etapa 5: un reto que NO está marcado calificable (práctica de inscritos, y todo reto externo) nunca tiene
+    // entrega ni calificación, ni del estudiante ni del docente. Espejo de esCalificable (src/utils/retoExpres.js).
+    function retoSinNota(actId) {
+      return esReto(actId) &&
+        get(/databases/$(database)/documents/activities/$(actId)).data.get('reto', {}).get('calificable', false) != true;
+    }
+    function retoBienFormado(d) {
+      return d.get('categoria', null) != 'reto' || (
+        d.get('reto', null) is map &&
+        d.get('reto', {}).get('modalidad', null) in ['inscritos', 'externo'] &&
+        (d.get('reto', {}).get('modalidad', null) != 'externo' || (
+          d.get('reto', {}).get('calificable', false) == false &&
+          d.get('reto', {}).get('modoIdentidad', null) == 'alias' &&
+          d.get('sinCalificacion', false) == true &&
+          d.get('oculta', false) == true &&
+          vacio(d.get('publishAt', null)) &&
+          vacio(d.get('publishedAt', null))
+        ))
+      );
+    }
+    function retoIntacto(antes, despues) {
+      return (antes.get('categoria', null) == 'reto') == (despues.get('categoria', null) == 'reto') &&
+        (antes.get('categoria', null) != 'reto' ||
+          despues.get('reto', {}).get('modalidad', null) == antes.get('reto', {}).get('modalidad', null)) &&
+        retoBienFormado(despues);
+    }
+
     // ¿Cuenta para la calificación? Espejo de cuentaParaCalificacion
     // (src/utils/activityVisibility.js): no es borrador ni "sin calificación".
     function actividadCuenta(d) {
@@ -861,7 +907,9 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.docenteId &&
         ownsSubject(request.resource.data.asignaturaId) &&
         !(actividadCuenta(request.resource.data) &&
-          parcialCerradoEn(request.resource.data.get('asignaturaId', ''), request.resource.data.get('parcial', 0)));
+          parcialCerradoEn(request.resource.data.get('asignaturaId', ''), request.resource.data.get('parcial', 0))) &&
+        // Reto Exprés: modalidad válida; un reto externo nace oculto y no calificable.
+        retoBienFormado(request.resource.data);
       allow update, delete: if isDocente() &&
         request.auth.uid == resource.data.docenteId &&
         // Crucigrama / Sopa de letras (22-ago-2026): no se puede publicar
@@ -891,7 +939,10 @@ service cloud.firestore {
         (request.method == 'delete'
           ? !(actividadCuenta(resource.data) &&
               parcialCerradoEn(resource.data.get('asignaturaId', ''), resource.data.get('parcial', 0)))
-          : actividadCerradaIntacta());
+          : actividadCerradaIntacta()) &&
+        // Reto Exprés: no se entra ni se sale de la categoría reto, la modalidad no cambia y un reto externo sigue
+        // oculto y no calificable. Borrar no pasa por aquí (en un delete no hay request.resource).
+        (request.method == 'delete' || retoIntacto(resource.data, request.resource.data));
 
       // Reactivos de una evaluación. Los lee cualquier cuenta autenticada
       // porque el alumno los necesita para contestar; los escribe solo el
@@ -1358,6 +1409,51 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── Reto Exprés ───────────────────────────────────────────────────────────
+    // Competencia en vivo (categoría `reto`). Colecciones PROPIAS: no comparte datos con Participación en vivo.
+    // Todas las escrituras las hace el servidor con el Admin SDK (que no pasa por estas reglas): iniciar, unirse,
+    // responder, pausar, terminar, renombrar, expulsar y calcular resultados. Ningún cliente crea ni modifica nada
+    // aquí, ni siquiera el docente dueño: así el reloj, los alias, las expulsiones y las respuestas no dependen de la
+    // pantalla. Lo único que puede hacer el docente dueño es BORRAR una sesión suya (etapa 3, como en Participación en
+    // vivo); sus datos los limpia el servidor. Nada se borra solo.
+    // Los participantes nunca leen Firestore: lo que les toca lo reciben del servidor.
+    //
+    // Lectura: el docente dueño (campo `docenteId` del propio documento, que escribe el servidor) y el admin. Una
+    // consulta del docente debe filtrar por docenteId (como vivoRespuestas). retoParticipantes guarda el nombre real
+    // detrás de cada alias: por eso nadie más lo lee.
+    match /retoSesiones/{sesionId} {
+      allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
+      allow create, update: if false;
+      // Etapa 3: el docente dueño borra una sesión suya, como en Participación en vivo. Nada se borra solo; la
+      // Cloud Function onSesionRetoBorrada limpia sus participantes, respuestas, alias, cupo, claves y resultados.
+      allow delete: if isDocente() && resource.data.docenteId == request.auth.uid;
+    }
+    match /retoParticipantes/{participanteId} {
+      allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
+      allow write: if false;
+    }
+    match /retoRespuestas/{respuestaId} {
+      allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
+      allow write: if false;
+    }
+    match /retoResultados/{sesionId} {
+      allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
+      allow write: if false;
+    }
+    // Copia congelada de la clave al iniciar y reserva de alias únicos: solo el servidor. Ningún cliente las lee,
+    // ni el docente ni el admin (la clave del docente sigue en activities/{id}/clave).
+    match /retoClaves/{sesionId} {
+      allow read, write: if false;
+    }
+    match /retoAlias/{aliasId} {
+      allow read, write: if false;
+    }
+    // Cupo de un reto externo (R4): 40 lugares numerados (`{código}_{1..40}`), uno por participante. Los crea el
+    // servidor dentro de la transacción que crea al participante. Ningún cliente los lee ni los escribe.
+    match /retoCupos/{lugarId} {
+      allow read, write: if false;
+    }
+
     match /submissions/{submissionId} {
       // F-06 (2026-09-06): acceso cruzado entre docentes de distintas escuelas.
       // Antes: isDocente() sin restricción → cualquier docente leía las calificaciones
@@ -1410,7 +1506,8 @@ service cloud.firestore {
           !request.resource.data.keys().hasAny(['politicaAplicada', 'ultimaCalificacionPor']) &&
           !actividadVencidaParaAlumno(request.resource.data.actividadId, request.resource.data.alumnoId) &&
           // Parcial cerrado definitivamente: ni entregas ni intentos nuevos.
-          !actividadEnParcialCerrado(request.resource.data.actividadId)
+          !actividadEnParcialCerrado(request.resource.data.actividadId) &&
+          !esReto(request.resource.data.actividadId)
         ) ||
         (
           isDocente() &&
@@ -1419,7 +1516,11 @@ service cloud.firestore {
           calificacionEnRango(request.resource.data.actividadId) &&
           (!actividadEnParcialCerrado(request.resource.data.actividadId) || notaAutomaticaDeCierre())
         )
-      );
+      ) &&
+        // Reto Exprés: un reto externo nunca tiene entregas ni calificaciones (ni del estudiante ni del docente), y uno
+        // de práctica tampoco (etapa 5: solo el que el docente marcó calificable recibe nota, y solo del docente).
+        !esRetoExterno(request.resource.data.actividadId) &&
+        !retoSinNota(request.resource.data.actividadId);
       allow update: if request.auth != null && (
         (
           ownsStudentDoc(resource.data.alumnoId) &&
@@ -1433,7 +1534,8 @@ service cloud.firestore {
             archivoPermitidoPorTipo(request.resource.data)) &&
           // Parcial cerrado: ni abrir ni terminar intentos, ni cambiar entregas
           // (una app vieja sin el candado de la pantalla tampoco).
-          !actividadEnParcialCerrado(resource.data.actividadId)
+          !actividadEnParcialCerrado(resource.data.actividadId) &&
+          !esReto(resource.data.actividadId)
         ) ||
         (
           isDocente() &&
@@ -1444,7 +1546,11 @@ service cloud.firestore {
           docenteRespetaEvidencia() &&
           (!actividadEnParcialCerrado(resource.data.actividadId) || soloComentarioDocente())
         )
-      );
+      ) &&
+        // Reto Exprés: aunque existiera (solo por un error del servidor), una entrega de un reto externo no se modifica;
+        // la de un reto que dejó de ser calificable tampoco (el docente aún puede borrarla).
+        !esRetoExterno(resource.data.actividadId) &&
+        !retoSinNota(resource.data.actividadId);
       // Borrar una submission borra su nota — eso es manipulación de
       // calificaciones si lo hace el alumno (ningún flujo del alumno borra
       // submissions). Solo el docente dueño de la actividad.
@@ -1520,7 +1626,9 @@ service cloud.firestore {
             dentroDelPlazo(submissionId) &&
             respuestaDelIntentoActual(submissionId)
           )
-        );
+        ) &&
+          // Reto Exprés: defensa adicional; la entrega de un reto externo no puede existir (ver allow create arriba).
+          !esRetoExterno(get(/databases/$(database)/documents/submissions/$(submissionId)).data.actividadId);
       }
 
       // Video interactivo: avance del estudiante en su intento (ver

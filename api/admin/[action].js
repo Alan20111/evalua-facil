@@ -13,7 +13,9 @@ const LIMITE_LOTE = 400
 const POR_DOCENTE = ['subjects', 'activities', 'attendance', 'events', 'horarioBloques',
   'horario', 'asuetos', 'vacaciones', 'bancoReactivos', 'bancoRubricas',
   'avisos', 'avisoPlantillas', 'academicEvents', 'subscriptions', 'payments',
-  'observacionesAsistencia', 'vivoSesiones', 'vivoRespuestas', 'vivoInformes', 'vivoNotas']
+  'observacionesAsistencia', 'vivoSesiones', 'vivoRespuestas', 'vivoInformes', 'vivoNotas',
+  // Reto Exprés: todos sus documentos llevan docenteId (también claves, alias y cupos, que ningún cliente lee).
+  'retoSesiones', 'retoParticipantes', 'retoRespuestas', 'retoResultados', 'retoClaves', 'retoAlias', 'retoCupos']
 
 const CON_SUBCOLECCIONES = { activities: 'preguntas', submissions: 'respuestas' }
 

@@ -72,6 +72,9 @@ export function esCalificacionEvidencias(m) {
 
 function nombreOperacion(m) {
   if (OPERACIONES_CALIFICACION_EVIDENCIAS.has(m.operacion)) return 'Calificación de evidencias'
+  // Reto Exprés (D11): los reactivos generados para un reto se cobran como 'reactivos'; el servidor anota
+  // `detalle.funcion: 'reto'` en el movimiento y solo cambia el nombre que se muestra.
+  if (m.operacion === 'reactivos' && m.detalle?.funcion === 'reto') return 'Reto Exprés'
   return OPERACIONES[m.operacion] || m.categoria || 'Operación de IA'
 }
 

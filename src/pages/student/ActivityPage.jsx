@@ -529,6 +529,7 @@ export default function StudentActivityPage() {
 
   // Participación en vivo se responde en su propia pantalla (el servidor verifica la inscripción).
   if (activity?.categoria === 'participacion') return <Navigate to={`/alumno/participacion/${activityId}`} replace />
+  if (activity?.categoria === 'reto') return <Navigate to={`/alumno/reto/${activityId}`} replace />
 
   if (activity?.tipo === 'evaluacion') {
     const ev = activity.evaluacion || {}

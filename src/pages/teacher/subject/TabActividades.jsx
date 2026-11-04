@@ -2,7 +2,7 @@
 // dividir sin cambio visual). Recibe lo que usa del componente principal por
 // el contexto Asignatura.
 import AttachmentList from '../../../components/AttachmentList'
-import { BookOpen, CheckCircle, ChevronDown, ChevronUp, ClipboardCheck, Clock, Copy, Eye, EyeOff, FileCheck2, FileText, GraduationCap, GripVertical, ListChecks, MoreVertical, Paperclip, Pencil, Plus, Sparkles, Timer, Trash2 } from 'lucide-react'
+import { BookOpen, CheckCircle, ChevronDown, ChevronUp, ClipboardCheck, Clock, Copy, Eye, EyeOff, FileCheck2, FileText, GraduationCap, GripVertical, ListChecks, MoreVertical, Paperclip, Pencil, Plus, Sparkles, Timer, Trash2, Zap } from 'lucide-react'
 import FiltroSoloCalificables from '../../../components/FiltroSoloCalificables'
 import { Fragment } from 'react'
 import { ICONO } from '../../../config/iconos'
@@ -192,10 +192,15 @@ export default function TabActividades() {
                                   : a.categoria === 'cuestionario' ? ListChecks
                                   : a.categoria === 'observacion' ? ClipboardCheck
                                   : a.categoria === 'juego' || a.categoria === 'participacion' ? Sparkles
+                                  : a.categoria === 'reto' ? Zap
                                   : FileText
                                 const esJuego = a.categoria === 'juego'
                                 // Participación en vivo: pantalla propia (/participacion/:id), nunca el editor genérico.
                                 const esVivo = a.categoria === 'participacion'
+                                // Reto Exprés: pantalla propia (/reto/:id). Un reto externo no se publica ni se oculta: siempre
+                                // queda oculto para los inscritos (las reglas lo exigen), así que no lleva esos botones.
+                                const esReto = a.categoria === 'reto'
+                                const esRetoExterno = esReto && a.reto?.modalidad === 'externo'
                                 // Solo los BORRADORES se arrastran (mismo arrastre HTML5 que los
                                 // materiales, solo web). Las publicadas se mueven con Subir/Bajar.
                                 const arrastrable = !IS_NATIVE_APP && isDraftActivity(a)
@@ -220,13 +225,15 @@ export default function TabActividades() {
                                         onClick={() => {
                                           if (esVivo) {
                                             navigate(`/participacion/${a.id}`)
+                                          } else if (esReto) {
+                                            navigate(`/reto/${a.id}`)
                                           } else if (isDraftActivity(a) && !esJuego) {
                                             openEdit(a, activityLabelById[a.id])
                                           } else {
                                             navigate(`/activity/${a.id}`)
                                           }
                                         }}
-                                        data-tooltip-follow={esVivo ? 'Revisar e iniciar' : isDraftActivity(a) && !esJuego ? 'Editar borrador' : a.tipo === 'evaluacion' ? 'Evaluación' : 'Evaluar'}
+                                        data-tooltip-follow={esVivo ? 'Revisar e iniciar' : esReto ? 'Armar el reto' : isDraftActivity(a) && !esJuego ? 'Editar borrador' : a.tipo === 'evaluacion' ? 'Evaluación' : 'Evaluar'}
                                         className="flex items-center gap-2 flex-1 min-w-0 px-3 py-2 min-h-control text-left">
                                         <ActIcon size={ICONO.md} className={`flex-shrink-0 ${isHidden ? 'text-hint' : a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : a.categoria === 'juego' ? 'text-accent' : 'text-hint'}`} />
                                         <div className="flex-1 min-w-0">
@@ -234,7 +241,7 @@ export default function TabActividades() {
                                             {activityLabelById[a.id] && <span className="text-accent font-semibold">{activityLabelById[a.id]} </span>}
                                             {esJuego ? (a.nombre || etiquetaJuego(a)) : a.nombre}
                                             <span className={`text-xs font-normal ${isHidden ? 'text-hint' : 'text-hint'}`}>
-                                              {' '}({a.categoria === 'examen' ? 'Examen' : a.categoria === 'cuestionario' ? 'Cuestionario' : a.categoria === 'observacion' ? 'Observación' : a.categoria === 'juego' ? etiquetaJuego(a) : a.categoria === 'participacion' ? 'Participación en vivo' : 'Entregable'})
+                                              {' '}({a.categoria === 'examen' ? 'Examen' : a.categoria === 'cuestionario' ? 'Cuestionario' : a.categoria === 'observacion' ? 'Observación' : a.categoria === 'juego' ? etiquetaJuego(a) : a.categoria === 'participacion' ? 'Participación en vivo' : esReto ? (esRetoExterno ? 'Reto Exprés · externo' : 'Reto Exprés') : 'Entregable'})
                                             </span>
                                             {sinCalificacion(a) && (
                                               <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-surface-container text-muted text-[10px] font-semibold align-middle">
@@ -291,7 +298,7 @@ export default function TabActividades() {
                                           </div>
                                         )}
                                       </button>
-                                      {esJuego && a.juego?.estado !== 'juego_confirmado' ? null : isHidden ? (
+                                      {(esJuego && a.juego?.estado !== 'juego_confirmado') || esRetoExterno ? null : isHidden ? (
                                         <IconButton icon={EyeOff} label={a.publishedAt ? 'Mostrar a estudiantes' : 'Publicar para estudiantes'} tooltip={false} onClick={(e) => { e.stopPropagation(); a.publishedAt ? showActivityNow(a) : setPublishDraftConfirm(a) }}
                                          
                                           data-tooltip={a.publishedAt ? 'Mostrar a estudiantes' : 'Publicar para estudiantes'} />
@@ -300,7 +307,7 @@ export default function TabActividades() {
                                          
                                           data-tooltip="Ocultar para estudiantes" />
                                       )}
-                                      <IconButton icon={Pencil} label="Editar" tooltip={false} className="mr-0.5" onClick={() => esVivo ? navigate(`/participacion/${a.id}`) : esJuego ? navigate(`/activity/${a.id}`) : openEdit(a, activityLabelById[a.id])} data-tooltip="Editar" />
+                                      <IconButton icon={Pencil} label="Editar" tooltip={false} className="mr-0.5" onClick={() => esVivo ? navigate(`/participacion/${a.id}`) : esReto ? navigate(`/reto/${a.id}`) : esJuego ? navigate(`/activity/${a.id}`) : openEdit(a, activityLabelById[a.id])} data-tooltip="Editar" />
                                       {!IS_NATIVE_APP && (
                                         <button type="button"
                                           onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setActivityMenu((m) => m?.a?.id === a.id ? null : { a, x: r.right, y: r.bottom }) }}
