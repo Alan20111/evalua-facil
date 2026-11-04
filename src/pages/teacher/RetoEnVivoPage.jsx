@@ -17,7 +17,7 @@ import { Badge, Button } from '../../components/ui'
 import ConfirmModal from '../../components/ConfirmModal'
 import { QrImagen } from '../../components/participacion/QrAcceso'
 import ParticipantesReto from '../../components/reto/ParticipantesReto'
-import ResultadosRetoDocente from '../../components/reto/ResultadosRetoDocente'
+import ResultadosRetoDocente, { ClasificacionProyectada } from '../../components/reto/ResultadosRetoDocente'
 import { COLORES_OPCION, letraOpcion, segundosRestantes, textoContador, textoOpcion } from '../../components/reto/opcionesReto'
 import { EsqueletoRetoEnVivo } from '../../components/esqueletos'
 import { useRelojServidor } from '../../hooks/useTemporizadorVivo'
@@ -25,8 +25,11 @@ import usePantallaCompleta from '../../hooks/usePantallaCompleta'
 import { medirRelojServidor } from '../../utils/participacionVivoDb'
 import { FASES_RETO, MODALIDADES_RETO, RETO_CFG, faseReto } from '../../utils/retoExpres'
 import {
-  controlarReto, escucharParticipantesReto, escucharRespuestasReto, escucharResultadosReto, escucharSesionReto, urlReto,
+  controlarReto, escucharParcialReto, escucharParticipantesReto, escucharRespuestasReto, escucharResultadosReto, escucharSesionReto, urlReto,
 } from '../../utils/retoExpresDb'
+
+// Entre preguntas el proyector muestra solo los primeros lugares provisionales: cabe con el contador a la vista.
+const LUGARES_PROVISIONALES = 5
 
 const ETIQUETA_FASE = {
   espera: 'Sala de espera', preparando: 'Prepárense', abierta: 'Respondiendo', pausada: 'En pausa',
@@ -65,6 +68,7 @@ export default function RetoEnVivoPage() {
   const [participantes, setParticipantes] = useState([])
   const [respuestas, setRespuestas] = useState([])
   const [resultados, setResultados] = useState(null)
+  const [parcial, setParcial] = useState(null) // clasificación provisional del servidor (4-nov-2026)
   const [t, setT] = useState(() => Date.now())
   const [ocupado, setOcupado] = useState(null) // acción en curso
   const [confirmarTerminar, setConfirmarTerminar] = useState(false)
@@ -80,6 +84,8 @@ export default function RetoEnVivoPage() {
   }, [codigo, uid])
   const finalizada = sesion?.estado === 'finalizada'
   useEffect(() => (finalizada ? escucharResultadosReto(codigo, setResultados, () => {}) : undefined), [codigo, finalizada])
+  // La calcula el servidor con la primera consulta de un celular tras cada cierre; aquí solo se lee.
+  useEffect(() => (finalizada ? undefined : escucharParcialReto(codigo, setParcial, () => {})), [codigo, finalizada])
   useEffect(() => {
     const id = setInterval(() => setT(ahora()), 200)
     return () => clearInterval(id)
@@ -155,6 +161,12 @@ export default function RetoEnVivoPage() {
         <p className="text-5xl font-bold text-on-surface">Pregunta {n} de {RETO_CFG.TOTAL_PREGUNTAS}</p>
         <p className="text-3xl text-muted">{fase === FASES_RETO.pausada ? 'En pausa' : 'Prepárense…'}</p>
         {fase !== FASES_RETO.pausada && <p className="text-6xl font-bold tabular-nums text-accent" aria-live="off">{segundosRestantes(f.faltaParaAbrirMs)}</p>}
+        {parcial?.cerradas >= 1 && parcial.clasificacion?.length > 0 && (
+          <div className="pt-4 space-y-3">
+            <p className="text-2xl font-semibold text-on-surface">Así van tras {parcial.cerradas} {parcial.cerradas === 1 ? 'pregunta' : 'preguntas'}</p>
+            <ClasificacionProyectada clasificacion={parcial.clasificacion} realizadas={parcial.cerradas} limite={LUGARES_PROVISIONALES} />
+          </div>
+        )}
       </div>
     )
   } else if (fase === FASES_RETO.abierta || fase === FASES_RETO.pausada) {

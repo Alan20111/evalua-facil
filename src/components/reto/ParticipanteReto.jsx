@@ -7,6 +7,10 @@
 // que se corrige el reloj local; el contador avanza solo con la apertura y el cierre que fijó el servidor. Lo que llegue
 // fuera de tiempo lo rechaza el servidor aunque el celular tenga el reloj mal. Nunca se muestra si se acertó durante la
 // competencia: la clave no sale del servidor hasta el final, y a un externo nunca (D9, E11).
+//
+// Clasificación en vivo (4-nov-2026): al cerrar cada pregunta el servidor manda la clasificación provisional (posición,
+// puntos, cuántos compiten y qué falta para subir). Se pide solo cuando hay una más nueva (`parcialVisto`) y se
+// conserva entre consultas; nunca incluye la pregunta que está abierta.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Check, Clock, DoorClosed, Hourglass, LogIn, Pause, Trophy, UserX, X } from 'lucide-react'
 import { Button, Input } from '../ui'
@@ -17,7 +21,8 @@ import { muestraDeDesfase } from '../../utils/participacionVivo'
 import { ICONO } from '../../config/iconos'
 import { RETO_CFG } from '../../utils/retoExpres'
 import { guardarTokenReto, leerTokenReto, llamarReto } from '../../utils/retoExpresDb'
-import { COLORES_OPCION, letraOpcion, segundosRestantes, textoContador, textoOpcion } from './opcionesReto'
+import { COLORES_OPCION, letraOpcion, ordinal, segundosRestantes, textoContador, textoOpcion, textoPuntos } from './opcionesReto'
+import { FranjaPosicion, ListaClasificacion, TarjetaPosicion } from './ClasificacionReto'
 import { textoDuracion } from '../../utils/retoExpres'
 
 // «20 s cada una» si todas duran lo mismo; «de 20 s a 3 min» si no. Sin datos (servidor anterior), nada.
@@ -63,7 +68,7 @@ function useAhora(ahora, activo) {
 }
 
 function Resultados({ resultados, preguntas, modalidad }) {
-  const { propia, top = [], realizadas = 0, correccion } = resultados || {}
+  const { propia, top = [], realizadas = 0, correccion, totalParticipantes } = resultados || {}
   const porId = new Map((preguntas || []).map((q) => [q.id, q]))
   return (
     <div className="px-4 py-6 max-w-md mx-auto space-y-6">
@@ -73,30 +78,18 @@ function Resultados({ resultados, preguntas, modalidad }) {
         </div>
         <h1 className="text-xl font-semibold text-on-surface">¡Terminó el reto!</h1>
         {propia ? (
-          <p className="text-base text-muted mt-1">
-            Quedaste en el lugar <strong className="text-on-surface">{propia.posicion}</strong> con <strong className="text-on-surface">{propia.aciertos}</strong> de {realizadas} {realizadas === 1 ? 'acierto' : 'aciertos'}.
-          </p>
+          <>
+            <p className="text-3xl font-bold text-accent tabular-nums mt-2">{ordinal(propia.posicion)} lugar</p>
+            <p className="text-base text-muted mt-1">
+              {Number.isInteger(totalParticipantes) ? `de ${totalParticipantes} ${totalParticipantes === 1 ? 'participante' : 'participantes'} · ` : ''}
+              <strong className="text-on-surface">{textoPuntos(propia.aciertos)}</strong> · {propia.aciertos} de {realizadas} {realizadas === 1 ? 'respuesta correcta' : 'respuestas correctas'}
+            </p>
+          </>
         ) : realizadas === 0 ? (
           <p className="text-base text-muted mt-1">La competencia terminó antes de la primera pregunta: no hay clasificación.</p>
         ) : null}
       </div>
-      {top.length > 0 && (
-        <section aria-labelledby="reto-top" className="bg-surface-card rounded-card shadow-card p-4">
-          <h2 id="reto-top" className="text-lg font-semibold text-on-surface mb-2">Clasificación</h2>
-          <ol className="space-y-1">
-            {top.map((f, i) => (
-              <li key={i} className="flex items-center gap-3 text-base">
-                <span className="w-6 text-right font-semibold text-accent tabular-nums">{f.posicion}</span>
-                <span className="flex-1 min-w-0 truncate text-on-surface">{f.nombreVisible}</span>
-                <span className="tabular-nums text-muted">{f.aciertos}</span>
-              </li>
-            ))}
-          </ol>
-          {propia && propia.posicion > RETO_CFG.TOP_CLASIFICACION && (
-            <p className="text-sm text-muted mt-2">Tú: lugar {propia.posicion} · {propia.aciertos} {propia.aciertos === 1 ? 'acierto' : 'aciertos'}</p>
-          )}
-        </section>
-      )}
+      <ListaClasificacion filas={top} propia={propia} realizadas={realizadas} titulo="Clasificación final" />
       {modalidad === 'inscritos' && Array.isArray(correccion) && correccion.length > 0 && (
         <section aria-labelledby="reto-correccion" className="bg-surface-card rounded-card shadow-card p-4 space-y-3">
           <h2 id="reto-correccion" className="text-lg font-semibold text-on-surface">Tus respuestas</h2>
@@ -140,6 +133,9 @@ export default function ParticipanteReto({ codigo: codigoUrl = null, actividadId
   const [sinAlmacen, setSinAlmacen] = useState(false)
   const token = useRef(null)
   const codigoHallado = useRef(null) // inscrito: el código que encontró el servidor por la actividad
+  const [parcial, setParcial] = useState(null) // clasificación provisional más reciente
+  const parcialVisto = useRef(0) // cuántas preguntas cerradas incluye la que ya tenemos
+  const parcialDe = useRef(null) // código de la competencia a la que pertenece
   const { ahora, registrar } = useRelojServidor()
 
   const sesion = estado?.sesion || null
@@ -155,8 +151,19 @@ export default function ParticipanteReto({ codigo: codigoUrl = null, actividadId
       if (!token.current) token.current = leerTokenReto(codigoUrl)
       if (token.current) cuerpo.token = token.current
     }
+    cuerpo.parcialVisto = parcialVisto.current
     try {
       const r = await llamarReto('reto-estado', cuerpo, { conSesion })
+      // Otra competencia del mismo reto (el docente abrió una sesión nueva): su clasificación empieza de cero.
+      if (r.sesion?.codigo && r.sesion.codigo !== parcialDe.current) {
+        parcialDe.current = r.sesion.codigo
+        parcialVisto.current = 0
+        setParcial(null)
+      }
+      if (Number.isInteger(r.parcial?.cerradas) && r.parcial.cerradas > parcialVisto.current) {
+        parcialVisto.current = r.parcial.cerradas
+        setParcial(r.parcial)
+      }
       if (Number.isFinite(r.sesion?.ahora)) registrar(muestraDeDesfase(t0, Date.now(), r.sesion.ahora))
       if (!codigoUrl) codigoHallado.current = r.sesion?.codigo || null
       setEstado(r)
@@ -277,7 +284,14 @@ export default function ParticipanteReto({ codigo: codigoUrl = null, actividadId
   if (sesion.fase === 'espera') {
     return <>{aviso}{cabecera}<Aviso icono={Check} titulo="¡Ya estás dentro!" texto="Espera a que tu docente inicie el reto. Mira la pantalla del salón." /></>
   }
-  if (sesion.fase === 'pausada') return <>{aviso}{cabecera}<Aviso icono={Pause} titulo="Reto en pausa" texto="Tu docente lo reanudará en un momento." /></>
+  // Entre preguntas, en pausa y al esperar el cierre: la tarjeta de posición y la lista provisional.
+  const clasificacion = parcial?.propia ? (
+    <div className="px-4 pb-6 max-w-md mx-auto space-y-4">
+      <TarjetaPosicion parcial={parcial} />
+      <ListaClasificacion filas={parcial.top} propia={parcial.propia} titulo="Clasificación provisional" />
+    </div>
+  ) : null
+  if (sesion.fase === 'pausada') return <>{aviso}{cabecera}<Aviso icono={Pause} titulo="Reto en pausa" texto="Tu docente lo reanudará en un momento." />{clasificacion}</>
   if (sesion.fase === 'terminada' || sesion.fase === 'finalizada') return <>{aviso}{cabecera}<Aviso icono={Hourglass} titulo="Calculando resultados…" /></>
   if (sesion.fase === 'preparando') {
     const s = segundosRestantes(Number.isFinite(sesion.abreMs) ? sesion.abreMs - t : sesion.faltaParaAbrirMs)
@@ -286,6 +300,7 @@ export default function ParticipanteReto({ codigo: codigoUrl = null, actividadId
         <Aviso icono={Clock} titulo={`Pregunta ${n} de ${sesion.totalPreguntas}`} texto="Prepárate…">
           {s != null && <p className="mt-4 text-3xl font-bold tabular-nums text-on-surface" aria-live="off">{s}</p>}
         </Aviso>
+        {clasificacion}
       </>
     )
   }
@@ -303,9 +318,13 @@ export default function ParticipanteReto({ codigo: codigoUrl = null, actividadId
           <p className="text-sm font-semibold text-accent">Pregunta {n} de {sesion.totalPreguntas}</p>
           <p className={`text-2xl font-bold tabular-nums ${s != null && s <= 5 ? 'text-red-800' : 'text-on-surface'}`} aria-live="off" aria-label={`Quedan ${s} segundos`}>{textoContador(s)}</p>
         </div>
+        {!respondida && <FranjaPosicion parcial={parcial} />}
         <h1 className="text-xl font-semibold text-on-surface break-words">{q?.enunciado}</h1>
         {respondida ? (
-          <Aviso icono={Check} titulo="Respuesta enviada" texto="Espera la siguiente pregunta." />
+          <>
+            <Aviso icono={Check} titulo="Respuesta enviada" texto="Espera la siguiente pregunta." />
+            <FranjaPosicion parcial={parcial} nota="se actualiza al cerrar la pregunta" />
+          </>
         ) : (
           <fieldset className="grid gap-3">
             <legend className="sr-only">Opciones</legend>

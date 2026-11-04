@@ -149,6 +149,10 @@ export function escucharRespuestasReto(codigo, docenteId, cb, onError) {
   const q = query(collection(db, 'retoRespuestas'), where('docenteId', '==', docenteId), where('sesionId', '==', codigo))
   return onSnapshot(q, (s) => cb(s.docs.map((d) => ({ id: d.id, ...d.data() }))), onError)
 }
+/** Clasificación provisional que calcula el servidor al cerrar cada pregunta (4-nov-2026), para el proyector. */
+export function escucharParcialReto(codigo, cb, onError) {
+  return onSnapshot(doc(db, 'retoParcial', codigo), (s) => cb(s.exists() ? s.data() : null), onError)
+}
 export function escucharResultadosReto(codigo, cb, onError) {
   return onSnapshot(doc(db, 'retoResultados', codigo), (s) => cb(s.exists() ? s.data() : null), onError)
 }

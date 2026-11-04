@@ -8,7 +8,8 @@ import { getDb, admin, verifyRequest } from './firebaseAdmin.js'
 import { capitalizarNombre } from '../../src/utils/nombres.js'
 import { codigoVivoValido } from '../../src/utils/participacionVivo.js'
 import {
-  ESTADOS_RETO, puedeFinalizar, calcularResultadosReto, formatoTokenValido, idParticipante,
+  ESTADOS_RETO, FASES_RETO, puedeFinalizar, calcularResultadosReto, formatoTokenValido, idParticipante, faseReto,
+  preguntasCerradas, clasificacionParcialReto,
 } from '../../src/utils/retoExpres.js'
 
 export { getDb, admin, verifyRequest }
@@ -57,6 +58,7 @@ export const refs = (db, codigo) => ({
   claves: db.doc(`retoClaves/${codigo}`),
   lugar: (n) => db.doc(`retoCupos/${codigo}_${n}`), // cupo de externos: lugares numerados 1..40 (R4, etapa 4)
   resultados: db.doc(`retoResultados/${codigo}`),
+  parcial: db.doc(`retoParcial/${codigo}`), // clasificación provisional (4-nov-2026), una por sesión
   participante: (id) => db.doc(`retoParticipantes/${id}`),
   alias: (clave) => db.doc(`retoAlias/${codigo}_${clave}`),
   respuesta: (participanteId, indice) => db.doc(`retoRespuestas/${participanteId}_${indice}`),
@@ -184,6 +186,73 @@ export async function finalizarSiToca(db, codigo) {
     })
     return 'finalizada'
   })
+}
+
+// ── Clasificación provisional (4-nov-2026) ─────────────────────────────────────
+// Se recalcula UNA vez por pregunta cerrada, en la primera consulta que llega después del cierre (sin tareas
+// programadas), con el mismo «turno» que el registro definitivo para que 40 celulares no calculen 40 veces. Se guarda en
+// retoParcial/{código} (solo el servidor escribe; el docente dueño lo lee para el proyector). Se espera un margen tras
+// el cierre para que una respuesta aceptada justo al final (su transacción comprobó la hora antes del cierre) ya esté
+// guardada; el margen cabe en los 4 s de «Prepárate…». Es provisional: el registro definitivo se calcula aparte.
+export const MARGEN_PARCIAL_MS = 1500
+const TURNO_PARCIAL_MS = 10000
+
+/** Cuántas preguntas debe incluir ya la clasificación provisional (0 = todavía ninguna o ya no aplica). */
+export function cerradasParaParcial(ses, ahora) {
+  if (ses?.estado !== ESTADOS_RETO.en_curso) return 0
+  const fase = faseReto(ses, ahora).fase
+  if (fase === FASES_RETO.terminada || fase === FASES_RETO.finalizada) return 0 // ya toca el registro definitivo
+  return preguntasCerradas(ses, ahora - MARGEN_PARCIAL_MS)
+}
+
+/**
+ * Devuelve la clasificación provisional más reciente (datos de retoParcial) y la recalcula si le falta alguna pregunta
+ * cerrada y nadie más la está calculando. null si todavía no hay ninguna.
+ */
+export async function parcialAlDia(db, codigo, ses) {
+  const r = refs(db, codigo)
+  const esperadas = cerradasParaParcial(ses, ahoraReto())
+  const actual = (await r.parcial.get()).data() || null
+  if (esperadas < 1 || (actual?.cerradas ?? 0) >= esperadas) return actual
+  const marca = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const turno = await db.runTransaction(async (tx) => {
+    const d = (await tx.get(r.parcial)).data()
+    const ahora = ahoraReto()
+    if ((d?.cerradas ?? 0) >= esperadas) return 'listo'
+    if (Number.isFinite(d?.calculandoHastaMs) && d.calculandoHastaMs > ahora) return 'ocupado'
+    tx.set(r.parcial, {
+      sesionId: codigo, actividadId: ses.actividadId, docenteId: ses.docenteId,
+      calculandoHastaMs: ahora + TURNO_PARCIAL_MS, calculandoMarca: marca,
+    }, { merge: true })
+    return 'mio'
+  })
+  if (turno !== 'mio') return (await r.parcial.get()).data() || actual
+
+  await db.runTransaction(async (tx) => {
+    const d = (await tx.get(r.parcial)).data()
+    if (d?.calculandoMarca !== marca) return // venció el turno y otro lo retomó
+    const sesion = (await tx.get(r.sesion)).data()
+    if (!sesion) return
+    const cerradas = cerradasParaParcial(sesion, ahoraReto())
+    const [clavesSnap, partSnap, respSnap] = await Promise.all([
+      tx.get(r.claves),
+      tx.get(db.collection('retoParticipantes').where('sesionId', '==', codigo)),
+      tx.get(db.collection('retoRespuestas').where('sesionId', '==', codigo)),
+    ])
+    const fin = { calculandoHastaMs: FieldValue.delete(), calculandoMarca: FieldValue.delete() }
+    const p = cerradas >= 1 ? clasificacionParcialReto({
+      sesion, preguntas: sesion.preguntas, claves: clavesSnap.data()?.claves || {}, cerradas,
+      participantes: partSnap.docs.map((x) => ({ id: x.id, ...x.data() })),
+      respuestas: respSnap.docs.map((x) => ({ id: x.id, ...x.data() })),
+    }) : null
+    if (!p?.ok) {
+      if (p) console.error('reto-parcial: no se pudo calcular', codigo, p.codigo)
+      tx.update(r.parcial, fin)
+      return
+    }
+    tx.update(r.parcial, { ...fin, cerradas: p.cerradas, clasificacion: p.clasificacion, calculadoMs: ahoraReto() })
+  })
+  return (await r.parcial.get()).data() || null
 }
 
 /** Respuesta HTTP uniforme para los errores esperados; los demás se relanzan (500 del dispatcher). */

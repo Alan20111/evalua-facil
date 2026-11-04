@@ -1,7 +1,35 @@
 // Reto Exprés · resultados de UNA sesión para el docente (etapa 4): el registro definitivo que guardó el servidor
 // (retoResultados) más lo que el docente ya puede leer (participantes, para ver el nombre real detrás de un alias).
 // `proyectable`: versión para la pantalla del salón — solo los 10 primeros lugares y nunca el nombre real.
+import { Medal } from 'lucide-react'
 import { RETO_CFG } from '../../utils/retoExpres'
+import { ICONO } from '../../config/iconos'
+
+const ESTILO_PODIO = ['text-amber-700', 'text-slate-500', 'text-orange-800']
+
+/**
+ * Clasificación para la pantalla del salón (alias o nombre visible, nunca el nombre real), con los 3 primeros lugares
+ * destacados (4-nov-2026). La usan el final y la clasificación provisional entre preguntas (`limite` = cuántos lugares).
+ */
+export function ClasificacionProyectada({ clasificacion = [], realizadas, limite = RETO_CFG.TOP_CLASIFICACION }) {
+  const filas = clasificacion.filter((f) => f.posicion <= limite)
+  return (
+    <ol className="w-full max-w-3xl mx-auto space-y-2">
+      {filas.map((f) => {
+        const podio = f.posicion <= 3
+        return (
+          <li key={f.participanteId} className={`flex items-center gap-4 bg-surface-card rounded-card shadow-card px-5 ${podio ? 'py-4 ring-2 ring-accent-light' : 'py-3'}`}>
+            <span className={`w-20 flex-shrink-0 inline-flex items-center justify-end gap-1 text-3xl font-bold tabular-nums ${podio ? ESTILO_PODIO[f.posicion - 1] : 'text-accent'}`}>
+              {podio && <Medal size={ICONO.xl} aria-hidden="true" />}{f.posicion}
+            </span>
+            <span className={`flex-1 min-w-0 truncate font-semibold text-on-surface ${podio ? 'text-4xl' : 'text-3xl'}`}>{f.nombreVisible}</span>
+            <span className="text-2xl tabular-nums text-muted">{f.aciertos} / {realizadas}</span>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
 
 function porcentaje(n, total) {
   return total ? Math.round((n / total) * 100) : 0
@@ -15,22 +43,9 @@ export default function ResultadosRetoDocente({ resultados, sesion, participante
   const porId = new Map(participantes.map((p) => [p.id, p]))
   const conAlias = sesion?.modoIdentidad === 'alias'
   const clasificacion = resultados.clasificacion || []
-  const filas = proyectable ? clasificacion.filter((f) => f.posicion <= RETO_CFG.TOP_CLASIFICACION) : clasificacion
   const total = clasificacion.length
 
-  if (proyectable) {
-    return (
-      <ol className="w-full max-w-3xl mx-auto space-y-2">
-        {filas.map((f) => (
-          <li key={f.participanteId} className="flex items-center gap-4 bg-surface-card rounded-card shadow-card px-5 py-3">
-            <span className="w-12 text-right text-3xl font-bold text-accent tabular-nums">{f.posicion}</span>
-            <span className="flex-1 min-w-0 truncate text-3xl font-semibold text-on-surface">{f.nombreVisible}</span>
-            <span className="text-2xl tabular-nums text-muted">{f.aciertos} / {resultados.realizadas}</span>
-          </li>
-        ))}
-      </ol>
-    )
-  }
+  if (proyectable) return <ClasificacionProyectada clasificacion={clasificacion} realizadas={resultados.realizadas} />
 
   const preguntas = (sesion?.preguntas || []).slice(0, resultados.realizadas || 0)
   const porPregunta = preguntas.map((q, i) => {

@@ -635,5 +635,116 @@ await caso('con tiempos distintos: el estado y las respuestas siguen el turno re
   assert.deepStrictEqual([res.realizadas, res.clasificacion[0].aciertos], [10, 1])
 })
 
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('I. Clasificación provisional durante la competencia (4-nov-2026)')
+
+const MARGEN = 1500 // MARGEN_PARCIAL_MS: se espera tras el cierre antes de calcular
+
+await caso('externos: tras cada cierre, su lugar, puntos, total y qué le falta; nada de claves, ids ni respuestas', async () => {
+  await preparar()
+  const codigo = await sesionAbierta('r_ext')
+  const [ta, tb, tc] = [await externo(codigo, 'Tigre Azul'), await externo(codigo, 'Puma Rojo'), await externo(codigo, 'Lince Gris')]
+  await iniciar(codigo)
+  AHORA = abre(0) + 1000
+  assert.strictEqual((await responder(codigo, 0, 'b', { token: ta })).statusCode, 200) // acierta
+  assert.strictEqual((await responder(codigo, 0, 'a', { token: tb })).statusCode, 200) // falla
+  // Mientras la pregunta está abierta, y justo al cerrar (dentro del margen), todavía no hay clasificación.
+  let e = await estado(codigo, { token: ta, parcialVisto: 0 })
+  assert.strictEqual(e.cuerpo.parcial, undefined)
+  AHORA = cierra(0) + 500
+  e = await estado(codigo, { token: ta, parcialVisto: 0 })
+  assert.strictEqual(e.cuerpo.parcial, undefined)
+  AHORA = cierra(0) + MARGEN + 100
+  const a = (await estado(codigo, { token: ta, parcialVisto: 0 })).cuerpo.parcial
+  assert.deepStrictEqual([a.cerradas, a.propia.posicion, a.propia.aciertos, a.totalParticipantes], [1, 1, 1, 3])
+  assert.deepStrictEqual(a.siguiente, { primero: true, empatados: 0 })
+  const b = (await estado(codigo, { token: tb, parcialVisto: 0 })).cuerpo.parcial
+  assert.deepStrictEqual([b.propia.posicion, b.propia.aciertos], [2, 0])
+  assert.deepStrictEqual(b.siguiente, { primero: false, posicion: 1, faltan: 1 })
+  const c = (await estado(codigo, { token: tc, parcialVisto: 0 })).cuerpo.parcial // no respondió: 0 puntos, empatado
+  assert.deepStrictEqual([c.propia.posicion, c.propia.aciertos], [2, 0])
+  assert.deepStrictEqual(c.top.map((f) => [f.posicion, f.nombreVisible, f.aciertos]), [[1, 'Tigre Azul', 1], [2, 'Lince Gris', 0], [2, 'Puma Rojo', 0]])
+  for (const v of [a, b, c]) {
+    const texto = JSON.stringify(v)
+    for (const prohibido of ['participanteId', codigo, 'respuestaCorrecta', 'opcionSeleccionada', 'correccion', 'claves']) assert.ok(!texto.includes(prohibido), prohibido)
+  }
+  // Ya la tiene: no se vuelve a mandar.
+  assert.strictEqual((await estado(codigo, { token: ta, parcialVisto: 1 })).cuerpo.parcial, undefined)
+})
+
+await caso('la pregunta abierta nunca entra; al cerrarse, sí', async () => {
+  await preparar()
+  const codigo = await sesionAbierta('r_ext')
+  const ta = await externo(codigo, 'Tigre Azul')
+  const tb = await externo(codigo, 'Puma Rojo')
+  await iniciar(codigo)
+  AHORA = abre(0) + 1000
+  await responder(codigo, 0, 'b', { token: ta })
+  AHORA = abre(1) + 1000 // ya cerró la 1; la 2 está abierta
+  await responder(codigo, 1, 'v', { token: tb }) // Puma acierta la abierta
+  let p = (await estado(codigo, { token: tb, parcialVisto: 0 })).cuerpo.parcial
+  assert.deepStrictEqual([p.cerradas, p.propia.aciertos, p.propia.posicion], [1, 0, 2])
+  AHORA = cierra(1) + MARGEN + 100
+  p = (await estado(codigo, { token: tb, parcialVisto: 1 })).cuerpo.parcial
+  assert.deepStrictEqual([p.cerradas, p.propia.aciertos, p.propia.posicion], [2, 1, 1])
+  assert.deepStrictEqual(p.siguiente, { primero: true, empatados: 1 })
+})
+
+await caso('40 consultas a la vez tras un cierre: se calcula una sola vez y queda guardada sin marca pendiente', async () => {
+  await preparar()
+  const codigo = await sesionAbierta('r_ext')
+  const tokens = []
+  for (let i = 0; i < 5; i++) tokens.push(await externo(codigo, `Jugador ${String.fromCharCode(65 + i)}`))
+  await iniciar(codigo)
+  AHORA = abre(0) + 1000
+  await responder(codigo, 0, 'b', { token: tokens[0] })
+  AHORA = cierra(0) + MARGEN + 100
+  const todas = await Promise.all(Array.from({ length: 40 }, (_, i) => estado(codigo, { token: tokens[i % 5], parcialVisto: 0 })))
+  assert.ok(todas.every((r) => r.statusCode === 200))
+  const doc = (await db.doc(`retoParcial/${codigo}`).get()).data()
+  assert.deepStrictEqual([doc.cerradas, doc.clasificacion.length, doc.docenteId, doc.actividadId, doc.sesionId], [1, 5, DOC, 'r_ext', codigo])
+  assert.strictEqual(doc.calculandoMarca, undefined)
+  const calculado = doc.calculadoMs
+  AHORA += 3000 // más consultas de la misma pregunta: no se recalcula
+  await Promise.all(tokens.map((token) => estado(codigo, { token, parcialVisto: 0 })))
+  assert.strictEqual((await db.doc(`retoParcial/${codigo}`).get()).data().calculadoMs, calculado)
+})
+
+await caso('inscritos: el nombre visible, el expulsado deja de verla y sale de la lista; final con TODOS los lugares', async () => {
+  await preparar()
+  const codigo = await sesionAbierta('r_ins')
+  assert.strictEqual((await unirse(codigo, {}, tk.ana)).statusCode, 200)
+  assert.strictEqual((await unirse(codigo, {}, tk.beto)).statusCode, 200)
+  await iniciar(codigo)
+  AHORA = abre(0) + 1000
+  await responder(codigo, 0, 'b', {}, tk.beto)
+  AHORA = cierra(0) + MARGEN + 100
+  let p = (await estado(codigo, { parcialVisto: 0 }, tk.ana)).cuerpo.parcial
+  assert.deepStrictEqual(p.top.map((f) => [f.posicion, f.nombreVisible, f.aciertos]), [[1, 'Beto Ramírez', 1], [2, 'Ana Pérez Luna', 0]])
+  assert.strictEqual(JSON.stringify(p).includes('respuestaCorrecta'), false) // ni a un inscrito, hasta el final
+  await control(codigo, 'expulsar', { participanteId: `${codigo}_st_beto` })
+  AHORA = cierra(1) + MARGEN + 100
+  assert.strictEqual((await estado(codigo, { parcialVisto: 1 }, tk.beto)).cuerpo.parcial, undefined)
+  p = (await estado(codigo, { parcialVisto: 1 }, tk.ana)).cuerpo.parcial
+  assert.deepStrictEqual([p.cerradas, p.totalParticipantes, p.propia.posicion], [2, 1, 1])
+  AHORA = cierra(9) + 1
+  const fin = (await estado(codigo, {}, tk.ana)).cuerpo
+  assert.strictEqual(fin.parcial, undefined) // terminada: ya no hay provisional
+  assert.deepStrictEqual([fin.resultados.totalParticipantes, fin.resultados.top.length, fin.resultados.top[0].esPropia], [1, 1, true])
+})
+
+await caso('borrar la sesión también borra su clasificación provisional', async () => {
+  await preparar()
+  const codigo = await sesionAbierta('r_ext')
+  const ta = await externo(codigo, 'Tigre Azul')
+  await iniciar(codigo)
+  AHORA = cierra(0) + MARGEN + 100
+  await estado(codigo, { token: ta, parcialVisto: 0 })
+  assert.ok((await db.doc(`retoParcial/${codigo}`).get()).exists)
+  await db.doc(`retoSesiones/${codigo}`).delete()
+  await limpiarRetoDeSesion({ sesionId: codigo })
+  assert.strictEqual((await db.doc(`retoParcial/${codigo}`).get()).exists, false)
+})
+
 fijarRelojReto(null)
 resumen('RETO SERVIDOR')

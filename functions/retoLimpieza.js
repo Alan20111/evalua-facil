@@ -8,7 +8,7 @@ const { getFirestore } = require('firebase-admin/firestore')
 // Colecciones con un documento por participante, respuesta, alias o lugar del cupo (se buscan por campo).
 const POR_CAMPO = ['retoParticipantes', 'retoRespuestas', 'retoAlias', 'retoCupos'] // retoCupos: un lugar numerado por externo
 // Colecciones con UN documento por sesión, cuyo id es el código.
-const POR_CODIGO = ['retoSesiones', 'retoClaves', 'retoResultados']
+const POR_CODIGO = ['retoSesiones', 'retoClaves', 'retoResultados', 'retoParcial'] // retoParcial: clasificación provisional
 
 const codigoValido = (c) => typeof c === 'string' && /^[A-HJ-KM-NP-Z2-9]{10}$/.test(c)
 
