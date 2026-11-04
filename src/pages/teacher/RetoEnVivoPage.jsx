@@ -18,7 +18,7 @@ import ConfirmModal from '../../components/ConfirmModal'
 import { QrImagen } from '../../components/participacion/QrAcceso'
 import ParticipantesReto from '../../components/reto/ParticipantesReto'
 import ResultadosRetoDocente from '../../components/reto/ResultadosRetoDocente'
-import { COLORES_OPCION, letraOpcion, segundosRestantes, textoOpcion } from '../../components/reto/opcionesReto'
+import { COLORES_OPCION, letraOpcion, segundosRestantes, textoContador, textoOpcion } from '../../components/reto/opcionesReto'
 import { EsqueletoRetoEnVivo } from '../../components/esqueletos'
 import { useRelojServidor } from '../../hooks/useTemporizadorVivo'
 import usePantallaCompleta from '../../hooks/usePantallaCompleta'
@@ -165,7 +165,7 @@ export default function RetoEnVivoPage() {
           <p className="text-2xl font-semibold text-accent">Pregunta {n} de {RETO_CFG.TOTAL_PREGUNTAS}</p>
           {fase === FASES_RETO.pausada
             ? <Badge tone="warning" className="text-xl px-4 py-1">En pausa</Badge>
-            : <p className={`text-6xl font-bold tabular-nums ${s <= 5 ? 'text-red-800' : 'text-on-surface'}`} aria-live="off">{s}</p>}
+            : <p className={`text-6xl font-bold tabular-nums ${s <= 5 ? 'text-red-800' : 'text-on-surface'}`} aria-live="off">{textoContador(s)}</p>}
         </div>
         <h1 className="text-4xl font-semibold text-on-surface break-words leading-tight">{q?.enunciado}</h1>
         <ul className="grid gap-4 sm:grid-cols-2">

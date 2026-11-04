@@ -51,7 +51,7 @@ export default function CrearRetoModal({ open, asignaturaId, docenteId, parcial,
       )}>
       <div className="space-y-4">
         <p className="text-sm text-muted">
-          Competencia en vivo de 10 preguntas, 20 segundos cada una. Tú la proyectas y los participantes responden desde su celular.
+          Competencia en vivo de 10 preguntas. Tú eliges cuánto tiempo tiene cada una (de 20 segundos a 5 minutos), la proyectas y los participantes responden desde su celular.
         </p>
         <Input label="Nombre del reto" value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={120} required />
         <RadioGroup label="¿Quién participa?" name="reto-modalidad" options={OPCIONES_MODALIDAD} value={modalidad} onChange={setModalidad} />

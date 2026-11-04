@@ -14,7 +14,7 @@ import {
 } from './retoComun.js'
 import {
   RETO_CFG, ESTADOS_RETO, FASES_RETO, modoIdentidadDe, faseReto, puedeFinalizar, puedeUnirse, registroParticipante, idParticipante,
-  validarAlias, puedeResponder, nombreVisible, vistaResultadosParticipante,
+  validarAlias, puedeResponder, nombreVisible, vistaResultadosParticipante, tiempoRespuestaMs,
 } from '../../src/utils/retoExpres.js'
 
 const metodoNoPermitido = (res) => res.status(405).json({ error: 'Método no permitido' })
@@ -148,7 +148,9 @@ export async function estadoReto(db, req, codigo, body) {
   const ahora = ahoraReto()
   const t = resumenTiempo(sesion, ahora, faseReto)
   const salida = {
-    sesion: { codigo, titulo: sesion.titulo || '', modalidad: sesion.modalidad, modoIdentidad: modoIdentidadDe(sesion), ...t },
+    // tiemposSeg: el tiempo de cada pregunta, para la sala de espera (no es secreto: es la duración, no el contenido).
+    sesion: { codigo, titulo: sesion.titulo || '', modalidad: sesion.modalidad, modoIdentidad: modoIdentidadDe(sesion), ...t,
+      tiemposSeg: (sesion.preguntas || []).map((q) => tiempoRespuestaMs(q) / 1000) },
     participante: null, pregunta: null, yaRespondio: false, resultados: null,
   }
   const pSnap = quien.id ? await refs(db, codigo).participante(quien.id).get() : null
@@ -159,7 +161,7 @@ export async function estadoReto(db, req, codigo, body) {
 
   if (t.fase === FASES_RETO.abierta && Number.isInteger(t.indice)) {
     const q = sesion.preguntas[t.indice]
-    salida.pregunta = { indice: t.indice, id: q.id, tipo: q.tipo, enunciado: q.enunciado, opciones: q.opciones }
+    salida.pregunta = { indice: t.indice, id: q.id, tipo: q.tipo, enunciado: q.enunciado, opciones: q.opciones, tiempoSeg: tiempoRespuestaMs(q) / 1000 }
     salida.yaRespondio = (await refs(db, codigo).respuesta(p.id, t.indice).get()).exists
   }
   if (sesion.estado === ESTADOS_RETO.finalizada) {

@@ -4,7 +4,7 @@
 //   (= firebase emulators:exec --only firestore,auth --project demo-test "node test/reto-servidor.test.mjs")
 //
 // Llama a los handlers reales de /api/subject (reto-crear, reto-control, reto-unirse, reto-estado, reto-responder) y a la
-// limpieza de functions/retoLimpieza.js. El reloj del servidor se sustituye (fijarRelojReto) para recorrer los 20 s de
+// limpieza de functions/retoLimpieza.js. El reloj del servidor se sustituye (fijarRelojReto) para recorrer el tiempo de
 // cada pregunta y pausas de días sin esperar. Las entradas y respuestas «simultáneas» se lanzan juntas con Promise.all,
 // así que compiten de verdad por las mismas transacciones del emulador.
 import { createRequire } from 'node:module'
@@ -578,6 +578,61 @@ await caso('por actividad: sin sesión, de otra asignatura, docente o reto exter
   assert.strictEqual(ext.statusCode, 404)
   assert.ok(!JSON.stringify([ext.cuerpo, (await porActividad(tk.zoe)).cuerpo]).includes(c))
   for (const id of ['no_existe', 'a/b', 'cuest']) assert.strictEqual((await porActividad(tk.ana, id)).statusCode, 404, id)
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('H. Tiempo por pregunta (4-nov-2026)')
+
+// p0 = 5 min, p1 = 1 min, el resto sin tiempo propio (= 20 s, como los retos anteriores).
+async function conTiempos(id, tiempos) {
+  for (const [i, s] of Object.entries(tiempos)) await db.doc(`activities/${id}/preguntas/p${i}`).update({ tiempoSeg: s })
+}
+
+await caso('la sesión congela el tiempo de cada pregunta; sin tiempo propio = 20 s', async () => {
+  await preparar()
+  await conTiempos('r_ext', { 0: 300, 1: 60 })
+  const c = await crear('r_ext')
+  const s = (await db.doc(`retoSesiones/${c.cuerpo.codigo}`).get()).data()
+  assert.deepStrictEqual(s.preguntas.map((q) => q.tiempoSeg), [300, 60, 20, 20, 20, 20, 20, 20, 20, 20])
+  // Editar el tiempo después NO cambia la sesión ya creada.
+  await conTiempos('r_ext', { 0: 30 })
+  assert.strictEqual((await db.doc(`retoSesiones/${c.cuerpo.codigo}`).get()).data().preguntas[0].tiempoSeg, 300)
+})
+
+await caso('un tiempo fuera de la lista impide crear la sesión (TIEMPO_INVALIDO), sin crear nada', async () => {
+  await preparar()
+  await conTiempos('r_ext', { 3: 45 })
+  const c = await crear('r_ext')
+  assert.deepStrictEqual([c.statusCode, c.cuerpo.codigo], [409, 'TIEMPO_INVALIDO'])
+  assert.strictEqual((await db.collection('retoSesiones').where('actividadId', '==', 'r_ext').get()).size, 0)
+})
+
+await caso('con tiempos distintos: el estado y las respuestas siguen el turno real de cada pregunta', async () => {
+  await preparar()
+  await conTiempos('r_ext', { 0: 300, 1: 60 })
+  const codigo = await sesionAbierta('r_ext')
+  const token = await externo(codigo, 'Tigre Azul')
+  await iniciar(codigo)
+  const PREP = RETO_CFG.PREPARACION_MS
+  const cierre0 = INICIO + PREP + 300000
+  AHORA = cierre0 - 1000 // queda 1 s de la pregunta de 5 min
+  let e = await estado(codigo, { token })
+  assert.deepStrictEqual([e.cuerpo.sesion.fase, e.cuerpo.pregunta.indice, e.cuerpo.pregunta.tiempoSeg, e.cuerpo.sesion.restanteMs], ['abierta', 0, 300, 1000])
+  assert.deepStrictEqual(e.cuerpo.sesion.tiemposSeg, [300, 60, 20, 20, 20, 20, 20, 20, 20, 20])
+  assert.strictEqual((await responder(codigo, 0, 'b', { token })).statusCode, 200)
+  // La pregunta 2 (1 min) abre 4 s después de cerrar la 1 y cierra 60 s después.
+  AHORA = cierre0 + PREP + 30000
+  e = await estado(codigo, { token })
+  assert.deepStrictEqual([e.cuerpo.sesion.fase, e.cuerpo.pregunta.indice, e.cuerpo.sesion.restanteMs], ['abierta', 1, 30000])
+  AHORA = cierre0 + PREP + 60000 // ya cerró
+  const tarde = await responder(codigo, 1, 'v', { token })
+  assert.strictEqual(tarde.statusCode, 409, 'fuera de tiempo')
+  // Fin: 5 min + 1 min + 8 × 20 s, más 4 s de preparación por pregunta.
+  AHORA = INICIO + 10 * PREP + 300000 + 60000 + 8 * 20000
+  e = await estado(codigo, { token })
+  assert.strictEqual(e.cuerpo.sesion.estado, 'finalizada')
+  const res = (await db.doc(`retoResultados/${codigo}`).get()).data()
+  assert.deepStrictEqual([res.realizadas, res.clasificacion[0].aciertos], [10, 1])
 })
 
 fijarRelojReto(null)

@@ -11,7 +11,7 @@ import {
 } from './retoComun.js'
 import { generarCodigoVivo } from '../../src/utils/participacionVivo.js'
 import {
-  RETO_CFG, ESTADOS_RETO, modalidadValida, modoIdentidadDe, estadoPreguntasReto, faseReto, iniciarReto, pausarReto,
+  RETO_CFG, ESTADOS_RETO, TIEMPO_POR_OMISION_SEG, duracionValida, modalidadValida, modoIdentidadDe, estadoPreguntasReto, faseReto, iniciarReto, pausarReto,
   reanudarReto, terminarReto, abrirAcceso, cerrarAcceso, expulsarParticipante, validarAlias,
 } from '../../src/utils/retoExpres.js'
 
@@ -52,9 +52,16 @@ export async function crearSesionReto(db, uid, actividadId) {
   if (!estadoPreguntasReto(lista).completo) {
     throw new ErrorReto(409, `El reto necesita exactamente ${RETO_CFG.TOTAL_PREGUNTAS} preguntas de opción múltiple o verdadero/falso, todas con respuesta correcta.`, 'PREGUNTAS_INCOMPLETAS')
   }
+  // Tiempo de cada pregunta (4-nov-2026): se CONGELA aquí, en la copia pública de la sesión. Editarlo después no
+  // cambia una competencia ya creada. Sin `tiempoSeg` (preguntas anteriores a esta opción) = 20 s; uno que no esté en
+  // la lista se rechaza: no se inventa una duración.
+  if (lista.some((p) => p.tiempoSeg != null && !duracionValida(p.tiempoSeg))) {
+    throw new ErrorReto(409, 'Una pregunta tiene un tiempo que no es de la lista. Edítala y elige uno.', 'TIEMPO_INVALIDO')
+  }
   const preguntas = lista.map((p) => ({
     id: p.id, tipo: p.tipo, enunciado: p.enunciado,
     opciones: (p.opciones || []).map((o) => ({ id: String(o.id), texto: String(o.texto ?? '') })),
+    tiempoSeg: duracionValida(p.tiempoSeg) ? p.tiempoSeg : TIEMPO_POR_OMISION_SEG,
   }))
   const claves = Object.fromEntries(lista.map((p) => [p.id, { respuestaCorrecta: p.respuestaCorrecta }]))
   const externo = modalidad === 'externo'

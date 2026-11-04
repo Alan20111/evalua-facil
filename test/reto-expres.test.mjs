@@ -35,6 +35,7 @@ import {
   vistaResultadosParticipante,
   reactivoCompatibleReto, MOTIVOS_INCOMPATIBLE, preguntaRetoDesdeReactivo, preguntaRetoDesdePropuestaIA, nuevoIdOpcion,
   estadoPreguntasReto, datosNuevoReto, cambiosDatosReto, propuestasCalificacionReto,
+  DURACIONES_RETO_SEG, duracionValida, textoDuracion, tiempoRespuestaMs, duracionTotalMs,
 } from '../src/utils/retoExpres.js'
 import { esCopiable } from '../src/utils/copiaActividad.js'
 import { tituloMovimiento } from '../src/utils/movimientosCreditos.js'
@@ -1035,7 +1036,7 @@ caso('copiar un reactivo existente: solo el contenido, sin tocar el original', (
   const copia = preguntaRetoDesdeReactivo(OM, { orden: 4, origenBancoId: 'banco_1' })
   assert.deepStrictEqual(OM, original, 'el original no cambió')
   assert.deepStrictEqual(copia, {
-    tipo: 'opcion_multiple', enunciado: OM.enunciado, ponderacion: 1, retroalimentacion: null, imagenUrl: null, orden: 4, origenBancoId: 'banco_1',
+    tipo: 'opcion_multiple', enunciado: OM.enunciado, ponderacion: 1, retroalimentacion: null, imagenUrl: null, orden: 4, origenBancoId: 'banco_1', tiempoSeg: 20,
     opciones: [{ id: 'a', texto: 'Núcleo', esOtra: false }, { id: 'b', texto: 'Mitocondria', esOtra: false }, { id: 'c', texto: 'Ribosoma', esOtra: false }],
     respuestaCorrecta: 'b',
   })
@@ -1086,13 +1087,13 @@ caso('un reto nace en borrador, en un parcial, y en inscritos con «Calificable�
   assert.ok(ins.ok)
   assert.deepStrictEqual(
     [ins.datos.nombre, ins.datos.categoria, ins.datos.oculta, ins.datos.publishAt, ins.datos.publishedAt, ins.datos.sinCalificacion, ins.datos.parcial, ins.datos.reto],
-    ['Reto 1', 'reto', true, null, null, true, 2, { modalidad: 'inscritos', modoIdentidad: 'nombre', calificable: false }])
+    ['Reto 1', 'reto', true, null, null, true, 2, { modalidad: 'inscritos', modoIdentidad: 'nombre', calificable: false, tiempoSeg: 20 }])
   const cal = datosNuevoReto({ ...base, modalidad: 'inscritos', modoIdentidad: 'alias', calificable: true })
   assert.deepStrictEqual([cal.datos.sinCalificacion, cal.datos.reto.calificable], [false, true])
   // Externo: aunque se pida calificable o nombre real, nace con alias, sin nota y no calificable.
   const ext = datosNuevoReto({ ...base, modalidad: 'externo', modoIdentidad: 'nombre', calificable: true })
   assert.ok(ext.ok)
-  assert.deepStrictEqual([ext.datos.sinCalificacion, ext.datos.oculta, ext.datos.reto], [true, true, { modalidad: 'externo', modoIdentidad: 'alias', calificable: false }])
+  assert.deepStrictEqual([ext.datos.sinCalificacion, ext.datos.oculta, ext.datos.reto], [true, true, { modalidad: 'externo', modoIdentidad: 'alias', calificable: false, tiempoSeg: 20 }])
   assert.strictEqual(validarConfiguracionReto({ ...ext.datos.reto, sinCalificacion: ext.datos.sinCalificacion, oculta: ext.datos.oculta, publishAt: ext.datos.publishAt }).ok, true)
   assert.strictEqual(datosNuevoReto({ ...base, nombre: ' ', modalidad: 'inscritos', modoIdentidad: 'nombre' }).codigo, 'SIN_NOMBRE')
   assert.strictEqual(datosNuevoReto({ ...base, parcial: 0, modalidad: 'inscritos', modoIdentidad: 'nombre' }).codigo, 'SIN_PARCIAL')
@@ -1176,6 +1177,92 @@ caso('Q · nunca una nota: reto externo, de práctica, sin modalidad, sin clasif
 caso('Q · sin inscripción conocida no hay nota (participante ausente de la lista o sin alumnoId)', () => {
   const p = propuestasCalificacionReto({ reto: RQ, resultados: resQ(), participantes: [{ id: 'C_ana', alumnoId: 'ana' }, { id: 'C_beto' }] })
   assert.deepStrictEqual(p.map((x) => x.alumnoId), ['ana'])
+})
+
+// ── R. Tiempo para responder por pregunta (4-nov-2026) ──────────────────────
+// Tres preguntas: 20 s, 1 min y 5 min. Turnos = 4 s de preparación + su tiempo.
+const SEG = [20, 60, 300]
+const sesionTiempos = (extra = {}) => sesionEnCurso({ totalPreguntas: 3, preguntas: SEG.map((s, i) => ({ id: `q${i}`, tiempoSeg: s })), ...extra })
+// Inicio de cada turno (ms efectivos desde T0): 0 · 24 000 · 88 000 · fin en 392 000.
+const INI = [0, PREP + 20000, 2 * PREP + 80000]
+const FIN_TIEMPOS = 3 * PREP + 380000
+
+caso('R · cada pregunta dura su tiempo: abre tras 4 s, cierra a su tiempo y la siguiente empieza ahí', () => {
+  const s = sesionTiempos()
+  for (let i = 0; i < 3; i++) {
+    const p = faseReto(s, T0 + INI[i] + 1000)
+    assert.deepStrictEqual([p.fase, p.indice], [FASES_RETO.preparando, i], `preparación ${i}`)
+    const a = faseReto(s, T0 + INI[i] + PREP)
+    assert.deepStrictEqual([a.fase, a.indice, a.restanteMs], [FASES_RETO.abierta, i, SEG[i] * 1000], `abre ${i}`)
+    assert.strictEqual(a.abreMs, T0 + INI[i] + PREP)
+    assert.strictEqual(a.cierraMs, T0 + INI[i] + PREP + SEG[i] * 1000)
+  }
+  assert.strictEqual(faseReto(s, T0 + FIN_TIEMPOS - 1).fase, FASES_RETO.abierta)
+  assert.strictEqual(faseReto(s, T0 + FIN_TIEMPOS).fase, FASES_RETO.terminada)
+  assert.strictEqual(duracionTotalMs(s), FIN_TIEMPOS)
+})
+
+caso('R · se acepta en el último milisegundo de una pregunta de 5 min y se rechaza al cerrar', () => {
+  const s = sesionTiempos()
+  const cierre = T0 + INI[2] + PREP + 300000
+  assert.ok(aceptaRespuesta(s, 2, cierre - 1))
+  assert.ok(!aceptaRespuesta(s, 2, cierre))
+  assert.ok(!aceptaRespuesta(s, 1, T0 + INI[2] + PREP), 'la pregunta anterior ya cerró')
+})
+
+caso('R · una pausa dentro de una pregunta de 1 min conserva lo que faltaba', () => {
+  let s = sesionTiempos()
+  const enPausa = T0 + INI[1] + PREP + 45000 // le quedan 15 s
+  s = aplicar(s, pausarReto(s, enPausa))
+  assert.strictEqual(faseReto(s, enPausa + 600000).restanteMs, 15000, '10 min de pausa no gastan tiempo')
+  const reanuda = enPausa + 600000
+  s = aplicar(s, reanudarReto(s, reanuda))
+  const f = faseReto(s, reanuda + 5000)
+  assert.deepStrictEqual([f.fase, f.indice, f.restanteMs, f.cierraMs], [FASES_RETO.abierta, 1, 10000, reanuda + 15000])
+})
+
+caso('R · terminar antes con tiempos distintos: realizadas e interrumpida según los turnos reales', () => {
+  const s = sesionTiempos()
+  // A los 2 min de la pregunta de 5 min: realizadas 2 (la de 20 s y la de 1 min), interrumpida la 3.ª.
+  const t = aplicar(s, terminarReto(s, T0 + INI[2] + PREP + 120000, { confirmado: true }))
+  assert.strictEqual(preguntasRealizadas(t), 2)
+  assert.strictEqual(preguntaInterrumpida(t), 2)
+  // En la preparación de la 2.ª: realizada solo la 1.ª y ninguna interrumpida.
+  const t2 = aplicar(s, terminarReto(s, T0 + INI[1] + 1000, { confirmado: true }))
+  assert.deepStrictEqual([preguntasRealizadas(t2), preguntaInterrumpida(t2)], [1, null])
+})
+
+caso('R · sin tiempo (sesiones y preguntas anteriores) o con uno fuera de la lista = 20 s, como siempre', () => {
+  for (const preguntas of [undefined, [{}, {}, {}], [{ tiempoSeg: 45 }, { tiempoSeg: '60' }, { tiempoSeg: -1 }]]) {
+    const s = sesionEnCurso({ totalPreguntas: 3, preguntas })
+    assert.strictEqual(faseReto(s, T0 + PREP).restanteMs, 20000)
+    assert.strictEqual(duracionTotalMs(s), 3 * (PREP + 20000))
+    assert.strictEqual(faseReto(s, T0 + 3 * (PREP + 20000)).fase, FASES_RETO.terminada)
+  }
+  assert.strictEqual(tiempoRespuestaMs({ tiempoSeg: 180 }), 180000)
+  assert.strictEqual(tiempoRespuestaMs(null), RETO_CFG.TIEMPO_RESPUESTA_MS)
+})
+
+caso('R · duraciones permitidas, cómo se leen y validación al guardar el reto y la pregunta', () => {
+  assert.deepStrictEqual(DURACIONES_RETO_SEG, [20, 30, 60, 120, 180, 300])
+  assert.ok(duracionValida(300) && !duracionValida(301) && !duracionValida('60') && !duracionValida(null))
+  assert.deepStrictEqual([20, 60, 150, 300].map(textoDuracion), ['20 s', '1 min', '2 min 30 s', '5 min'])
+  const reto = { reto: { modalidad: 'inscritos' } }
+  assert.deepStrictEqual(cambiosDatosReto(reto, { tiempoSeg: 120 }), { ok: true, patch: { 'reto.tiempoSeg': 120 } })
+  assert.strictEqual(cambiosDatosReto(reto, { tiempoSeg: 45 }).codigo, 'TIEMPO_INVALIDO')
+  assert.deepStrictEqual(cambiosDatosReto({ reto: { modalidad: 'externo' } }, { tiempoSeg: 30 }).patch, { 'reto.tiempoSeg': 30 })
+  const VF2 = { tipo: 'verdadero_falso', enunciado: 'El sol es una estrella.', respuestaCorrecta: 'v' }
+  assert.strictEqual(preguntaRetoDesdeReactivo(VF2, { orden: 1, tiempoSeg: 180 }).tiempoSeg, 180)
+  assert.strictEqual(preguntaRetoDesdeReactivo(VF2, { orden: 1, tiempoSeg: 45 }).tiempoSeg, 20)
+  assert.strictEqual(preguntaRetoDesdePropuestaIA({ tipo: 'verdadero_falso', enunciado: 'X es Y.', correcta: 'f' }, { orden: 1, tiempoSeg: 60 }).tiempoSeg, 60)
+})
+
+caso('R · todo en 20 s da EXACTAMENTE los mismos turnos que antes (regresión)', () => {
+  const viejo = sesionEnCurso()
+  const nuevo = sesionEnCurso({ preguntas: Array.from({ length: 10 }, (_, i) => ({ id: `p${i}`, tiempoSeg: 20 })) })
+  for (let t = T0; t <= T0 + 10 * TURNO + 1000; t += 997) {
+    assert.deepStrictEqual(faseReto(nuevo, t), faseReto(viejo, t), `instante ${t - T0}`)
+  }
 })
 
 console.log(`\n${pasadas} pasaron, ${fallos} fallaron`)

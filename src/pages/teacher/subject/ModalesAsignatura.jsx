@@ -483,7 +483,7 @@ export default function ModalesAsignatura() {
                       desc="Tus estudiantes responden desde su celular y tú proyectas los resultados en tiempo real: nube de palabras, barras y análisis con IA."
                       onClick={() => { setShowModal(false); setCrearParticipacion(true) }} />
                     <OpcionCreacion ia label="Reto Exprés"
-                      desc="Competencia en vivo de 10 preguntas, 20 segundos cada una: tú la proyectas y responden desde su celular. Para tu grupo o para participantes externos con un QR."
+                      desc="Competencia en vivo de 10 preguntas, con el tiempo que elijas para cada una: tú la proyectas y responden desde su celular. Para tu grupo o para participantes externos con un QR."
                       onClick={() => { setShowModal(false); setCrearRetoAbierto(true) }} />
                     <p className="text-xs text-muted text-center pt-2">Próximamente más actividades interactivas</p>
                   </>
