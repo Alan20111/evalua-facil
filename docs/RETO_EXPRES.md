@@ -441,3 +441,64 @@ Se eliminó la regla provisional de terminar una competencia tras 24 h en pausa 
 - Un rol pegado sin separación en minúsculas («profejuan») no se detecta; el docente puede renombrar.
 - La pregunta interrumpida tampoco aparece en la corrección del inscrito (no contó); revisable en la etapa 4.
 - El tope de 40 y la consulta periódica deben medirse con prueba de carga antes de prometer capacidad.
+
+## 9. Versión 2: el docente marca el ritmo (etapa A, 5-nov-2026)
+
+Autorizada por Kike el 5-nov-2026 (decisiones 1–9 de la propuesta, con sus precisiones). Las sesiones nuevas nacen con
+`version: 2`; una sesión sin `version` sigue con las reglas de antes (solo aciertos, sin cierres manuales).
+
+**Ritmo**
+- `cerrar-pregunta {indice, mostrarClasificacion}`: cierra para todos la pregunta abierta. Se guarda en `cortes`
+  `{indice, efectivoMs, cerradaMs}`; la siguiente prepara sus 4 s. Lleva el número de la pregunta: un doble clic no salta dos.
+- `mostrar-clasificacion` / `cancelar-clasificacion` / `continuar`: con la pregunta abierta, la clasificación se
+  muestra al cerrarse; en «Prepárense», de inmediato. Fase `clasificacion`: nada corre ni se acepta. Al continuar queda
+  como pausa `{motivo: 'clasificacion'}` y la siguiente da sus 4 s completos. No antes de la 1ª ni tras la última.
+- El avance automático por reloj sigue siendo lo predeterminado.
+
+**Respuestas que no se pierden.** Cada respuesta guarda `vistos {cortes, pausas}`: cuántos cortes y pausas tenía la
+sesión que leyó su transacción. Al calificar se comprueba con ESA sesión (`sesionVistaPor`). Una respuesta aceptada en
+carrera con un cierre o una pausa (hora apenas posterior al clic) se conserva; una que llega después lo ve y se rechaza.
+Medido en el emulador: 140 de 140 respuestas aceptadas en carrera; todas habrían sido descartadas con el cálculo anterior.
+
+**Puntuación.** Aciertos; a iguales aciertos, menos tiempo acumulado en respuestas correctas (décimas de segundo);
+iguales en ambos = comparten lugar. Tiempo = de la apertura a la recepción en el servidor, sin pausas, con el reloj del
+servidor. Sin respuesta = `null`, nunca un tiempo inventado. La calificación sigue siendo solo por aciertos.
+
+**«Mostrar respuesta correcta al estudiante»** (`activities.reto.mostrarRespuestaCorrecta`, la decide solo el docente;
+la sesión la congela en `revelar`; igual para inscritos y externos):
+- Sí: al cerrar cada pregunta (`revision`), si acertó y la correcta; al final, corrección completa.
+- No: el servidor nunca manda la respuesta correcta. En V/F o preguntas de dos opciones tampoco dice si acertó hasta el
+  final, y esas preguntas no suman en la clasificación provisional publicada (celular y proyector) hasta terminar
+  (`preguntasDiferidas`). En las demás dice si acertó al cerrar.
+- Sin la opción (retos de antes): lo de siempre.
+- El docente dueño puede leer `retoClaves` (reglas); ningún estudiante.
+
+**Ranking en vivo del participante** (`reto-estado` con `ranking: true`): todos los participantes no expulsados con
+puesto, nombre visible, aciertos, tiempo por pregunta (P1…P10) y tiempo acumulado en correctas. Decisión de Kike
+(5-nov-2026, reemplaza la de «el puesto cambia al cerrar»): aciertos, tiempo y PUESTO se actualizan en cuanto el servidor
+acepta cada respuesta, también con la pregunta abierta; Kike acepta que así se pueda inferir si alguien acertó. Lo cerrado
+sale de la provisional; la abierta y, justo tras un cierre, la recién cerrada, de `retoParcial.vivo.enVivo` (sin salto
+al cerrar; nada se cuenta dos veces). Con «Mostrar respuesta correcta» = No, las V/F y las de dos opciones NO suman
+hasta el final (confirmado por Kike); su tiempo sí aparece. Nunca viajan la respuesta correcta, las opciones ni qué
+eligió cada quien; sin ids ni nombres reales detrás de un alias. Se recalcula a lo más cada 2 s (con turno): desde que
+alguien responde hasta que un celular lo ve, unos 4 s como máximo. Abrirlo no escribe en la sesión ni cambia lo que ven
+los demás. La revisión propia («acertaste» y, con Sí, la correcta) sigue llegando al cerrar la pregunta.
+
+**Etapa B · ranking en vivo (pantallas), HECHA 5-nov-2026 (autorizada solo para el ranking):**
+- `TablaRankingReto` (Puesto · Participante · Aciertos · P1…Pn · Tiempo total · Estado; «—» sin respuesta, «…» todavía no
+  responde, flechas de cambio de posición), compartida por docente, estudiante y final.
+- Docente: botón «Ranking en vivo» en la pantalla en vivo → ventana aparte `/reto/:id/en-vivo/:codigo/ranking`
+  (RetoRankingPage, con esqueleto). Calcula con `rankingDocenteEnVivo` (misma regla que el celular; lee `retoClaves`).
+- Estudiante (inscrito y externo): «Ver ranking en vivo» tras responder y entre preguntas; la ventana pide `ranking: true`
+  en cada consulta mientras está abierta; «Cerrar ranking» deja de pedirlo.
+- Final: tabla con tiempos por pregunta en los Resultados del docente (sesiones versión 2; las de antes, la lista de
+  siempre) y el tiempo acumulado en la clasificación final del celular y en la proyectada.
+- La corrección final del inscrito ya no pinta «Correcta:» vacío cuando la opción está en No.
+
+**Del resto de la lista original de la etapa B, fuera de lo autorizado (sin hacer)**
+- Docente (RetoEnVivoPage): botones «Cerrar pregunta» (con confirmación), «Mostrar clasificación» / «Continuar» /
+  cancelar, etiqueta y pantalla de la fase `clasificacion`, y la respuesta correcta proyectada SOLO con «Sí». El servidor
+  ya las acepta (etapa A); sin estos botones nadie las dispara.
+- Celular: revisión propia al cerrar cada pregunta (`revisionVista` / `revision`) y pantalla de la fase `clasificacion`.
+- Configuración (CrearRetoModal, RetoPage): interruptor «Mostrar respuesta correcta al estudiante». Sin él, los retos no
+  llevan la opción y se comportan como antes (`revelar` null: sin diferidas; inscritos ven su corrección al final).

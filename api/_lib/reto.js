@@ -11,11 +11,12 @@ import { aplicarCors } from './cors.js'
 import {
   getDb, FieldValue, ErrorReto, leerBody, leerCodigo, refs, ahoraReto, huellaToken, esOfensivo, nombresProtegidos,
   nombreRealEstudiante, participanteDeLaPeticion, estudianteInscrito, leerSesion, finalizarSiToca, responderError, resumenTiempo,
-  cerradasParaParcial, parcialAlDia,
+  cerradasParaParcial, parcialAlDia, rankingVivoAlDia, preguntaEnRespuesta,
 } from './retoComun.js'
 import {
   RETO_CFG, ESTADOS_RETO, FASES_RETO, modoIdentidadDe, faseReto, puedeFinalizar, puedeUnirse, registroParticipante, idParticipante,
   validarAlias, puedeResponder, nombreVisible, vistaResultadosParticipante, tiempoRespuestaMs, vistaClasificacionParcial,
+  esVersionRitmo, revisionPregunta, filasRankingVivo, vistaRankingVivo, preguntasDiferidas,
 } from '../../src/utils/retoExpres.js'
 
 const metodoNoPermitido = (res) => res.status(405).json({ error: 'Método no permitido' })
@@ -151,7 +152,9 @@ export async function estadoReto(db, req, codigo, body) {
   const salida = {
     // tiemposSeg: el tiempo de cada pregunta, para la sala de espera (no es secreto: es la duración, no el contenido).
     sesion: { codigo, titulo: sesion.titulo || '', modalidad: sesion.modalidad, modoIdentidad: modoIdentidadDe(sesion), ...t,
-      tiemposSeg: (sesion.preguntas || []).map((q) => tiempoRespuestaMs(q) / 1000) },
+      tiemposSeg: (sesion.preguntas || []).map((q) => tiempoRespuestaMs(q) / 1000),
+      // Versión 2: la opción que eligió el docente (no es secreta: dice qué se mostrará, no la respuesta).
+      ...(esVersionRitmo(sesion) ? { mostrarRespuestaCorrecta: sesion.revelar === 'si' ? true : sesion.revelar === 'no' ? false : null } : {}) },
     participante: null, pregunta: null, yaRespondio: false, resultados: null,
   }
   const pSnap = quien.id ? await refs(db, codigo).participante(quien.id).get() : null
@@ -175,12 +178,46 @@ export async function estadoReto(db, req, codigo, body) {
         if ((parcial?.cerradas ?? 0) > visto) salida.parcial = vistaClasificacionParcial(parcial, p.id)
       } catch (e) { console.error('reto-estado: no se pudo leer la clasificación provisional', codigo, e?.message) }
     }
+    if (esVersionRitmo(sesion)) {
+      // Revisión de SU respuesta a la última pregunta cerrada (5-nov-2026), según «Mostrar respuesta correcta». Solo
+      // cuando hay una más nueva que la que el celular ya tiene (`revisionVista`). Nunca de la pregunta abierta.
+      const cerradas = cerradasParaParcial(sesion, ahora)
+      const vista = Number.isInteger(body?.revisionVista) && body.revisionVista >= 0 ? body.revisionVista : 0
+      if (cerradas > vista && (sesion.revelar === 'si' || sesion.revelar === 'no')) {
+        try {
+          const k = cerradas - 1
+          const q = sesion.preguntas[k]
+          const [cSnap, rSnap] = await Promise.all([refs(db, codigo).claves.get(), refs(db, codigo).respuesta(p.id, k).get()])
+          const clave = cSnap.data()?.claves?.[q.id]?.respuestaCorrecta ?? null
+          salida.revision = revisionPregunta({ sesion, indice: k, pregunta: q, clave, respuesta: rSnap.exists ? rSnap.data() : null })
+        } catch (e) { console.error('reto-estado: no se pudo preparar la revisión', codigo, e?.message) }
+      }
+      // Ranking en vivo (5-nov-2026): solo si el celular lo tiene abierto (`ranking: true`). Ver filasRankingVivo.
+      if (body?.ranking === true) {
+        try {
+          // Lo cerrado sale de la provisional; lo que esta todavía no incluye (la abierta y, justo tras un cierre, la
+          // recién cerrada) del cálculo en vivo. Así el puesto cambia al aceptarse cada respuesta y no salta al cerrar.
+          const parcial = cerradas >= 1 ? await parcialAlDia(db, codigo, sesion) : null
+          const usable = parcial && (parcial.cerradas ?? 0) >= 1 ? parcial : null
+          const vivo = await rankingVivoAlDia(db, codigo, sesion, usable?.cerradas ?? 0)
+          const filas = filasRankingVivo({
+            parcial: usable, participantes: vivo?.participantes || [], enVivo: vivo?.enVivo || [], abierta: vivo?.abierta ?? null,
+            totalPreguntas: sesion.totalPreguntas,
+          })
+          const diferidasVivas = (vivo?.enVivo || []).filter((q) => q.indice >= (usable?.cerradas ?? 0) && preguntasDiferidas(sesion, [sesion.preguntas[q.indice]]).length).length
+          salida.ranking = vistaRankingVivo({
+            filas, participanteId: p.id, cerradas: usable?.cerradas ?? 0, abierta: vivo?.abierta ?? preguntaEnRespuesta(sesion, ahora),
+            diferidas: (usable?.diferidas ?? 0) + diferidasVivas,
+          })
+        } catch (e) { console.error('reto-estado: no se pudo preparar el ranking en vivo', codigo, e?.message) }
+      }
+    }
   }
   if (sesion.estado === ESTADOS_RETO.finalizada) {
     const res = (await refs(db, codigo).resultados.get()).data()
-    if (res) salida.resultados = vistaResultadosParticipante(res, p.id, { modalidad: sesion.modalidad, completa: true })
-    // Inscritos (D9): para leer su corrección necesitan el texto de las preguntas REALIZADAS (las de su corrección).
-    // Las que nunca se abrieron no se muestran; un externo no recibe nada de esto (E11).
+    if (res) salida.resultados = vistaResultadosParticipante(res, p.id, { modalidad: sesion.modalidad, completa: true, revelar: esVersionRitmo(sesion) ? sesion.revelar ?? null : null })
+    // Para leer su corrección necesitan el texto de las preguntas REALIZADAS (las de su corrección). Las que nunca se
+    // abrieron no se muestran. Sin la opción «Mostrar respuesta correcta» (retos de antes), un externo no recibe nada (E11).
     if (salida.resultados?.correccion) {
       const ids = new Set(salida.resultados.correccion.map((c) => c.preguntaId))
       salida.preguntas = sesion.preguntas.filter((q) => ids.has(q.id)).map((q) => ({ id: q.id, enunciado: q.enunciado, opciones: q.opciones }))
@@ -250,6 +287,9 @@ export async function responderReto(db, req, codigo, body) {
       tx.create(respRef, {
         sesionId: codigo, actividadId: ses.actividadId, docenteId: ses.docenteId, participanteId: quien.id,
         preguntaId: pregunta.id, indice, opcionSeleccionada: opcion, recibidaMs: ahora, creadaEn: FieldValue.serverTimestamp(),
+        // Qué sesión vio esta transacción (5-nov-2026): si el docente cierra o pausa en el mismo instante, la respuesta ya
+        // aceptada se recalcula con lo que ella vio y no se pierde (sesionVistaPor). El navegador no manda nada de esto.
+        vistos: { cortes: Array.isArray(ses.cortes) ? ses.cortes.length : 0, pausas: Array.isArray(ses.pausas) ? ses.pausas.length : 0 },
       })
     })
   } catch (e) {

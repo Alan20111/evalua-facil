@@ -19,7 +19,9 @@
 //   N. retención de 30 días (desde la finalización), pausas sin límite y resultado anonimizado;
 //   O. etapa 2: compatibilidad de reactivos, copia sin tocar el original, propuesta de la IA, las 10 preguntas,
 //      datos con los que nace un reto y qué se puede editar; P. copias excluidas y etiqueta «Reto Exprés»;
-//   Q. etapa 5: notas propuestas de una sesión (solo inscritos calificable, sin retirados ni externos).
+//   Q. etapa 5: notas propuestas de una sesión (solo inscritos calificable, sin retirados ni externos);
+//   T. versión 2 (5-nov-2026): cierre anticipado sin perder respuestas, clasificación a pedido, tiempo y desempate,
+//      «Mostrar respuesta correcta» (nunca sale con «No») y ranking en vivo del participante.
 
 import assert from 'node:assert'
 import { createRequire } from 'node:module'
@@ -36,6 +38,11 @@ import {
   reactivoCompatibleReto, MOTIVOS_INCOMPATIBLE, preguntaRetoDesdeReactivo, preguntaRetoDesdePropuestaIA, nuevoIdOpcion,
   estadoPreguntasReto, datosNuevoReto, cambiosDatosReto, propuestasCalificacionReto,
   DURACIONES_RETO_SEG, duracionValida, textoDuracion, tiempoRespuestaMs, duracionTotalMs,
+} from '../src/utils/retoExpres.js'
+import {
+  esVersionRitmo, revelarDe, cerrarPreguntaReto, mostrarClasificacionReto, cancelarClasificacionReto, continuarReto, cortesValidos,
+  tiempoRespuestaDecimas, textoTiempoReto, revisionPregunta, filasRankingVivo, vistaRankingVivo,
+  rankingDocenteEnVivo, filasRankingFinal,
 } from '../src/utils/retoExpres.js'
 import { esCopiable } from '../src/utils/copiaActividad.js'
 import { tituloMovimiento } from '../src/utils/movimientosCreditos.js'
@@ -1386,6 +1393,376 @@ caso('S · final completa: todos los lugares (no solo 10), fila propia marcada; 
   assert.strictEqual(v.totalParticipantes, 13)
   assert.deepStrictEqual(v.top[12], { posicion: 13, nombreVisible: 'Alias 12', aciertos: 1, esPropia: true })
   assert.strictEqual(vistaResultadosParticipante(resultadosDe13(), 'R_12', { modalidad: 'externo' }).top.length, 11)
+})
+
+// ── T. Versión 2: el docente marca el ritmo (5-nov-2026) ─────────────────────
+grupo('T. Versión 2: cierre anticipado, clasificación a pedido, tiempo, revelación y ranking en vivo')
+
+// Preguntas con opciones (para saber cuáles son binarias): pares opción múltiple de 3, nones verdadero/falso.
+const PREG_V2 = PREGUNTAS.map((p) => ({ ...p, opciones: p.tipo === 'opcion_multiple' ? [{ id: 'a' }, { id: 'b' }, { id: 'c' }] : [{ id: 'v' }, { id: 'f' }] }))
+const sesionV2 = (extra = {}) => sesionEnCurso({ version: 2, cortes: [], clasificacionPendiente: null, revelar: null, preguntas: PREG_V2, ...extra })
+const v2Final = (extra = {}) => sesionV2({ estado: ESTADOS_RETO.finalizada, ...extra })
+const resV2 = (participanteId, i, recibidaMs, { correcta = true, vistos = { cortes: 0, pausas: 0 } } = {}) => ({
+  id: `v${String(nResp++).padStart(4, '0')}`, participanteId, preguntaId: `p${i}`, indice: i,
+  opcionSeleccionada: correcta ? correctaDe(i) : incorrectaDe(i), recibidaMs, ...(vistos ? { vistos } : {}),
+})
+const gente = (...ids) => ids.map((id) => ({ id, nombre: id, alias: id, unidoMs: T0 - 5000 }))
+
+caso('T · una sesión sin versión (de antes) no permite cerrar ni pedir clasificación, y no usa el tiempo', () => {
+  const s = sesionEnCurso()
+  assert.strictEqual(esVersionRitmo(s), false)
+  assert.strictEqual(cerrarPreguntaReto(s, abre(0) + 1000, { indice: 0 }).codigo, 'NO_DISPONIBLE')
+  assert.strictEqual(mostrarClasificacionReto(s, abre(0) + 1000).codigo, 'NO_DISPONIBLE')
+  assert.strictEqual(continuarReto(s, abre(0) + 1000).codigo, 'NO_DISPONIBLE')
+  nResp = 0
+  const r = calcularResultadosReto({ sesion: { ...s, estado: ESTADOS_RETO.finalizada }, preguntas: PREGUNTAS, claves: CLAVES, participantes: gente('a', 'b'),
+    respuestas: [resp('a', 0, { offset: 15000 }), resp('b', 0, { offset: 100 })] })
+  assert.strictEqual(r.criterio, undefined)
+  assert.deepStrictEqual(r.clasificacion.map((f) => [f.participanteId, f.posicion, f.tiempoDecimas]), [['a', 1, undefined], ['b', 1, undefined]])
+})
+
+caso('T · cerrar antes de tiempo: cierra para todos en ese instante y la siguiente pregunta prepara 4 s', () => {
+  const corteMs = abre(2) + 5000
+  const s = aplicar(sesionV2(), cerrarPreguntaReto(sesionV2(), corteMs, { indice: 2 }))
+  assert.deepStrictEqual(s.cortes, [{ indice: 2, efectivoMs: corteMs - T0, cerradaMs: corteMs }])
+  assert.strictEqual(aceptaRespuesta(s, 2, corteMs - 1), true) // lo anterior al cierre sigue dentro
+  assert.strictEqual(aceptaRespuesta(s, 2, corteMs), false) // desde el cierre, nada
+  assert.strictEqual(puedeResponder(s, { id: 'x' }, 2, corteMs + 10).codigo, 'FUERA_DE_TIEMPO')
+  const f = faseReto(s, corteMs + 100)
+  assert.deepStrictEqual([f.fase, f.indice, f.faltaParaAbrirMs], [FASES_RETO.preparando, 3, PREP - 100])
+  assert.strictEqual(faseReto(s, corteMs + PREP).fase, FASES_RETO.abierta) // la 4 abre tras sus 4 s
+  assert.strictEqual(faseReto(s, corteMs + PREP).cierraMs, corteMs + TURNO) // y conserva su tiempo completo
+  assert.strictEqual(cortesValidos(s), true)
+})
+
+caso('T · si el docente no cierra, el cronómetro cierra solo como siempre', () => {
+  const s = sesionV2()
+  assert.strictEqual(aceptaRespuesta(s, 4, cierra(4) - 1), true)
+  assert.strictEqual(aceptaRespuesta(s, 4, cierra(4)), false)
+  assert.strictEqual(faseReto(s, cierra(4)).indice, 5)
+})
+
+caso('T · doble clic u otra pestaña no saltan dos preguntas; no se cierra una que todavía no abre', () => {
+  const s = aplicar(sesionV2(), cerrarPreguntaReto(sesionV2(), abre(2) + 5000, { indice: 2 }))
+  const repetido = cerrarPreguntaReto(s, abre(2) + 5300, { indice: 2 })
+  assert.deepStrictEqual(repetido, { ok: true, patch: null })
+  assert.strictEqual(cerrarPreguntaReto(s, abre(2) + 5300, { indice: 3 }).codigo, 'NO_ABIERTA') // la 4 está en «Prepárense»
+  assert.strictEqual(cerrarPreguntaReto(sesionV2(), abre(1) - 1, { indice: 1 }).codigo, 'NO_ABIERTA')
+  assert.strictEqual(cerrarPreguntaReto(sesionV2(), abre(1), { indice: 0 }).patch, null) // la 1 ya cerró sola
+  assert.strictEqual(cerrarPreguntaReto(sesionV2(), abre(1), { indice: 'x' }).codigo, 'PREGUNTA_INVALIDA')
+})
+
+caso('T · cerrar con la pregunta abierta en pausa: la pausa termina y la siguiente prepara', () => {
+  let s = aplicar(sesionV2(), pausarReto(sesionV2(), abre(1) + 3000))
+  s = aplicar(s, cerrarPreguntaReto(s, abre(1) + 60_000, { indice: 1 }))
+  assert.strictEqual(s.pausas[0].hastaMs, abre(1) + 60_000)
+  assert.strictEqual(s.cortes[0].efectivoMs, abre(1) + 3000 - T0)
+  assert.deepStrictEqual([faseReto(s, abre(1) + 60_001).fase, faseReto(s, abre(1) + 60_001).indice], [FASES_RETO.preparando, 2])
+  assert.strictEqual(pausasValidas(s) && cortesValidos(s), true)
+})
+
+caso('T · cerrar la última pregunta termina la competencia normalmente y esa pregunta SÍ cuenta', () => {
+  const s = aplicar(sesionV2(), cerrarPreguntaReto(sesionV2(), abre(9) + 2000, { indice: 9, mostrarClasificacion: true }))
+  assert.strictEqual(s.clasificacionPendiente, null) // tras la última van los resultados finales
+  assert.strictEqual(faseReto(s, abre(9) + 2000).fase, FASES_RETO.terminada)
+  assert.strictEqual(puedeFinalizar(s, abre(9) + 2000), true)
+  assert.strictEqual(preguntasRealizadas(s), 10)
+})
+
+caso('T · cortes incoherentes se detectan (y el cálculo los rechaza)', () => {
+  assert.strictEqual(cortesValidos(sesionV2({ cortes: [{ indice: 0, efectivoMs: 1000 }] })), false) // en «Prepárense»
+  assert.strictEqual(cortesValidos(sesionV2({ cortes: [{ indice: 0, efectivoMs: TURNO + 5 }] })), false) // después del cierre
+  assert.strictEqual(cortesValidos(sesionV2({ cortes: [{ indice: 3, efectivoMs: 3 * TURNO + PREP + 1 }, { indice: 1, efectivoMs: TURNO + PREP + 1 }] })), false)
+  assert.strictEqual(cortesValidos(sesionV2({ cortes: [{ indice: 1, efectivoMs: TURNO + PREP + 1 }, { indice: 3, efectivoMs: 2 * TURNO + PREP + 1 + PREP + 50 }] })), true)
+  const r = calcularResultadosReto({ sesion: v2Final({ cortes: [{ indice: 0, efectivoMs: 10 }] }), preguntas: PREGUNTAS, claves: CLAVES, participantes: [], respuestas: [] })
+  assert.strictEqual(r.codigo, 'SESION_INVALIDA')
+})
+
+caso('T · RESPUESTA ACEPTADA EN EL MISMO INSTANTE DEL CIERRE: se conserva (y la posterior al cierre no entra)', () => {
+  nResp = 0
+  const corteMs = abre(2) + 5000
+  const s = v2Final({ cortes: [{ indice: 2, efectivoMs: corteMs - T0, cerradaMs: corteMs }] })
+  // Su transacción leyó la sesión SIN el corte (vistos.cortes = 0) y la selló 30 ms después de la hora del clic.
+  const enCarrera = resV2('ana', 2, corteMs + 30)
+  const antes = resV2('beto', 2, corteMs - 800)
+  const r = calcularResultadosReto({ sesion: s, preguntas: PREGUNTAS, claves: CLAVES, participantes: gente('ana', 'beto'), respuestas: [enCarrera, antes] })
+  assert.strictEqual(r.descartadas.fueraDeTiempo, 0)
+  assert.deepStrictEqual([r.detalle.ana[2].acerto, r.detalle.ana[2].tiempoDecimas], [true, 50])
+  assert.deepStrictEqual([r.detalle.beto[2].acerto, r.detalle.beto[2].tiempoDecimas], [true, 42])
+  // Sin el sello (como se recalculaba antes) esa misma respuesta se perdía: es lo que corrige `vistos`.
+  const sinSello = calcularResultadosReto({ sesion: s, preguntas: PREGUNTAS, claves: CLAVES, participantes: gente('ana'), respuestas: [{ ...enCarrera, vistos: undefined }] })
+  assert.strictEqual(sinSello.descartadas.fueraDeTiempo, 1)
+  // Una que ya vio el corte nunca se habría guardado; si existiera, se descarta.
+  const tardia = calcularResultadosReto({ sesion: s, preguntas: PREGUNTAS, claves: CLAVES, participantes: gente('ana'), respuestas: [resV2('ana', 2, corteMs + 30, { vistos: { cortes: 1, pausas: 0 } })] })
+  assert.strictEqual(tardia.descartadas.fueraDeTiempo, 1)
+  // La provisional al cerrar esa pregunta también la cuenta (no hay diferencia entre provisional y final).
+  const p = clasificacionParcialReto({ sesion: sesionV2({ cortes: s.cortes }), preguntas: PREG_V2, claves: CLAVES, participantes: gente('ana', 'beto'), respuestas: [enCarrera, antes], cerradas: 3 })
+  assert.deepStrictEqual(p.clasificacion.map((f) => [f.participanteId, f.aciertos]), [['beto', 1], ['ana', 1]])
+})
+
+caso('T · lo mismo con una pausa: la respuesta que el servidor aceptó justo antes de pausar se conserva', () => {
+  nResp = 0
+  const pausaMs = abre(1) + 7000
+  const s = v2Final({ pausas: [{ desdeMs: pausaMs, hastaMs: pausaMs + 60_000 }] })
+  const enCarrera = resV2('ana', 1, pausaMs + 20, { vistos: { cortes: 0, pausas: 0 } })
+  const r = calcularResultadosReto({ sesion: s, preguntas: PREGUNTAS, claves: CLAVES, participantes: gente('ana'), respuestas: [enCarrera] })
+  assert.strictEqual(r.detalle.ana[1].acerto, true)
+  const recibidaEnPausa = calcularResultadosReto({ sesion: s, preguntas: PREGUNTAS, claves: CLAVES, participantes: gente('ana'), respuestas: [resV2('ana', 1, pausaMs + 20, { vistos: { cortes: 0, pausas: 1 } })] })
+  assert.strictEqual(recibidaEnPausa.descartadas.fueraDeTiempo, 1)
+})
+
+caso('T · tiempo por respuesta: del instante en que abre a cuando el servidor la recibe, en décimas y sin pausas', () => {
+  assert.strictEqual(tiempoRespuestaDecimas(sesionV2(), 3, abre(3) + 8_440), 84)
+  assert.strictEqual(tiempoRespuestaDecimas(sesionV2(), 3, abre(3)), 0)
+  assert.strictEqual(tiempoRespuestaDecimas(sesionV2(), 3, abre(3) - 1), null) // en «Prepárense»
+  assert.strictEqual(tiempoRespuestaDecimas(sesionV2(), 3, cierra(3) + 5), null) // fuera de la pregunta
+  const conPausa = sesionV2({ pausas: [{ desdeMs: abre(3) + 2000, hastaMs: abre(3) + 62_000 }] })
+  assert.strictEqual(tiempoRespuestaDecimas(conPausa, 3, abre(3) + 65_000), 50) // 2 s + 3 s; el minuto de pausa no cuenta
+  assert.deepStrictEqual([textoTiempoReto(84), textoTiempoReto(0), textoTiempoReto(650), textoTiempoReto(null)], ['8.4 s', '0.0 s', '1 min 5.0 s', ''])
+})
+
+caso('T · orden: primero aciertos, luego MENOS tiempo en correctas; mismos aciertos y tiempo comparten lugar', () => {
+  nResp = 0
+  // El ejemplo de la especificación: Ana 3 (25 s), Luis 3 (32 s), Pedro 2 (sus correctas suman 10 s). Marta empata a Luis.
+  const r = [
+    resV2('ana', 0, abre(0) + 8000), resV2('ana', 1, abre(1) + 12000), resV2('ana', 2, abre(2) + 5000),
+    resV2('luis', 0, abre(0) + 10000), resV2('luis', 1, abre(1) + 14000), resV2('luis', 2, abre(2) + 8000),
+    resV2('marta', 0, abre(0) + 8000), resV2('marta', 1, abre(1) + 16000), resV2('marta', 2, abre(2) + 8000),
+    resV2('pedro', 0, abre(0) + 4000), resV2('pedro', 1, abre(1) + 6000), resV2('pedro', 2, abre(2) + 10000, { correcta: false }),
+  ]
+  const res = calcularResultadosReto({ sesion: v2Final(), preguntas: PREGUNTAS, claves: CLAVES, participantes: gente('pedro', 'marta', 'luis', 'ana', 'zoe'), respuestas: r })
+  assert.strictEqual(res.criterio, 'aciertos_tiempo')
+  assert.deepStrictEqual(res.clasificacion.map((f) => [f.participanteId, f.posicion, f.aciertos, f.tiempoDecimas]), [
+    ['ana', 1, 3, 250], ['luis', 2, 3, 320], ['marta', 2, 3, 320], ['pedro', 4, 2, 100], ['zoe', 5, 0, 0],
+  ])
+  // La incorrecta lleva su tiempo en el detalle (para la tabla) pero no suma al total; sin respuesta: null, sin inventar.
+  assert.deepStrictEqual(res.detalle.pedro.slice(0, 4).map((d) => d.tiempoDecimas), [40, 60, 100, null])
+  assert.ok(res.detalle.zoe.every((d) => d.tiempoDecimas === null))
+  assert.deepStrictEqual(distanciaAlSiguiente(res.clasificacion, 'luis'), { primero: false, posicion: 1, faltan: 0, decimasDetras: 70 })
+  assert.deepStrictEqual(distanciaAlSiguiente(res.clasificacion, 'pedro'), { primero: false, posicion: 2, faltan: 1 })
+  // La calificación sigue siendo solo por aciertos.
+  assert.strictEqual(calificacionReto(3, 10, 10), calificacionReto(res.clasificacion[1].aciertos, 10, 10))
+})
+
+caso('T · respuestas simultáneas: el mismo resultado en cualquier orden de llegada', () => {
+  nResp = 0
+  const r = gente('a', 'b', 'c', 'd').map((p, k) => resV2(p.id, 0, abre(0) + 3000)).concat([resV2('a', 1, abre(1) + 900), resV2('c', 1, abre(1) + 900)])
+  const uno = calcularResultadosReto({ sesion: v2Final(), preguntas: PREGUNTAS, claves: CLAVES, participantes: gente('a', 'b', 'c', 'd'), respuestas: r })
+  const otro = calcularResultadosReto({ sesion: v2Final(), preguntas: PREGUNTAS, claves: CLAVES, participantes: gente('d', 'c', 'b', 'a'), respuestas: [...r].reverse() })
+  assert.deepStrictEqual(uno.clasificacion, otro.clasificacion)
+  assert.deepStrictEqual(uno.clasificacion.map((f) => [f.participanteId, f.posicion]), [['a', 1], ['c', 1], ['b', 3], ['d', 3]])
+})
+
+caso('T · clasificación pedida con la pregunta abierta: se muestra al cerrar, nada corre y «Continuar» da 4 s completos', () => {
+  let s = aplicar(sesionV2(), mostrarClasificacionReto(sesionV2(), abre(3) + 2000))
+  assert.strictEqual(s.clasificacionPendiente, 3)
+  assert.strictEqual(faseReto(s, cierra(3) - 1).fase, FASES_RETO.abierta) // la pregunta sigue su tiempo
+  const f = faseReto(s, cierra(3) + 90_000)
+  assert.deepStrictEqual([f.fase, f.trasIndice, f.indice], [FASES_RETO.clasificacion, 3, 4])
+  assert.strictEqual(aceptaRespuesta(s, 4, cierra(3) + PREP + 10), false) // nada abre mientras se muestra
+  assert.strictEqual(pausarReto(s, cierra(3) + 1000).codigo, 'NO_PAUSABLE')
+  assert.strictEqual(preguntasCerradas(s, cierra(3) + 90_000), 4)
+  const fin = cierra(3) + 90_000
+  s = aplicar(s, continuarReto(s, fin))
+  assert.deepStrictEqual(s.pausas, [{ desdeMs: cierra(3), hastaMs: fin, motivo: 'clasificacion' }])
+  assert.strictEqual(s.clasificacionPendiente, null)
+  const g = faseReto(s, fin + 1)
+  assert.deepStrictEqual([g.fase, g.indice, g.faltaParaAbrirMs], [FASES_RETO.preparando, 4, PREP - 1])
+  assert.deepStrictEqual(continuarReto(s, fin + 5), { ok: true, patch: null }) // doble clic
+  assert.strictEqual(pausasValidas(s), true)
+})
+
+caso('T · cerrar y mostrar la clasificación de una vez; también desde «Prepárense» (inmediato)', () => {
+  const corte = abre(5) + 4000
+  let s = aplicar(sesionV2(), cerrarPreguntaReto(sesionV2(), corte, { indice: 5, mostrarClasificacion: true }))
+  assert.strictEqual(faseReto(s, corte).fase, FASES_RETO.clasificacion)
+  s = aplicar(s, continuarReto(s, corte + 30_000))
+  assert.strictEqual(faseReto(s, corte + 30_000 + PREP).fase, FASES_RETO.abierta)
+  // En «Prepárense» de la 3: la clasificación es de las 2 primeras y se muestra ya; al continuar, 4 s completos.
+  let t = aplicar(sesionV2(), mostrarClasificacionReto(sesionV2(), cierra(1) + 1500))
+  assert.deepStrictEqual([faseReto(t, cierra(1) + 1500).fase, t.clasificacionPendiente], [FASES_RETO.clasificacion, 1])
+  t = aplicar(t, continuarReto(t, cierra(1) + 20_000))
+  assert.strictEqual(faseReto(t, cierra(1) + 20_000 + PREP - 1).fase, FASES_RETO.preparando)
+  assert.strictEqual(faseReto(t, cierra(1) + 20_000 + PREP).fase, FASES_RETO.abierta)
+})
+
+caso('T · la clasificación no se pide antes de cerrar la primera ni tras la última; se puede cancelar si aún no se muestra', () => {
+  assert.strictEqual(mostrarClasificacionReto(sesionV2(), abre(0) - 1000).codigo, 'SIN_CERRADAS')
+  assert.strictEqual(mostrarClasificacionReto(sesionV2(), abre(9) + 1000).codigo, 'ULTIMA')
+  assert.strictEqual(mostrarClasificacionReto(sesionEnCurso({ version: 2, estado: ESTADOS_RETO.espera, inicioMs: null }), T0).codigo, 'NO_EN_CURSO')
+  const s = aplicar(sesionV2(), mostrarClasificacionReto(sesionV2(), abre(2) + 1000))
+  assert.deepStrictEqual(mostrarClasificacionReto(s, abre(2) + 2000), { ok: true, patch: null })
+  const sin = aplicar(s, cancelarClasificacionReto(s, abre(2) + 3000))
+  assert.strictEqual(faseReto(sin, cierra(2) + 10).fase, FASES_RETO.preparando)
+  assert.strictEqual(cancelarClasificacionReto(s, cierra(2) + 10).codigo, 'YA_MOSTRADA')
+  assert.strictEqual(continuarReto(s, abre(2) + 3000).codigo, 'SIN_CLASIFICACION')
+})
+
+caso('T · pausa en «Prepárense» y luego clasificación: el intermedio la absorbe y el reloj sigue coherente', () => {
+  let s = aplicar(sesionV2(), pausarReto(sesionV2(), cierra(2) + 1000))
+  s = aplicar(s, mostrarClasificacionReto(s, cierra(2) + 9000))
+  assert.strictEqual(faseReto(s, cierra(2) + 9000).fase, FASES_RETO.clasificacion)
+  s = aplicar(s, continuarReto(s, cierra(2) + 50_000))
+  assert.deepStrictEqual(s.pausas, [{ desdeMs: cierra(2), hastaMs: cierra(2) + 50_000, motivo: 'clasificacion' }])
+  assert.strictEqual(pausasValidas(s), true)
+  assert.strictEqual(faseReto(s, cierra(2) + 50_000 + PREP).fase, FASES_RETO.abierta)
+})
+
+caso('T · terminar mientras se muestra la clasificación: cuentan las preguntas cerradas hasta ahí', () => {
+  let s = aplicar(sesionV2(), mostrarClasificacionReto(sesionV2(), abre(4) + 1000))
+  s = aplicar(s, terminarReto(s, cierra(4) + 40_000, { confirmado: true }))
+  assert.strictEqual(preguntasRealizadas(s), 5)
+  assert.strictEqual(preguntaInterrumpida(s), null)
+  const r = calcularResultadosReto({ sesion: { ...s, estado: ESTADOS_RETO.finalizada }, preguntas: PREGUNTAS, claves: CLAVES, participantes: [], respuestas: [] })
+  assert.strictEqual(r.realizadas, 5)
+})
+
+caso('T · los intermedios de clasificación no gastan el tope de pausas manuales', () => {
+  const intermedios = Array.from({ length: 9 }, (_, i) => ({ desdeMs: T0 + i * 10, hastaMs: T0 + i * 10 + 5, motivo: 'clasificacion' }))
+  const manuales = Array.from({ length: RETO_CFG.MAX_PAUSAS - 1 }, (_, i) => ({ desdeMs: T0 + 1000 + i * 10, hastaMs: T0 + 1000 + i * 10 + 5 }))
+  const s = sesionV2({ pausas: [...intermedios, ...manuales] })
+  assert.strictEqual(pausasValidas(s), true)
+  assert.strictEqual(pausarReto(s, abre(0) + 5000).ok, true)
+})
+
+caso('T · «Mostrar respuesta correcta»: la elige el docente; el participante no la cambia (se toma de la actividad)', () => {
+  assert.deepStrictEqual([revelarDe({ mostrarRespuestaCorrecta: true }), revelarDe({ mostrarRespuestaCorrecta: false }), revelarDe({}), revelarDe({ mostrarRespuestaCorrecta: 'si' })], ['si', 'no', null, null])
+  const base = { nombre: 'R', parcial: 1, asignaturaId: 'S', docenteId: 'D' }
+  assert.strictEqual(datosNuevoReto({ ...base, modalidad: 'externo', modoIdentidad: 'alias', mostrarRespuestaCorrecta: true }).datos.reto.mostrarRespuestaCorrecta, true)
+  assert.strictEqual('mostrarRespuestaCorrecta' in datosNuevoReto({ ...base, modalidad: 'inscritos', modoIdentidad: 'nombre' }).datos.reto, false)
+  assert.strictEqual(datosNuevoReto({ ...base, modalidad: 'inscritos', modoIdentidad: 'nombre', mostrarRespuestaCorrecta: 'si' }).codigo, 'REVELAR_INVALIDO')
+  assert.deepStrictEqual(cambiosDatosReto({ reto: { modalidad: 'externo' } }, { mostrarRespuestaCorrecta: false }).patch, { 'reto.mostrarRespuestaCorrecta': false })
+  assert.deepStrictEqual(cambiosDatosReto({ reto: { modalidad: 'inscritos' } }, { mostrarRespuestaCorrecta: true }).patch, { 'reto.mostrarRespuestaCorrecta': true })
+  assert.strictEqual(cambiosDatosReto({ reto: { modalidad: 'inscritos' } }, { mostrarRespuestaCorrecta: 1 }).codigo, 'REVELAR_INVALIDO')
+})
+
+caso('T · revisión al cerrar: «Sí» dice si acertó y la correcta; «No» nunca la correcta y, en binarias, ni si acertó', () => {
+  const om = PREG_V2[0]
+  const vf = PREG_V2[1]
+  const mal = { opcionSeleccionada: 'c' }
+  assert.deepStrictEqual(revisionPregunta({ sesion: sesionV2({ revelar: 'si' }), indice: 0, pregunta: om, clave: 'b', respuesta: mal }),
+    { indice: 0, preguntaId: 'p0', respondio: true, opcionSeleccionada: 'c', acerto: false, respuestaCorrecta: 'b' })
+  const no = revisionPregunta({ sesion: sesionV2({ revelar: 'no' }), indice: 0, pregunta: om, clave: 'b', respuesta: mal })
+  assert.deepStrictEqual(no, { indice: 0, preguntaId: 'p0', respondio: true, opcionSeleccionada: 'c', acerto: false })
+  const noVF = revisionPregunta({ sesion: sesionV2({ revelar: 'no' }), indice: 1, pregunta: vf, clave: 'v', respuesta: { opcionSeleccionada: 'f' } })
+  assert.deepStrictEqual(noVF, { indice: 1, preguntaId: 'p1', respondio: true, opcionSeleccionada: 'f', diferida: true })
+  const dosOpciones = { id: 'p8', tipo: 'opcion_multiple', opciones: [{ id: 'a' }, { id: 'b' }] }
+  assert.strictEqual('acerto' in revisionPregunta({ sesion: sesionV2({ revelar: 'no' }), indice: 8, pregunta: dosOpciones, clave: 'a', respuesta: { opcionSeleccionada: 'b' } }), false)
+  for (const r of [no, noVF]) assert.ok(!JSON.stringify(r).includes('respuestaCorrecta'))
+  assert.strictEqual(revisionPregunta({ sesion: sesionV2({ revelar: null }), indice: 0, pregunta: om, clave: 'b', respuesta: mal }), null) // retos de antes
+  assert.strictEqual(revisionPregunta({ sesion: sesionEnCurso({ revelar: 'si' }), indice: 0, pregunta: om, clave: 'b', respuesta: mal }), null) // sin versión
+})
+
+caso('T · resultados finales: «No» = sin respuesta correcta para inscritos Y externos; «Sí» = corrección completa para los dos', () => {
+  nResp = 0
+  const res = calcularResultadosReto({ sesion: v2Final(), preguntas: PREGUNTAS, claves: CLAVES, participantes: gente('ana'), respuestas: [resV2('ana', 0, abre(0) + 1000), resV2('ana', 1, abre(1) + 1000, { correcta: false })] })
+  for (const modalidad of ['inscritos', 'externo']) {
+    const no = vistaResultadosParticipante(res, 'ana', { modalidad, completa: true, revelar: 'no' })
+    assert.strictEqual(no.correccion.length, 10)
+    assert.ok(!JSON.stringify(no).includes('respuestaCorrecta'), `${modalidad} recibe la respuesta correcta con «No»`)
+    assert.deepStrictEqual([no.correccion[0].acerto, no.correccion[1].acerto], [true, false]) // al final ya puede saber si acertó
+    const si = vistaResultadosParticipante(res, 'ana', { modalidad, completa: true, revelar: 'si' })
+    assert.strictEqual(si.correccion[1].respuestaCorrecta, correctaDe(1))
+  }
+  // Retos de antes (sin la opción): como siempre (inscritos sí, externos nada).
+  assert.ok(vistaResultadosParticipante(res, 'ana', { modalidad: 'inscritos' }).correccion)
+  assert.strictEqual(vistaResultadosParticipante(res, 'ana', { modalidad: 'externo' }).correccion, undefined)
+  assert.deepStrictEqual(vistaResultadosParticipante(res, 'ana', { modalidad: 'externo' }).top[0], { posicion: 1, nombreVisible: 'ana', aciertos: 1, tiempoDecimas: 10, esPropia: true })
+})
+
+caso('T · provisional con «No»: las binarias no suman hasta el final (no se deduce si acertó); con «Sí», todas', () => {
+  nResp = 0
+  const respuestas = [resV2('ana', 0, abre(0) + 2000), resV2('ana', 1, abre(1) + 3000), resV2('beto', 0, abre(0) + 1000), resV2('beto', 1, abre(1) + 1000, { correcta: false })]
+  const args = { preguntas: PREG_V2, claves: CLAVES, participantes: gente('ana', 'beto'), respuestas, cerradas: 2 }
+  const no = clasificacionParcialReto({ ...args, sesion: sesionV2({ revelar: 'no' }) })
+  assert.strictEqual(no.diferidas, 1)
+  assert.deepStrictEqual(no.clasificacion.map((f) => [f.participanteId, f.posicion, f.aciertos, f.tiempoDecimas, f.tiempos]), [
+    ['beto', 1, 1, 10, [10, 10]], ['ana', 2, 1, 20, [20, 30]], // la V/F (p1) no suma ni aciertos ni tiempo; su tiempo sí aparece
+  ])
+  const si = clasificacionParcialReto({ ...args, sesion: sesionV2({ revelar: 'si' }) })
+  assert.deepStrictEqual(si.clasificacion.map((f) => [f.participanteId, f.aciertos]), [['ana', 2], ['beto', 1]])
+  assert.strictEqual(si.diferidas, 0)
+  // La vista del celular no lleva ids, claves ni detalle.
+  const v = vistaClasificacionParcial(no, 'ana')
+  assert.ok(!/participanteId|respuestaCorrecta|opcion/.test(JSON.stringify(v)))
+  assert.strictEqual(v.diferidas, 1)
+})
+
+caso('T · ranking en vivo: cada respuesta aceptada suma al instante aciertos, tiempo y puesto; sin inventar tiempos', () => {
+  const parcial = { cerradas: 2, clasificacion: [
+    { participanteId: 'ana', nombreVisible: 'Tigre', aciertos: 2, tiempoDecimas: 50, posicion: 1, tiempos: [20, 30] },
+    { participanteId: 'beto', nombreVisible: 'Cometa', aciertos: 1, tiempoDecimas: 10, posicion: 2, tiempos: [10, null] },
+  ] }
+  // Caro entró después del último cálculo; Dani está pero no ha respondido la pregunta abierta (la 3).
+  const participantes = [{ id: 'ana', nombreVisible: 'Tigre' }, { id: 'beto', nombreVisible: 'Cometa' }, { id: 'caro', nombreVisible: 'Ámbar' }, { id: 'dani', nombreVisible: 'Nube' }]
+  const sinRespuestas = filasRankingVivo({ parcial, participantes, enVivo: [{ indice: 2, tiempos: {}, aciertos: {} }], abierta: 2 })
+  assert.deepStrictEqual(sinRespuestas.map((f) => [f.participanteId, f.posicion, f.aciertos, f.respondioActual]), [
+    ['ana', 1, 2, false], ['beto', 2, 1, false], ['caro', 3, 0, false], ['dani', 3, 0, false],
+  ])
+  // Beto acierta la abierta en 4.4 s y empata a Ana en aciertos; Ana tiene más tiempo acumulado, así que Beto sube.
+  const filas = filasRankingVivo({ parcial, participantes, enVivo: [{ indice: 2, tiempos: { beto: 44, caro: 7 }, aciertos: { beto: true } }], abierta: 2 })
+  assert.deepStrictEqual(filas.map((f) => [f.participanteId, f.posicion, f.aciertos, f.tiempoDecimas, f.respondioActual]), [
+    ['ana', 1, 2, 50, false], ['beto', 2, 2, 54, true], ['caro', 3, 0, 0, true], ['dani', 3, 0, 0, false],
+  ])
+  const rapido = filasRankingVivo({ parcial, participantes, enVivo: [{ indice: 2, tiempos: { beto: 30 }, aciertos: { beto: true } }], abierta: 2 })
+  assert.deepStrictEqual(rapido.slice(0, 2).map((f) => [f.participanteId, f.posicion, f.tiempoDecimas]), [['beto', 1, 40], ['ana', 2, 50]])
+  // Caro falló: su tiempo aparece en la casilla de la pregunta, pero no suma al acumulado.
+  assert.deepStrictEqual(filas.find((f) => f.participanteId === 'caro').tiempos, [null, null, 7, null, null, null, null, null, null, null])
+  assert.deepStrictEqual(filas.find((f) => f.participanteId === 'dani').tiempos, Array(10).fill(null))
+  // Justo tras un cierre (la provisional aún no incluye la 3): la recién cerrada sigue contando, sin salto de puestos.
+  const trasCierre = filasRankingVivo({ parcial, participantes, enVivo: [{ indice: 2, tiempos: { beto: 30 }, aciertos: { beto: true } }], abierta: null })
+  assert.deepStrictEqual(trasCierre.map((f) => [f.participanteId, f.posicion, f.aciertos]), rapido.map((f) => [f.participanteId, f.posicion, f.aciertos]))
+  assert.ok(trasCierre.every((f) => f.respondioActual === null))
+  // Si la provisional ya incluye esa pregunta, manda la provisional (no se cuenta dos veces).
+  const incluida = { cerradas: 3, clasificacion: parcial.clasificacion.map((f) => (f.participanteId === 'beto' ? { ...f, aciertos: 2, tiempoDecimas: 40, tiempos: [10, null, 30] } : { ...f, tiempos: [...f.tiempos, null] })) }
+  const sinDoble = filasRankingVivo({ parcial: incluida, participantes, enVivo: [{ indice: 2, tiempos: { beto: 30 }, aciertos: { beto: true } }], abierta: null })
+  assert.strictEqual(sinDoble.find((f) => f.participanteId === 'beto').aciertos, 2)
+  // Lo que viaja al celular: sin ids, claves ni opciones; solo puesto, nombre, aciertos, tiempos y si ya respondió.
+  const v = vistaRankingVivo({ filas, participanteId: 'caro', cerradas: 2, abierta: 2 })
+  assert.ok(!/participanteId|respuestaCorrecta|opcion|ana|beto/.test(JSON.stringify(v)))
+  for (const f of v.filas) assert.deepStrictEqual(Object.keys(f).filter((k) => k !== 'esPropia').sort(), ['aciertos', 'nombreVisible', 'posicion', 'respondioActual', 'tiempoDecimas', 'tiempos'])
+  assert.deepStrictEqual(v.filas[2], { posicion: 3, nombreVisible: 'Ámbar', aciertos: 0, tiempoDecimas: 0, tiempos: [null, null, 7, null, null, null, null, null, null, null], respondioActual: true, esPropia: true })
+  // Antes de que abra la primera: todos en 0, nadie inventado.
+  const inicio = filasRankingVivo({ parcial: null, participantes, enVivo: [], abierta: null })
+  assert.ok(inicio.every((f) => f.posicion === 1 && f.respondioActual === null && f.tiempos.every((t) => t === null)))
+})
+
+caso('T · ranking del docente (etapa B): misma regla que el del celular, al instante, y con «No» difiere las V/F', () => {
+  nResp = 0
+  const participantes = [...gente('ana', 'beto', 'caro'), { id: 'fuera', nombre: 'Fuera', alias: 'Fuera', unidoMs: T0 - 5000, expulsado: true }]
+  // Pregunta 1 (OM) cerrada: Ana acierta en 2 s, Beto falla. Pregunta 2 (V/F) abierta: Beto acierta en 1 s; Caro no responde.
+  const respuestas = [resV2('ana', 0, abre(0) + 2000), resV2('beto', 0, abre(0) + 1000, { correcta: false }), resV2('beto', 1, abre(1) + 1000), resV2('fuera', 0, abre(0) + 100)]
+  const ahoraMs = abre(1) + 3000
+  for (const revelar of [null, 'si']) {
+    const r = rankingDocenteEnVivo({ sesion: sesionV2({ revelar }), claves: CLAVES, participantes, respuestas, ahoraMs })
+    assert.deepStrictEqual([r.cerradas, r.abierta, r.diferidas], [1, 1, 0])
+    assert.deepStrictEqual(r.filas.map((f) => [f.participanteId, f.posicion, f.aciertos, f.tiempoDecimas, f.respondioActual, f.tiempos.slice(0, 2)]), [
+      ['beto', 1, 1, 10, true, [10, 10]], ['ana', 2, 1, 20, false, [20, null]], ['caro', 3, 0, 0, false, [null, null]],
+    ])
+  }
+  const no = rankingDocenteEnVivo({ sesion: sesionV2({ revelar: 'no' }), claves: CLAVES, participantes, respuestas, ahoraMs })
+  assert.strictEqual(no.diferidas, 1)
+  assert.deepStrictEqual(no.filas.map((f) => [f.participanteId, f.posicion, f.aciertos, f.tiempos[1]]), [['ana', 1, 1, null], ['beto', 2, 0, 10], ['caro', 2, 0, null]])
+  // Es exactamente lo que el servidor arma para el celular con los mismos datos (provisional + pregunta abierta).
+  const parcial = clasificacionParcialReto({ sesion: sesionV2(), preguntas: PREG_V2, claves: CLAVES, participantes: participantes.slice(0, 3), respuestas, cerradas: 1 })
+  const delCelular = filasRankingVivo({ parcial, participantes: ['ana', 'beto', 'caro'].map((id) => ({ id, nombreVisible: id })), enVivo: [{ indice: 1, tiempos: { beto: 10 }, aciertos: { beto: true } }], abierta: 1 })
+  assert.deepStrictEqual(delCelular, rankingDocenteEnVivo({ sesion: sesionV2(), claves: CLAVES, participantes, respuestas, ahoraMs }).filas)
+  // Antes de iniciar: todos en 0, ninguna pregunta abierta.
+  const espera = rankingDocenteEnVivo({ sesion: sesionEnCurso({ version: 2, estado: ESTADOS_RETO.espera, inicioMs: null, preguntas: PREG_V2 }), claves: CLAVES, participantes, respuestas: [], ahoraMs: T0 })
+  assert.deepStrictEqual([espera.cerradas, espera.abierta, espera.filas.length, espera.filas.every((f) => f.posicion === 1)], [0, null, 3, true])
+})
+
+caso('T · ranking final (etapa B): filas del registro definitivo con el tiempo de cada pregunta, sin recalcular', () => {
+  nResp = 0
+  const res = calcularResultadosReto({ sesion: v2Final(), preguntas: PREGUNTAS, claves: CLAVES, participantes: gente('ana', 'beto'),
+    respuestas: [resV2('ana', 0, abre(0) + 2500), resV2('beto', 0, abre(0) + 900, { correcta: false }), resV2('beto', 1, abre(1) + 3300)] })
+  const filas = filasRankingFinal(res)
+  assert.deepStrictEqual(filas.map((f) => [f.participanteId, f.posicion, f.aciertos, f.tiempoDecimas, f.tiempos.slice(0, 3), f.tiempos.length]), [
+    ['ana', 1, 1, 25, [25, null, null], 10], ['beto', 2, 1, 33, [9, 33, null], 10], // Beto falló la 1 (9 s no suma)
+  ])
+  // Retos de antes: sin tiempos en el registro → null, nunca inventados.
+  const viejo = calcularResultadosReto({ sesion: { ...sesionEnCurso(), estado: ESTADOS_RETO.finalizada }, preguntas: PREGUNTAS, claves: CLAVES, participantes: gente('ana'), respuestas: [] })
+  assert.deepStrictEqual(filasRankingFinal(viejo).map((f) => [f.tiempoDecimas, f.tiempos.every((t) => t === null)]), [[null, true]])
 })
 
 console.log(`\n${pasadas} pasaron, ${fallos} fallaron`)

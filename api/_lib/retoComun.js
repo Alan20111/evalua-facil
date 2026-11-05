@@ -9,7 +9,8 @@ import { capitalizarNombre } from '../../src/utils/nombres.js'
 import { codigoVivoValido } from '../../src/utils/participacionVivo.js'
 import {
   ESTADOS_RETO, FASES_RETO, puedeFinalizar, calcularResultadosReto, formatoTokenValido, idParticipante, faseReto,
-  preguntasCerradas, clasificacionParcialReto,
+  preguntasCerradas, clasificacionParcialReto, tiempoRespuestaDecimas, sesionVistaPor, nombreVisible, modoIdentidadDe,
+  aceptaRespuesta, esAcierto, preguntasDiferidas,
 } from '../../src/utils/retoExpres.js'
 
 export { getDb, admin, verifyRequest }
@@ -250,7 +251,10 @@ export async function parcialAlDia(db, codigo, ses) {
       tx.update(r.parcial, fin)
       return
     }
-    tx.update(r.parcial, { ...fin, cerradas: p.cerradas, clasificacion: p.clasificacion, calculadoMs: ahoraReto() })
+    tx.update(r.parcial, {
+      ...fin, cerradas: p.cerradas, clasificacion: p.clasificacion, calculadoMs: ahoraReto(),
+      ...(Number.isInteger(p.diferidas) ? { diferidas: p.diferidas } : {}),
+    })
   })
   return (await r.parcial.get()).data() || null
 }
@@ -268,5 +272,108 @@ export function resumenTiempo(ses, ahora, faseReto) {
     estado: ses.estado, fase: f.fase, indice: f.indice, faseAlPausar: f.faseAlPausar, restanteMs: f.restanteMs,
     faltaParaAbrirMs: f.faltaParaAbrirMs, abreMs: f.abreMs, cierraMs: f.cierraMs, accesoAbierto: ses.accesoAbierto === true,
     totalPreguntas: ses.totalPreguntas, ahora,
+    // Versión 2: tras qué pregunta se muestra la clasificación (null si no) y la pedida que todavía no se muestra.
+    version: Number.isInteger(ses.version) ? ses.version : 1, trasIndice: f.trasIndice ?? null,
+    clasificacionPendiente: Number.isInteger(ses.clasificacionPendiente) ? ses.clasificacionPendiente : null,
   }
+}
+
+// ── Ranking en vivo del participante (5-nov-2026, versión 2) ───────────────────
+// Lo que hace falta además de la clasificación provisional: quiénes participan ahora y, de las preguntas que la
+// provisional todavía no incluye (la abierta y, justo tras un cierre, la recién cerrada), quién respondió, en cuánto y
+// si acertó. Se guarda en retoParcial/{código}.vivo (lo lee solo el docente dueño; nunca va la clave ni la opción
+// elegida) y se recalcula a lo más cada RANKING_VIVO_MS, con turno, solo cuando algún celular tiene el ranking abierto.
+// Con «Mostrar respuesta correcta» = No, de una pregunta diferida no se guarda ningún acierto (preguntasDiferidas).
+export const RANKING_VIVO_MS = 2000
+const TURNO_VIVO_MS = 8000
+
+/** Índice de la pregunta que se está respondiendo (abierta, o abierta y en pausa), o null. */
+export function preguntaEnRespuesta(ses, ahora) {
+  const f = faseReto(ses, ahora)
+  if (f.fase === FASES_RETO.abierta) return f.indice
+  if (f.fase === FASES_RETO.pausada && f.faseAlPausar === FASES_RETO.abierta) return f.indice
+  return null
+}
+
+/**
+ * Qué preguntas debe cubrir el cálculo en vivo: desde la primera que la provisional no incluye (`desde`) hasta la que
+ * está en turno si ya abrió, o la última cerrada si no (`hasta`). Vacío (desde > hasta) antes de que abra la primera.
+ */
+export function rangoEnVivo(ses, ahora, cerradasEnParcial = 0) {
+  const f = faseReto(ses, ahora)
+  if (!Number.isInteger(f.indice)) return { desde: 0, hasta: -1, abierta: null }
+  const abierta = preguntaEnRespuesta(ses, ahora)
+  const hasta = abierta != null ? abierta : f.indice - 1
+  return { desde: Math.max(0, cerradasEnParcial), hasta, abierta }
+}
+
+/**
+ * Datos en vivo para el ranking: { participantes: [{ id, nombreVisible }], enVivo: [{ indice, tiempos, aciertos }],
+ * abierta, desde, hasta, calculadoMs }. Usa el último cálculo si tiene menos de RANKING_VIVO_MS y cubre las mismas
+ * preguntas; si no, lo rehace (uno solo a la vez). Si otro lo está calculando, devuelve el anterior.
+ */
+export async function rankingVivoAlDia(db, codigo, ses, cerradasEnParcial = 0) {
+  const r = refs(db, codigo)
+  const fresco = (v, ahora) => {
+    if (!v || !Number.isFinite(v.calculadoMs) || ahora - v.calculadoMs >= RANKING_VIVO_MS) return false
+    const g = rangoEnVivo(ses, ahora, cerradasEnParcial)
+    return v.hasta === g.hasta && (v.abierta ?? null) === g.abierta && v.desde <= g.desde
+  }
+  const actual = (await r.parcial.get()).data() || null
+  if (fresco(actual?.vivo, ahoraReto())) return actual.vivo
+  const marca = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const turno = await db.runTransaction(async (tx) => {
+    const d = (await tx.get(r.parcial)).data()
+    const ahora = ahoraReto()
+    if (fresco(d?.vivo, ahora)) return 'listo'
+    if (Number.isFinite(d?.vivoHastaMs) && d.vivoHastaMs > ahora) return 'ocupado'
+    tx.set(r.parcial, { sesionId: codigo, actividadId: ses.actividadId, docenteId: ses.docenteId, vivoHastaMs: ahora + TURNO_VIVO_MS, vivoMarca: marca }, { merge: true })
+    return 'mio'
+  })
+  if (turno !== 'mio') return (await r.parcial.get()).data()?.vivo || actual?.vivo || null
+
+  const sesion = (await r.sesion.get()).data()
+  if (!sesion) return actual?.vivo || null
+  const ahora = ahoraReto()
+  const { desde, hasta, abierta } = rangoEnVivo(sesion, ahora, cerradasEnParcial)
+  const modo = modoIdentidadDe(sesion)
+  const indices = []
+  for (let k = desde; k <= hasta; k++) indices.push(k)
+  const [partSnap, clavesSnap, ...respSnaps] = await Promise.all([
+    db.collection('retoParticipantes').where('sesionId', '==', codigo).get(),
+    indices.length ? r.claves.get() : null,
+    ...indices.map((k) => db.collection('retoRespuestas').where('sesionId', '==', codigo).where('indice', '==', k).get()),
+  ])
+  const participantes = partSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => p.expulsado !== true)
+  const unido = new Map(participantes.map((p) => [p.id, p.unidoMs]))
+  const claves = clavesSnap?.data()?.claves || {}
+  const diferidas = new Set(preguntasDiferidas(sesion, sesion.preguntas))
+  const enVivo = indices.map((k, n) => {
+    const q = sesion.preguntas[k]
+    const tiempos = {}
+    const aciertos = {}
+    // La primera respuesta de cada uno (es la única: id fijo), comprobada con la sesión que ella vio, igual que al calificar.
+    for (const d of respSnaps[n].docs) {
+      const x = d.data()
+      if (!x?.participanteId || !unido.has(x.participanteId) || tiempos[x.participanteId] != null) continue
+      if (Number.isFinite(unido.get(x.participanteId)) && x.recibidaMs < unido.get(x.participanteId)) continue
+      const vista = sesionVistaPor(sesion, x)
+      if (!aceptaRespuesta(vista, k, x.recibidaMs)) continue
+      const t = tiempoRespuestaDecimas(vista, k, x.recibidaMs)
+      if (!Number.isInteger(t)) continue
+      tiempos[x.participanteId] = t
+      if (!diferidas.has(q.id) && esAcierto(q, claves[q.id]?.respuestaCorrecta ?? null, x.opcionSeleccionada ?? null)) aciertos[x.participanteId] = true
+    }
+    return { indice: k, tiempos, aciertos }
+  })
+  const nuevo = {
+    participantes: participantes.map((p) => ({ id: p.id, nombreVisible: nombreVisible(p, modo) })),
+    enVivo, abierta, desde, hasta, calculadoMs: ahora,
+  }
+  await db.runTransaction(async (tx) => {
+    const d = (await tx.get(r.parcial)).data()
+    if (d?.vivoMarca !== marca) return // venció el turno y otro lo retomó
+    tx.update(r.parcial, { vivo: nuevo, vivoHastaMs: FieldValue.delete(), vivoMarca: FieldValue.delete() })
+  })
+  return nuevo
 }

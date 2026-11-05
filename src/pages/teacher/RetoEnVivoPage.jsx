@@ -10,7 +10,7 @@
 // ni el nombre real detrás de un alias (D5): eso solo aparece en «Participantes», que el docente abre a propósito.
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, DoorClosed, DoorOpen, Expand, Pause, Play, Shrink, Square, Users } from 'lucide-react'
+import { ArrowLeft, DoorClosed, DoorOpen, Expand, ListOrdered, Pause, Play, Shrink, Square, Users } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
 import { Badge, Button } from '../../components/ui'
@@ -211,6 +211,11 @@ export default function RetoEnVivoPage() {
         <Badge tone="accent">{ETIQUETA_FASE[fase]}</Badge>
         <Badge>{externo ? MODALIDADES_RETO.externo : MODALIDADES_RETO.inscritos}</Badge>
         <Button variant="secondary" size="sm" icon={Users} onClick={() => setVerParticipantes(true)}>Participantes</Button>
+        {/* Etapa B (5-nov-2026): el ranking en vivo del docente se abre en otra ventana, para no proyectarlo. */}
+        {sesion.version >= 2 && (
+          <Button as="a" variant="secondary" size="sm" icon={ListOrdered} href={`/reto/${activityId}/en-vivo/${codigo}/ranking`}
+            target="_blank" rel="noopener">Ranking en vivo</Button>
+        )}
         <Button variant="secondary" size="sm" icon={pc.activa ? Shrink : Expand} onClick={pc.alternar}>{pc.activa ? 'Salir de pantalla completa' : 'Pantalla completa'}</Button>
       </header>
 
