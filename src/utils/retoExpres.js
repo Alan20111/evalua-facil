@@ -49,6 +49,33 @@ export const RETO_CFG = {
   // ¿Se puede marcar un reto de inscritos como calificable? Estuvo apagado hasta la etapa 5 (aplicar calificaciones):
   // sin ella, un reto calificable publicado contaba como 0 para todo el grupo sin forma de corregirlo.
   CALIFICABLE_DISPONIBLE: true,
+  // Versión 2 de la sesión (5-nov-2026, «el docente marca el ritmo»): cierre anticipado de la pregunta, clasificación a
+  // pedido, desempate por tiempo y la opción «Mostrar respuesta correcta». Una sesión sin `version` es de antes y sigue
+  // con sus reglas de siempre (solo aciertos, sin cierres manuales).
+  VERSION_RITMO: 2,
+}
+
+/** ¿La sesión es de la versión con ritmo del docente (cierres, clasificación a pedido, desempate por tiempo)? */
+export function esVersionRitmo(sesion) {
+  return Number.isInteger(sesion?.version) && sesion.version >= RETO_CFG.VERSION_RITMO
+}
+
+// «Mostrar respuesta correcta al estudiante» (5-nov-2026). La decide SOLO el docente en la actividad
+// (`reto.mostrarRespuestaCorrecta`) y la sesión la congela al crearse en `revelar`:
+//   · 'si'  → al cerrar cada pregunta el participante sabe si acertó y cuál era la correcta; al final, su corrección completa;
+//   · 'no'  → nunca recibe la respuesta correcta. En una pregunta que se deduce al saber si acertó (verdadero/falso o
+//            con dos opciones) tampoco sabe si acertó hasta que termina la competencia; en las demás, sí;
+//   · null  → actividad sin la opción (retos de antes): lo de siempre (inscritos ven su corrección al final; externos nada).
+// Aplica igual a inscritos y externos. Ningún participante la puede cambiar: viaja de la actividad a la sesión en el servidor.
+export function revelarDe(reto) {
+  if (reto?.mostrarRespuestaCorrecta === true) return 'si'
+  if (reto?.mostrarRespuestaCorrecta === false) return 'no'
+  return null
+}
+
+/** ¿Saber si acertó revela la respuesta correcta? Verdadero/falso o cualquier pregunta con dos opciones o menos. */
+export function preguntaBinaria(pregunta) {
+  return pregunta?.tipo === 'verdadero_falso' || (Array.isArray(pregunta?.opciones) && pregunta.opciones.length <= 2)
 }
 
 // Tiempo para responder cada pregunta (4-nov-2026): solo estas duraciones, en segundos. El docente elige una por reto
@@ -142,12 +169,79 @@ export const FASES_RETO = {
   pausada: 'pausada', // el docente pausó
   terminada: 'terminada', // ya pasó la última pregunta; falta finalizar (calcular resultados)
   finalizada: 'finalizada', // resultados calculados
+  clasificacion: 'clasificacion', // versión 2: el docente muestra la clasificación entre dos preguntas; nada corre
 }
 
-// Duración de cada turno (preparación + tiempo de esa pregunta) según las preguntas congeladas en la sesión.
+// ── Versión 2: cierres anticipados y clasificación a pedido (5-nov-2026) ──────
+// · `cortes` [{ indice, efectivoMs, cerradaMs }]: el docente cerró la pregunta `indice` antes de que se acabara su tiempo.
+//   `efectivoMs` es el tiempo de competencia (sin pausas) en que cerró; ese turno termina ahí y el siguiente empieza su
+//   «Prepárense». Como las pausas, solo se agregan hacia adelante: lo que ya pasó no cambia.
+// · `clasificacionPendiente` (índice o null): al terminar el turno de esa pregunta la competencia se detiene en la fase
+//   `clasificacion` (sin cronómetro ni respuestas) hasta que el docente pulse «Continuar». Entonces el intermedio se
+//   guarda como una pausa más ({ motivo: 'clasificacion' }) y la siguiente pregunta da sus 4 s completos de preparación.
+function cortesDe(sesion) {
+  return Array.isArray(sesion?.cortes) ? sesion.cortes : []
+}
+
+// Duración de cada turno (preparación + tiempo de esa pregunta) según las preguntas congeladas en la sesión. Un turno
+// cerrado por el docente dura hasta su corte.
 function turnosDe(sesion) {
   const preguntas = Array.isArray(sesion?.preguntas) ? sesion.preguntas : []
-  return Array.from({ length: totalDe(sesion) }, (_, i) => RETO_CFG.PREPARACION_MS + tiempoRespuestaMs(preguntas[i]))
+  const cortes = new Map()
+  for (const c of cortesDe(sesion)) if (Number.isInteger(c?.indice) && !cortes.has(c.indice)) cortes.set(c.indice, c.efectivoMs)
+  let inicio = 0
+  return Array.from({ length: totalDe(sesion) }, (_, i) => {
+    const normal = RETO_CFG.PREPARACION_MS + tiempoRespuestaMs(preguntas[i])
+    const c = cortes.get(i)
+    const turno = Number.isFinite(c) && c - inicio >= RETO_CFG.PREPARACION_MS && c - inicio < normal ? c - inicio : normal
+    inicio += turno
+    return turno
+  })
+}
+
+/**
+ * ¿Los cortes son coherentes? En orden de pregunta, sin repetir, cada uno dentro de la ventana abierta de su pregunta.
+ * Un corte que no cuadra haría ambiguo el reloj: el cálculo de resultados lo rechaza.
+ */
+export function cortesValidos(sesion) {
+  const cortes = cortesDe(sesion)
+  if (!cortes.length) return true
+  if (cortes.length > totalDe(sesion)) return false
+  const preguntas = Array.isArray(sesion?.preguntas) ? sesion.preguntas : []
+  let inicio = 0
+  let previo = -1
+  let k = 0
+  for (let i = 0; i < totalDe(sesion) && k < cortes.length; i++) {
+    const normal = RETO_CFG.PREPARACION_MS + tiempoRespuestaMs(preguntas[i])
+    const c = cortes[k]
+    if (!Number.isInteger(c?.indice) || c.indice <= previo) return false
+    if (c.indice === i) {
+      if (!esEnteroNoNegativo(c.efectivoMs) || c.efectivoMs - inicio < RETO_CFG.PREPARACION_MS || c.efectivoMs - inicio >= normal) return false
+      inicio = c.efectivoMs
+      previo = i
+      k++
+    } else {
+      inicio += normal
+    }
+  }
+  return k === cortes.length
+}
+
+/** Índice de la pregunta tras la cual se mostrará la clasificación, o null. Solo en la versión 2 y nunca tras la última. */
+function pendienteDe(sesion) {
+  const i = sesion?.clasificacionPendiente
+  return esVersionRitmo(sesion) && Number.isInteger(i) && i >= 0 && i < totalDe(sesion) - 1 ? i : null
+}
+
+/**
+ * Dónde se detiene el reloj por la clasificación pendiente: { trasIndice, efectivoMs, realMs } (realMs null si todavía
+ * no se sabe, por una pausa abierta antes). null si no hay clasificación pendiente.
+ */
+function topeClasificacion(sesion) {
+  const tras = pendienteDe(sesion)
+  if (tras == null) return null
+  const efectivoMs = turnosDe(sesion).slice(0, tras + 1).reduce((a, b) => a + b, 0)
+  return { trasIndice: tras, efectivoMs, realMs: momentoRealMs(sesion, efectivoMs) }
 }
 
 /** En qué turno cae `efectivoMs`: { indice, inicio, turno }. indice = total cuando ya pasó la última pregunta. */
@@ -183,7 +277,9 @@ function pausasDe(sesion) {
  */
 export function pausasValidas(sesion) {
   const pausas = pausasDe(sesion)
-  if (pausas.length > RETO_CFG.MAX_PAUSAS) return false
+  // Las manuales tienen su propio tope (MAX_PAUSAS); los intermedios de clasificación suman a lo más uno por pregunta.
+  if (pausas.length > RETO_CFG.MAX_PAUSAS + RETO_CFG.TOTAL_PREGUNTAS) return false
+  if (pausas.filter((p) => p?.motivo !== 'clasificacion').length > RETO_CFG.MAX_PAUSAS) return false
   if (pausas.length && !esEnteroNoNegativo(sesion?.inicioMs)) return false
   let previa = sesion?.inicioMs ?? 0
   for (let i = 0; i < pausas.length; i++) {
@@ -225,7 +321,11 @@ export function tiempoEfectivoMs(sesion, ahoraMs) {
     const hasta = Math.min(p.hastaMs ?? Infinity, ahoraMs)
     if (hasta > desde) pausado += hasta - desde
   }
-  return Math.max(0, ahoraMs - inicio - pausado)
+  const efectivo = Math.max(0, ahoraMs - inicio - pausado)
+  // Versión 2: con la clasificación pendiente, el reloj se detiene al terminar el turno de esa pregunta.
+  const tope = topeClasificacion(sesion)
+  if (tope && tope.realMs != null && ahoraMs >= tope.realMs) return Math.min(efectivo, tope.efectivoMs)
+  return efectivo
 }
 
 /**
@@ -253,7 +353,7 @@ export function momentoRealMs(sesion, efectivoMs) {
  *   · abreMs / cierraMs: hora real de apertura y cierre del turno actual (null si está pausada).
  */
 export function faseReto(sesion, ahoraMs) {
-  const vacio = { indice: null, faseAlPausar: null, restanteMs: null, faltaParaAbrirMs: null, abreMs: null, cierraMs: null }
+  const vacio = { indice: null, faseAlPausar: null, restanteMs: null, faltaParaAbrirMs: null, abreMs: null, cierraMs: null, trasIndice: null }
   if (sesion?.estado === ESTADOS_RETO.finalizada) return { fase: FASES_RETO.finalizada, ...vacio }
   // Terminación anticipada: desde `terminadaMs` ya no corre nada (los instantes anteriores no cambian).
   if (esEnteroNoNegativo(sesion?.terminadaMs) && ahoraMs >= sesion.terminadaMs) return { fase: FASES_RETO.terminada, ...vacio }
@@ -265,6 +365,11 @@ export function faseReto(sesion, ahoraMs) {
   const { indice, inicio, turno } = ubicarTurno(sesion, efectivo)
   if (indice >= total) return { fase: FASES_RETO.terminada, ...vacio }
 
+  // Versión 2: el docente está mostrando la clasificación (va antes que la pausa: mientras dure, nada corre).
+  const tope = topeClasificacion(sesion)
+  if (tope && tope.realMs != null && ahoraMs >= tope.realMs) {
+    return { fase: FASES_RETO.clasificacion, ...vacio, indice, trasIndice: tope.trasIndice }
+  }
   const dentro = efectivo - inicio
   const enPreparacion = dentro < RETO_CFG.PREPARACION_MS
   const pausada = pausadaEn(sesion, ahoraMs)
@@ -274,7 +379,7 @@ export function faseReto(sesion, ahoraMs) {
     faltaParaAbrirMs: enPreparacion ? RETO_CFG.PREPARACION_MS - dentro : null,
   }
   if (pausada) {
-    return { fase: FASES_RETO.pausada, faseAlPausar: enPreparacion ? FASES_RETO.preparando : FASES_RETO.abierta, ...base, abreMs: null, cierraMs: null }
+    return { fase: FASES_RETO.pausada, faseAlPausar: enPreparacion ? FASES_RETO.preparando : FASES_RETO.abierta, ...base, abreMs: null, cierraMs: null, trasIndice: null }
   }
   return {
     fase: enPreparacion ? FASES_RETO.preparando : FASES_RETO.abierta,
@@ -282,6 +387,7 @@ export function faseReto(sesion, ahoraMs) {
     ...base,
     abreMs: momentoRealMs(sesion, inicio + RETO_CFG.PREPARACION_MS),
     cierraMs: momentoRealMs(sesion, inicio + turno),
+    trasIndice: null,
   }
 }
 
@@ -315,7 +421,7 @@ export function pausarReto(sesion, ahoraMs) {
   if (f.fase !== FASES_RETO.preparando && f.fase !== FASES_RETO.abierta) {
     return { ok: false, codigo: 'NO_PAUSABLE', error: 'Solo se puede pausar mientras la competencia está en curso.' }
   }
-  if (pausas.length >= RETO_CFG.MAX_PAUSAS) return { ok: false, codigo: 'MAX_PAUSAS', error: `Se alcanzó el máximo de ${RETO_CFG.MAX_PAUSAS} pausas.` }
+  if (pausas.filter((p) => p?.motivo !== 'clasificacion').length >= RETO_CFG.MAX_PAUSAS) return { ok: false, codigo: 'MAX_PAUSAS', error: `Se alcanzó el máximo de ${RETO_CFG.MAX_PAUSAS} pausas.` }
   return { ok: true, patch: { pausas: [...pausas, { desdeMs: ahoraMs, hastaMs: null }] } }
 }
 
@@ -348,6 +454,96 @@ export function terminarReto(sesion, ahoraMs, { confirmado = false } = {}) {
   const patch = { terminadaMs: ahoraMs }
   if (estaPausada(sesion)) patch.pausas = [...pausas.slice(0, -1), { desdeMs: ultima.desdeMs, hastaMs: ahoraMs }]
   return { ok: true, patch }
+}
+
+// ── Versión 2: el docente marca el ritmo (5-nov-2026) ─────────────────────────
+const sinVersion = { ok: false, codigo: 'NO_DISPONIBLE', error: 'Esta competencia se creó antes de esta opción. Crea una nueva para usarla.' }
+
+/** Hora de lo último registrado en el reloj (inicio, o la última pausa): ninguna acción puede quedar antes. */
+function ultimaMarcaMs(sesion) {
+  const pausas = pausasDe(sesion)
+  const ultima = pausas[pausas.length - 1]
+  return ultima ? (ultima.hastaMs ?? ultima.desdeMs) : sesion?.inicioMs
+}
+
+/**
+ * Cerrar YA la pregunta `indice` para todos (el docente no quiere esperar al cronómetro). Las respuestas recibidas
+ * antes se conservan; desde este instante se rechazan. Se indica QUÉ pregunta se cierra para que un doble clic o dos
+ * pestañas no salten dos preguntas: si esa ya cerró (sola, por otro clic o porque terminó la competencia), no hace nada.
+ * Con la pregunta abierta en pausa, también se cierra (y la pausa termina en ese instante).
+ * `mostrarClasificacion`: además, al cerrar se muestra la clasificación (no aplica a la última pregunta).
+ */
+export function cerrarPreguntaReto(sesion, ahoraMs, { indice, mostrarClasificacion = false } = {}) {
+  if (!esVersionRitmo(sesion)) return sinVersion
+  if (!Number.isInteger(indice) || indice < 0 || indice >= totalDe(sesion)) return { ok: false, codigo: 'PREGUNTA_INVALIDA', error: 'Esa pregunta no existe.' }
+  if (!esEnteroNoNegativo(ahoraMs)) return { ok: false, codigo: 'HORA_INVALIDA', error: 'Hora del servidor no válida.' }
+  const f = faseReto(sesion, ahoraMs)
+  if (f.fase === FASES_RETO.terminada || f.fase === FASES_RETO.finalizada) return { ok: true, patch: null }
+  if (Number.isInteger(f.indice) && indice < f.indice) return { ok: true, patch: null } // ya cerró
+  const abierta = f.indice === indice && (f.fase === FASES_RETO.abierta || (f.fase === FASES_RETO.pausada && f.faseAlPausar === FASES_RETO.abierta))
+  if (!abierta) return { ok: false, codigo: 'NO_ABIERTA', error: 'Esa pregunta todavía no está abierta.' }
+  const previa = ultimaMarcaMs(sesion)
+  if (esEnteroNoNegativo(previa) && ahoraMs < previa) return { ok: false, codigo: 'HORA_INVALIDA', error: 'Hora del servidor no válida.' }
+  const patch = { cortes: [...cortesDe(sesion), { indice, efectivoMs: tiempoEfectivoMs(sesion, ahoraMs), cerradaMs: ahoraMs }] }
+  if (estaPausada(sesion)) {
+    const pausas = pausasDe(sesion)
+    patch.pausas = [...pausas.slice(0, -1), { ...pausas[pausas.length - 1], hastaMs: ahoraMs }]
+  }
+  if (mostrarClasificacion === true && indice < totalDe(sesion) - 1) patch.clasificacionPendiente = indice
+  return { ok: true, patch }
+}
+
+/**
+ * Mostrar la clasificación. Con una pregunta abierta, se muestra en cuanto esa pregunta cierre (por el reloj o por el
+ * docente); en «Prepárense», de inmediato (la siguiente pregunta vuelve a dar sus 4 s completos). Ya mostrándose: nada.
+ * No aplica antes de cerrar la primera pregunta ni tras la última (ahí van los resultados finales).
+ */
+export function mostrarClasificacionReto(sesion, ahoraMs) {
+  if (!esVersionRitmo(sesion)) return sinVersion
+  if (!esEnteroNoNegativo(ahoraMs)) return { ok: false, codigo: 'HORA_INVALIDA', error: 'Hora del servidor no válida.' }
+  const f = faseReto(sesion, ahoraMs)
+  if (f.fase === FASES_RETO.clasificacion) return { ok: true, patch: null }
+  const alPausar = f.fase === FASES_RETO.pausada ? f.faseAlPausar : f.fase
+  let tras
+  if (alPausar === FASES_RETO.abierta) tras = f.indice
+  else if (alPausar === FASES_RETO.preparando) tras = f.indice - 1
+  else return { ok: false, codigo: 'NO_EN_CURSO', error: 'La competencia no está en curso.' }
+  if (tras < 0) return { ok: false, codigo: 'SIN_CERRADAS', error: 'Todavía no se cierra ninguna pregunta.' }
+  if (tras >= totalDe(sesion) - 1) return { ok: false, codigo: 'ULTIMA', error: 'Al cerrar la última pregunta se muestran los resultados finales.' }
+  if (sesion.clasificacionPendiente === tras) return { ok: true, patch: null }
+  return { ok: true, patch: { clasificacionPendiente: tras } }
+}
+
+/** Quitar una clasificación pedida que todavía no se muestra (se pidió por error). Ya mostrándose: usar «Continuar». */
+export function cancelarClasificacionReto(sesion, ahoraMs) {
+  if (!esVersionRitmo(sesion)) return sinVersion
+  if (pendienteDe(sesion) == null) return { ok: true, patch: null }
+  if (faseReto(sesion, ahoraMs).fase === FASES_RETO.clasificacion) {
+    return { ok: false, codigo: 'YA_MOSTRADA', error: 'La clasificación ya se está mostrando. Pulsa «Continuar».' }
+  }
+  return { ok: true, patch: { clasificacionPendiente: null } }
+}
+
+/**
+ * «Continuar» tras la clasificación: el intermedio queda registrado como una pausa (motivo 'clasificacion') desde que
+ * se detuvo el reloj hasta ahora, y empieza la preparación de la siguiente pregunta. Una pausa manual que hubiera
+ * quedado dentro del intermedio (se pausó en «Prepárense» y luego se pidió la clasificación) queda absorbida por él:
+ * en ese lapso no se aceptó ninguna respuesta, así que nada de lo ya calificado cambia. Repetirlo no hace nada.
+ */
+export function continuarReto(sesion, ahoraMs) {
+  if (!esVersionRitmo(sesion)) return sinVersion
+  const f = faseReto(sesion, ahoraMs)
+  if (f.fase !== FASES_RETO.clasificacion) {
+    if (pendienteDe(sesion) == null) return { ok: true, patch: null }
+    return { ok: false, codigo: 'SIN_CLASIFICACION', error: 'Todavía no se está mostrando la clasificación.' }
+  }
+  const tope = topeClasificacion(sesion)
+  if (!esEnteroNoNegativo(ahoraMs) || ahoraMs < tope.realMs) return { ok: false, codigo: 'HORA_INVALIDA', error: 'Hora del servidor no válida.' }
+  const previas = pausasDe(sesion).filter((p) => p.desdeMs < tope.realMs)
+  return {
+    ok: true,
+    patch: { pausas: [...previas, { desdeMs: tope.realMs, hastaMs: ahoraMs, motivo: 'clasificacion' }], clasificacionPendiente: null },
+  }
 }
 
 /** ¿Ya se pueden calcular los resultados? Cuando pasó la última pregunta o el docente terminó antes. */
@@ -523,16 +719,62 @@ const comparadorNombre = new Intl.Collator('es', { sensitivity: 'base', numeric:
  * eso solo ordena la lista: NO desempata ni usa la rapidez.
  * `filas`: [{ participanteId, nombreVisible, aciertos }]. Devuelve una copia ordenada con `posicion`.
  */
-export function asignarPosiciones(filas) {
+export function asignarPosiciones(filas, { porTiempo = false } = {}) {
+  // Versión 2 (5-nov-2026): con `porTiempo`, a iguales aciertos queda arriba quien acumuló MENOS tiempo en sus
+  // respuestas correctas (`tiempoDecimas`, décimas de segundo); con iguales aciertos y tiempo, comparten posición.
+  const t = (f) => (porTiempo && Number.isFinite(f.tiempoDecimas) ? f.tiempoDecimas : 0)
   const ordenadas = [...(filas || [])].sort((a, b) =>
-    (b.aciertos - a.aciertos) ||
+    (b.aciertos - a.aciertos) || (t(a) - t(b)) ||
     comparadorNombre.compare(a.nombreVisible || '', b.nombreVisible || '') ||
     String(a.participanteId).localeCompare(String(b.participanteId)))
   let posicion = 0
   return ordenadas.map((f, i) => {
-    if (i === 0 || f.aciertos !== ordenadas[i - 1].aciertos) posicion = i + 1
+    if (i === 0 || f.aciertos !== ordenadas[i - 1].aciertos || t(f) !== t(ordenadas[i - 1])) posicion = i + 1
     return { ...f, posicion }
   })
+}
+
+/**
+ * La sesión tal como la vio una respuesta al aceptarse (5-nov-2026). Cada respuesta nueva guarda cuántos cortes y
+ * pausas había en la sesión que leyó su transacción (`vistos`). Si el docente cerró la pregunta o pausó en el mismo
+ * instante, la respuesta pudo aceptarse con una hora apenas posterior a la del cierre (las dos transacciones corren a
+ * la vez); recalcularla con lo que ELLA vio la conserva, en lugar de descartarla como tardía. Una respuesta que llega
+ * después de guardado el cierre lo ve y se rechaza al escribirse, así que nunca entra. Solo se recortan los cortes y
+ * las pausas (que se agregan al final); `terminadaMs` y la clasificación pendiente no cambian ventanas abiertas: las
+ * preguntas que cuentan las decide `preguntasRealizadas` sobre la sesión completa. Una respuesta sin `vistos` (de antes)
+ * se comprueba con la sesión completa, como siempre.
+ */
+export function sesionVistaPor(sesion, respuesta) {
+  const v = respuesta?.vistos
+  if (!v || typeof v !== 'object') return sesion
+  const corte = (lista, n) => (Number.isInteger(n) && n >= 0 && n <= lista.length ? lista.slice(0, n) : lista)
+  return {
+    ...sesion, terminadaMs: null, clasificacionPendiente: null,
+    cortes: corte(cortesDe(sesion), v.cortes), pausas: corte(pausasDe(sesion), v.pausas),
+  }
+}
+
+/**
+ * Tiempo que tardó en contestar, en DÉCIMAS de segundo: desde que la pregunta `indice` abrió hasta que el servidor
+ * recibió la respuesta, sin contar pausas. Lo calcula el servidor con su propio reloj (`recibidaMs`); el navegador no
+ * manda ningún tiempo. null si no cae dentro de la pregunta.
+ */
+export function tiempoRespuestaDecimas(sesion, indice, recibidaMs) {
+  if (!Number.isInteger(indice) || indice < 0 || !Number.isFinite(recibidaMs)) return null
+  const turnos = turnosDe(sesion)
+  if (indice >= turnos.length) return null
+  const abre = turnos.slice(0, indice).reduce((a, b) => a + b, 0) + RETO_CFG.PREPARACION_MS
+  const ms = tiempoEfectivoMs(sesion, recibidaMs) - abre
+  if (!Number.isFinite(ms) || ms < 0 || ms > turnos[indice] - RETO_CFG.PREPARACION_MS) return null
+  return Math.round(ms / 100)
+}
+
+/** «8.4 s», «1 min 5.0 s»: cómo se lee un tiempo en décimas de segundo. Sin tiempo: ''. */
+export function textoTiempoReto(decimas) {
+  if (!Number.isInteger(decimas) || decimas < 0) return ''
+  const min = Math.floor(decimas / 600)
+  const resto = ((decimas % 600) / 10).toFixed(1)
+  return min ? `${min} min ${resto} s` : `${resto} s`
 }
 
 /**
@@ -559,7 +801,7 @@ export function asignarPosiciones(filas) {
  * o { ok: false, codigo, error }. Con `realizadas` = 0 (se terminó antes de la primera pregunta) `sinResultados`
  * es true y no hay clasificación ni detalle.
  */
-export function calcularResultadosReto({ sesion, preguntas, claves, participantes, respuestas }) {
+export function calcularResultadosReto({ sesion, preguntas, claves, participantes, respuestas }, { diferir = [] } = {}) {
   const lista = Array.isArray(preguntas) ? preguntas : []
   if (lista.length !== RETO_CFG.TOTAL_PREGUNTAS) {
     return { ok: false, codigo: 'TOTAL_INVALIDO', error: `La competencia debe tener exactamente ${RETO_CFG.TOTAL_PREGUNTAS} preguntas.` }
@@ -574,7 +816,7 @@ export function calcularResultadosReto({ sesion, preguntas, claves, participante
   }
   // Las ventanas se comprueban con la línea de tiempo de la sesión aunque ya esté finalizada.
   const terminadaSinEmpezar = !esEnteroNoNegativo(sesion?.inicioMs) && esEnteroNoNegativo(sesion?.terminadaMs)
-  if ((!esEnteroNoNegativo(sesion?.inicioMs) && !terminadaSinEmpezar) || !pausasValidas(sesion) ||
+  if ((!esEnteroNoNegativo(sesion?.inicioMs) && !terminadaSinEmpezar) || !pausasValidas(sesion) || !cortesValidos(sesion) ||
     (esEnteroNoNegativo(sesion?.terminadaMs) && esEnteroNoNegativo(sesion?.inicioMs) && sesion.terminadaMs < sesion.inicioMs)) {
     return { ok: false, codigo: 'SESION_INVALIDA', error: 'La sesión no tiene un registro de tiempo válido.' }
   }
@@ -601,7 +843,7 @@ export function calcularResultadosReto({ sesion, preguntas, claves, participante
     if (idx >= realizadas) { descartadas.noRealizada++; continue }
     const llave = `${r.participanteId}\u0000${r.preguntaId}`
     if (elegidas.has(llave)) { descartadas.duplicadas++; continue }
-    const enVentana = Number.isFinite(r.recibidaMs) && aceptaRespuesta(sesionCalculo, idx, r.recibidaMs) &&
+    const enVentana = Number.isFinite(r.recibidaMs) && aceptaRespuesta(sesionVistaPor(sesionCalculo, r), idx, r.recibidaMs) &&
       !(Number.isFinite(pa.unidoMs) && r.recibidaMs < pa.unidoMs)
     if (!enVentana) { descartadas.fueraDeTiempo++; continue }
     elegidas.set(llave, r)
@@ -613,26 +855,41 @@ export function calcularResultadosReto({ sesion, preguntas, claves, participante
   }
 
   const modo = modoIdentidadDe(sesion)
+  // Versión 2: tiempo por respuesta y desempate por tiempo. `diferir`: preguntas cuyo acierto todavía no se puede
+  // publicar (clasificación provisional con «Mostrar respuesta correcta» = No): no suman aciertos ni tiempo.
+  const porTiempo = esVersionRitmo(sesion)
+  const diferidas = new Set(Array.isArray(diferir) ? diferir : [])
   const detalle = {}
   const filas = []
   const expulsados = []
   for (const [id, pa] of porParticipante) {
     let aciertos = 0
     let respondidas = 0
-    detalle[id] = contadas.map((p) => {
+    let tiempoDecimas = 0
+    detalle[id] = contadas.map((p, i) => {
       const r = elegidas.get(`${id}\u0000${p.id}`)
       const correcta = claveDe(claves, p.id)
       const opcion = r ? (r.opcionSeleccionada ?? null) : null
       if (r) respondidas++
       const acerto = esAcierto(p, correcta, opcion)
-      if (acerto) aciertos++
-      return { preguntaId: p.id, opcionSeleccionada: opcion, respuestaCorrecta: correcta, acerto }
+      const item = { preguntaId: p.id, opcionSeleccionada: opcion, respuestaCorrecta: correcta, acerto }
+      const cuenta = acerto && !diferidas.has(p.id)
+      if (porTiempo) {
+        item.tiempoDecimas = r ? tiempoRespuestaDecimas(sesionVistaPor(sesionCalculo, r), i, r.recibidaMs) : null
+        if (cuenta) tiempoDecimas += item.tiempoDecimas ?? 0
+      }
+      if (cuenta) aciertos++
+      return item
     })
     const fila = { participanteId: id, nombreVisible: nombreVisible(pa, modo), aciertos, respondidas }
+    if (porTiempo) fila.tiempoDecimas = tiempoDecimas
     if (pa.expulsado === true) expulsados.push(fila)
     else filas.push(fila)
   }
-  return { ok: true, realizadas, interrumpida, sinResultados: false, clasificacion: asignarPosiciones(filas), expulsados, detalle, descartadas }
+  return {
+    ok: true, realizadas, interrumpida, sinResultados: false, clasificacion: asignarPosiciones(filas, { porTiempo }), expulsados, detalle, descartadas,
+    ...(porTiempo ? { criterio: 'aciertos_tiempo' } : {}),
+  }
 }
 
 /**
@@ -700,10 +957,10 @@ export function propuestasCalificacionReto({ reto, maxCalif = 10, resultados, pa
  *   · `totalParticipantes` y `siguiente` (distanciaAlSiguiente): cuántos compiten y qué le falta para subir.
  * `resultados` = lo que devuelve calcularResultadosReto (con nombres visibles ya según la modalidad).
  */
-export function vistaResultadosParticipante(resultados, participanteId, { modalidad, completa = false } = {}) {
+export function vistaResultadosParticipante(resultados, participanteId, { modalidad, completa = false, revelar = null } = {}) {
   const base = { realizadas: resultados?.realizadas ?? 0, top: [], propia: null }
   if (!resultados?.ok || resultados.sinResultados) return base
-  const fila = (f) => ({ posicion: f.posicion, nombreVisible: f.nombreVisible, aciertos: f.aciertos })
+  const fila = filaPublica
   const clasificacion = Array.isArray(resultados.clasificacion) ? resultados.clasificacion : []
   const top = (completa ? clasificacion : clasificacion.filter((f) => f.posicion <= RETO_CFG.TOP_CLASIFICACION))
     .map((f) => (f.participanteId === participanteId ? { ...fila(f), esPropia: true } : fila(f)))
@@ -712,25 +969,42 @@ export function vistaResultadosParticipante(resultados, participanteId, { modali
     ...base, top, propia: mia ? fila(mia) : null, totalParticipantes: clasificacion.length,
     siguiente: mia ? distanciaAlSiguiente(clasificacion, participanteId) : null,
   }
-  if (modalidad === 'inscritos' && mia && Array.isArray(resultados.detalle?.[participanteId])) {
-    vista.correccion = resultados.detalle[participanteId].map((d) => ({ ...d }))
-  }
+  const propio = mia && Array.isArray(resultados.detalle?.[participanteId]) ? resultados.detalle[participanteId] : null
+  // «Mostrar respuesta correcta» (5-nov-2026), igual para inscritos y externos: «Sí» = corrección completa; «No» = sus
+  // respuestas y si acertó, NUNCA la respuesta correcta. Sin la opción (retos de antes): solo inscritos, completa (D9, E11).
+  if (propio && revelar === 'si') vista.correccion = propio.map((d) => ({ ...d }))
+  else if (propio && revelar === 'no') vista.correccion = propio.map(({ respuestaCorrecta, ...d }) => ({ ...d })) // eslint-disable-line no-unused-vars
+  else if (propio && revelar == null && modalidad === 'inscritos') vista.correccion = propio.map((d) => ({ ...d }))
   return vista
 }
 
+// Fila de la clasificación que puede ver cualquiera: posición, nombre visible, aciertos y, en la versión 2, el tiempo
+// acumulado en respuestas correctas. Nunca ids, nombres reales detrás de un alias ni respuestas.
+function filaPublica(f) {
+  const out = { posicion: f.posicion, nombreVisible: f.nombreVisible, aciertos: f.aciertos }
+  if (Number.isFinite(f.tiempoDecimas)) out.tiempoDecimas = f.tiempoDecimas
+  return out
+}
+
 /**
- * Qué le falta a un participante para subir (4-nov-2026). Con empates compartidos, subir es alcanzar los puntos del
- * grupo inmediato superior (y compartir su lugar). En el primer lugar: { primero: true, empatados } (cuántos más lo
- * comparten). Si no: { primero: false, posicion, faltan }. null si no está en la clasificación (expulsado).
+ * Qué le falta a un participante para subir (4-nov-2026). Con empates compartidos, subir es alcanzar al grupo
+ * inmediato superior (y compartir su lugar). En el primer lugar: { primero: true, empatados } (cuántos más lo
+ * comparten). Si no: { primero: false, posicion, faltan } (aciertos que le faltan); en la versión 2, si tiene los
+ * mismos aciertos y solo lo separa el tiempo, además `decimasDetras` (cuánto más tiempo acumuló). null si no está en
+ * la clasificación (expulsado).
  */
 export function distanciaAlSiguiente(clasificacion, participanteId) {
   const lista = Array.isArray(clasificacion) ? clasificacion : []
   const mia = lista.find((f) => f.participanteId === participanteId)
   if (!mia) return null
   if (mia.posicion === 1) return { primero: true, empatados: lista.filter((f) => f.posicion === 1).length - 1 }
-  const menor = Math.min(...lista.filter((f) => f.aciertos > mia.aciertos).map((f) => f.aciertos))
-  const grupo = lista.find((f) => f.aciertos === menor)
-  return { primero: false, posicion: grupo.posicion, faltan: menor - mia.aciertos }
+  const arriba = Math.max(...lista.filter((f) => f.posicion < mia.posicion).map((f) => f.posicion))
+  const grupo = lista.find((f) => f.posicion === arriba)
+  const out = { primero: false, posicion: grupo.posicion, faltan: grupo.aciertos - mia.aciertos }
+  if (out.faltan === 0 && Number.isFinite(mia.tiempoDecimas) && Number.isFinite(grupo.tiempoDecimas)) {
+    out.decimasDetras = mia.tiempoDecimas - grupo.tiempoDecimas
+  }
+  return out
 }
 
 // ── Clasificación provisional durante la competencia (4-nov-2026) ─────────────
@@ -746,9 +1020,21 @@ export function preguntasCerradas(sesion, ahoraMs) {
 }
 
 /**
+ * Preguntas cuyo acierto NO se puede publicar todavía (5-nov-2026): con «Mostrar respuesta correcta» = No, las de
+ * verdadero/falso o de dos opciones (saber si acertó revela la correcta) quedan fuera de la clasificación provisional
+ * hasta que termina la competencia. Devuelve sus ids.
+ */
+export function preguntasDiferidas(sesion, preguntas) {
+  if (sesion?.revelar !== 'no' || !esVersionRitmo(sesion)) return []
+  return (Array.isArray(preguntas) ? preguntas : []).filter(preguntaBinaria).map((p) => p.id)
+}
+
+/**
  * Clasificación provisional con las primeras `cerradas` preguntas. Mismas entradas que calcularResultadosReto.
  * Devuelve { ok: true, cerradas, clasificacion: [{ participanteId, nombreVisible, aciertos, respondidas, posicion }] }
- * u { ok: false, codigo, error }.
+ * u { ok: false, codigo, error }. En la versión 2 cada fila lleva además `tiempoDecimas` (acumulado en correctas) y
+ * `tiempos` (décimas por pregunta cerrada, null = sin respuesta; el tiempo no dice si acertó), y el resultado
+ * `diferidas` (cuántas de las cerradas no suman todavía, ver preguntasDiferidas).
  */
 export function clasificacionParcialReto({ sesion, preguntas, claves, participantes, respuestas, cerradas }) {
   const total = Array.isArray(preguntas) ? preguntas.length : 0
@@ -756,12 +1042,18 @@ export function clasificacionParcialReto({ sesion, preguntas, claves, participan
   const turnos = turnosDe({ ...sesion, preguntas, totalPreguntas: total })
   const cierre = momentoRealMs(sesion, turnos.slice(0, cerradas).reduce((a, b) => a + b, 0))
   if (cierre == null) return { ok: false, codigo: 'SIN_CIERRE', error: 'La pregunta todavía no se cierra.' }
-  const r = calcularResultadosReto({ sesion: { ...sesion, terminadaMs: cierre }, preguntas, claves, participantes, respuestas })
+  const diferir = preguntasDiferidas(sesion, preguntas)
+  const r = calcularResultadosReto({ sesion: { ...sesion, terminadaMs: cierre }, preguntas, claves, participantes, respuestas }, { diferir })
   if (!r.ok) return r
   if (r.realizadas !== cerradas) return { ok: false, codigo: 'CIERRE_INCONSISTENTE', error: 'No se pudo calcular la clasificación.' }
+  const v2 = esVersionRitmo(sesion)
+  const cerradasIds = new Set(preguntas.slice(0, cerradas).map((p) => p.id))
   return {
     ok: true, cerradas,
-    clasificacion: r.clasificacion.map(({ participanteId, nombreVisible, aciertos, respondidas, posicion }) => ({ participanteId, nombreVisible, aciertos, respondidas, posicion })),
+    ...(v2 ? { diferidas: diferir.filter((id) => cerradasIds.has(id)).length } : {}),
+    clasificacion: r.clasificacion.map(({ participanteId, nombreVisible, aciertos, respondidas, posicion, tiempoDecimas }) => (v2
+      ? { participanteId, nombreVisible, aciertos, respondidas, posicion, tiempoDecimas, tiempos: (r.detalle[participanteId] || []).map((d) => d.tiempoDecimas ?? null) }
+      : { participanteId, nombreVisible, aciertos, respondidas, posicion })),
   }
 }
 
@@ -769,7 +1061,151 @@ export function clasificacionParcialReto({ sesion, preguntas, claves, participan
 export function vistaClasificacionParcial(parcial, participanteId) {
   if (!parcial || !Number.isInteger(parcial.cerradas) || parcial.cerradas < 1) return null
   const v = vistaResultadosParticipante({ ok: true, realizadas: parcial.cerradas, clasificacion: parcial.clasificacion }, participanteId)
-  return { cerradas: parcial.cerradas, top: v.top, propia: v.propia, totalParticipantes: v.totalParticipantes, siguiente: v.siguiente }
+  const out = { cerradas: parcial.cerradas, top: v.top, propia: v.propia, totalParticipantes: v.totalParticipantes, siguiente: v.siguiente }
+  if (Number.isInteger(parcial.diferidas)) out.diferidas = parcial.diferidas
+  return out
+}
+
+// ── Ranking en vivo del participante (5-nov-2026, versión 2) ───────────────────
+// Lo abre el estudiante con «Ver ranking en vivo» y se actualiza solo mientras lo tenga abierto (la pantalla es de la
+// etapa B). Lista a TODOS los participantes (no expulsados) con puesto, nombre visible, aciertos, tiempo por pregunta y
+// tiempo acumulado en respuestas correctas. Abrirlo no escribe nada en la competencia ni cambia lo que ve nadie más.
+//
+// Decisión de Kike (5-nov-2026, reemplaza la de «el puesto cambia al cerrar»): aciertos, tiempo acumulado y PUESTO se
+// actualizan en cuanto el servidor acepta cada respuesta, también con la pregunta abierta. Se acepta que así se pueda
+// inferir si alguien acertó. Lo que NUNCA viaja: la respuesta correcta, las opciones ni qué eligió cada quien.
+// Con «Mostrar respuesta correcta» = No, las preguntas diferidas (verdadero/falso o dos opciones: saber si acertó
+// revela la correcta) no suman hasta el final de la competencia (preguntasDiferidas); su tiempo sí aparece.
+// Una pregunta sin respuesta lleva null (no se inventa un tiempo).
+
+/**
+ * Filas del ranking en vivo.
+ *   · `parcial`  = clasificación provisional de las preguntas cerradas (o null si todavía no hay);
+ *   · `participantes` = [{ id, nombreVisible }] activos (sin expulsados) en este momento;
+ *   · `enVivo`   = [{ indice, tiempos: { [id]: décimas }, aciertos: { [id]: true } }]: las preguntas que la provisional
+ *                  todavía no incluye (la abierta y, justo tras un cierre, la recién cerrada). Los aciertos de una
+ *                  pregunta diferida ya vienen vacíos desde el servidor;
+ *   · `abierta`  = índice de la pregunta que se está respondiendo (para `respondioActual`), o null.
+ * Devuelve [{ participanteId, posicion, nombreVisible, aciertos, tiempoDecimas, tiempos, respondioActual }] ordenadas
+ * con la regla de la versión 2 (aciertos, luego menos tiempo en correctas; iguales en ambos comparten lugar).
+ */
+export function filasRankingVivo({ parcial, participantes, enVivo = [], abierta = null, totalPreguntas = RETO_CFG.TOTAL_PREGUNTAS }) {
+  const previas = new Map((parcial?.clasificacion || []).map((f) => [f.participanteId, f]))
+  const cerradas = Number.isInteger(parcial?.cerradas) ? parcial.cerradas : 0
+  // Solo las preguntas que la provisional no cuenta todavía (si ya las incluye, mandan las de la provisional).
+  const vivas = (Array.isArray(enVivo) ? enVivo : []).filter((q) => Number.isInteger(q?.indice) && q.indice >= cerradas && q.indice < totalPreguntas)
+  const hayAbierta = Number.isInteger(abierta) && abierta >= 0 && abierta < totalPreguntas
+  const filas = (Array.isArray(participantes) ? participantes : []).map((p) => {
+    const f = previas.get(p.id)
+    const tiempos = Array.from({ length: totalPreguntas }, (_, i) => (i < cerradas ? (f?.tiempos?.[i] ?? null) : null))
+    let aciertos = f?.aciertos ?? 0
+    let tiempoDecimas = f?.tiempoDecimas ?? 0
+    for (const q of vivas) {
+      const t = q.tiempos?.[p.id]
+      if (!Number.isInteger(t)) continue
+      tiempos[q.indice] = t
+      if (q.aciertos?.[p.id] === true) { aciertos++; tiempoDecimas += t }
+    }
+    const respondioActual = hayAbierta ? Number.isInteger(tiempos[abierta]) : null
+    return { participanteId: p.id, nombreVisible: p.nombreVisible, aciertos, tiempoDecimas, tiempos, respondioActual }
+  })
+  return asignarPosiciones(filas, { porTiempo: true })
+}
+
+/** Lo que recibe UN celular del ranking en vivo: las filas sin ids, con la propia marcada. */
+export function vistaRankingVivo({ filas, participanteId, cerradas = 0, abierta = null, diferidas = 0 }) {
+  return {
+    cerradas, abierta: Number.isInteger(abierta) ? abierta : null, diferidas,
+    filas: (filas || []).map((f) => {
+      const out = { ...filaPublica(f), tiempos: [...f.tiempos], respondioActual: f.respondioActual }
+      return f.participanteId === participanteId ? { ...out, esPropia: true } : out
+    }),
+  }
+}
+
+/**
+ * Ranking en vivo del DOCENTE (etapa B, 5-nov-2026): lo calcula su propia pantalla con lo que las reglas le dejan leer
+ * (sesión, participantes, respuestas y la copia de la clave), con las MISMAS reglas que el ranking del celular: lo
+ * cerrado con clasificacionParcialReto y la pregunta abierta al instante; con «Mostrar respuesta correcta» = No, las
+ * preguntas diferidas no suman hasta el final. Devuelve { filas, cerradas, abierta, diferidas } (filas con
+ * participanteId: es solo para el docente).
+ */
+export function rankingDocenteEnVivo({ sesion, claves, participantes, respuestas, ahoraMs }) {
+  const preguntas = Array.isArray(sesion?.preguntas) ? sesion.preguntas : []
+  const totalPreguntas = totalDe(sesion)
+  const activos = (Array.isArray(participantes) ? participantes : []).filter((p) => p?.id && p.expulsado !== true)
+  const lista = Array.isArray(respuestas) ? respuestas : []
+  const f = faseReto(sesion, ahoraMs)
+  const cerradas = preguntasCerradas(sesion, ahoraMs)
+  let parcial = null
+  if (cerradas >= 1) {
+    const r = clasificacionParcialReto({ sesion, preguntas, claves, participantes: activos, respuestas: lista, cerradas })
+    if (r.ok) parcial = r
+  }
+  const abierta = f.fase === FASES_RETO.abierta || (f.fase === FASES_RETO.pausada && f.faseAlPausar === FASES_RETO.abierta) ? f.indice : null
+  const enVivo = []
+  const diferidasIds = new Set(preguntasDiferidas(sesion, preguntas))
+  if (abierta != null && preguntas[abierta]) {
+    const q = preguntas[abierta]
+    const unido = new Map(activos.map((p) => [p.id, p.unidoMs]))
+    const tiempos = {}
+    const aciertos = {}
+    const orden = lista.filter((r) => r?.indice === abierta || r?.preguntaId === q.id)
+      .sort((a, b) => ((a.recibidaMs ?? Infinity) - (b.recibidaMs ?? Infinity)) || String(a.id).localeCompare(String(b.id)))
+    for (const r of orden) {
+      if (!unido.has(r.participanteId) || tiempos[r.participanteId] != null) continue
+      if (Number.isFinite(unido.get(r.participanteId)) && r.recibidaMs < unido.get(r.participanteId)) continue
+      const vista = sesionVistaPor(sesion, r)
+      if (!aceptaRespuesta(vista, abierta, r.recibidaMs)) continue
+      const t = tiempoRespuestaDecimas(vista, abierta, r.recibidaMs)
+      if (!Number.isInteger(t)) continue
+      tiempos[r.participanteId] = t
+      if (!diferidasIds.has(q.id) && esAcierto(q, claveDe(claves, q.id), r.opcionSeleccionada ?? null)) aciertos[r.participanteId] = true
+    }
+    enVivo.push({ indice: abierta, tiempos, aciertos })
+  }
+  const modo = modoIdentidadDe(sesion)
+  const filas = filasRankingVivo({
+    parcial, participantes: activos.map((p) => ({ id: p.id, nombreVisible: nombreVisible(p, modo) })), enVivo, abierta, totalPreguntas,
+  })
+  const diferidas = (parcial?.diferidas ?? 0) + (abierta != null && diferidasIds.has(preguntas[abierta]?.id) ? 1 : 0)
+  return { filas, cerradas, abierta, diferidas }
+}
+
+/**
+ * Filas del ranking FINAL (etapa B) a partir del registro definitivo (retoResultados): puesto, nombre visible,
+ * aciertos, tiempo acumulado en correctas y el tiempo de cada pregunta realizada (null = sin respuesta). Mismo orden
+ * del registro: no se vuelve a ordenar ni a calcular nada.
+ */
+export function filasRankingFinal(resultados) {
+  if (!resultados?.ok && !Array.isArray(resultados?.clasificacion)) return []
+  const realizadas = Number.isInteger(resultados.realizadas) ? resultados.realizadas : 0
+  return (resultados.clasificacion || []).map((f) => ({
+    participanteId: f.participanteId, posicion: f.posicion, nombreVisible: f.nombreVisible, aciertos: f.aciertos,
+    tiempoDecimas: Number.isFinite(f.tiempoDecimas) ? f.tiempoDecimas : null,
+    tiempos: Array.from({ length: realizadas }, (_, i) => resultados.detalle?.[f.participanteId]?.[i]?.tiempoDecimas ?? null),
+    respondioActual: null,
+  }))
+}
+
+// ── Revisión de una pregunta cerrada para el participante (5-nov-2026, versión 2) ──
+/**
+ * Lo que un participante puede saber de SU respuesta a una pregunta ya cerrada, según «Mostrar respuesta correcta»:
+ *   · 'si' → si respondió, qué eligió, si acertó y cuál era la correcta;
+ *   · 'no' → si respondió, qué eligió y si acertó, NUNCA la correcta. En una pregunta binaria (saber si acertó revela la
+ *            correcta) tampoco si acertó: `diferida: true` hasta que termine la competencia;
+ *   · sin la opción (retos de antes) → null: no se dice nada durante la competencia, como siempre.
+ * `respuesta` = la que guardó el servidor (o null).
+ */
+export function revisionPregunta({ sesion, indice, pregunta, clave, respuesta }) {
+  const revelar = sesion?.revelar
+  if (!esVersionRitmo(sesion) || (revelar !== 'si' && revelar !== 'no') || !pregunta) return null
+  const opcion = respuesta ? (respuesta.opcionSeleccionada ?? null) : null
+  const base = { indice, preguntaId: pregunta.id, respondio: opcion != null, opcionSeleccionada: opcion }
+  const acerto = esAcierto(pregunta, typeof clave === 'string' && clave ? clave : null, opcion)
+  if (revelar === 'si') return { ...base, acerto, respuestaCorrecta: clave ?? null }
+  if (preguntaBinaria(pregunta)) return { ...base, diferida: true }
+  return { ...base, acerto }
 }
 
 // ── Conservación de los datos ──────────────────────────────────────────────
@@ -1028,7 +1464,7 @@ export function estadoPreguntasReto(preguntas) {
  * docente lo encienda (S6); un externo nunca es calificable. Siempre pertenece a un parcial (S5).
  * Devuelve { ok: true, datos } o { ok: false, codigo, error }. `createdAt` lo pone quien escribe.
  */
-export function datosNuevoReto({ nombre, modalidad, modoIdentidad, calificable = false, parcial, orden, asignaturaId, docenteId }) {
+export function datosNuevoReto({ nombre, modalidad, modoIdentidad, calificable = false, parcial, orden, asignaturaId, docenteId, mostrarRespuestaCorrecta }) {
   const nom = texto(nombre, 120)
   if (!nom) return { ok: false, codigo: 'SIN_NOMBRE', error: 'Escribe el nombre del reto.' }
   if (!Number.isInteger(parcial) || parcial < 1) return { ok: false, codigo: 'SIN_PARCIAL', error: 'Elige el parcial del reto.' }
@@ -1041,6 +1477,9 @@ export function datosNuevoReto({ nombre, modalidad, modoIdentidad, calificable =
     sinCalificacion: externo ? true : calificable !== true, oculta: true, publishAt: null,
   })
   if (!conf.ok) return conf
+  if (mostrarRespuestaCorrecta !== undefined && typeof mostrarRespuestaCorrecta !== 'boolean') {
+    return { ok: false, codigo: 'REVELAR_INVALIDO', error: 'Indica si se muestra la respuesta correcta.' }
+  }
   return {
     ok: true,
     datos: {
@@ -1049,7 +1488,11 @@ export function datosNuevoReto({ nombre, modalidad, modoIdentidad, calificable =
       sinCalificacion: conf.config.sinCalificacion,
       parcial, orden: Number.isInteger(orden) && orden > 0 ? orden : 1, asignaturaId, docenteId,
       // tiempoSeg: el tiempo con el que nacen las preguntas de este reto (cada una puede cambiarlo).
-      reto: { modalidad: conf.config.modalidad, modoIdentidad: conf.config.modoIdentidad, calificable: conf.config.calificable, tiempoSeg: TIEMPO_POR_OMISION_SEG },
+      reto: {
+        modalidad: conf.config.modalidad, modoIdentidad: conf.config.modoIdentidad, calificable: conf.config.calificable, tiempoSeg: TIEMPO_POR_OMISION_SEG,
+        // «Mostrar respuesta correcta al estudiante» (5-nov-2026): solo si se indica; sin ella, el comportamiento de antes.
+        ...(typeof mostrarRespuestaCorrecta === 'boolean' ? { mostrarRespuestaCorrecta } : {}),
+      },
     },
   }
 }
@@ -1058,7 +1501,7 @@ export function datosNuevoReto({ nombre, modalidad, modoIdentidad, calificable =
  * Cambios permitidos al editar los datos de un reto: nombre, instrucciones, identidad (solo inscritos) y
  * calificable (solo inscritos). La modalidad nunca. Devuelve { ok: true, patch } o { ok: false, codigo, error }.
  */
-export function cambiosDatosReto(reto, { nombre, instrucciones, modoIdentidad, calificable, tiempoSeg } = {}) {
+export function cambiosDatosReto(reto, { nombre, instrucciones, modoIdentidad, calificable, tiempoSeg, mostrarRespuestaCorrecta } = {}) {
   const modalidad = reto?.reto?.modalidad
   if (!modalidadValida(modalidad)) return { ok: false, codigo: 'MODALIDAD_INVALIDA', error: 'Este reto no está bien configurado.' }
   const patch = {}
@@ -1072,6 +1515,11 @@ export function cambiosDatosReto(reto, { nombre, instrucciones, modoIdentidad, c
   if (tiempoSeg !== undefined) {
     if (!duracionValida(tiempoSeg)) return { ok: false, codigo: 'TIEMPO_INVALIDO', error: 'Elige un tiempo de la lista.' }
     patch['reto.tiempoSeg'] = tiempoSeg
+  }
+  // «Mostrar respuesta correcta al estudiante» (las dos modalidades, 5-nov-2026). Se congela al crear cada competencia.
+  if (mostrarRespuestaCorrecta !== undefined) {
+    if (typeof mostrarRespuestaCorrecta !== 'boolean') return { ok: false, codigo: 'REVELAR_INVALIDO', error: 'Indica si se muestra la respuesta correcta.' }
+    patch['reto.mostrarRespuestaCorrecta'] = mostrarRespuestaCorrecta
   }
   if (modalidad === 'externo') {
     if ((modoIdentidad !== undefined && modoIdentidad !== 'alias') || calificable === true) {

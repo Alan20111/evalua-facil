@@ -448,6 +448,21 @@ export function EsqueletoRetoParticipante() {
   )
 }
 
+// Reto Exprés · ranking en vivo del docente (etapa B, 5-nov-2026): título y la tabla.
+export function EsqueletoRetoRanking() {
+  return (
+    <SkeletonGroup etiqueta="Abriendo el ranking…">
+      <div data-esq="reto-ranking" className="min-h-dvh bg-surface px-4 py-6">
+        <div className="max-w-6xl mx-auto space-y-4">
+          <SkeletonLine texto="text-xl font-semibold" className="w-72" />
+          <SkeletonLine texto="text-sm" className="w-96" />
+          <Skeleton className="h-64 w-full rounded-card" />
+        </div>
+      </div>
+    </SkeletonGroup>
+  )
+}
+
 // Reto Exprés · pantalla en vivo del docente (etapa 4): encabezado, área principal y barra de controles.
 export function EsqueletoRetoEnVivo() {
   return (

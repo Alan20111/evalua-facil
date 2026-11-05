@@ -3,6 +3,9 @@
 //   npm run test:reto
 //   (= firebase emulators:exec --only firestore,auth --project demo-test "node test/reto-servidor.test.mjs")
 //
+// Grupo J (5-nov-2026): versión 2 — cierre anticipado sin perder respuestas (también en carrera con muchas a la vez),
+// clasificación a pedido, el navegador no altera el tiempo, «Mostrar respuesta correcta» nunca filtra la clave y ranking en vivo.
+//
 // Llama a los handlers reales de /api/subject (reto-crear, reto-control, reto-unirse, reto-estado, reto-responder) y a la
 // limpieza de functions/retoLimpieza.js. El reloj del servidor se sustituye (fijarRelojReto) para recorrer el tiempo de
 // cada pregunta y pausas de días sin esperar. Las entradas y respuestas «simultáneas» se lanzan juntas con Promise.all,
@@ -744,6 +747,295 @@ await caso('borrar la sesión también borra su clasificación provisional', asy
   await db.doc(`retoSesiones/${codigo}`).delete()
   await limpiarRetoDeSesion({ sesionId: codigo })
   assert.strictEqual((await db.doc(`retoParcial/${codigo}`).get()).exists, false)
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('J. Versión 2: el docente marca el ritmo (5-nov-2026)')
+
+const PREP_MS = RETO_CFG.PREPARACION_MS
+const leerSes = async (codigo) => (await db.doc(`retoSesiones/${codigo}`).get()).data()
+const respuestasDe = async (codigo, indice) => (await db.collection('retoRespuestas').where('sesionId', '==', codigo).where('indice', '==', indice).get()).docs.map((d) => d.data())
+const conRevelar = (id, valor) => db.doc(`activities/${id}`).update({ 'reto.mostrarRespuestaCorrecta': valor })
+
+await caso('la sesión nace en la versión 2 y congela «Mostrar respuesta correcta» de la actividad (sí / no / sin la opción)', async () => {
+  await preparar()
+  const s0 = await leerSes((await crear('r_ins')).cuerpo.codigo)
+  assert.deepStrictEqual([s0.version, s0.cortes, s0.clasificacionPendiente, s0.revelar], [2, [], null, null])
+  await conRevelar('r_ext', false)
+  await conRevelar('r_alias', true)
+  assert.strictEqual((await leerSes((await crear('r_ext')).cuerpo.codigo)).revelar, 'no')
+  const cAlias = (await crear('r_alias')).cuerpo.codigo
+  assert.strictEqual((await leerSes(cAlias)).revelar, 'si')
+  // Cambiarla en la actividad después no toca una competencia ya creada.
+  await conRevelar('r_alias', false)
+  assert.strictEqual((await leerSes(cAlias)).revelar, 'si')
+})
+
+await caso('cerrar antes de tiempo: se conserva lo recibido, se rechaza lo posterior y todos pasan a la siguiente', async () => {
+  await preparar()
+  const codigo = await sesionAbierta('r_ext')
+  const [ta, tb, tc] = [await externo(codigo, 'Tigre Azul'), await externo(codigo, 'Puma Rojo'), await externo(codigo, 'Lince Gris')]
+  await iniciar(codigo)
+  AHORA = abre(0) + 2000
+  assert.strictEqual((await responder(codigo, 0, 'b', { token: ta })).statusCode, 200)
+  AHORA = abre(0) + 3000
+  assert.strictEqual((await responder(codigo, 0, 'a', { token: tb })).statusCode, 200)
+  AHORA = abre(0) + 5000
+  assert.strictEqual((await control(codigo, 'cerrar-pregunta', { indice: 0 }, tk.doc2)).statusCode, 403) // otro docente
+  const r = await control(codigo, 'cerrar-pregunta', { indice: 0 })
+  assert.deepStrictEqual([r.statusCode, r.cuerpo.fase, r.cuerpo.indice], [200, 'preparando', 1])
+  const tarde = await responder(codigo, 0, 'b', { token: tc })
+  assert.deepStrictEqual([tarde.statusCode, tarde.cuerpo.codigo], [409, 'FUERA_DE_TIEMPO'])
+  // Doble clic: no salta la segunda pregunta.
+  assert.strictEqual((await control(codigo, 'cerrar-pregunta', { indice: 0 })).statusCode, 200)
+  assert.strictEqual((await leerSes(codigo)).cortes.length, 1)
+  assert.strictEqual((await control(codigo, 'cerrar-pregunta', { indice: 1 })).cuerpo.codigo, 'NO_ABIERTA')
+  // Todos los celulares ven lo mismo: la siguiente pregunta, 4 s después del cierre.
+  for (const t of [ta, tb, tc]) {
+    const e = (await estado(codigo, { token: t })).cuerpo
+    assert.deepStrictEqual([e.sesion.fase, e.sesion.indice, e.pregunta], ['preparando', 1, null])
+  }
+  AHORA = abre(0) + 5000 + PREP_MS
+  for (const t of [ta, tb, tc]) assert.strictEqual((await estado(codigo, { token: t })).cuerpo.pregunta.indice, 1)
+  // Las dos respuestas recibidas antes cuentan; la provisional ya lo refleja con su tiempo.
+  AHORA += 1600
+  const p = (await estado(codigo, { token: ta, parcialVisto: 0 })).cuerpo.parcial
+  assert.deepStrictEqual(p.top.map((f) => [f.nombreVisible, f.aciertos, f.tiempoDecimas]), [['Tigre Azul', 1, 20], ['Lince Gris', 0, 0], ['Puma Rojo', 0, 0]])
+})
+
+await caso('CIERRE CON RESPUESTAS SIMULTÁNEAS: ninguna respuesta aceptada se pierde y ninguna rechazada entra (10 preguntas)', async () => {
+  await preparar()
+  const codigo = await sesionAbierta('r_ext')
+  const tokens = []
+  for (let i = 0; i < 14; i++) tokens.push(await externo(codigo, `Jugador ${String.fromCharCode(65 + i)}`))
+  await iniciar(codigo)
+  // Reloj que avanza 1 ms en cada lectura: las transacciones del docente y de los celulares se intercalan de verdad.
+  fijarRelojReto(() => AHORA++)
+  let apertura = abre(0)
+  const aceptadas = new Map() // indice → número de respuestas aceptadas
+  let enCarrera = 0
+  for (let i = 0; i < 10; i++) {
+    AHORA = apertura + 3000
+    const llamadas = tokens.map((t, k) => () => responder(codigo, i, k % 3 === 0 ? (i % 2 === 0 ? 'a' : 'f') : (i % 2 === 0 ? 'b' : 'v'), { token: t }))
+    llamadas.splice(7, 0, () => control(codigo, 'cerrar-pregunta', { indice: i }))
+    const res = await Promise.all(llamadas.map((f) => f()))
+    const corte = res[7]
+    assert.strictEqual(corte.statusCode, 200, JSON.stringify(corte.cuerpo))
+    const resp = res.filter((_, k) => k !== 7)
+    for (const x of resp) assert.ok(x.statusCode === 200 || (x.statusCode === 409 && x.cuerpo.codigo === 'FUERA_DE_TIEMPO'), JSON.stringify(x.cuerpo))
+    const guardadas = await respuestasDe(codigo, i)
+    assert.strictEqual(guardadas.length, resp.filter((x) => x.statusCode === 200).length, `pregunta ${i + 1}: guardadas ≠ aceptadas`)
+    aceptadas.set(i, guardadas.length)
+    const c = (await leerSes(codigo)).cortes.find((x) => x.indice === i)
+    enCarrera += guardadas.filter((g) => g.recibidaMs >= c.cerradaMs).length
+    apertura = c.cerradaMs + PREP_MS
+  }
+  fijarRelojReto(() => AHORA)
+  AHORA += 2000
+  assert.strictEqual((await control(codigo, 'finalizar')).statusCode, 200)
+  const final = (await db.doc(`retoResultados/${codigo}`).get()).data()
+  assert.strictEqual(final.descartadas.fueraDeTiempo, 0, 'se perdió una respuesta aceptada')
+  assert.strictEqual(final.realizadas, 10)
+  for (const [i, n] of aceptadas) {
+    const contadas = Object.values(final.detalle).filter((d) => d[i].opcionSeleccionada != null).length
+    assert.strictEqual(contadas, n, `pregunta ${i + 1}: ${n} aceptadas, ${contadas} contadas`)
+  }
+  console.log(`    (respuestas aceptadas con hora igual o posterior a la del clic, en carrera con el cierre: ${enCarrera}; total aceptadas ${[...aceptadas.values()].reduce((a, b) => a + b, 0)})`)
+})
+
+await caso('el navegador no puede alterar el tiempo: recibidaMs y el sello los pone el servidor', async () => {
+  await preparar()
+  const codigo = await sesionAbierta('r_ext')
+  const ta = await externo(codigo, 'Tigre Azul')
+  await iniciar(codigo)
+  AHORA = abre(0) + 7300
+  const r = await responder(codigo, 0, 'b', { token: ta, recibidaMs: abre(0), tiempoDecimas: 1, vistos: { cortes: 0, pausas: 99 }, tiempoMs: 5 })
+  assert.strictEqual(r.statusCode, 200)
+  const [g] = await respuestasDe(codigo, 0)
+  assert.deepStrictEqual([g.recibidaMs, g.vistos, g.tiempoDecimas, g.tiempoMs], [abre(0) + 7300, { cortes: 0, pausas: 0 }, undefined, undefined])
+  AHORA = cierra(0) + 1600
+  assert.strictEqual((await estado(codigo, { token: ta, parcialVisto: 0 })).cuerpo.parcial.top[0].tiempoDecimas, 73)
+})
+
+await caso('clasificación a pedido: se muestra al cerrar, nadie responde mientras tanto y «Continuar» sigue con la siguiente', async () => {
+  await preparar()
+  const codigo = await sesionAbierta('r_ext')
+  const ta = await externo(codigo, 'Tigre Azul')
+  await iniciar(codigo)
+  AHORA = abre(0) - 1000 // «Prepárense» de la primera
+  assert.strictEqual((await control(codigo, 'mostrar-clasificacion')).cuerpo.codigo, 'SIN_CERRADAS')
+  AHORA = abre(1) + 1000
+  const m = await control(codigo, 'mostrar-clasificacion')
+  assert.deepStrictEqual([m.statusCode, m.cuerpo.clasificacionPendiente, m.cuerpo.fase], [200, 1, 'abierta'])
+  AHORA = cierra(1) + 60_000 // un minuto después del cierre: sigue la clasificación
+  const e = (await estado(codigo, { token: ta })).cuerpo
+  assert.deepStrictEqual([e.sesion.fase, e.sesion.trasIndice, e.pregunta], ['clasificacion', 1, null])
+  assert.strictEqual((await responder(codigo, 2, 'b', { token: ta })).cuerpo.codigo, 'FUERA_DE_TIEMPO')
+  assert.strictEqual((await control(codigo, 'pausar')).cuerpo.codigo, 'NO_PAUSABLE')
+  const c = await control(codigo, 'continuar')
+  assert.deepStrictEqual([c.statusCode, c.cuerpo.fase, c.cuerpo.indice, c.cuerpo.faltaParaAbrirMs], [200, 'preparando', 2, PREP_MS])
+  assert.strictEqual((await control(codigo, 'continuar')).statusCode, 200) // doble clic
+  AHORA += PREP_MS
+  assert.strictEqual((await responder(codigo, 2, 'b', { token: ta })).statusCode, 200)
+  // Cerrar y mostrar de una vez; cancelar una pedida.
+  AHORA += 1000
+  assert.strictEqual((await control(codigo, 'cerrar-pregunta', { indice: 2, mostrarClasificacion: true })).cuerpo.fase, 'clasificacion')
+  await control(codigo, 'continuar')
+  AHORA += PREP_MS + 500
+  assert.strictEqual((await control(codigo, 'mostrar-clasificacion')).cuerpo.clasificacionPendiente, 3)
+  assert.strictEqual((await control(codigo, 'cancelar-clasificacion')).cuerpo.clasificacionPendiente, null)
+  const s = await leerSes(codigo)
+  assert.deepStrictEqual(s.pausas.map((x) => x.motivo), ['clasificacion', 'clasificacion'])
+})
+
+await caso('una sesión de antes (sin versión) no acepta las acciones nuevas y no recibe ranking', async () => {
+  await preparar()
+  const codigo = await sesionAbierta('r_ext')
+  const ta = await externo(codigo, 'Tigre Azul')
+  const datos = await leerSes(codigo)
+  for (const k of ['version', 'cortes', 'clasificacionPendiente', 'revelar']) delete datos[k]
+  await db.doc(`retoSesiones/${codigo}`).set(datos)
+  await iniciar(codigo)
+  AHORA = abre(0) + 1000
+  for (const accion of ['cerrar-pregunta', 'mostrar-clasificacion', 'continuar']) {
+    const r = await control(codigo, accion, { indice: 0 })
+    assert.deepStrictEqual([r.statusCode, r.cuerpo.codigo], [409, 'NO_DISPONIBLE'], accion)
+  }
+  const e = (await estado(codigo, { token: ta, ranking: true })).cuerpo
+  assert.deepStrictEqual([e.ranking, e.revision, e.sesion.mostrarRespuestaCorrecta], [undefined, undefined, undefined])
+})
+
+// Recorre la competencia guardando TODO lo que el servidor manda a los celulares, para buscar en ello la clave.
+async function competenciaConRevelar(actividadId, valor, { inscritos = false } = {}) {
+  await preparar()
+  await conRevelar(actividadId, valor)
+  const codigo = await sesionAbierta(actividadId)
+  let ta, tb
+  if (inscritos) { await unirse(codigo, {}, tk.ana); await unirse(codigo, {}, tk.beto) } else { ta = await externo(codigo, 'Tigre Azul'); tb = await externo(codigo, 'Puma Rojo') }
+  const quien = inscritos ? [{ cuerpo: {}, token: tk.ana }, { cuerpo: {}, token: tk.beto }] : [{ cuerpo: { token: ta } }, { cuerpo: { token: tb } }]
+  const visto = []
+  const consultar = async (q, extra = {}) => {
+    const r = await estado(codigo, { ...q.cuerpo, ...extra }, q.token)
+    assert.strictEqual(r.statusCode, 200, JSON.stringify(r.cuerpo))
+    visto.push(JSON.stringify(r.cuerpo))
+    return r.cuerpo
+  }
+  const contestar = (q, i, op) => responder(codigo, i, op, q.cuerpo, q.token)
+  await iniciar(codigo)
+  const revisiones = [[], []]
+  for (let i = 0; i < 10; i++) {
+    AHORA = abre(i) + 1000
+    // A: acierta todo. B: falla las de opción múltiple y acierta las verdadero/falso.
+    await contestar(quien[0], i, i % 2 === 0 ? 'b' : 'v')
+    await contestar(quien[1], i, i % 2 === 0 ? 'a' : 'v')
+    for (const q of quien) {
+      const e = await consultar(q, { ranking: true, parcialVisto: 0, revisionVista: 0 })
+      // Con la pregunta abierta nunca hay revisión de ESA pregunta.
+      if (e.revision) assert.ok(e.revision.indice < i, `revisión de la pregunta abierta ${i + 1}`)
+    }
+    AHORA = cierra(i) + 1600
+    for (const [k, q] of quien.entries()) {
+      const e = await consultar(q, { ranking: true, parcialVisto: 0, revisionVista: i })
+      if (i < 9) revisiones[k].push(e.revision)
+    }
+  }
+  AHORA = cierra(9) + 2000
+  const finales = []
+  for (const q of quien) finales.push(await consultar(q))
+  return { codigo, visto, revisiones, finales }
+}
+
+for (const [actividadId, inscritos, etiqueta] of [['r_ext', false, 'externos'], ['r_ins', true, 'inscritos']]) {
+  await caso(`«Mostrar respuesta correcta» = No (${etiqueta}): el servidor NUNCA manda la respuesta correcta; en V/F ni si acertó hasta el final`, async () => {
+    const { visto, revisiones, finales } = await competenciaConRevelar(actividadId, false, { inscritos })
+    for (const t of visto) assert.ok(!t.includes('respuestaCorrecta'), 'salió respuestaCorrecta')
+    // Opción múltiple (índices pares): sabe si acertó al cerrar. Verdadero/falso: diferida, sin «acerto».
+    for (const [k, revs] of revisiones.entries()) {
+      for (const r of revs) {
+        if (r.indice % 2 === 0) assert.strictEqual(r.acerto, k === 0)
+        else assert.deepStrictEqual([r.diferida, 'acerto' in r], [true, false])
+      }
+    }
+    // El ranking en vivo tampoco deja deducir las V/F: B (que solo acertó V/F) queda con 0 hasta el final, también con
+    // una V/F abierta ya respondida (la última consulta es con la pregunta 10, V/F, abierta); las de opción múltiple
+    // sí suman al instante (A llega a 5).
+    const rankings = visto.map((t) => JSON.parse(t)).filter((e) => e.ranking)
+    const ultimoRanking = rankings.pop().ranking
+    assert.strictEqual(ultimoRanking.abierta, 9)
+    assert.deepStrictEqual(ultimoRanking.filas.map((f) => f.aciertos).sort(), [0, 5])
+    assert.ok(ultimoRanking.filas.every((f) => f.respondioActual === true && Number.isInteger(f.tiempos[9])))
+    const conOMAbierta = rankings.find((e) => e.ranking.abierta === 0) // pregunta 1 (opción múltiple) abierta y respondida
+    assert.deepStrictEqual(conOMAbierta.ranking.filas.map((f) => f.aciertos).sort(), [0, 1])
+    // Al final: la clasificación completa y su corrección (si acertó), sin la respuesta correcta.
+    const fa = finales[0].resultados
+    assert.deepStrictEqual([fa.propia.aciertos, fa.correccion.length, fa.correccion.every((c) => c.acerto === true)], [10, 10, true])
+    assert.strictEqual(finales[1].resultados.propia.aciertos, 5)
+  })
+}
+
+await caso('«Mostrar respuesta correcta» = Sí (externos): al cerrar cada pregunta sabe si acertó y cuál era; al final, corrección completa', async () => {
+  const { revisiones, finales } = await competenciaConRevelar('r_ext', true)
+  assert.deepStrictEqual(revisiones[1][0], { indice: 0, preguntaId: 'p0', respondio: true, opcionSeleccionada: 'a', acerto: false, respuestaCorrecta: 'b' })
+  assert.deepStrictEqual(revisiones[1][1], { indice: 1, preguntaId: 'p1', respondio: true, opcionSeleccionada: 'v', acerto: true, respuestaCorrecta: 'v' })
+  assert.strictEqual(finales[1].resultados.correccion[0].respuestaCorrecta, 'b')
+  assert.strictEqual(finales[1].preguntas.length, 10)
+})
+
+await caso('ranking en vivo (externos e inscritos): el puesto cambia al aceptarse cada respuesta, sin ids, opciones ni clave, y abrirlo no cambia nada', async () => {
+  for (const [actividadId, modo] of [['r_ext', 'externo'], ['r_alias', 'inscritos']]) {
+    await preparar()
+    const codigo = await sesionAbierta(actividadId)
+    let qa, qb, qc
+    if (modo === 'externo') {
+      qa = { cuerpo: { token: await externo(codigo, 'Tigre Azul') } }
+      qb = { cuerpo: { token: await externo(codigo, 'Puma Rojo') } }
+      qc = { cuerpo: { token: await externo(codigo, 'Lince Gris') } }
+    } else {
+      for (const [t, alias] of [[tk.ana, 'Tigre Azul'], [tk.beto, 'Puma Rojo']]) assert.strictEqual((await unirse(codigo, { alias }, t)).statusCode, 200)
+      qa = { cuerpo: {}, token: tk.ana }
+      qb = { cuerpo: {}, token: tk.beto }
+      qc = null
+    }
+    const ver = async (q) => (await estado(codigo, { ...q.cuerpo, ranking: true }, q.token)).cuerpo.ranking
+    await iniciar(codigo)
+    AHORA = abre(0) + 2500
+    const antesSes = await leerSes(codigo)
+    let rk = await ver(qa)
+    assert.strictEqual(rk.filas.length, qc ? 3 : 2)
+    assert.ok(rk.filas.every((f) => f.respondioActual === false && f.tiempos.every((t) => t === null)))
+    await responder(codigo, 0, 'b', qa.cuerpo, qa.token)
+    AHORA += 2100 // el ranking se recalcula a lo más cada 2 s
+    rk = await ver(qb) // Tigre acertó con la pregunta todavía abierta: ya suma su acierto, su tiempo y sube al primer lugar
+    const tigre = rk.filas.find((f) => f.nombreVisible === 'Tigre Azul')
+    assert.deepStrictEqual([tigre.respondioActual, tigre.tiempos[0], tigre.aciertos, tigre.tiempoDecimas, tigre.posicion], [true, 25, 1, 25, 1])
+    assert.ok(rk.filas.filter((f) => f !== tigre).every((f) => f.posicion === 2 && f.aciertos === 0 && f.respondioActual === false))
+    assert.ok(rk.filas.find((f) => f.esPropia).nombreVisible === 'Puma Rojo')
+    // Puma responde mal: aparece su tiempo y que ya respondió, pero no suma.
+    await responder(codigo, 0, 'a', qb.cuerpo, qb.token)
+    AHORA += 2100
+    rk = await ver(qa)
+    const puma = rk.filas.find((f) => f.nombreVisible === 'Puma Rojo')
+    assert.deepStrictEqual([puma.respondioActual, puma.tiempos[0], puma.aciertos, puma.tiempoDecimas, puma.posicion], [true, 46, 0, 0, 2])
+    const texto = JSON.stringify(rk)
+    for (const prohibido of ['participanteId', 'respuestaCorrecta', 'opcionSeleccionada', 'opciones', 'Ana', 'Pérez', 'Beto', 'st_', 'u_', codigo]) assert.ok(!texto.includes(prohibido), prohibido)
+    for (const f of rk.filas) assert.deepStrictEqual(Object.keys(f).filter((k) => k !== 'esPropia').sort(), ['aciertos', 'nombreVisible', 'posicion', 'respondioActual', 'tiempoDecimas', 'tiempos'])
+    // Justo después del cierre (antes de que la provisional la incluya) no hay salto: se sigue contando igual.
+    AHORA = cierra(0) + 300
+    rk = await ver(qb)
+    assert.deepStrictEqual(rk.filas.find((f) => f.nombreVisible === 'Tigre Azul').aciertos, 1)
+    // Abrir el ranking no escribe nada en la sesión (el proyector y los demás siguen igual).
+    assert.deepStrictEqual(await leerSes(codigo), antesSes)
+    // Ya con la provisional al día, el mismo resultado (sin contar dos veces).
+    AHORA = cierra(0) + 1600
+    rk = await ver(qb)
+    assert.deepStrictEqual([rk.filas[0].posicion, rk.filas[0].nombreVisible, rk.filas[0].aciertos, rk.filas[0].tiempoDecimas], [1, 'Tigre Azul', 1, 25])
+    assert.deepStrictEqual(rk.filas.filter((f) => f.nombreVisible !== 'Tigre Azul').map((f) => [f.posicion, f.aciertos]), qc ? [[2, 0], [2, 0]] : [[2, 0]])
+    // Se recalcula a lo más cada 2 s aunque muchos lo tengan abierto.
+    AHORA = abre(1) + 500
+    await Promise.all(Array.from({ length: 20 }, () => ver(qa)))
+    const p = (await db.doc(`retoParcial/${codigo}`).get()).data()
+    assert.deepStrictEqual([p.vivo.abierta, p.vivo.hasta, p.vivoMarca, p.vivoHastaMs], [1, 1, undefined, undefined])
+  }
 })
 
 fijarRelojReto(null)

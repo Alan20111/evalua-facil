@@ -58,6 +58,7 @@ const paginas = {
   ParticipacionAlumno: () => import('./pages/student/ParticipacionPage'),
   ParticipacionPublica: () => import('./pages/ParticipacionPublica'),
   RetoEnVivo: () => import('./pages/teacher/RetoEnVivoPage'),
+  RetoRanking: () => import('./pages/teacher/RetoRankingPage'),
   RetoAlumno: () => import('./pages/student/RetoPage'),
   RetoPublica: () => import('./pages/RetoPublica'),
   EvaluacionRevision: () => import('./pages/student/EvaluacionRevision'),
@@ -120,6 +121,7 @@ const ProyeccionVivo = lazy(paginas.ProyeccionVivo)
 const ParticipacionAlumno = lazy(paginas.ParticipacionAlumno)
 const ParticipacionPublica = lazy(paginas.ParticipacionPublica)
 const RetoEnVivo = lazy(paginas.RetoEnVivo)
+const RetoRanking = lazy(paginas.RetoRanking)
 const RetoAlumno = lazy(paginas.RetoAlumno)
 const RetoPublica = lazy(paginas.RetoPublica)
 const EvaluacionRevision = lazy(paginas.EvaluacionRevision)
@@ -369,6 +371,8 @@ export default function App() {
             <Route path="/proyeccion-vivo/:codigo" element={<ProtectedTeacher><ProyeccionVivo /></ProtectedTeacher>} />
             {/* Reto Exprés en vivo: control y proyección en la misma ventana, sin el menú del docente. */}
             <Route path="/reto/:activityId/en-vivo/:codigo" element={<ProtectedTeacher><RetoEnVivo /></ProtectedTeacher>} />
+            {/* Ranking en vivo del docente, en otra ventana (no se proyecta). */}
+            <Route path="/reto/:activityId/en-vivo/:codigo/ranking" element={<ProtectedTeacher><RetoRanking /></ProtectedTeacher>} />
             <Route element={<ProtectedTeacher><TeacherLayoutRoute /></ProtectedTeacher>}>
               <Route path="/dashboard" element={<TeacherDashboard />} />
               <Route path="/subject/:subjectId" element={<SubjectPage />} />

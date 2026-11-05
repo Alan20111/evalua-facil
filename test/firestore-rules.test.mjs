@@ -4625,7 +4625,8 @@ ok('F-05 · admin CAN read publicProfiles')
 }
 
 // ── Reto Exprés: colecciones propias, escritas SOLO por el servidor (Admin SDK) ──
-// Lectura: docente dueño (docenteId del documento) y admin. retoClaves y retoAlias: nadie desde un cliente.
+// Lectura: docente dueño (docenteId del documento) y admin. retoAlias: nadie desde un cliente. retoClaves: desde el
+// 5-nov-2026 el docente dueño y el admin (el docente siempre puede consultar la respuesta correcta); ningún estudiante.
 {
   const asAnon = testEnv.unauthenticatedContext().firestore()
   const LEGIBLES = {
@@ -4635,9 +4636,10 @@ ok('F-05 · admin CAN read publicProfiles')
     retoResultados: (dueno) => ({ docenteId: dueno, sesionId: 'RETO1', realizadas: 10, clasificacion: [] }),
     // Clasificación provisional (4-nov-2026): misma regla de lectura; la escribe solo el servidor.
     retoParcial: (dueno) => ({ docenteId: dueno, sesionId: 'RETO1', actividadId: 'ARETO', cerradas: 2, clasificacion: [] }),
+    // Copia de la clave (5-nov-2026): la lee el docente dueño y el admin; nunca un estudiante ni alguien sin sesión.
+    retoClaves: (dueno) => ({ docenteId: dueno, sesionId: 'RETO1', claves: { p1: { respuestaCorrecta: 'b' } } }),
   }
   const PRIVADAS = {
-    retoClaves: (dueno) => ({ docenteId: dueno, sesionId: 'RETO1', claves: { p1: { respuestaCorrecta: 'b' } } }),
     retoAlias: (dueno) => ({ docenteId: dueno, sesionId: 'RETO1', participanteId: 'RETO1_ST_JUAN' }),
   }
   const TODAS = { ...LEGIBLES, ...PRIVADAS }
@@ -4789,6 +4791,20 @@ ok('F-05 · admin CAN read publicProfiles')
   await assertFails(updateDoc(refIns, { 'reto.modalidad': 'externo', 'reto.modoIdentidad': 'alias', 'reto.calificable': false, sinCalificacion: true, oculta: true, publishedAt: null }))
   await assertFails(updateDoc(refIns, { categoria: 'cuestionario' }))
   ok('RETO 1-BIS · un reto de inscritos no se convierte en externo (aunque cumpla todo) ni cambia de categoría')
+
+  // — «Mostrar respuesta correcta al estudiante» (5-nov-2026): sí/no o ausente, en las dos modalidades; solo el docente —
+  await assertSucceeds(setDoc(doc(asT1, 'activities', 'RX_REV_EXT'), retoExterno({ reto: { modalidad: 'externo', modoIdentidad: 'alias', calificable: false, mostrarRespuestaCorrecta: true } })))
+  await assertSucceeds(setDoc(doc(asT1, 'activities', 'RX_REV_INS'), retoInscritos({ reto: { modalidad: 'inscritos', modoIdentidad: 'nombre', calificable: true, mostrarRespuestaCorrecta: false } })))
+  for (const valor of ['si', 1, null, { a: 1 }]) {
+    await assertFails(setDoc(doc(asT1, 'activities', `RX_REV_MAL_${typeof valor}`), retoInscritos({ reto: { modalidad: 'inscritos', modoIdentidad: 'nombre', calificable: true, mostrarRespuestaCorrecta: valor } })), `mostrarRespuestaCorrecta=${JSON.stringify(valor)} se creó`)
+  }
+  await assertSucceeds(updateDoc(doc(asT1, 'activities', 'RX_REV_EXT'), { 'reto.mostrarRespuestaCorrecta': false }))
+  await assertSucceeds(updateDoc(doc(asT1, 'activities', 'RX_REV_INS'), { 'reto.mostrarRespuestaCorrecta': true }))
+  await assertFails(updateDoc(doc(asT1, 'activities', 'RX_REV_INS'), { 'reto.mostrarRespuestaCorrecta': 'no' }))
+  await assertFails(updateDoc(doc(asT2, 'activities', 'RX_REV_INS'), { 'reto.mostrarRespuestaCorrecta': false }))
+  await assertFails(updateDoc(doc(asJuan, 'activities', 'RX_REV_INS'), { 'reto.mostrarRespuestaCorrecta': false }))
+  await assertFails(updateDoc(doc(asAnon, 'activities', 'RX_REV_EXT'), { 'reto.mostrarRespuestaCorrecta': true }))
+  ok('RETO RITMO · «Mostrar respuesta correcta» es sí/no en las dos modalidades y solo el docente dueño la cambia (ni otro docente, ni un estudiante, ni sin sesión)')
 
   // — Las demás actividades no cambian —
   const refCuest = doc(asT1, 'activities', 'RX_CUEST')

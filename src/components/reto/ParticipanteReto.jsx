@@ -11,9 +11,15 @@
 // Clasificación en vivo (4-nov-2026): al cerrar cada pregunta el servidor manda la clasificación provisional (posición,
 // puntos, cuántos compiten y qué falta para subir). Se pide solo cuando hay una más nueva (`parcialVisto`) y se
 // conserva entre consultas; nunca incluye la pregunta que está abierta.
+//
+// Ranking en vivo (etapa B, 5-nov-2026; competencias de la versión 2): «Ver ranking en vivo» abre la tabla de TODOS los
+// participantes (puesto, nombre visible, aciertos, tiempo por pregunta, tiempo acumulado y si ya respondió). Mientras
+// está abierta, cada consulta la pide (`ranking: true`) y el servidor la manda al día: el puesto cambia en cuanto se
+// acepta cada respuesta. El servidor nunca manda en ella respuestas ni opciones. Cerrarla solo deja de pedirla.
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Check, Clock, DoorClosed, Hourglass, LogIn, Pause, Trophy, UserX, X } from 'lucide-react'
-import { Button, Input } from '../ui'
+import { Check, Clock, DoorClosed, Hourglass, ListOrdered, LogIn, Pause, Trophy, UserX, X } from 'lucide-react'
+import { Button, Input, Modal } from '../ui'
+import TablaRankingReto from './TablaRankingReto'
 import Spinner from '../Spinner'
 import { EsqueletoRetoParticipante } from '../esqueletos'
 import { useRelojServidor } from '../../hooks/useTemporizadorVivo'
@@ -109,7 +115,8 @@ function Resultados({ resultados, preguntas, modalidad }) {
                     <span>{i + 1}. {q?.enunciado}</span>
                   </p>
                   <p className="text-sm text-muted pl-7">Tu respuesta: {c.opcionSeleccionada ? op(c.opcionSeleccionada) : 'sin responder'}</p>
-                  {!c.acerto && <p className="text-sm text-emerald-700 pl-7">Correcta: {op(c.respuestaCorrecta)}</p>}
+                  {/* Con «Mostrar respuesta correcta» = No el servidor no la manda: no se muestra la línea. */}
+                  {!c.acerto && c.respuestaCorrecta && <p className="text-sm text-emerald-700 pl-7">Correcta: {op(c.respuestaCorrecta)}</p>}
                 </li>
               )
             })}
@@ -136,6 +143,9 @@ export default function ParticipanteReto({ codigo: codigoUrl = null, actividadId
   const [parcial, setParcial] = useState(null) // clasificación provisional más reciente
   const parcialVisto = useRef(0) // cuántas preguntas cerradas incluye la que ya tenemos
   const parcialDe = useRef(null) // código de la competencia a la que pertenece
+  const [rankingAbierto, setRankingAbierto] = useState(false) // «Ver ranking en vivo» (etapa B)
+  const pedirRanking = useRef(false)
+  const [ranking, setRanking] = useState(null)
   const { ahora, registrar } = useRelojServidor()
 
   const sesion = estado?.sesion || null
@@ -152,6 +162,7 @@ export default function ParticipanteReto({ codigo: codigoUrl = null, actividadId
       if (token.current) cuerpo.token = token.current
     }
     cuerpo.parcialVisto = parcialVisto.current
+    if (pedirRanking.current) cuerpo.ranking = true
     try {
       const r = await llamarReto('reto-estado', cuerpo, { conSesion })
       // Otra competencia del mismo reto (el docente abrió una sesión nueva): su clasificación empieza de cero.
@@ -159,7 +170,9 @@ export default function ParticipanteReto({ codigo: codigoUrl = null, actividadId
         parcialDe.current = r.sesion.codigo
         parcialVisto.current = 0
         setParcial(null)
+        setRanking(null)
       }
+      if (r.ranking) setRanking(r.ranking)
       if (Number.isInteger(r.parcial?.cerradas) && r.parcial.cerradas > parcialVisto.current) {
         parcialVisto.current = r.parcial.cerradas
         setParcial(r.parcial)
@@ -186,6 +199,17 @@ export default function ParticipanteReto({ codigo: codigoUrl = null, actividadId
 
   const enTurno = sesion?.fase === 'preparando' || sesion?.fase === 'abierta'
   const t = useAhora(ahora, enTurno)
+
+  // Al abrir el ranking se pide en ese momento (no hasta la siguiente consulta) y, mientras siga abierto, en cada una.
+  function abrirRanking() {
+    pedirRanking.current = true
+    setRankingAbierto(true)
+    consultar()
+  }
+  function cerrarRanking() {
+    pedirRanking.current = false
+    setRankingAbierto(false)
+  }
 
   async function entrar() {
     setEntrando(true)
@@ -280,6 +304,23 @@ export default function ParticipanteReto({ codigo: codigoUrl = null, actividadId
     </div>
   )
   const n = Number.isInteger(sesion.indice) ? sesion.indice + 1 : null
+  // «Ver ranking en vivo»: disponible durante la competencia (versión 2), salvo mientras todavía responde la pregunta.
+  const conRanking = Number.isInteger(sesion.version) && sesion.version >= 2 && sesion.estado === 'en_curso'
+  const botonRanking = conRanking && (
+    <div className="px-4 pb-4 max-w-md mx-auto">
+      <Button variant="secondary" fullWidth icon={ListOrdered} onClick={abrirRanking}>Ver ranking en vivo</Button>
+    </div>
+  )
+  const ventanaRanking = conRanking && (
+    <Modal open={rankingAbierto} onClose={cerrarRanking} title="Ranking en vivo" size="4xl"
+      footer={<Button variant="secondary" fullWidth onClick={cerrarRanking}>Cerrar ranking</Button>}>
+      {ranking
+        ? <TablaRankingReto filas={ranking.filas} preguntas={sesion.totalPreguntas || RETO_CFG.TOTAL_PREGUNTAS} cerradas={ranking.cerradas}
+            abierta={ranking.abierta} diferidas={ranking.diferidas} />
+        : <p className="text-base text-muted">Cargando el ranking…</p>}
+      <p className="text-xs text-muted mt-2">Se actualiza solo mientras lo tengas abierto.</p>
+    </Modal>
+  )
 
   if (sesion.fase === 'espera') {
     return <>{aviso}{cabecera}<Aviso icono={Check} titulo="¡Ya estás dentro!" texto="Espera a que tu docente inicie el reto. Mira la pantalla del salón." /></>
@@ -291,7 +332,7 @@ export default function ParticipanteReto({ codigo: codigoUrl = null, actividadId
       <ListaClasificacion filas={parcial.top} propia={parcial.propia} titulo="Clasificación provisional" />
     </div>
   ) : null
-  if (sesion.fase === 'pausada') return <>{aviso}{cabecera}<Aviso icono={Pause} titulo="Reto en pausa" texto="Tu docente lo reanudará en un momento." />{clasificacion}</>
+  if (sesion.fase === 'pausada') return <>{aviso}{cabecera}<Aviso icono={Pause} titulo="Reto en pausa" texto="Tu docente lo reanudará en un momento." />{botonRanking}{clasificacion}{ventanaRanking}</>
   if (sesion.fase === 'terminada' || sesion.fase === 'finalizada') return <>{aviso}{cabecera}<Aviso icono={Hourglass} titulo="Calculando resultados…" /></>
   if (sesion.fase === 'preparando') {
     const s = segundosRestantes(Number.isFinite(sesion.abreMs) ? sesion.abreMs - t : sesion.faltaParaAbrirMs)
@@ -300,7 +341,9 @@ export default function ParticipanteReto({ codigo: codigoUrl = null, actividadId
         <Aviso icono={Clock} titulo={`Pregunta ${n} de ${sesion.totalPreguntas}`} texto="Prepárate…">
           {s != null && <p className="mt-4 text-3xl font-bold tabular-nums text-on-surface" aria-live="off">{s}</p>}
         </Aviso>
+        {botonRanking}
         {clasificacion}
+        {ventanaRanking}
       </>
     )
   }
@@ -323,7 +366,9 @@ export default function ParticipanteReto({ codigo: codigoUrl = null, actividadId
         {respondida ? (
           <>
             <Aviso icono={Check} titulo="Respuesta enviada" texto="Espera la siguiente pregunta." />
-            <FranjaPosicion parcial={parcial} nota="se actualiza al cerrar la pregunta" />
+            {conRanking
+              ? <Button variant="secondary" fullWidth icon={ListOrdered} onClick={abrirRanking}>Ver ranking en vivo</Button>
+              : <FranjaPosicion parcial={parcial} nota="se actualiza al cerrar la pregunta" />}
           </>
         ) : (
           <fieldset className="grid gap-3">
@@ -343,6 +388,7 @@ export default function ParticipanteReto({ codigo: codigoUrl = null, actividadId
         {sinTiempo && !respondida && <p className="text-base text-muted text-center">Se acabó el tiempo de esta pregunta.</p>}
         {errorEnvio && <p role="alert" className="text-sm text-red-700">{errorEnvio}</p>}
       </div>
+      {ventanaRanking}
     </>
   )
 }

@@ -7,6 +7,7 @@
 import { Medal, Trophy } from 'lucide-react'
 import { ICONO } from '../../config/iconos'
 import { ordinal, textoPuntos, textoSiguiente } from './opcionesReto'
+import { textoTiempoReto } from '../../utils/retoExpres'
 
 export function TarjetaPosicion({ parcial }) {
   const { propia, totalParticipantes, siguiente, cerradas } = parcial || {}
@@ -58,6 +59,8 @@ export function ListaClasificacion({ filas = [], propia = null, realizadas = nul
                 {f.nombreVisible}{f.esPropia ? ' (tú)' : ''}
               </span>
               <span className="tabular-nums text-on-surface font-medium">{textoPuntos(f.aciertos)}</span>
+              {/* Versión 2: tiempo acumulado en respuestas correctas (desempata a iguales aciertos). */}
+              {Number.isInteger(f.tiempoDecimas) && <span className="w-16 text-right tabular-nums text-sm text-muted">{textoTiempoReto(f.tiempoDecimas)}</span>}
               {Number.isInteger(realizadas) && <span className="w-12 text-right tabular-nums text-sm text-muted">{f.aciertos}/{realizadas}</span>}
             </li>
           )

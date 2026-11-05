@@ -13,6 +13,7 @@ import { generarCodigoVivo } from '../../src/utils/participacionVivo.js'
 import {
   RETO_CFG, ESTADOS_RETO, TIEMPO_POR_OMISION_SEG, duracionValida, modalidadValida, modoIdentidadDe, estadoPreguntasReto, faseReto, iniciarReto, pausarReto,
   reanudarReto, terminarReto, abrirAcceso, cerrarAcceso, expulsarParticipante, validarAlias,
+  cerrarPreguntaReto, mostrarClasificacionReto, cancelarClasificacionReto, continuarReto, revelarDe,
 } from '../../src/utils/retoExpres.js'
 
 const azar = () => crypto.randomBytes(4).readUInt32BE(0) / 2 ** 32
@@ -82,6 +83,9 @@ export async function crearSesionReto(db, uid, actividadId) {
           calificable: externo ? false : act.reto?.calificable === true,
           estado: ESTADOS_RETO.espera, accesoAbierto: false, totalPreguntas: RETO_CFG.TOTAL_PREGUNTAS, preguntas,
           pausas: [], inicioMs: null, terminadaMs: null, finalizadaMs: null, creadaMs: ahora, creadaEn: FieldValue.serverTimestamp(),
+          // Versión 2 (5-nov-2026): cierres anticipados, clasificación a pedido y desempate por tiempo. `revelar` congela
+          // «Mostrar respuesta correcta al estudiante» de la actividad (la decide solo el docente; nada del participante).
+          version: RETO_CFG.VERSION_RITMO, cortes: [], clasificacionPendiente: null, revelar: revelarDe(act.reto),
         })
         tx.create(r.claves, { sesionId: codigo, actividadId, docenteId: uid, claves })
       })
@@ -103,6 +107,11 @@ const TRANSICIONES = {
   terminar: (s, t, b) => terminarReto(s, t, { confirmado: b.confirmado === true }),
   'abrir-acceso': (s, t) => abrirAcceso(s, t),
   'cerrar-acceso': (s) => cerrarAcceso(s),
+  // Versión 2 (5-nov-2026): el docente marca el ritmo. `indice` = la pregunta que ve abierta (un doble clic no salta dos).
+  'cerrar-pregunta': (s, t, b) => cerrarPreguntaReto(s, t, { indice: Number.isInteger(b.indice) ? b.indice : Number(b.indice), mostrarClasificacion: b.mostrarClasificacion === true }),
+  'mostrar-clasificacion': (s, t) => mostrarClasificacionReto(s, t),
+  'cancelar-clasificacion': (s, t) => cancelarClasificacionReto(s, t),
+  continuar: (s, t) => continuarReto(s, t),
 }
 
 // La sesión leída DENTRO de la transacción: pudo borrarse entre la primera lectura y esta.
@@ -124,7 +133,8 @@ async function participanteDeLaSesion(tx, db, codigo, participanteId) {
 
 /**
  * Ejecuta una acción del docente sobre la sesión `codigo`. Acciones: iniciar, pausar, reanudar, terminar {confirmado},
- * abrir-acceso, cerrar-acceso, expulsar {participanteId}, renombrar {participanteId, alias}, finalizar.
+ * abrir-acceso, cerrar-acceso, expulsar {participanteId}, renombrar {participanteId, alias}, finalizar y, en la versión 2,
+ * cerrar-pregunta {indice, mostrarClasificacion}, mostrar-clasificacion, cancelar-clasificacion y continuar.
  */
 export async function ejecutarControlReto(db, codigo, uid, accion, body = {}) {
   const r = refs(db, codigo)

@@ -153,6 +153,10 @@ export function escucharRespuestasReto(codigo, docenteId, cb, onError) {
 export function escucharParcialReto(codigo, cb, onError) {
   return onSnapshot(doc(db, 'retoParcial', codigo), (s) => cb(s.exists() ? s.data() : null), onError)
 }
+/** Copia de la clave de la sesión (5-nov-2026): solo el docente dueño la lee (reglas), para su ranking en vivo. */
+export function escucharClavesReto(codigo, cb, onError) {
+  return onSnapshot(doc(db, 'retoClaves', codigo), (s) => cb(s.exists() ? s.data() : null), onError)
+}
 export function escucharResultadosReto(codigo, cb, onError) {
   return onSnapshot(doc(db, 'retoResultados', codigo), (s) => cb(s.exists() ? s.data() : null), onError)
 }

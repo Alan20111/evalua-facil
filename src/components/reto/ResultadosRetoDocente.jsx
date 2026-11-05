@@ -2,8 +2,9 @@
 // (retoResultados) más lo que el docente ya puede leer (participantes, para ver el nombre real detrás de un alias).
 // `proyectable`: versión para la pantalla del salón — solo los 10 primeros lugares y nunca el nombre real.
 import { Medal } from 'lucide-react'
-import { RETO_CFG } from '../../utils/retoExpres'
+import { RETO_CFG, filasRankingFinal, textoTiempoReto } from '../../utils/retoExpres'
 import { ICONO } from '../../config/iconos'
+import TablaRankingReto from './TablaRankingReto'
 
 const ESTILO_PODIO = ['text-amber-700', 'text-slate-500', 'text-orange-800']
 
@@ -23,6 +24,8 @@ export function ClasificacionProyectada({ clasificacion = [], realizadas, limite
               {podio && <Medal size={ICONO.xl} aria-hidden="true" />}{f.posicion}
             </span>
             <span className={`flex-1 min-w-0 truncate font-semibold text-on-surface ${podio ? 'text-4xl' : 'text-3xl'}`}>{f.nombreVisible}</span>
+            {/* Versión 2: tiempo acumulado en respuestas correctas (desempata a iguales aciertos). */}
+            {Number.isInteger(f.tiempoDecimas) && <span className="text-2xl tabular-nums text-muted">{textoTiempoReto(f.tiempoDecimas)}</span>}
             <span className="text-2xl tabular-nums text-muted">{f.aciertos} / {realizadas}</span>
           </li>
         )
@@ -74,6 +77,11 @@ export default function ResultadosRetoDocente({ resultados, sesion, participante
       </p>
       <section aria-labelledby="res-clasif">
         <h3 id="res-clasif" className="text-base font-semibold text-on-surface mb-2">Clasificación</h3>
+        {/* Versión 2 (etapa B): tabla con el tiempo de cada pregunta y el acumulado; las de antes, la lista de siempre. */}
+        {resultados.criterio === 'aciertos_tiempo' ? (
+          <TablaRankingReto filas={filasRankingFinal(resultados)} preguntas={resultados.realizadas || 0} cerradas={resultados.realizadas || 0}
+            clave={(f) => f.participanteId} extra={conAlias ? (f) => porId.get(f.participanteId)?.nombre || null : null} />
+        ) : (
         <ol className="space-y-1">
           {clasificacion.map((f) => {
             const p = porId.get(f.participanteId)
@@ -90,6 +98,7 @@ export default function ResultadosRetoDocente({ resultados, sesion, participante
             )
           })}
         </ol>
+        )}
       </section>
       {(resultados.expulsados || []).length > 0 && (
         <section aria-labelledby="res-exp">

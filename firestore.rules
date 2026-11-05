@@ -329,6 +329,8 @@ service cloud.firestore {
       return d.get('categoria', null) != 'reto' || (
         d.get('reto', null) is map &&
         d.get('reto', {}).get('modalidad', null) in ['inscritos', 'externo'] &&
+        // «Mostrar respuesta correcta al estudiante» (5-nov-2026): ausente o sí/no, nada más.
+        (!('mostrarRespuestaCorrecta' in d.get('reto', {})) || d.get('reto', {}).get('mostrarRespuestaCorrecta', null) is bool) &&
         (d.get('reto', {}).get('modalidad', null) != 'externo' || (
           d.get('reto', {}).get('calificable', false) == false &&
           d.get('reto', {}).get('modoIdentidad', null) == 'alias' &&
@@ -1447,11 +1449,14 @@ service cloud.firestore {
       allow read: if isAdmin() || (isDocente() && (resource == null || resource.data.docenteId == request.auth.uid));
       allow write: if false;
     }
-    // Copia congelada de la clave al iniciar y reserva de alias únicos: solo el servidor. Ningún cliente las lee,
-    // ni el docente ni el admin (la clave del docente sigue en activities/{id}/clave).
+    // Copia congelada de la clave al iniciar: solo el servidor la escribe. Desde el 5-nov-2026 el docente DUEÑO (y el
+    // admin) la puede leer: el docente siempre puede consultar la respuesta correcta de su competencia (su panel en vivo).
+    // Ningún estudiante ni participante externo la lee nunca: ellos no tienen cuenta de docente.
     match /retoClaves/{sesionId} {
-      allow read, write: if false;
+      allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
+      allow write: if false;
     }
+    // Reserva de alias únicos: solo el servidor.
     match /retoAlias/{aliasId} {
       allow read, write: if false;
     }
