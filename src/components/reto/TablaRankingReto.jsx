@@ -1,12 +1,11 @@
-// Reto Exprés · tabla del ranking (etapa B, 5-nov-2026). La usan el ranking en vivo del docente (su ventana aparte), el
-// ranking en vivo del estudiante («Ver ranking en vivo») y el ranking final. Solo muestra lo que ya trae cada fila:
-// puesto, nombre visible, aciertos, tiempo de cada pregunta, tiempo acumulado en respuestas correctas y si ya respondió
-// la pregunta abierta. Nunca muestra opciones ni respuestas: las filas no las traen.
+// Reto Exprés · tabla del ranking (etapa B, 5-nov-2026). La usan el ranking en vivo del docente (panel de la pantalla en
+// vivo), el ranking en vivo del estudiante («Ver ranking en vivo») y el ranking final de Resultados. Solo muestra lo que
+// ya trae cada fila: puesto, nombre visible, aciertos, tiempo total (acumulado en respuestas correctas) y, con una
+// pregunta abierta, si ya la respondió. Nunca muestra opciones ni respuestas: las filas no las traen.
 //
-// Casillas de tiempo: un número = tiempo en responder (aunque haya fallado); «—» = sin respuesta en una pregunta ya
-// cerrada (no se inventa un tiempo); «…» = todavía no responde la pregunta abierta; vacía = pregunta que aún no se hace.
-// Orden aleatorio (6-nov-2026): cada columna es la pregunta ORIGINAL (P3 = la 3 del docente) y cada fila puede traer su
-// propio `estados` (a cada quien le toca otra pregunta en el turno); «·» = a esa persona no le tocó (se terminó antes).
+// Desde el 7-nov-2026 (decisión de Kike) no hay columnas por pregunta (P1…Pn): solo «Tiempo total». El orden, los
+// aciertos y el desempate no cambian: los calcula retoExpres.js antes de llegar aquí, y el servidor sigue guardando el
+// tiempo de cada respuesta.
 import { useState } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { Badge, Table } from '../ui'
@@ -45,27 +44,15 @@ function Cambio({ delta }) {
   )
 }
 
-function CasillaTiempo({ valor, estado }) {
-  if (valor === false) return <span className="text-hint" title="No le tocó esta pregunta">·<span className="sr-only">no le tocó esta pregunta</span></span>
-  if (estado === 'futura') return <span aria-hidden="true" />
-  if (Number.isInteger(valor)) return <span className="tabular-nums">{textoTiempoReto(valor)}</span>
-  if (estado === 'abierta') return <span className="text-hint" title="Todavía no responde">…<span className="sr-only">todavía no responde</span></span>
-  return <span className="text-hint" title="Sin respuesta">—<span className="sr-only">sin respuesta</span></span>
-}
-
 /**
- * `filas`: [{ posicion, nombreVisible, aciertos, tiempoDecimas, tiempos, respondioActual, esPropia? }].
- * `preguntas`: cuántas columnas P1…Pn. `cerradas`: cuántas ya se cerraron. `abierta`: índice de la que se responde
- * (o null). `clave(fila)`: identifica la fila para los cambios de posición. `extra(fila)`: segunda línea opcional
- * bajo el nombre (el docente ve ahí el nombre real detrás de un alias). `etiquetas`: número de cada columna (por omisión
- * 1…n). Una fila con `estados` manda sobre `cerradas`/`abierta` en sus casillas (orden aleatorio).
+ * `filas`: [{ posicion, nombreVisible, aciertos, tiempoDecimas, respondioActual, esPropia? }].
+ * `abierta`: índice de la pregunta que se responde (o null): con ella aparece la columna «Estado».
+ * `clave(fila)`: identifica la fila para los cambios de posición. `extra(fila)`: segunda línea opcional bajo el nombre
+ * (el docente ve ahí el nombre real detrás de un alias).
  */
-export default function TablaRankingReto({ filas = [], preguntas = 10, cerradas = 0, abierta = null, diferidas = 0, etiquetas = null, clave = (f) => f.nombreVisible, extra = null, vacio = 'Todavía no hay participantes.' }) {
+export default function TablaRankingReto({ filas = [], abierta = null, diferidas = 0, clave = (f) => f.nombreVisible, extra = null, vacio = 'Todavía no hay participantes.' }) {
   const cambios = useCambiosPosicion(filas, clave)
   const hayAbierta = Number.isInteger(abierta)
-  const porFila = filas.some((f) => Array.isArray(f.estados))
-  const estadoDe = (i, f) => (Array.isArray(f?.estados) ? f.estados[i] : hayAbierta && i === abierta ? 'abierta' : i < cerradas ? 'cerrada' : 'futura')
-  const hayNoTocadas = filas.some((f) => (f.tiempos || []).some((t) => t === false))
   const columnas = [
     {
       key: 'puesto', header: 'Puesto', align: 'right', className: 'whitespace-nowrap',
@@ -86,11 +73,6 @@ export default function TablaRankingReto({ filas = [], preguntas = 10, cerradas 
       ),
     },
     { key: 'aciertos', header: 'Aciertos', align: 'right', render: (f) => <span className="tabular-nums font-semibold text-on-surface">{f.aciertos}</span> },
-    ...Array.from({ length: preguntas }, (_, i) => ({
-      key: `p${i}`, header: `P${Array.isArray(etiquetas) && Number.isInteger(etiquetas[i]) ? etiquetas[i] : i + 1}`, align: 'right', className: 'whitespace-nowrap',
-      headerClassName: hayAbierta && !porFila && i === abierta ? 'text-accent' : '',
-      render: (f) => <CasillaTiempo valor={f.tiempos?.[i]} estado={estadoDe(i, f)} />,
-    })),
     {
       key: 'total', header: 'Tiempo total', align: 'right', className: 'whitespace-nowrap',
       render: (f) => <span className="tabular-nums text-on-surface">{textoTiempoReto(Number.isInteger(f.tiempoDecimas) ? f.tiempoDecimas : 0)}</span>,
@@ -102,11 +84,9 @@ export default function TablaRankingReto({ filas = [], preguntas = 10, cerradas 
   ]
   return (
     <div className="space-y-2">
-      <Table columns={columnas} data={filas} rowKey={(f, i) => `${clave(f)}-${i}`} emptyMessage={vacio} minWidth={560 + preguntas * 56} />
+      <Table columns={columnas} data={filas} rowKey={(f, i) => `${clave(f)}-${i}`} emptyMessage={vacio} minWidth={hayAbierta ? 520 : 420} />
       <p className="text-xs text-muted">
-        Ordenado por aciertos; a iguales aciertos, por menos tiempo en las respuestas correctas. «—» sin respuesta
-        {hayAbierta ? ' · «…» todavía no responde' : ''}{hayNoTocadas ? ' · «·» no le tocó' : ''}.
-        {porFila ? ' Cada participante recibe las preguntas en otro orden: P1…Pn son las preguntas originales.' : ''}
+        Ordenado por aciertos; a iguales aciertos, por menos tiempo total en las respuestas correctas.
         {diferidas > 0 ? ' Las preguntas de verdadero/falso o de dos opciones se suman al terminar el reto.' : ''}
       </p>
     </div>

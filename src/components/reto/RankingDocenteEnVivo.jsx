@@ -8,7 +8,7 @@
 // de la clave (y solo mientras está montado) y, al terminar, el registro definitivo. No escribe nada.
 import { useEffect, useMemo, useState } from 'react'
 import TablaRankingReto from './TablaRankingReto'
-import { columnasRankingFinal, filasRankingFinal, rankingDocenteEnVivo, RETO_CFG } from '../../utils/retoExpres'
+import { filasRankingFinal, rankingDocenteEnVivo } from '../../utils/retoExpres'
 import { escucharClavesReto, escucharResultadosReto } from '../../utils/retoExpresDb'
 
 // El cambio de pregunta depende del reloj: basta recalcular cada medio segundo aunque la pantalla avance más seguido.
@@ -27,7 +27,6 @@ export default function RankingDocenteEnVivo({ sesion, codigo, participantes = [
     [finalizada, claves, sesion, participantes, respuestas, paso],
   )
 
-  const total = Number.isInteger(sesion?.totalPreguntas) ? sesion.totalPreguntas : RETO_CFG.TOTAL_PREGUNTAS
   const porId = new Map(participantes.map((p) => [p.id, p]))
   const conAlias = sesion?.modalidad === 'externo' || sesion?.modoIdentidad === 'alias'
   const extra = conAlias ? (f) => porId.get(f.participanteId)?.nombre || null : null
@@ -35,15 +34,10 @@ export default function RankingDocenteEnVivo({ sesion, codigo, participantes = [
   if (finalizada) {
     if (!resultados) return <p className="text-base text-muted">Calculando resultados…</p>
     if (resultados.sinResultados) return <p className="text-base text-muted">La competencia terminó antes de la primera pregunta: no hay clasificación.</p>
-    const cols = columnasRankingFinal(resultados)
-    return (
-      <TablaRankingReto filas={filasRankingFinal(resultados)} preguntas={cols.preguntas} cerradas={cols.preguntas} etiquetas={cols.etiquetas}
-        clave={(f) => f.participanteId} extra={extra} />
-    )
+    return <TablaRankingReto filas={filasRankingFinal(resultados)} clave={(f) => f.participanteId} extra={extra} />
   }
   if (!vivo) return <p className="text-base text-muted">Cargando el ranking…</p>
   return (
-    <TablaRankingReto filas={vivo.filas} preguntas={total} cerradas={vivo.cerradas} abierta={vivo.abierta} diferidas={vivo.diferidas}
-      clave={(f) => f.participanteId} extra={extra} />
+    <TablaRankingReto filas={vivo.filas} abierta={vivo.abierta} diferidas={vivo.diferidas} clave={(f) => f.participanteId} extra={extra} />
   )
 }

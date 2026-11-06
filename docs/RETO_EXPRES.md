@@ -485,13 +485,15 @@ alguien responde hasta que un celular lo ve, unos 4 s como máximo. Abrirlo no e
 los demás. La revisión propia («acertaste» y, con Sí, la correcta) sigue llegando al cerrar la pregunta.
 
 **Etapa B · ranking en vivo (pantallas), HECHA 5-nov-2026 (autorizada solo para el ranking):**
-- `TablaRankingReto` (Puesto · Participante · Aciertos · P1…Pn · Tiempo total · Estado; «—» sin respuesta, «…» todavía no
-  responde, flechas de cambio de posición), compartida por docente, estudiante y final.
+- `TablaRankingReto` (Puesto · Participante · Aciertos · Tiempo total · Estado con una pregunta abierta; flechas de cambio
+  de posición), compartida por docente, estudiante y final. **Desde el 7-nov-2026 (decisión de Kike) sin columnas por
+  pregunta (P1…Pn) en ninguna de las tres vistas**: solo «Tiempo total». El servidor sigue guardando y enviando el tiempo
+  de cada respuesta; el orden, los aciertos y el desempate no cambian.
 - Docente: botón «Ranking en vivo» en la pantalla en vivo → ventana aparte `/reto/:id/en-vivo/:codigo/ranking`
   (RetoRankingPage, con esqueleto). Calcula con `rankingDocenteEnVivo` (misma regla que el celular; lee `retoClaves`).
 - Estudiante (inscrito y externo): «Ver ranking en vivo» tras responder y entre preguntas; la ventana pide `ranking: true`
   en cada consulta mientras está abierta; «Cerrar ranking» deja de pedirlo.
-- Final: tabla con tiempos por pregunta en los Resultados del docente (sesiones versión 2; las de antes, la lista de
+- Final: tabla con aciertos y tiempo total en los Resultados del docente (sesiones versión 2; las de antes, la lista de
   siempre) y el tiempo acumulado en la clasificación final del celular y en la proyectada.
 - La corrección final del inscrito ya no pinta «Correcta:» vacío cuando la opción está en No.
 

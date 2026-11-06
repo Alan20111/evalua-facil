@@ -315,8 +315,7 @@ export default function ParticipanteReto({ codigo: codigoUrl = null, actividadId
     <Modal open={rankingAbierto} onClose={cerrarRanking} title="Ranking en vivo" size="4xl"
       footer={<Button variant="secondary" fullWidth onClick={cerrarRanking}>Cerrar ranking</Button>}>
       {ranking
-        ? <TablaRankingReto filas={ranking.filas} preguntas={sesion.totalPreguntas || RETO_CFG.TOTAL_PREGUNTAS} cerradas={ranking.cerradas}
-            abierta={ranking.abierta} diferidas={ranking.diferidas} />
+        ? <TablaRankingReto filas={ranking.filas} abierta={ranking.abierta} diferidas={ranking.diferidas} />
         : <p className="text-base text-muted">Cargando el ranking…</p>}
       <p className="text-xs text-muted mt-2">Se actualiza solo mientras lo tengas abierto.</p>
     </Modal>
