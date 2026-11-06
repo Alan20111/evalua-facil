@@ -5,6 +5,8 @@
 //
 // Casillas de tiempo: un número = tiempo en responder (aunque haya fallado); «—» = sin respuesta en una pregunta ya
 // cerrada (no se inventa un tiempo); «…» = todavía no responde la pregunta abierta; vacía = pregunta que aún no se hace.
+// Orden aleatorio (6-nov-2026): cada columna es la pregunta ORIGINAL (P3 = la 3 del docente) y cada fila puede traer su
+// propio `estados` (a cada quien le toca otra pregunta en el turno); «·» = a esa persona no le tocó (se terminó antes).
 import { useState } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { Badge, Table } from '../ui'
@@ -44,6 +46,7 @@ function Cambio({ delta }) {
 }
 
 function CasillaTiempo({ valor, estado }) {
+  if (valor === false) return <span className="text-hint" title="No le tocó esta pregunta">·<span className="sr-only">no le tocó esta pregunta</span></span>
   if (estado === 'futura') return <span aria-hidden="true" />
   if (Number.isInteger(valor)) return <span className="tabular-nums">{textoTiempoReto(valor)}</span>
   if (estado === 'abierta') return <span className="text-hint" title="Todavía no responde">…<span className="sr-only">todavía no responde</span></span>
@@ -54,12 +57,15 @@ function CasillaTiempo({ valor, estado }) {
  * `filas`: [{ posicion, nombreVisible, aciertos, tiempoDecimas, tiempos, respondioActual, esPropia? }].
  * `preguntas`: cuántas columnas P1…Pn. `cerradas`: cuántas ya se cerraron. `abierta`: índice de la que se responde
  * (o null). `clave(fila)`: identifica la fila para los cambios de posición. `extra(fila)`: segunda línea opcional
- * bajo el nombre (el docente ve ahí el nombre real detrás de un alias).
+ * bajo el nombre (el docente ve ahí el nombre real detrás de un alias). `etiquetas`: número de cada columna (por omisión
+ * 1…n). Una fila con `estados` manda sobre `cerradas`/`abierta` en sus casillas (orden aleatorio).
  */
-export default function TablaRankingReto({ filas = [], preguntas = 10, cerradas = 0, abierta = null, diferidas = 0, clave = (f) => f.nombreVisible, extra = null, vacio = 'Todavía no hay participantes.' }) {
+export default function TablaRankingReto({ filas = [], preguntas = 10, cerradas = 0, abierta = null, diferidas = 0, etiquetas = null, clave = (f) => f.nombreVisible, extra = null, vacio = 'Todavía no hay participantes.' }) {
   const cambios = useCambiosPosicion(filas, clave)
   const hayAbierta = Number.isInteger(abierta)
-  const estadoDe = (i) => (hayAbierta && i === abierta ? 'abierta' : i < cerradas ? 'cerrada' : 'futura')
+  const porFila = filas.some((f) => Array.isArray(f.estados))
+  const estadoDe = (i, f) => (Array.isArray(f?.estados) ? f.estados[i] : hayAbierta && i === abierta ? 'abierta' : i < cerradas ? 'cerrada' : 'futura')
+  const hayNoTocadas = filas.some((f) => (f.tiempos || []).some((t) => t === false))
   const columnas = [
     {
       key: 'puesto', header: 'Puesto', align: 'right', className: 'whitespace-nowrap',
@@ -81,9 +87,9 @@ export default function TablaRankingReto({ filas = [], preguntas = 10, cerradas 
     },
     { key: 'aciertos', header: 'Aciertos', align: 'right', render: (f) => <span className="tabular-nums font-semibold text-on-surface">{f.aciertos}</span> },
     ...Array.from({ length: preguntas }, (_, i) => ({
-      key: `p${i}`, header: `P${i + 1}`, align: 'right', className: 'whitespace-nowrap',
-      headerClassName: hayAbierta && i === abierta ? 'text-accent' : '',
-      render: (f) => <CasillaTiempo valor={f.tiempos?.[i]} estado={estadoDe(i)} />,
+      key: `p${i}`, header: `P${Array.isArray(etiquetas) && Number.isInteger(etiquetas[i]) ? etiquetas[i] : i + 1}`, align: 'right', className: 'whitespace-nowrap',
+      headerClassName: hayAbierta && !porFila && i === abierta ? 'text-accent' : '',
+      render: (f) => <CasillaTiempo valor={f.tiempos?.[i]} estado={estadoDe(i, f)} />,
     })),
     {
       key: 'total', header: 'Tiempo total', align: 'right', className: 'whitespace-nowrap',
@@ -99,7 +105,8 @@ export default function TablaRankingReto({ filas = [], preguntas = 10, cerradas 
       <Table columns={columnas} data={filas} rowKey={(f, i) => `${clave(f)}-${i}`} emptyMessage={vacio} minWidth={560 + preguntas * 56} />
       <p className="text-xs text-muted">
         Ordenado por aciertos; a iguales aciertos, por menos tiempo en las respuestas correctas. «—» sin respuesta
-        {hayAbierta ? ' · «…» todavía no responde' : ''}.
+        {hayAbierta ? ' · «…» todavía no responde' : ''}{hayNoTocadas ? ' · «·» no le tocó' : ''}.
+        {porFila ? ' Cada participante recibe las preguntas en otro orden: P1…Pn son las preguntas originales.' : ''}
         {diferidas > 0 ? ' Las preguntas de verdadero/falso o de dos opciones se suman al terminar el reto.' : ''}
       </p>
     </div>

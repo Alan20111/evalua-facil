@@ -2,7 +2,7 @@
 // (retoResultados) más lo que el docente ya puede leer (participantes, para ver el nombre real detrás de un alias).
 // `proyectable`: versión para la pantalla del salón — solo los 10 primeros lugares y nunca el nombre real.
 import { Medal } from 'lucide-react'
-import { RETO_CFG, filasRankingFinal, textoTiempoReto } from '../../utils/retoExpres'
+import { RETO_CFG, columnasRankingFinal, filasRankingFinal, textoTiempoReto } from '../../utils/retoExpres'
 import { ICONO } from '../../config/iconos'
 import TablaRankingReto from './TablaRankingReto'
 
@@ -50,17 +50,28 @@ export default function ResultadosRetoDocente({ resultados, sesion, participante
 
   if (proyectable) return <ClasificacionProyectada clasificacion={clasificacion} realizadas={resultados.realizadas} />
 
-  const preguntas = (sesion?.preguntas || []).slice(0, resultados.realizadas || 0)
-  const porPregunta = preguntas.map((q, i) => {
+  // Orden aleatorio (6-nov-2026): por pregunta ORIGINAL y sobre quienes la recibieron (con terminación anticipada no
+  // todos reciben las mismas). Sin orden aleatorio, como siempre: las realizadas, en orden.
+  const aleatorio = resultados.aleatorio === true && Array.isArray(resultados.columnas)
+  const preguntas = aleatorio
+    ? resultados.columnas.map((i) => ({ q: sesion?.preguntas?.[i], i })).filter((x) => x.q)
+    : (sesion?.preguntas || []).slice(0, resultados.realizadas || 0).map((q, i) => ({ q, i }))
+  const porPregunta = preguntas.map(({ q, i }) => {
     let aciertos = 0
     let respondidas = 0
+    let recibieron = 0
     for (const f of clasificacion) {
-      const d = resultados.detalle?.[f.participanteId]?.[i]
-      if (d?.opcionSeleccionada != null) respondidas++
-      if (d?.acerto) aciertos++
+      const d = aleatorio
+        ? (resultados.detalle?.[f.participanteId] || []).find((x) => x?.indice === i)
+        : resultados.detalle?.[f.participanteId]?.[i]
+      if (!d) continue
+      recibieron++
+      if (d.opcionSeleccionada != null) respondidas++
+      if (d.acerto) aciertos++
     }
-    return { q, i, aciertos, respondidas }
+    return { q, i, aciertos, respondidas, recibieron: aleatorio ? recibieron : total }
   })
+  const cols = columnasRankingFinal(resultados)
   const descartadas = resultados.descartadas || {}
   const deInterrumpida = Number(descartadas.noRealizada) || 0
   const otrasDescartadas = (Number(descartadas.fueraDeTiempo) || 0) + (Number(descartadas.duplicadas) || 0) + (Number(descartadas.desconocidas) || 0)
@@ -79,7 +90,7 @@ export default function ResultadosRetoDocente({ resultados, sesion, participante
         <h3 id="res-clasif" className="text-base font-semibold text-on-surface mb-2">Clasificación</h3>
         {/* Versión 2 (etapa B): tabla con el tiempo de cada pregunta y el acumulado; las de antes, la lista de siempre. */}
         {resultados.criterio === 'aciertos_tiempo' ? (
-          <TablaRankingReto filas={filasRankingFinal(resultados)} preguntas={resultados.realizadas || 0} cerradas={resultados.realizadas || 0}
+          <TablaRankingReto filas={filasRankingFinal(resultados)} preguntas={cols.preguntas} cerradas={cols.preguntas} etiquetas={cols.etiquetas}
             clave={(f) => f.participanteId} extra={conAlias ? (f) => porId.get(f.participanteId)?.nombre || null : null} />
         ) : (
         <ol className="space-y-1">
@@ -110,10 +121,10 @@ export default function ResultadosRetoDocente({ resultados, sesion, participante
         <section aria-labelledby="res-preg">
           <h3 id="res-preg" className="text-base font-semibold text-on-surface mb-2">Por pregunta</h3>
           <ol className="space-y-2">
-            {porPregunta.map(({ q, i, aciertos, respondidas }) => (
+            {porPregunta.map(({ q, i, aciertos, respondidas, recibieron }) => (
               <li key={q.id} className="text-sm">
                 <p className="text-on-surface break-words">{i + 1}. {q.enunciado}</p>
-                <p className="text-muted">{porcentaje(aciertos, total)}% acertó · {respondidas} de {total} respondieron</p>
+                <p className="text-muted">{porcentaje(aciertos, recibieron)}% acertó · {respondidas} de {recibieron} respondieron{aleatorio && recibieron !== total ? ` (la recibieron ${recibieron} de ${total})` : ''}</p>
               </li>
             ))}
           </ol>

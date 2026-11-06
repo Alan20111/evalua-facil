@@ -10,13 +10,14 @@
 // ni el nombre real detrás de un alias (D5): eso solo aparece en «Participantes», que el docente abre a propósito.
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, DoorClosed, DoorOpen, Expand, ListOrdered, Pause, Play, Shrink, Square, Users } from 'lucide-react'
+import { ArrowLeft, DoorClosed, DoorOpen, Expand, ListOrdered, Pause, Play, Shrink, Square, Users, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
-import { Badge, Button } from '../../components/ui'
+import { Badge, Button, IconButton } from '../../components/ui'
 import ConfirmModal from '../../components/ConfirmModal'
 import { QrImagen } from '../../components/participacion/QrAcceso'
 import ParticipantesReto from '../../components/reto/ParticipantesReto'
+import RankingDocenteEnVivo from '../../components/reto/RankingDocenteEnVivo'
 import ResultadosRetoDocente, { ClasificacionProyectada } from '../../components/reto/ResultadosRetoDocente'
 import { COLORES_OPCION, letraOpcion, segundosRestantes, textoContador, textoOpcion } from '../../components/reto/opcionesReto'
 import { EsqueletoRetoEnVivo } from '../../components/esqueletos'
@@ -73,6 +74,17 @@ export default function RetoEnVivoPage() {
   const [ocupado, setOcupado] = useState(null) // acción en curso
   const [confirmarTerminar, setConfirmarTerminar] = useState(false)
   const [verParticipantes, setVerParticipantes] = useState(false)
+  // Ranking en vivo (6-nov-2026): panel lateral en ESTA pantalla, siempre cerrado al entrar (no se recuerda), para que
+  // no aparezca solo en lo proyectado. Esc lo cierra.
+  const [verRanking, setVerRanking] = useState(false)
+  // Nunca visible en pantalla completa: al entrar se cierra (botón de abajo) y, por si se entra de otra forma, no se pinta.
+  const rankingAbierto = verRanking && !pc.activa
+  useEffect(() => {
+    if (!verRanking) return undefined
+    const alTeclear = (e) => { if (e.key === 'Escape') setVerRanking(false) }
+    window.addEventListener('keydown', alTeclear)
+    return () => window.removeEventListener('keydown', alTeclear)
+  }, [verRanking])
 
   const uid = currentUser?.uid
   useEffect(() => escucharSesionReto(codigo, setSesion, () => setSesion(null)), [codigo])
@@ -129,7 +141,8 @@ export default function RetoEnVivoPage() {
   const activos = participantes.filter((p) => !p.expulsado)
   const visible = (p) => (sesion.modoIdentidad === 'alias' ? p.alias : p.nombre) || 'Participante'
   const n = Number.isInteger(f.indice) ? f.indice + 1 : null
-  const q = Number.isInteger(f.indice) ? sesion.preguntas[f.indice] : null
+  const aleatorio = sesion.aleatorizar === true
+  const q = Number.isInteger(f.indice) && !aleatorio ? sesion.preguntas[f.indice] : null
   const respondieron = Number.isInteger(f.indice) ? new Set(respuestas.filter((r) => r.indice === f.indice).map((r) => r.participanteId)).size : 0
   const url = urlReto(codigo)
 
@@ -179,15 +192,21 @@ export default function RetoEnVivoPage() {
             ? <Badge tone="warning" className="text-xl px-4 py-1">En pausa</Badge>
             : <p className={`text-6xl font-bold tabular-nums ${s <= 5 ? 'text-red-800' : 'text-on-surface'}`} aria-live="off">{textoContador(s)}</p>}
         </div>
-        <h1 className="text-4xl font-semibold text-on-surface break-words leading-tight">{q?.enunciado}</h1>
-        <ul className="grid gap-4 sm:grid-cols-2">
-          {(q?.opciones || []).map((o, i) => (
-            <li key={o.id} className="flex items-center gap-4 bg-surface-card rounded-card shadow-card px-5 py-4">
-              <Insignia i={i} />
-              <span className="flex-1 min-w-0 text-3xl text-on-surface break-words">{textoOpcion(o)}</span>
-            </li>
-          ))}
-        </ul>
+        {/* Orden aleatorio (6-nov-2026): cada participante responde otra pregunta en este turno; el proyector solo
+            muestra el número de pregunta, el tiempo y cuántos respondieron (decisión de Kike). */}
+        {!aleatorio && (
+          <>
+            <h1 className="text-4xl font-semibold text-on-surface break-words leading-tight">{q?.enunciado}</h1>
+            <ul className="grid gap-4 sm:grid-cols-2">
+              {(q?.opciones || []).map((o, i) => (
+                <li key={o.id} className="flex items-center gap-4 bg-surface-card rounded-card shadow-card px-5 py-4">
+                  <Insignia i={i} />
+                  <span className="flex-1 min-w-0 text-3xl text-on-surface break-words">{textoOpcion(o)}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
         <p className="text-2xl text-muted">{respondieron} de {activos.length} respondieron</p>
       </div>
     )
@@ -211,15 +230,33 @@ export default function RetoEnVivoPage() {
         <Badge tone="accent">{ETIQUETA_FASE[fase]}</Badge>
         <Badge>{externo ? MODALIDADES_RETO.externo : MODALIDADES_RETO.inscritos}</Badge>
         <Button variant="secondary" size="sm" icon={Users} onClick={() => setVerParticipantes(true)}>Participantes</Button>
-        {/* Etapa B (5-nov-2026): el ranking en vivo del docente se abre en otra ventana, para no proyectarlo. */}
+        {/* Ranking en vivo (6-nov-2026): panel lateral en esta misma pantalla; se abre a propósito y avisa que se proyecta.
+            En pantalla completa (lo que se proyecta) se cierra y el botón queda deshabilitado hasta salir de ella. */}
         {sesion.version >= 2 && (
-          <Button as="a" variant="secondary" size="sm" icon={ListOrdered} href={`/reto/${activityId}/en-vivo/${codigo}/ranking`}
-            target="_blank" rel="noopener">Ranking en vivo</Button>
+          <Button variant={rankingAbierto ? 'primary' : 'secondary'} size="sm" icon={ListOrdered} aria-expanded={rankingAbierto} aria-controls="reto-ranking-panel"
+            disabled={pc.activa} title={pc.activa ? 'Sal de pantalla completa para ver el ranking' : undefined}
+            onClick={() => setVerRanking((v) => !v)}>{rankingAbierto ? 'Ocultar ranking' : 'Ranking en vivo'}</Button>
         )}
-        <Button variant="secondary" size="sm" icon={pc.activa ? Shrink : Expand} onClick={pc.alternar}>{pc.activa ? 'Salir de pantalla completa' : 'Pantalla completa'}</Button>
+        <Button variant="secondary" size="sm" icon={pc.activa ? Shrink : Expand}
+          onClick={() => { if (!pc.activa) setVerRanking(false); pc.alternar() }}>{pc.activa ? 'Salir de pantalla completa' : 'Pantalla completa'}</Button>
       </header>
 
-      <main className="flex-1 flex items-center justify-center px-6 py-6">{principal}</main>
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
+        <main className="flex-1 min-w-0 flex items-center justify-center px-6 py-6">{principal}</main>
+        {rankingAbierto && sesion.version >= 2 && (
+          <aside id="reto-ranking-panel" aria-labelledby="reto-ranking-titulo"
+            className="w-full lg:w-[min(48rem,50vw)] flex-shrink-0 border-t lg:border-t-0 lg:border-l border-outline-variant bg-surface-card px-4 py-4 space-y-3 overflow-y-auto lg:max-h-[calc(100dvh-8rem)]">
+            <div className="flex items-center gap-2">
+              <h2 id="reto-ranking-titulo" className="flex-1 min-w-0 truncate text-lg font-semibold text-on-surface">Ranking en vivo</h2>
+              <IconButton icon={X} label="Cerrar el ranking" onClick={() => setVerRanking(false)} />
+            </div>
+            <p className="text-sm text-amber-800 bg-amber-50 rounded-card px-3 py-2">
+              Si estás proyectando esta pantalla, el grupo verá el ranking{sesion.modalidad === 'inscritos' && sesion.modoIdentidad === 'alias' ? ', incluidos los nombres reales' : ''}. Ciérralo antes de proyectar.
+            </p>
+            <RankingDocenteEnVivo sesion={sesion} codigo={codigo} participantes={participantes} respuestas={respuestas} ahoraMs={t} />
+          </aside>
+        )}
+      </div>
 
       {!finalizada && fase !== FASES_RETO.terminada && (
         <footer className="flex flex-wrap items-center justify-center gap-3 px-4 py-3 border-t border-outline-variant bg-surface-card">

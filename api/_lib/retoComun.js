@@ -10,7 +10,7 @@ import { codigoVivoValido } from '../../src/utils/participacionVivo.js'
 import {
   ESTADOS_RETO, FASES_RETO, puedeFinalizar, calcularResultadosReto, formatoTokenValido, idParticipante, faseReto,
   preguntasCerradas, clasificacionParcialReto, tiempoRespuestaDecimas, sesionVistaPor, nombreVisible, modoIdentidadDe,
-  aceptaRespuesta, esAcierto, preguntasDiferidas,
+  aceptaRespuesta, esAcierto, preguntasDiferidas, esAleatoria, ordenDe, preguntaDelTurno,
 } from '../../src/utils/retoExpres.js'
 
 export { getDb, admin, verifyRequest }
@@ -254,6 +254,7 @@ export async function parcialAlDia(db, codigo, ses) {
     tx.update(r.parcial, {
       ...fin, cerradas: p.cerradas, clasificacion: p.clasificacion, calculadoMs: ahoraReto(),
       ...(Number.isInteger(p.diferidas) ? { diferidas: p.diferidas } : {}),
+      ...(p.aleatorio ? { aleatorio: true } : {}), // orden aleatorio: `tiempos` va por pregunta original
     })
   })
   return (await r.parcial.get()).data() || null
@@ -346,16 +347,20 @@ export async function rankingVivoAlDia(db, codigo, ses, cerradasEnParcial = 0) {
   ])
   const participantes = partSnap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((p) => p.expulsado !== true)
   const unido = new Map(participantes.map((p) => [p.id, p.unidoMs]))
+  const porId = new Map(participantes.map((p) => [p.id, p]))
+  const aleatoria = esAleatoria(sesion)
   const claves = clavesSnap?.data()?.claves || {}
   const diferidas = new Set(preguntasDiferidas(sesion, sesion.preguntas))
   const enVivo = indices.map((k, n) => {
-    const q = sesion.preguntas[k]
     const tiempos = {}
     const aciertos = {}
     // La primera respuesta de cada uno (es la única: id fijo), comprobada con la sesión que ella vio, igual que al calificar.
     for (const d of respSnaps[n].docs) {
       const x = d.data()
       if (!x?.participanteId || !unido.has(x.participanteId) || tiempos[x.participanteId] != null) continue
+      // Orden aleatorio (6-nov-2026): `k` es el turno; la pregunta es la que a ESA persona le tocó en él.
+      const q = aleatoria ? preguntaDelTurno(sesion, porId.get(x.participanteId), k)?.pregunta : sesion.preguntas[k]
+      if (!q || (aleatoria && q.id !== x.preguntaId)) continue
       if (Number.isFinite(unido.get(x.participanteId)) && x.recibidaMs < unido.get(x.participanteId)) continue
       const vista = sesionVistaPor(sesion, x)
       if (!aceptaRespuesta(vista, k, x.recibidaMs)) continue
@@ -367,7 +372,7 @@ export async function rankingVivoAlDia(db, codigo, ses, cerradasEnParcial = 0) {
     return { indice: k, tiempos, aciertos }
   })
   const nuevo = {
-    participantes: participantes.map((p) => ({ id: p.id, nombreVisible: nombreVisible(p, modo) })),
+    participantes: participantes.map((p) => ({ id: p.id, nombreVisible: nombreVisible(p, modo), ...(aleatoria ? { orden: ordenDe(sesion, p) } : {}) })),
     enVivo, abierta, desde, hasta, calculadoMs: ahora,
   }
   await db.runTransaction(async (tx) => {

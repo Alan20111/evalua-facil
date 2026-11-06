@@ -13,7 +13,7 @@ import { generarCodigoVivo } from '../../src/utils/participacionVivo.js'
 import {
   RETO_CFG, ESTADOS_RETO, TIEMPO_POR_OMISION_SEG, duracionValida, modalidadValida, modoIdentidadDe, estadoPreguntasReto, faseReto, iniciarReto, pausarReto,
   reanudarReto, terminarReto, abrirAcceso, cerrarAcceso, expulsarParticipante, validarAlias,
-  cerrarPreguntaReto, mostrarClasificacionReto, cancelarClasificacionReto, continuarReto, revelarDe,
+  cerrarPreguntaReto, mostrarClasificacionReto, cancelarClasificacionReto, continuarReto, revelarDe, duracionesIguales,
 } from '../../src/utils/retoExpres.js'
 
 const azar = () => crypto.randomBytes(4).readUInt32BE(0) / 2 ** 32
@@ -66,6 +66,9 @@ export async function crearSesionReto(db, uid, actividadId) {
   }))
   const claves = Object.fromEntries(lista.map((p) => [p.id, { respuestaCorrecta: p.respuestaCorrecta }]))
   const externo = modalidad === 'externo'
+  // Orden aleatorio por participante (6-nov-2026): solo si el docente lo pidió Y las 10 preguntas duran exactamente lo
+  // mismo (se comprueba aquí, con los tiempos ya congelados; con duraciones distintas todos reciben el orden del docente).
+  const aleatorizar = act.reto?.aleatorizar === true && duracionesIguales(preguntas)
 
   for (let intento = 0; intento < INTENTOS_CODIGO; intento++) {
     const codigo = generarCodigoVivo(azar)
@@ -86,6 +89,7 @@ export async function crearSesionReto(db, uid, actividadId) {
           // Versión 2 (5-nov-2026): cierres anticipados, clasificación a pedido y desempate por tiempo. `revelar` congela
           // «Mostrar respuesta correcta al estudiante» de la actividad (la decide solo el docente; nada del participante).
           version: RETO_CFG.VERSION_RITMO, cortes: [], clasificacionPendiente: null, revelar: revelarDe(act.reto),
+          ...(aleatorizar ? { aleatorizar: true } : {}),
         })
         tx.create(r.claves, { sesionId: codigo, actividadId, docenteId: uid, claves })
       })

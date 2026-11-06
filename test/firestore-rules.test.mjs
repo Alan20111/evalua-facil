@@ -4969,6 +4969,14 @@ ok('F-05 · admin CAN read publicProfiles')
 
   await assertFails(setDoc(doc(asT1, 'submissions', 'R5_CERR_ST_JUAN'), nota('R5_CERR', 'ST_JUAN', 9)))
   ok('RETO 5 · el parcial cerrado sigue rechazando la nota de un reto calificable')
+
+  // 6-nov-2026: el panel marca cada nota con la sesión y la hora del servidor (`retoAplicacion`) para mostrar el estado
+  // de la asignación al volver. Las mismas reglas la aceptan al crear y al reemplazar; el candado de cierre no cambia.
+  const marca = (sesionId) => ({ retoAplicacion: { sesionId, aplicadaEn: serverTimestamp() } })
+  await assertSucceeds(setDoc(doc(asT1, 'submissions', 'R5_CAL_ST_MARCA'), nota('R5_CAL', 'ST_MARCA', 7, marca('SESIONAAAA'))))
+  await assertSucceeds(updateDoc(doc(asT1, 'submissions', 'R5_CAL_ST_MARCA'), { calificacion: 8, ultimaCalificacionPor: 'docente', ...marca('SESIONBBBB') }))
+  await assertFails(setDoc(doc(asT1, 'submissions', 'R5_CERR_ST_MARCA'), nota('R5_CERR', 'ST_MARCA', 9, marca('SESIONAAAA'))))
+  ok('RETO 5 · la marca de la asignación (sesión y hora) se guarda al crear y al reemplazar; el parcial cerrado sigue rechazando')
 }
 
 await testEnv.cleanup()

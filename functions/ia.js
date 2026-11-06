@@ -39,6 +39,8 @@ const juegoFns = require('./juego')
 const analisisAcademico = require('./analisisAcademico')
 const videoInteractivoIA = require('./videoInteractivoIA')
 const participacionVivo = require('./participacionVivo')
+// Reto Exprés: rama de `analizar_resultados` para UNA competencia terminada (6-nov-2026). Misma tarifa y ledger.
+const analisisReto = require('./analisisReto')
 const { onDocumentWritten } = require('firebase-functions/v2/firestore')
 // Escribir la nota de la IA en una entrega (decide, en transacción, si puede):
 // ver functions/aplicarNotaIA.js.
@@ -2712,6 +2714,10 @@ async function precheckAnalisisResultados({ uid, params }) {
   const act = snap.data()
   if (act.docenteId !== uid) throw new HttpsError('permission-denied', 'Esta actividad no es tuya')
 
+  // Reto Exprés (6-nov-2026): analiza UNA competencia terminada (`params.sesionId`) con su registro definitivo.
+  // Rama aparte: los cuestionarios y exámenes siguen exactamente igual.
+  if (act.categoria === 'reto') return analisisReto.precheckAnalisisReto({ uid, params, act, actividadId, db })
+
   const clase = ANALISIS_PADRES_VALIDOS[act.categoria] || null
   if (!clase) {
     throw new HttpsError('failed-precondition', 'Solo un cuestionario o un examen tienen resultados que analizar.')
@@ -3007,6 +3013,8 @@ async function ejecutarAnalisisResultados({ params, modelo, apiKey }) {
   // evaluación calificable — misma bandera, ramas separadas de aquí en
   // adelante; ninguna evaluación existente cambia de comportamiento.
   if (ctx.modoEncuesta) return ejecutarAnalisisEncuestaContexto({ params, modelo, apiKey })
+  // Reto Exprés: mismo sistema de no invención; el prompt y la agregación viven en analisisReto.js.
+  if (ctx.modoReto) return analisisReto.ejecutarAnalisisReto({ params, modelo, client, deps: { pedirJSON, sistema: ANALISIS_SISTEMA } })
 
   const { datos, interno } = await pedirJSON({
     client, modelo, maxTokens: 2500, system: ANALISIS_SISTEMA,

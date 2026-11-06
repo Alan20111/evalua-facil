@@ -102,6 +102,62 @@ export function tiempoRespuestaMs(pregunta) {
   return duracionValida(pregunta?.tiempoSeg) ? pregunta.tiempoSeg * 1000 : RETO_CFG.TIEMPO_RESPUESTA_MS
 }
 
+// ── Orden aleatorio por participante (6-nov-2026) ───────────────────────────
+// Solo cuando TODAS las preguntas duran exactamente lo mismo: así cada turno dura igual sea cual sea la pregunta que le
+// toque a cada quien, y el reloj común (faseReto) sirve para todos. Con duraciones distintas no se mezcla nada y todos
+// reciben el orden del docente. La sesión lo congela en `aleatorizar: true` al crearse (el servidor lo vuelve a
+// comprobar) y cada participante recibe su orden al ENTRAR (`orden`, generado por el servidor con crypto, guardado en
+// su documento): recargar o reconectarse no lo cambia. `orden[turno]` = índice de la pregunta original en ese turno.
+// Las respuestas guardan el turno (`indice`) y la pregunta original (`preguntaId`); aciertos, tiempos P1…P10 y
+// calificación se cuentan por la pregunta original. Una sesión sin `aleatorizar` sigue exactamente igual.
+
+/** ¿Todas las preguntas duran exactamente lo mismo? Es la única condición para poder mezclar el orden. */
+export function duracionesIguales(preguntas) {
+  const l = Array.isArray(preguntas) ? preguntas : []
+  return l.length > 0 && l.every((p) => tiempoRespuestaMs(p) === tiempoRespuestaMs(l[0]))
+}
+
+/** Permutación de 0..n-1 (Fisher-Yates). `azar` devuelve [0, 1): el servidor pasa uno con crypto. */
+export function ordenAleatorio(n, azar = Math.random) {
+  const o = Array.from({ length: n }, (_, i) => i)
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.min(i, Math.floor(azar() * (i + 1)))
+    ;[o[i], o[j]] = [o[j], o[i]]
+  }
+  return o
+}
+
+/** ¿Es una permutación válida de 0..n-1 (sin repetir ni omitir)? */
+export function ordenValido(orden, n) {
+  if (!Array.isArray(orden) || orden.length !== n) return false
+  const vistos = new Set()
+  for (const x of orden) {
+    if (!Number.isInteger(x) || x < 0 || x >= n || vistos.has(x)) return false
+    vistos.add(x)
+  }
+  return true
+}
+
+/** ¿La sesión reparte las preguntas en un orden distinto a cada participante? */
+export function esAleatoria(sesion) {
+  return sesion?.aleatorizar === true
+}
+
+/** Orden de UN participante: el suyo si la sesión es aleatoria y lo tiene válido; si no, el del docente. */
+export function ordenDe(sesion, participante) {
+  const n = Array.isArray(sesion?.preguntas) ? sesion.preguntas.length : RETO_CFG.TOTAL_PREGUNTAS
+  if (esAleatoria(sesion) && ordenValido(participante?.orden, n)) return participante.orden
+  return Array.from({ length: n }, (_, i) => i)
+}
+
+/** La pregunta que le toca a un participante en un turno: { indiceOriginal, pregunta } o null. */
+export function preguntaDelTurno(sesion, participante, turno) {
+  if (!Number.isInteger(turno) || turno < 0) return null
+  const idx = ordenDe(sesion, participante)[turno]
+  const pregunta = Number.isInteger(idx) ? sesion?.preguntas?.[idx] : null
+  return pregunta ? { indiceOriginal: idx, pregunta } : null
+}
+
 // Tipos que se califican solos: los mismos objetivos de las evaluaciones (opción múltiple y verdadero/falso).
 export const TIPOS_RETO = [...TIPOS_OBJETIVOS]
 
@@ -836,6 +892,10 @@ export function calcularResultadosReto({ sesion, preguntas, claves, participante
   const elegidas = new Map()
   const ordenLlegada = [...(Array.isArray(respuestas) ? respuestas : [])].sort((a, b) =>
     ((a?.recibidaMs ?? Infinity) - (b?.recibidaMs ?? Infinity)) || String(a?.id).localeCompare(String(b?.id)))
+  // Orden aleatorio (6-nov-2026): cálculo aparte, por turno y por pregunta original. Las sesiones sin él no pasan por aquí.
+  if (esAleatoria(sesion)) {
+    return resultadosAleatorios({ sesion, lista, claves, porParticipante, ordenLlegada, sesionCalculo, realizadas, descartadas, diferir })
+  }
   for (const r of ordenLlegada) {
     const pa = porParticipante.get(r?.participanteId)
     const idx = indicePorId.get(r?.preguntaId)
@@ -893,6 +953,80 @@ export function calcularResultadosReto({ sesion, preguntas, claves, participante
 }
 
 /**
+ * Resultados de una sesión con orden aleatorio (6-nov-2026). Mismas reglas que calcularResultadosReto, por TURNO:
+ *   · la respuesta del turno t vale si es de la pregunta que a ESE participante le tocó en t (`orden[t]`), cae en la
+ *     ventana del turno t y es la primera; cualquier otra combinación se descarta como desconocida;
+ *   · cuentan los turnos realizados (los mismos para todos); cada participante recibe exactamente esos turnos, así que la
+ *     calificación sigue siendo aciertos ÷ realizadas;
+ *   · `detalle[id]` lleva una entrada por pregunta RECIBIDA, en el orden ORIGINAL del docente, con `indice` = número de
+ *     la pregunta original (P1…P10) y `turno` = cuándo le tocó. Con terminación anticipada no todos reciben las mismas:
+ *     `columnas` = preguntas originales que recibió alguien (para la tabla final);
+ *   · la pregunta interrumpida es distinta para cada quien: `interrumpida` = null.
+ */
+function resultadosAleatorios({ sesion, lista, claves, porParticipante, ordenLlegada, sesionCalculo, realizadas, descartadas, diferir }) {
+  const ordenes = new Map([...porParticipante].map(([id, pa]) => [id, ordenDe({ ...sesion, preguntas: lista }, pa)]))
+  const elegidas = new Map() // `${participanteId}\0${turno}` → respuesta
+  for (const r of ordenLlegada) {
+    const pa = porParticipante.get(r?.participanteId)
+    const turno = r?.indice
+    const orden = pa ? ordenes.get(pa.id) : null
+    if (!pa || !Number.isInteger(turno) || turno < 0 || turno >= lista.length || lista[orden[turno]]?.id !== r.preguntaId) { descartadas.desconocidas++; continue }
+    if (turno >= realizadas) { descartadas.noRealizada++; continue }
+    const llave = `${r.participanteId}\u0000${turno}`
+    if (elegidas.has(llave)) { descartadas.duplicadas++; continue }
+    const enVentana = Number.isFinite(r.recibidaMs) && aceptaRespuesta(sesionVistaPor(sesionCalculo, r), turno, r.recibidaMs) &&
+      !(Number.isFinite(pa.unidoMs) && r.recibidaMs < pa.unidoMs)
+    if (!enVentana) { descartadas.fueraDeTiempo++; continue }
+    elegidas.set(llave, r)
+  }
+  if (realizadas === 0) {
+    return { ok: true, realizadas, interrumpida: null, sinResultados: true, clasificacion: [], expulsados: [], detalle: {}, descartadas, aleatorio: true, columnas: [] }
+  }
+  const modo = modoIdentidadDe(sesion)
+  const porTiempo = esVersionRitmo(sesion)
+  const diferidas = new Set(Array.isArray(diferir) ? diferir : [])
+  const detalle = {}
+  const filas = []
+  const expulsados = []
+  const recibidasPorAlguien = new Set()
+  for (const [id, pa] of porParticipante) {
+    const orden = ordenes.get(id)
+    let aciertos = 0
+    let respondidas = 0
+    let tiempoDecimas = 0
+    const items = []
+    for (let t = 0; t < realizadas; t++) {
+      const idx = orden[t]
+      const p = lista[idx]
+      recibidasPorAlguien.add(idx)
+      const r = elegidas.get(`${id}\u0000${t}`)
+      const correcta = claveDe(claves, p.id)
+      const opcion = r ? (r.opcionSeleccionada ?? null) : null
+      if (r) respondidas++
+      const acerto = esAcierto(p, correcta, opcion)
+      const item = { preguntaId: p.id, indice: idx, turno: t, opcionSeleccionada: opcion, respuestaCorrecta: correcta, acerto }
+      const cuenta = acerto && !diferidas.has(p.id)
+      if (porTiempo) {
+        item.tiempoDecimas = r ? tiempoRespuestaDecimas(sesionVistaPor(sesionCalculo, r), t, r.recibidaMs) : null
+        if (cuenta) tiempoDecimas += item.tiempoDecimas ?? 0
+      }
+      if (cuenta) aciertos++
+      items.push(item)
+    }
+    detalle[id] = items.sort((a, b) => a.indice - b.indice)
+    const fila = { participanteId: id, nombreVisible: nombreVisible(pa, modo), aciertos, respondidas }
+    if (porTiempo) fila.tiempoDecimas = tiempoDecimas
+    if (pa.expulsado === true) expulsados.push(fila)
+    else filas.push(fila)
+  }
+  return {
+    ok: true, realizadas, interrumpida: null, sinResultados: false, clasificacion: asignarPosiciones(filas, { porTiempo }), expulsados, detalle, descartadas,
+    ...(porTiempo ? { criterio: 'aciertos_tiempo' } : {}),
+    aleatorio: true, columnas: [...recibidasPorAlguien].sort((a, b) => a - b),
+  }
+}
+
+/**
  * Calificación propuesta (D7): aciertos / preguntas realizadas × calificación máxima, con el mismo redondeo de
  * las evaluaciones (un decimal). Con las 10 preguntas es aciertos / 10 × máxima; con terminación anticipada se
  * mantiene la proporción sobre las realizadas. Sin preguntas realizadas no hay calificación (null).
@@ -941,6 +1075,36 @@ export function propuestasCalificacionReto({ reto, maxCalif = 10, resultados, pa
     salida.push({ alumnoId: p.alumnoId, participanteId: f.participanteId, aciertos: f.aciertos, realizadas, calificacion })
   }
   return salida
+}
+
+/**
+ * Estado de «Aplicar calificaciones» de UNA sesión (6-nov-2026), deducido SOLO de lo guardado en Firestore, para que
+ * se vea igual tras recargar. Cada entrega que escribe el panel lleva `retoAplicacion: { sesionId, aplicadaEn }`.
+ *   · `filas`: las propuestas con su `entrega` actual (o null); `sesionId`: el código de la competencia.
+ * Devuelve { estado, aplicadas, pendientes, conNotaPrevia, aplicadaEnMs }:
+ *   · 'pendiente'  → nada de esta sesión aplicado todavía;
+ *   · 'completada' → al menos una aplicada y ningún estudiante sin nota;
+ *   · 'incompleta' → se aplicaron algunas y quedan estudiantes sin nota (se interrumpió o falló: se puede reintentar).
+ * `aplicadaEnMs` = la más reciente (fecha y hora de la asignación). `conNotaPrevia` = ya tenían nota de otro origen.
+ */
+export function estadoAplicacionReto({ filas = [], sesionId } = {}) {
+  const ms = (t) => (t && typeof t.toMillis === 'function' ? t.toMillis() : Number.isFinite(t?.seconds) ? t.seconds * 1000 : Number.isFinite(t) ? t : null)
+  let aplicadas = 0
+  let pendientes = 0
+  let conNotaPrevia = 0
+  let aplicadaEnMs = null
+  for (const f of Array.isArray(filas) ? filas : []) {
+    const e = f?.entrega || null
+    const marca = e?.retoAplicacion
+    if (sesionId && marca?.sesionId === sesionId && e?.calificacion != null) {
+      aplicadas++
+      const t = ms(marca.aplicadaEn)
+      if (t != null && (aplicadaEnMs == null || t > aplicadaEnMs)) aplicadaEnMs = t
+    } else if (e?.calificacion != null) conNotaPrevia++
+    else pendientes++
+  }
+  const estado = aplicadas === 0 ? 'pendiente' : pendientes === 0 ? 'completada' : 'incompleta'
+  return { estado, aplicadas, pendientes, conNotaPrevia, aplicadaEnMs }
 }
 
 // ── Lo que ve cada participante al final (D9, E9, E11) ──────────────────────
@@ -1047,6 +1211,21 @@ export function clasificacionParcialReto({ sesion, preguntas, claves, participan
   if (!r.ok) return r
   if (r.realizadas !== cerradas) return { ok: false, codigo: 'CIERRE_INCONSISTENTE', error: 'No se pudo calcular la clasificación.' }
   const v2 = esVersionRitmo(sesion)
+  // Orden aleatorio (6-nov-2026): `tiempos` va por pregunta ORIGINAL (P1…Pn), con `false` en las que a esa persona
+  // todavía no le tocan; `diferidas` cuenta las que alguien ya recibió.
+  if (r.aleatorio) {
+    const recibidasIds = new Set(r.columnas.map((i) => preguntas[i]?.id))
+    return {
+      ok: true, cerradas, aleatorio: true,
+      ...(v2 ? { diferidas: diferir.filter((id) => recibidasIds.has(id)).length } : {}),
+      clasificacion: r.clasificacion.map(({ participanteId, nombreVisible, aciertos, respondidas, posicion, tiempoDecimas }) => {
+        if (!v2) return { participanteId, nombreVisible, aciertos, respondidas, posicion }
+        const tiempos = preguntas.map(() => false)
+        for (const d of r.detalle[participanteId] || []) tiempos[d.indice] = d.tiempoDecimas ?? null
+        return { participanteId, nombreVisible, aciertos, respondidas, posicion, tiempoDecimas, tiempos }
+      }),
+    }
+  }
   const cerradasIds = new Set(preguntas.slice(0, cerradas).map((p) => p.id))
   return {
     ok: true, cerradas,
@@ -1089,12 +1268,41 @@ export function vistaClasificacionParcial(parcial, participanteId) {
  * Devuelve [{ participanteId, posicion, nombreVisible, aciertos, tiempoDecimas, tiempos, respondioActual }] ordenadas
  * con la regla de la versión 2 (aciertos, luego menos tiempo en correctas; iguales en ambos comparten lugar).
  */
-export function filasRankingVivo({ parcial, participantes, enVivo = [], abierta = null, totalPreguntas = RETO_CFG.TOTAL_PREGUNTAS }) {
+export function filasRankingVivo({ parcial, participantes, enVivo = [], abierta = null, totalPreguntas = RETO_CFG.TOTAL_PREGUNTAS, aleatorio = false }) {
   const previas = new Map((parcial?.clasificacion || []).map((f) => [f.participanteId, f]))
   const cerradas = Number.isInteger(parcial?.cerradas) ? parcial.cerradas : 0
   // Solo las preguntas que la provisional no cuenta todavía (si ya las incluye, mandan las de la provisional).
   const vivas = (Array.isArray(enVivo) ? enVivo : []).filter((q) => Number.isInteger(q?.indice) && q.indice >= cerradas && q.indice < totalPreguntas)
   const hayAbierta = Number.isInteger(abierta) && abierta >= 0 && abierta < totalPreguntas
+  // Orden aleatorio (6-nov-2026): `enVivo[].indice` es el TURNO y cada participante (con su `orden`) tiene otra pregunta
+  // en él. Las casillas van por pregunta ORIGINAL (P1…Pn) y cada fila trae su propio `estados` (cerrada / abierta /
+  // futura), porque la pregunta abierta es distinta para cada quien.
+  if (aleatorio || parcial?.aleatorio === true) {
+    const vivaPorTurno = new Map(vivas.map((q) => [q.indice, q]))
+    const cerradasVistas = hayAbierta ? abierta : Math.max(cerradas, ...vivas.map((q) => q.indice + 1))
+    const identidad = Array.from({ length: totalPreguntas }, (_, i) => i)
+    const filas = (Array.isArray(participantes) ? participantes : []).map((p) => {
+      const f = previas.get(p.id)
+      const orden = ordenValido(p.orden, totalPreguntas) ? p.orden : identidad
+      const tiempos = Array.from({ length: totalPreguntas }, () => null)
+      const estados = Array.from({ length: totalPreguntas }, () => 'futura')
+      let aciertos = f?.aciertos ?? 0
+      let tiempoDecimas = f?.tiempoDecimas ?? 0
+      for (let t = 0; t < totalPreguntas; t++) {
+        const idx = orden[t]
+        estados[idx] = hayAbierta ? (t < abierta ? 'cerrada' : t === abierta ? 'abierta' : 'futura') : (t < cerradasVistas ? 'cerrada' : 'futura')
+        if (t < cerradas) tiempos[idx] = Number.isInteger(f?.tiempos?.[idx]) ? f.tiempos[idx] : null
+        const q = vivaPorTurno.get(t)
+        const tv = q?.tiempos?.[p.id]
+        if (!Number.isInteger(tv)) continue
+        tiempos[idx] = tv
+        if (q.aciertos?.[p.id] === true) { aciertos++; tiempoDecimas += tv }
+      }
+      const respondioActual = hayAbierta ? Number.isInteger(vivaPorTurno.get(abierta)?.tiempos?.[p.id]) : null
+      return { participanteId: p.id, nombreVisible: p.nombreVisible, aciertos, tiempoDecimas, tiempos, estados, respondioActual }
+    })
+    return asignarPosiciones(filas, { porTiempo: true })
+  }
   const filas = (Array.isArray(participantes) ? participantes : []).map((p) => {
     const f = previas.get(p.id)
     const tiempos = Array.from({ length: totalPreguntas }, (_, i) => (i < cerradas ? (f?.tiempos?.[i] ?? null) : null))
@@ -1117,7 +1325,7 @@ export function vistaRankingVivo({ filas, participanteId, cerradas = 0, abierta 
   return {
     cerradas, abierta: Number.isInteger(abierta) ? abierta : null, diferidas,
     filas: (filas || []).map((f) => {
-      const out = { ...filaPublica(f), tiempos: [...f.tiempos], respondioActual: f.respondioActual }
+      const out = { ...filaPublica(f), tiempos: [...f.tiempos], respondioActual: f.respondioActual, ...(Array.isArray(f.estados) ? { estados: [...f.estados] } : {}) }
       return f.participanteId === participanteId ? { ...out, esPropia: true } : out
     }),
   }
@@ -1145,6 +1353,36 @@ export function rankingDocenteEnVivo({ sesion, claves, participantes, respuestas
   const abierta = f.fase === FASES_RETO.abierta || (f.fase === FASES_RETO.pausada && f.faseAlPausar === FASES_RETO.abierta) ? f.indice : null
   const enVivo = []
   const diferidasIds = new Set(preguntasDiferidas(sesion, preguntas))
+  const modo = modoIdentidadDe(sesion)
+  // Orden aleatorio (6-nov-2026): en el turno abierto cada quien tiene su pregunta; se califica la de cada respuesta.
+  if (esAleatoria(sesion)) {
+    const porId = new Map(activos.map((p) => [p.id, p]))
+    if (abierta != null) {
+      const tiempos = {}
+      const aciertos = {}
+      const orden = lista.filter((r) => r?.indice === abierta)
+        .sort((a, b) => ((a.recibidaMs ?? Infinity) - (b.recibidaMs ?? Infinity)) || String(a.id).localeCompare(String(b.id)))
+      for (const r of orden) {
+        const p = porId.get(r.participanteId)
+        if (!p || tiempos[r.participanteId] != null) continue
+        const q = preguntaDelTurno(sesion, p, abierta)?.pregunta
+        if (!q || q.id !== r.preguntaId) continue
+        if (Number.isFinite(p.unidoMs) && r.recibidaMs < p.unidoMs) continue
+        const vista = sesionVistaPor(sesion, r)
+        if (!aceptaRespuesta(vista, abierta, r.recibidaMs)) continue
+        const t = tiempoRespuestaDecimas(vista, abierta, r.recibidaMs)
+        if (!Number.isInteger(t)) continue
+        tiempos[r.participanteId] = t
+        if (!diferidasIds.has(q.id) && esAcierto(q, claveDe(claves, q.id), r.opcionSeleccionada ?? null)) aciertos[r.participanteId] = true
+      }
+      enVivo.push({ indice: abierta, tiempos, aciertos })
+    }
+    const filas = filasRankingVivo({
+      parcial, participantes: activos.map((p) => ({ id: p.id, nombreVisible: nombreVisible(p, modo), orden: ordenDe(sesion, p) })),
+      enVivo, abierta, totalPreguntas, aleatorio: true,
+    })
+    return { filas, cerradas, abierta, diferidas: diferidasIds.size && (cerradas >= 1 || abierta != null) ? diferidasIds.size : 0 }
+  }
   if (abierta != null && preguntas[abierta]) {
     const q = preguntas[abierta]
     const unido = new Map(activos.map((p) => [p.id, p.unidoMs]))
@@ -1164,7 +1402,6 @@ export function rankingDocenteEnVivo({ sesion, claves, participantes, respuestas
     }
     enVivo.push({ indice: abierta, tiempos, aciertos })
   }
-  const modo = modoIdentidadDe(sesion)
   const filas = filasRankingVivo({
     parcial, participantes: activos.map((p) => ({ id: p.id, nombreVisible: nombreVisible(p, modo) })), enVivo, abierta, totalPreguntas,
   })
@@ -1180,12 +1417,37 @@ export function rankingDocenteEnVivo({ sesion, claves, participantes, respuestas
 export function filasRankingFinal(resultados) {
   if (!resultados?.ok && !Array.isArray(resultados?.clasificacion)) return []
   const realizadas = Number.isInteger(resultados.realizadas) ? resultados.realizadas : 0
+  // Orden aleatorio (6-nov-2026): una columna por pregunta ORIGINAL que alguien recibió (`columnas`); `false` = a esa
+  // persona no le tocó (solo pasa si se terminó antes), null = le tocó y no respondió.
+  if (resultados.aleatorio === true && Array.isArray(resultados.columnas)) {
+    return (resultados.clasificacion || []).map((f) => {
+      const porIndice = new Map((resultados.detalle?.[f.participanteId] || []).map((d) => [d.indice, d]))
+      return {
+        participanteId: f.participanteId, posicion: f.posicion, nombreVisible: f.nombreVisible, aciertos: f.aciertos,
+        tiempoDecimas: Number.isFinite(f.tiempoDecimas) ? f.tiempoDecimas : null,
+        tiempos: resultados.columnas.map((i) => (porIndice.has(i) ? (porIndice.get(i).tiempoDecimas ?? null) : false)),
+        respondioActual: null,
+      }
+    })
+  }
   return (resultados.clasificacion || []).map((f) => ({
     participanteId: f.participanteId, posicion: f.posicion, nombreVisible: f.nombreVisible, aciertos: f.aciertos,
     tiempoDecimas: Number.isFinite(f.tiempoDecimas) ? f.tiempoDecimas : null,
     tiempos: Array.from({ length: realizadas }, (_, i) => resultados.detalle?.[f.participanteId]?.[i]?.tiempoDecimas ?? null),
     respondioActual: null,
   }))
+}
+
+/**
+ * Columnas de la tabla final: cuántas y con qué número (P1…Pn). Antes, las realizadas en orden; con orden aleatorio,
+ * el número ORIGINAL de cada pregunta que alguien recibió (con terminación anticipada pueden saltarse números).
+ */
+export function columnasRankingFinal(resultados) {
+  if (resultados?.aleatorio === true && Array.isArray(resultados.columnas)) {
+    return { preguntas: resultados.columnas.length, etiquetas: resultados.columnas.map((i) => i + 1) }
+  }
+  const n = Number.isInteger(resultados?.realizadas) ? resultados.realizadas : 0
+  return { preguntas: n, etiquetas: null }
 }
 
 // ── Revisión de una pregunta cerrada para el participante (5-nov-2026, versión 2) ──
@@ -1501,7 +1763,7 @@ export function datosNuevoReto({ nombre, modalidad, modoIdentidad, calificable =
  * Cambios permitidos al editar los datos de un reto: nombre, instrucciones, identidad (solo inscritos) y
  * calificable (solo inscritos). La modalidad nunca. Devuelve { ok: true, patch } o { ok: false, codigo, error }.
  */
-export function cambiosDatosReto(reto, { nombre, instrucciones, modoIdentidad, calificable, tiempoSeg, mostrarRespuestaCorrecta } = {}) {
+export function cambiosDatosReto(reto, { nombre, instrucciones, modoIdentidad, calificable, tiempoSeg, mostrarRespuestaCorrecta, aleatorizar } = {}) {
   const modalidad = reto?.reto?.modalidad
   if (!modalidadValida(modalidad)) return { ok: false, codigo: 'MODALIDAD_INVALIDA', error: 'Este reto no está bien configurado.' }
   const patch = {}
@@ -1520,6 +1782,12 @@ export function cambiosDatosReto(reto, { nombre, instrucciones, modoIdentidad, c
   if (mostrarRespuestaCorrecta !== undefined) {
     if (typeof mostrarRespuestaCorrecta !== 'boolean') return { ok: false, codigo: 'REVELAR_INVALIDO', error: 'Indica si se muestra la respuesta correcta.' }
     patch['reto.mostrarRespuestaCorrecta'] = mostrarRespuestaCorrecta
+  }
+  // «Orden aleatorio por participante» (las dos modalidades, 6-nov-2026). Solo se aplica si al crear la competencia
+  // todas las preguntas duran lo mismo (lo decide el servidor en crearSesionReto).
+  if (aleatorizar !== undefined) {
+    if (typeof aleatorizar !== 'boolean') return { ok: false, codigo: 'ALEATORIO_INVALIDO', error: 'Indica si el orden es aleatorio.' }
+    patch['reto.aleatorizar'] = aleatorizar
   }
   if (modalidad === 'externo') {
     if ((modoIdentidad !== undefined && modoIdentidad !== 'alias') || calificable === true) {

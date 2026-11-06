@@ -16,10 +16,12 @@ import {
 import {
   RETO_CFG, ESTADOS_RETO, FASES_RETO, modoIdentidadDe, faseReto, puedeFinalizar, puedeUnirse, registroParticipante, idParticipante,
   validarAlias, puedeResponder, nombreVisible, vistaResultadosParticipante, tiempoRespuestaMs, vistaClasificacionParcial,
-  esVersionRitmo, revisionPregunta, filasRankingVivo, vistaRankingVivo, preguntasDiferidas,
+  esVersionRitmo, revisionPregunta, filasRankingVivo, vistaRankingVivo, preguntasDiferidas, esAleatoria, ordenAleatorio, preguntaDelTurno,
 } from '../../src/utils/retoExpres.js'
 
 const metodoNoPermitido = (res) => res.status(405).json({ error: 'Método no permitido' })
+// Azar del servidor para repartir el orden aleatorio (nunca Math.random ni nada que mande el navegador).
+const azarSeguro = () => crypto.randomBytes(4).readUInt32BE(0) / 2 ** 32
 
 // ── /api/subject/reto-unirse ───────────────────────────────────────────────
 // Entrar o reconectarse. Externo: con `token` válido se reconecta; sin él entra como participante nuevo (pide alias).
@@ -97,6 +99,9 @@ export async function unirseReto(db, req, codigo, body) {
         if (!base) throw new ErrorReto(400, 'No se pudo registrar tu entrada. Inténtalo de nuevo.')
         const datos = { ...base }
         delete datos.id // el id es el del documento, no un campo
+        // Orden aleatorio (6-nov-2026): el servidor reparte el orden de ESTE participante una sola vez, al entrar, con
+        // crypto. Queda en su documento (ningún cliente lo escribe): recargar o reconectarse no lo cambia.
+        if (esAleatoria(ses)) datos.orden = ordenAleatorio((ses.preguntas || []).length, azarSeguro)
         const comunes = { sesionId: codigo, actividadId: ses.actividadId, docenteId: ses.docenteId }
         tx.create(r.participante(id), { ...datos, actividadId: ses.actividadId, aliasClave: alias?.clave ?? null, creadoEn: FieldValue.serverTimestamp() })
         if (alias) tx.create(r.alias(alias.clave), { ...comunes, participanteId: id })
@@ -164,7 +169,8 @@ export async function estadoReto(db, req, codigo, body) {
   if (p.expulsado === true) return salida
 
   if (t.fase === FASES_RETO.abierta && Number.isInteger(t.indice)) {
-    const q = sesion.preguntas[t.indice]
+    // Orden aleatorio (6-nov-2026): la pregunta que a ESTE participante le toca en el turno. `indice` sigue siendo el turno.
+    const q = preguntaDelTurno(sesion, p, t.indice)?.pregunta || sesion.preguntas[t.indice]
     salida.pregunta = { indice: t.indice, id: q.id, tipo: q.tipo, enunciado: q.enunciado, opciones: q.opciones, tiempoSeg: tiempoRespuestaMs(q) / 1000 }
     salida.yaRespondio = (await refs(db, codigo).respuesta(p.id, t.indice).get()).exists
   }
@@ -186,7 +192,7 @@ export async function estadoReto(db, req, codigo, body) {
       if (cerradas > vista && (sesion.revelar === 'si' || sesion.revelar === 'no')) {
         try {
           const k = cerradas - 1
-          const q = sesion.preguntas[k]
+          const q = preguntaDelTurno(sesion, p, k)?.pregunta || sesion.preguntas[k]
           const [cSnap, rSnap] = await Promise.all([refs(db, codigo).claves.get(), refs(db, codigo).respuesta(p.id, k).get()])
           const clave = cSnap.data()?.claves?.[q.id]?.respuestaCorrecta ?? null
           salida.revision = revisionPregunta({ sesion, indice: k, pregunta: q, clave, respuesta: rSnap.exists ? rSnap.data() : null })
@@ -202,7 +208,7 @@ export async function estadoReto(db, req, codigo, body) {
           const vivo = await rankingVivoAlDia(db, codigo, sesion, usable?.cerradas ?? 0)
           const filas = filasRankingVivo({
             parcial: usable, participantes: vivo?.participantes || [], enVivo: vivo?.enVivo || [], abierta: vivo?.abierta ?? null,
-            totalPreguntas: sesion.totalPreguntas,
+            totalPreguntas: sesion.totalPreguntas, aleatorio: esAleatoria(sesion),
           })
           const diferidasVivas = (vivo?.enVivo || []).filter((q) => q.indice >= (usable?.cerradas ?? 0) && preguntasDiferidas(sesion, [sesion.preguntas[q.indice]]).length).length
           salida.ranking = vistaRankingVivo({
@@ -272,7 +278,13 @@ export async function responderReto(db, req, codigo, body) {
   if (!quien.id) throw new ErrorReto(403, 'Primero entra a la competencia.', 'NO_PARTICIPANTE')
   const indice = Number(body.indice)
   if (!Number.isInteger(indice) || indice < 0 || indice >= (sesion.preguntas || []).length) throw new ErrorReto(400, 'Esa pregunta no existe.')
-  const pregunta = sesion.preguntas[indice]
+  // Orden aleatorio (6-nov-2026): `indice` es el turno; la pregunta es la que a ESTE participante le tocó en él (su orden
+  // es fijo desde que entró, así que leerlo fuera de la transacción es seguro). Sin orden aleatorio, la de siempre.
+  let pregunta = sesion.preguntas[indice]
+  if (esAleatoria(sesion)) {
+    const pSnap = await r.participante(quien.id).get()
+    if (pSnap.exists) pregunta = preguntaDelTurno(sesion, { id: pSnap.id, ...pSnap.data() }, indice)?.pregunta || pregunta
+  }
   const opcion = String(body.opcion ?? '')
   if (!(pregunta.opciones || []).some((o) => o.id === opcion)) throw new ErrorReto(400, 'Elige una de las opciones.')
   const respRef = r.respuesta(quien.id, indice)
