@@ -90,7 +90,7 @@ export default function RetoPage() {
   const [actividad, setActividad] = useState(null)
   const [asignatura, setAsignatura] = useState(null)
   const [preguntas, setPreguntas] = useState([])
-  const [datos, setDatos] = useState({ nombre: '', instrucciones: '', modoIdentidad: 'nombre', calificable: false, tiempoSeg: TIEMPO_POR_OMISION_SEG, aleatorizar: false })
+  const [datos, setDatos] = useState({ nombre: '', instrucciones: '', modoIdentidad: 'nombre', calificable: false, tiempoSeg: TIEMPO_POR_OMISION_SEG, aleatorizar: false, barajarOpciones: false })
   const [aplicandoTiempo, setAplicandoTiempo] = useState(false)
   const [guardandoDatos, setGuardandoDatos] = useState(false)
   const [editor, setEditor] = useState(null) // { pregunta } | { pregunta: null } para nueva
@@ -137,6 +137,7 @@ export default function RetoPage() {
             nombre: r.actividad.nombre || '', instrucciones: r.actividad.instrucciones || '',
             modoIdentidad: r.actividad.reto?.modoIdentidad || 'nombre', calificable: r.actividad.reto?.calificable === true,
             tiempoSeg: tiempoDelReto(r.actividad), aleatorizar: r.actividad.reto?.aleatorizar === true,
+            barajarOpciones: r.actividad.reto?.barajarOpciones === true,
           })
           getDoc(doc(db, 'subjects', r.actividad.asignaturaId))
             .then((s) => { if (vigente) setAsignatura(s.exists() ? { id: s.id, ...s.data() } : null) })
@@ -159,7 +160,7 @@ export default function RetoPage() {
 
   const externo = actividad.reto?.modalidad === 'externo'
   const estado = estadoPreguntasReto(preguntas)
-  const original = { nombre: actividad.nombre || '', instrucciones: actividad.instrucciones || '', modoIdentidad: actividad.reto?.modoIdentidad || 'nombre', calificable: actividad.reto?.calificable === true, tiempoSeg: tiempoDelReto(actividad), aleatorizar: actividad.reto?.aleatorizar === true }
+  const original = { nombre: actividad.nombre || '', instrucciones: actividad.instrucciones || '', modoIdentidad: actividad.reto?.modoIdentidad || 'nombre', calificable: actividad.reto?.calificable === true, tiempoSeg: tiempoDelReto(actividad), aleatorizar: actividad.reto?.aleatorizar === true, barajarOpciones: actividad.reto?.barajarOpciones === true }
   const tiempoReto = tiempoDelReto(actividad)
   // ¿Alguna pregunta tiene un tiempo distinto del elegido? Entonces tiene sentido «Aplicar a todas».
   const tiemposDistintos = preguntas.some((p) => tiempoRespuestaMs(p) !== datos.tiempoSeg * 1000)
@@ -172,14 +173,15 @@ export default function RetoPage() {
     setGuardandoDatos(true)
     try {
       const cambios = externo
-        ? { nombre: datos.nombre, instrucciones: datos.instrucciones, tiempoSeg: datos.tiempoSeg, aleatorizar: datos.aleatorizar }
-        : { nombre: datos.nombre, instrucciones: datos.instrucciones, modoIdentidad: datos.modoIdentidad, calificable: datos.calificable, tiempoSeg: datos.tiempoSeg, aleatorizar: datos.aleatorizar }
+        ? { nombre: datos.nombre, instrucciones: datos.instrucciones, tiempoSeg: datos.tiempoSeg, aleatorizar: datos.aleatorizar, barajarOpciones: datos.barajarOpciones }
+        : { nombre: datos.nombre, instrucciones: datos.instrucciones, modoIdentidad: datos.modoIdentidad, calificable: datos.calificable, tiempoSeg: datos.tiempoSeg, aleatorizar: datos.aleatorizar, barajarOpciones: datos.barajarOpciones }
       const patch = await guardarDatosReto(actividad, cambios)
       setActividad((a) => ({
         ...a, ...('nombre' in patch && { nombre: patch.nombre }), ...('instrucciones' in patch && { instrucciones: patch.instrucciones }),
         ...('sinCalificacion' in patch && { sinCalificacion: patch.sinCalificacion }),
         reto: { ...a.reto, ...('reto.modoIdentidad' in patch && { modoIdentidad: patch['reto.modoIdentidad'] }), ...('reto.calificable' in patch && { calificable: patch['reto.calificable'] }),
-          ...('reto.tiempoSeg' in patch && { tiempoSeg: patch['reto.tiempoSeg'] }), ...('reto.aleatorizar' in patch && { aleatorizar: patch['reto.aleatorizar'] }) },
+          ...('reto.tiempoSeg' in patch && { tiempoSeg: patch['reto.tiempoSeg'] }), ...('reto.aleatorizar' in patch && { aleatorizar: patch['reto.aleatorizar'] }),
+          ...('reto.barajarOpciones' in patch && { barajarOpciones: patch['reto.barajarOpciones'] }) },
       }))
       toast('Datos del reto guardados')
     } catch (e) {
@@ -384,6 +386,10 @@ export default function RetoPage() {
               : datos.aleatorizar
                 ? 'Cada participante recibe las mismas preguntas en otro orden, fijo durante toda su competencia. El proyector solo muestra el número de pregunta, el tiempo y cuántos respondieron.'
                 : 'Todos reciben las preguntas en tu orden.'} />
+          <Switch label="Barajar opciones" checked={datos.barajarOpciones} onChange={(v) => setDatos((d) => ({ ...d, barajarOpciones: v }))}
+            hint={datos.barajarOpciones
+              ? 'Cada participante ve las opciones de cada pregunta en otro orden, fijo durante toda su competencia. El proyector muestra la pregunta sin sus opciones.'
+              : 'Todos ven las opciones en tu orden.'} />
           <p className="text-xs text-hint">La modalidad no se puede cambiar. Para usar la otra, crea otro reto.</p>
           <div className="flex justify-end">
             <Button icon={Save} onClick={guardarDatos} busy={guardandoDatos} disabled={!sucio || !datos.nombre.trim()}>Guardar datos</Button>

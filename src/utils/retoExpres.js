@@ -158,6 +158,51 @@ export function preguntaDelTurno(sesion, participante, turno) {
   return pregunta ? { indiceOriginal: idx, pregunta } : null
 }
 
+// ── Barajar opciones por participante (6-nov-2026) ───────────────────────────
+// Independiente del orden aleatorio de preguntas y sin condición de tiempos: el orden de las opciones no cambia el
+// reloj. La sesión lo congela en `barajarOpciones: true` al crearse y cada participante recibe, al ENTRAR, su orden de
+// opciones por pregunta (`ordenOpciones: { [preguntaId]: [ids de opción] }`, generado por el servidor con crypto y
+// guardado en su documento): fijo durante la pregunta y tras reconectarse. Solo cambia el ORDEN en que se le muestran:
+// mismos textos, mismos ids, misma cantidad. Se califica siempre por el id de la opción (esAcierto), nunca por la
+// posición ni la letra. Una sesión sin `barajarOpciones` sigue exactamente igual.
+
+/** ¿La sesión muestra las opciones en otro orden a cada participante? */
+export function esBarajada(sesion) {
+  return sesion?.barajarOpciones === true
+}
+
+/** Orden de opciones para cada pregunta: { [preguntaId]: [ids barajados] }. `azar` devuelve [0, 1) (crypto en el servidor). */
+export function ordenOpcionesAleatorio(preguntas, azar = Math.random) {
+  const salida = {}
+  for (const q of Array.isArray(preguntas) ? preguntas : []) {
+    const ids = (Array.isArray(q?.opciones) ? q.opciones : []).map((o) => String(o.id))
+    if (!q?.id || !ids.length) continue
+    salida[q.id] = ordenAleatorio(ids.length, azar).map((i) => ids[i])
+  }
+  return salida
+}
+
+/** ¿`orden` es una permutación exacta de los ids de las opciones de la pregunta (sin repetir, omitir ni agregar)? */
+export function ordenOpcionesValido(orden, pregunta) {
+  const ids = (Array.isArray(pregunta?.opciones) ? pregunta.opciones : []).map((o) => String(o.id))
+  if (!Array.isArray(orden) || orden.length !== ids.length) return false
+  const pendientes = new Set(ids)
+  for (const id of orden) {
+    if (!pendientes.has(String(id))) return false
+    pendientes.delete(String(id))
+  }
+  return pendientes.size === 0
+}
+
+/** Opciones de una pregunta en el orden de ESE participante (los mismos objetos); sin barajar o sin orden válido, las originales. */
+export function opcionesDe(sesion, participante, pregunta) {
+  const opciones = Array.isArray(pregunta?.opciones) ? pregunta.opciones : []
+  const orden = participante?.ordenOpciones?.[pregunta?.id]
+  if (!esBarajada(sesion) || !ordenOpcionesValido(orden, pregunta)) return opciones
+  const porId = new Map(opciones.map((o) => [String(o.id), o]))
+  return orden.map((id) => porId.get(String(id)))
+}
+
 // Tipos que se califican solos: los mismos objetivos de las evaluaciones (opción múltiple y verdadero/falso).
 export const TIPOS_RETO = [...TIPOS_OBJETIVOS]
 
@@ -1763,7 +1808,7 @@ export function datosNuevoReto({ nombre, modalidad, modoIdentidad, calificable =
  * Cambios permitidos al editar los datos de un reto: nombre, instrucciones, identidad (solo inscritos) y
  * calificable (solo inscritos). La modalidad nunca. Devuelve { ok: true, patch } o { ok: false, codigo, error }.
  */
-export function cambiosDatosReto(reto, { nombre, instrucciones, modoIdentidad, calificable, tiempoSeg, mostrarRespuestaCorrecta, aleatorizar } = {}) {
+export function cambiosDatosReto(reto, { nombre, instrucciones, modoIdentidad, calificable, tiempoSeg, mostrarRespuestaCorrecta, aleatorizar, barajarOpciones } = {}) {
   const modalidad = reto?.reto?.modalidad
   if (!modalidadValida(modalidad)) return { ok: false, codigo: 'MODALIDAD_INVALIDA', error: 'Este reto no está bien configurado.' }
   const patch = {}
@@ -1788,6 +1833,11 @@ export function cambiosDatosReto(reto, { nombre, instrucciones, modoIdentidad, c
   if (aleatorizar !== undefined) {
     if (typeof aleatorizar !== 'boolean') return { ok: false, codigo: 'ALEATORIO_INVALIDO', error: 'Indica si el orden es aleatorio.' }
     patch['reto.aleatorizar'] = aleatorizar
+  }
+  // «Barajar opciones» (las dos modalidades, 6-nov-2026): independiente del orden de preguntas y de los tiempos.
+  if (barajarOpciones !== undefined) {
+    if (typeof barajarOpciones !== 'boolean') return { ok: false, codigo: 'BARAJAR_INVALIDO', error: 'Indica si se barajan las opciones.' }
+    patch['reto.barajarOpciones'] = barajarOpciones
   }
   if (modalidad === 'externo') {
     if ((modoIdentidad !== undefined && modoIdentidad !== 'alias') || calificable === true) {

@@ -90,6 +90,8 @@ export async function crearSesionReto(db, uid, actividadId) {
           // «Mostrar respuesta correcta al estudiante» de la actividad (la decide solo el docente; nada del participante).
           version: RETO_CFG.VERSION_RITMO, cortes: [], clasificacionPendiente: null, revelar: revelarDe(act.reto),
           ...(aleatorizar ? { aleatorizar: true } : {}),
+          // Barajar opciones (6-nov-2026): sin condición de tiempos; la sesión lo congela.
+          ...(act.reto?.barajarOpciones === true ? { barajarOpciones: true } : {}),
         })
         tx.create(r.claves, { sesionId: codigo, actividadId, docenteId: uid, claves })
       })

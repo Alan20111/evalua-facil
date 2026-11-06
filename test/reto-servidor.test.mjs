@@ -1187,5 +1187,82 @@ await caso('sin orden aleatorio, nada cambia: todos la misma pregunta en cada tu
   for (const k of ['ana', 'beto']) assert.strictEqual((await estado(codigo, {}, tk[k])).cuerpo.pregunta.id, 'p4')
 })
 
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('L. Barajar opciones por participante (6-nov-2026)')
+
+const idsDe = (opciones) => opciones.map((o) => o.id)
+const ordenadas = (ids) => [...ids].sort()
+
+await caso('se congela al crear aunque los tiempos sean distintos; sin pedirlo, no', async () => {
+  await preparar()
+  await db.doc('activities/r_ins').update({ 'reto.barajarOpciones': true })
+  await db.doc('activities/r_ins/preguntas/p3').update({ tiempoSeg: 60 })
+  const a = await crear('r_ins')
+  const s = (await db.doc(`retoSesiones/${a.cuerpo.codigo}`).get()).data()
+  assert.deepStrictEqual([s.barajarOpciones, s.aleatorizar], [true, undefined], 'independiente del orden de preguntas y de los tiempos')
+  const b = await crear('r_ext')
+  assert.strictEqual((await db.doc(`retoSesiones/${b.cuerpo.codigo}`).get()).data().barajarOpciones, undefined)
+})
+
+await caso('inscritos: cada quien su orden de opciones, fijo al reconectarse; mismo contenido; se califica por id; la clave no viaja', async () => {
+  await preparar()
+  await db.doc('activities/r_ins').update({ 'reto.barajarOpciones': true })
+  const codigo = await sesionAbierta('r_ins')
+  for (const k of ['ana', 'beto']) await unirse(codigo, {}, tk[k])
+  const ordenK = async (k) => (await db.doc(`retoParticipantes/${codigo}_${ALUMNOS[k].id}`).get()).data().ordenOpciones
+  const oAna = await ordenK('ana')
+  assert.deepStrictEqual(Object.keys(oAna).sort(), Array.from({ length: 10 }, (_, i) => `p${i}`).sort())
+  assert.deepStrictEqual(ordenadas(oAna.p0), ['a', 'b', 'c'])
+  assert.deepStrictEqual(ordenadas(oAna.p1), ['f', 'v'])
+  await unirse(codigo, {}, tk.ana) // reconexión
+  assert.deepStrictEqual(await ordenK('ana'), oAna, 'reconectarse no cambia el orden')
+  await iniciar(codigo)
+  const original = (await db.doc('activities/r_ins/preguntas/p0').get()).data().opciones
+  for (let t = 0; t < 10; t++) {
+    AHORA = abre(t) + 1000
+    for (const k of ['ana', 'beto']) {
+      const e = await estado(codigo, {}, tk[k])
+      const ops = e.cuerpo.pregunta.opciones
+      assert.deepStrictEqual(idsDe(ops), (await ordenK(k))[`p${t}`], `${k} turno ${t}: su orden`)
+      if (t === 0) assert.deepStrictEqual(ops.map((o) => `${o.id}:${o.texto}`).sort(), original.map((o) => `${o.id}:${o.texto}`).sort(), 'mismos textos e ids')
+      assert.ok(!JSON.stringify(e.cuerpo).includes('respuestaCorrecta'), 'la clave no viaja durante la competencia')
+      // Ana elige la correcta por id esté donde esté; Beto siempre la PRIMERA que ve (posición, no id).
+      const opcion = k === 'ana' ? (t % 2 === 0 ? 'b' : 'v') : ops[0].id
+      assert.strictEqual((await responder(codigo, t, opcion, {}, tk[k])).statusCode, 200)
+    }
+  }
+  const oBeto = await ordenK('beto')
+  const aciertosBeto = Array.from({ length: 10 }, (_, t) => oBeto[`p${t}`][0] === (t % 2 === 0 ? 'b' : 'v')).filter(Boolean).length
+  AHORA = cierra(9) + 100
+  const fin = await estado(codigo, {}, tk.beto)
+  const res = (await db.doc(`retoResultados/${codigo}`).get()).data()
+  const fila = (k) => res.clasificacion.find((f) => f.participanteId === `${codigo}_${ALUMNOS[k].id}`)
+  assert.deepStrictEqual([fila('ana').aciertos, fila('beto').aciertos], [10, aciertosBeto], 'calificado por id, no por posición')
+  // La corrección final: opciones en el orden que recibió cada quien (sus letras).
+  for (const q of fin.cuerpo.preguntas) assert.deepStrictEqual(idsDe(q.opciones), oBeto[q.id])
+})
+
+await caso('junto con el orden aleatorio de preguntas: su pregunta del turno y sus opciones', async () => {
+  await preparar()
+  await db.doc('activities/r_ext').update({ 'reto.barajarOpciones': true, 'reto.aleatorizar': true })
+  const codigo = await sesionAbierta('r_ext')
+  const token = await externo(codigo, 'Gato Veloz')
+  const p = (await db.collection('retoParticipantes').where('sesionId', '==', codigo).get()).docs[0].data()
+  await iniciar(codigo)
+  AHORA = abre(2) + 500
+  const e = await estado(codigo, { token })
+  assert.deepStrictEqual([e.cuerpo.pregunta.id, idsDe(e.cuerpo.pregunta.opciones)], [`p${p.orden[2]}`, p.ordenOpciones[`p${p.orden[2]}`]])
+})
+
+await caso('sin barajar opciones, nada cambia: el orden del docente para todos', async () => {
+  await preparar()
+  const codigo = await sesionAbierta('r_ins')
+  for (const k of ['ana', 'beto']) await unirse(codigo, {}, tk[k])
+  assert.strictEqual((await db.doc(`retoParticipantes/${codigo}_${ALUMNOS.ana.id}`).get()).data().ordenOpciones, undefined)
+  await iniciar(codigo)
+  AHORA = abre(0) + 500
+  for (const k of ['ana', 'beto']) assert.deepStrictEqual(idsDe((await estado(codigo, {}, tk[k])).cuerpo.pregunta.opciones), ['a', 'b', 'c'])
+})
+
 fijarRelojReto(null)
 resumen('RETO SERVIDOR')

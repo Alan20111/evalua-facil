@@ -142,6 +142,8 @@ export default function RetoEnVivoPage() {
   const visible = (p) => (sesion.modoIdentidad === 'alias' ? p.alias : p.nombre) || 'Participante'
   const n = Number.isInteger(f.indice) ? f.indice + 1 : null
   const aleatorio = sesion.aleatorizar === true
+  // Barajar opciones (6-nov-2026): cada celular las ve en otro orden; el proyector muestra la pregunta sin sus opciones.
+  const barajadas = sesion.barajarOpciones === true
   const q = Number.isInteger(f.indice) && !aleatorio ? sesion.preguntas[f.indice] : null
   const respondieron = Number.isInteger(f.indice) ? new Set(respuestas.filter((r) => r.indice === f.indice).map((r) => r.participanteId)).size : 0
   const url = urlReto(codigo)
@@ -197,14 +199,16 @@ export default function RetoEnVivoPage() {
         {!aleatorio && (
           <>
             <h1 className="text-4xl font-semibold text-on-surface break-words leading-tight">{q?.enunciado}</h1>
-            <ul className="grid gap-4 sm:grid-cols-2">
-              {(q?.opciones || []).map((o, i) => (
-                <li key={o.id} className="flex items-center gap-4 bg-surface-card rounded-card shadow-card px-5 py-4">
-                  <Insignia i={i} />
-                  <span className="flex-1 min-w-0 text-3xl text-on-surface break-words">{textoOpcion(o)}</span>
-                </li>
-              ))}
-            </ul>
+            {!barajadas && (
+              <ul className="grid gap-4 sm:grid-cols-2">
+                {(q?.opciones || []).map((o, i) => (
+                  <li key={o.id} className="flex items-center gap-4 bg-surface-card rounded-card shadow-card px-5 py-4">
+                    <Insignia i={i} />
+                    <span className="flex-1 min-w-0 text-3xl text-on-surface break-words">{textoOpcion(o)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </>
         )}
         <p className="text-2xl text-muted">{respondieron} de {activos.length} respondieron</p>

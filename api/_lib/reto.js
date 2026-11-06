@@ -17,6 +17,7 @@ import {
   RETO_CFG, ESTADOS_RETO, FASES_RETO, modoIdentidadDe, faseReto, puedeFinalizar, puedeUnirse, registroParticipante, idParticipante,
   validarAlias, puedeResponder, nombreVisible, vistaResultadosParticipante, tiempoRespuestaMs, vistaClasificacionParcial,
   esVersionRitmo, revisionPregunta, filasRankingVivo, vistaRankingVivo, preguntasDiferidas, esAleatoria, ordenAleatorio, preguntaDelTurno,
+  esBarajada, ordenOpcionesAleatorio, opcionesDe,
 } from '../../src/utils/retoExpres.js'
 
 const metodoNoPermitido = (res) => res.status(405).json({ error: 'Método no permitido' })
@@ -102,6 +103,8 @@ export async function unirseReto(db, req, codigo, body) {
         // Orden aleatorio (6-nov-2026): el servidor reparte el orden de ESTE participante una sola vez, al entrar, con
         // crypto. Queda en su documento (ningún cliente lo escribe): recargar o reconectarse no lo cambia.
         if (esAleatoria(ses)) datos.orden = ordenAleatorio((ses.preguntas || []).length, azarSeguro)
+        // Barajar opciones (6-nov-2026): su orden de opciones de cada pregunta, una sola vez y fijo (crypto).
+        if (esBarajada(ses)) datos.ordenOpciones = ordenOpcionesAleatorio(ses.preguntas || [], azarSeguro)
         const comunes = { sesionId: codigo, actividadId: ses.actividadId, docenteId: ses.docenteId }
         tx.create(r.participante(id), { ...datos, actividadId: ses.actividadId, aliasClave: alias?.clave ?? null, creadoEn: FieldValue.serverTimestamp() })
         if (alias) tx.create(r.alias(alias.clave), { ...comunes, participanteId: id })
@@ -171,7 +174,8 @@ export async function estadoReto(db, req, codigo, body) {
   if (t.fase === FASES_RETO.abierta && Number.isInteger(t.indice)) {
     // Orden aleatorio (6-nov-2026): la pregunta que a ESTE participante le toca en el turno. `indice` sigue siendo el turno.
     const q = preguntaDelTurno(sesion, p, t.indice)?.pregunta || sesion.preguntas[t.indice]
-    salida.pregunta = { indice: t.indice, id: q.id, tipo: q.tipo, enunciado: q.enunciado, opciones: q.opciones, tiempoSeg: tiempoRespuestaMs(q) / 1000 }
+    // Barajar opciones: las mismas opciones (textos e ids) en SU orden; se responde y se califica por id.
+    salida.pregunta = { indice: t.indice, id: q.id, tipo: q.tipo, enunciado: q.enunciado, opciones: opcionesDe(sesion, p, q), tiempoSeg: tiempoRespuestaMs(q) / 1000 }
     salida.yaRespondio = (await refs(db, codigo).respuesta(p.id, t.indice).get()).exists
   }
   // Clasificación provisional (4-nov-2026): solo de preguntas ya cerradas y solo cuando hay una más nueva que la que el
@@ -226,7 +230,8 @@ export async function estadoReto(db, req, codigo, body) {
     // abrieron no se muestran. Sin la opción «Mostrar respuesta correcta» (retos de antes), un externo no recibe nada (E11).
     if (salida.resultados?.correccion) {
       const ids = new Set(salida.resultados.correccion.map((c) => c.preguntaId))
-      salida.preguntas = sesion.preguntas.filter((q) => ids.has(q.id)).map((q) => ({ id: q.id, enunciado: q.enunciado, opciones: q.opciones }))
+      // Con opciones barajadas, en el orden que recibió: las letras de su corrección son las que vio.
+      salida.preguntas = sesion.preguntas.filter((q) => ids.has(q.id)).map((q) => ({ id: q.id, enunciado: q.enunciado, opciones: opcionesDe(sesion, p, q) }))
     }
   }
   return salida
