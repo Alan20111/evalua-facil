@@ -44,6 +44,7 @@ import {
   tiempoRespuestaDecimas, textoTiempoReto, revisionPregunta, filasRankingVivo, vistaRankingVivo,
   rankingDocenteEnVivo, filasRankingFinal, estadoAplicacionReto, columnasRankingFinal,
   duracionesIguales, ordenAleatorio, ordenValido, ordenDe, preguntaDelTurno,
+  esBarajada, ordenOpcionesAleatorio, ordenOpcionesValido, opcionesDe,
 } from '../src/utils/retoExpres.js'
 import { esCopiable } from '../src/utils/copiaActividad.js'
 import { tituloMovimiento } from '../src/utils/movimientosCreditos.js'
@@ -1914,6 +1915,55 @@ caso('U · el docente lo activa o lo apaga en los datos del reto (las dos modali
   assert.deepStrictEqual(cambiosDatosReto(ins, { aleatorizar: true }).patch, { 'reto.aleatorizar': true })
   assert.deepStrictEqual(cambiosDatosReto({ reto: { modalidad: 'externo' } }, { aleatorizar: false }).patch, { 'reto.aleatorizar': false })
   assert.strictEqual(cambiosDatosReto(ins, { aleatorizar: 'si' }).ok, false)
+})
+
+// ── V. Barajar opciones por participante (6-nov-2026) ─────────────────────────
+grupo('V. Barajar opciones: mismo contenido, otro orden, calificación por id')
+
+const Q_OM = { id: 'p0', tipo: 'opcion_multiple', opciones: [{ id: 'a', texto: 'Uno' }, { id: 'b', texto: 'Dos' }, { id: 'c', texto: 'Tres' }, { id: 'd', texto: 'Cuatro' }] }
+const Q_VF = { id: 'p1', tipo: 'verdadero_falso', opciones: [{ id: 'v', texto: 'Verdadero' }, { id: 'f', texto: 'Falso' }] }
+
+caso('V · cada pregunta recibe una permutación de SUS ids: sin repetir, omitir ni agregar; también verdadero/falso', () => {
+  let semilla = 11
+  const azar = () => { semilla = (semilla * 16807) % 2147483647; return semilla / 2147483647 }
+  const vistos = new Set()
+  for (let k = 0; k < 100; k++) {
+    const o = ordenOpcionesAleatorio([Q_OM, Q_VF], azar)
+    assert.ok(ordenOpcionesValido(o.p0, Q_OM) && ordenOpcionesValido(o.p1, Q_VF))
+    vistos.add(o.p0.join(''))
+  }
+  assert.ok(vistos.size > 15, 'órdenes independientes (24 posibles con 4 opciones)')
+  assert.strictEqual(ordenOpcionesValido(['a', 'b', 'c'], Q_OM), false, 'omitida')
+  assert.strictEqual(ordenOpcionesValido(['a', 'a', 'b', 'c'], Q_OM), false, 'repetida')
+  assert.strictEqual(ordenOpcionesValido(['a', 'b', 'c', 'x'], Q_OM), false, 'ajena')
+})
+
+caso('V · se muestran las MISMAS opciones (texto e id) en su orden; sin la opción o con un orden inválido, las originales', () => {
+  const p = { ordenOpciones: { p0: ['c', 'a', 'd', 'b'], p1: ['f', 'v'] } }
+  const ses = { barajarOpciones: true }
+  assert.deepStrictEqual(opcionesDe(ses, p, Q_OM).map((o) => `${o.id}:${o.texto}`), ['c:Tres', 'a:Uno', 'd:Cuatro', 'b:Dos'])
+  assert.deepStrictEqual(opcionesDe(ses, p, Q_VF).map((o) => o.id), ['f', 'v'])
+  assert.deepStrictEqual(opcionesDe({}, p, Q_OM), Q_OM.opciones, 'sesión sin barajar: el orden del docente')
+  assert.deepStrictEqual(opcionesDe(ses, { ordenOpciones: { p0: ['a', 'a', 'b', 'c'] } }, Q_OM), Q_OM.opciones, 'orden inválido: nunca se usa')
+  assert.strictEqual(esBarajada(ses) && !esBarajada({ aleatorizar: true }), true, 'independiente del orden de preguntas')
+})
+
+caso('V · la calificación no depende de la posición: misma opción (id) = mismo resultado con cualquier orden', () => {
+  const base = { sesion: v2Final(), preguntas: PREG_V2, claves: CLAVES }
+  const respuestas = [resV2('ana', 0, abre(0) + 1000), resV2('ana', 1, abre(1) + 2000, { correcta: false })]
+  const sinBarajar = calcularResultadosReto({ ...base, participantes: gente('ana'), respuestas })
+  const barajado = calcularResultadosReto({
+    ...base, sesion: v2Final({ barajarOpciones: true }), respuestas,
+    participantes: gente('ana').map((p) => ({ ...p, ordenOpciones: ordenOpcionesAleatorio(PREG_V2, () => 0.99) })),
+  })
+  assert.deepStrictEqual(barajado.clasificacion, sinBarajar.clasificacion)
+  assert.deepStrictEqual(barajado.detalle, sinBarajar.detalle)
+})
+
+caso('V · el docente lo activa o lo apaga aparte del orden de preguntas (las dos modalidades)', () => {
+  assert.deepStrictEqual(cambiosDatosReto({ reto: { modalidad: 'inscritos' } }, { barajarOpciones: true }).patch, { 'reto.barajarOpciones': true })
+  assert.deepStrictEqual(cambiosDatosReto({ reto: { modalidad: 'externo' } }, { barajarOpciones: false }).patch, { 'reto.barajarOpciones': false })
+  assert.strictEqual(cambiosDatosReto({ reto: { modalidad: 'inscritos' } }, { barajarOpciones: 1 }).ok, false)
 })
 
 console.log(`\n${pasadas} pasaron, ${fallos} fallaron`)
