@@ -2,7 +2,7 @@
 // (retoResultados) más lo que el docente ya puede leer (participantes, para ver el nombre real detrás de un alias).
 // `proyectable`: versión para la pantalla del salón — solo los 10 primeros lugares y nunca el nombre real.
 import { Medal } from 'lucide-react'
-import { RETO_CFG, columnasRankingFinal, filasRankingFinal, textoTiempoReto } from '../../utils/retoExpres'
+import { RETO_CFG, filasRankingFinal, textoTiempoReto } from '../../utils/retoExpres'
 import { ICONO } from '../../config/iconos'
 import TablaRankingReto from './TablaRankingReto'
 
@@ -71,7 +71,6 @@ export default function ResultadosRetoDocente({ resultados, sesion, participante
     }
     return { q, i, aciertos, respondidas, recibieron: aleatorio ? recibieron : total }
   })
-  const cols = columnasRankingFinal(resultados)
   const descartadas = resultados.descartadas || {}
   const deInterrumpida = Number(descartadas.noRealizada) || 0
   const otrasDescartadas = (Number(descartadas.fueraDeTiempo) || 0) + (Number(descartadas.duplicadas) || 0) + (Number(descartadas.desconocidas) || 0)
@@ -88,9 +87,9 @@ export default function ResultadosRetoDocente({ resultados, sesion, participante
       </p>
       <section aria-labelledby="res-clasif">
         <h3 id="res-clasif" className="text-base font-semibold text-on-surface mb-2">Clasificación</h3>
-        {/* Versión 2 (etapa B): tabla con el tiempo de cada pregunta y el acumulado; las de antes, la lista de siempre. */}
+        {/* Versión 2 (etapa B): tabla con aciertos y tiempo total (sin columnas por pregunta desde el 7-nov-2026); las de antes, la lista de siempre. */}
         {resultados.criterio === 'aciertos_tiempo' ? (
-          <TablaRankingReto filas={filasRankingFinal(resultados)} preguntas={cols.preguntas} cerradas={cols.preguntas} etiquetas={cols.etiquetas}
+          <TablaRankingReto filas={filasRankingFinal(resultados)}
             clave={(f) => f.participanteId} extra={conAlias ? (f) => porId.get(f.participanteId)?.nombre || null : null} />
         ) : (
         <ol className="space-y-1">
