@@ -26,7 +26,7 @@ import { reactivosDesdePropuesta } from '../../utils/reactivosIA'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { TEACHER_CONTAINER } from '../../config/layout'
 import {
-  MODALIDADES_RETO, MOTIVOS_INCOMPATIBLE, RETO_CFG, TIEMPO_POR_OMISION_SEG, duracionTotalMs, duracionValida, estadoPreguntasReto,
+  MODALIDADES_RETO, MOTIVOS_INCOMPATIBLE, RETO_CFG, TIEMPO_POR_OMISION_SEG, duracionTotalMs, duracionValida, duracionesIguales, estadoPreguntasReto,
   preguntaRetoDesdePropuestaIA, puedeFinalizar, preguntaRetoDesdeReactivo, reactivoCompatibleReto, textoDuracion, tiempoRespuestaMs,
 } from '../../utils/retoExpres'
 import {
@@ -90,7 +90,7 @@ export default function RetoPage() {
   const [actividad, setActividad] = useState(null)
   const [asignatura, setAsignatura] = useState(null)
   const [preguntas, setPreguntas] = useState([])
-  const [datos, setDatos] = useState({ nombre: '', instrucciones: '', modoIdentidad: 'nombre', calificable: false, tiempoSeg: TIEMPO_POR_OMISION_SEG })
+  const [datos, setDatos] = useState({ nombre: '', instrucciones: '', modoIdentidad: 'nombre', calificable: false, tiempoSeg: TIEMPO_POR_OMISION_SEG, aleatorizar: false })
   const [aplicandoTiempo, setAplicandoTiempo] = useState(false)
   const [guardandoDatos, setGuardandoDatos] = useState(false)
   const [editor, setEditor] = useState(null) // { pregunta } | { pregunta: null } para nueva
@@ -136,7 +136,7 @@ export default function RetoPage() {
           setDatos({
             nombre: r.actividad.nombre || '', instrucciones: r.actividad.instrucciones || '',
             modoIdentidad: r.actividad.reto?.modoIdentidad || 'nombre', calificable: r.actividad.reto?.calificable === true,
-            tiempoSeg: tiempoDelReto(r.actividad),
+            tiempoSeg: tiempoDelReto(r.actividad), aleatorizar: r.actividad.reto?.aleatorizar === true,
           })
           getDoc(doc(db, 'subjects', r.actividad.asignaturaId))
             .then((s) => { if (vigente) setAsignatura(s.exists() ? { id: s.id, ...s.data() } : null) })
@@ -159,10 +159,12 @@ export default function RetoPage() {
 
   const externo = actividad.reto?.modalidad === 'externo'
   const estado = estadoPreguntasReto(preguntas)
-  const original = { nombre: actividad.nombre || '', instrucciones: actividad.instrucciones || '', modoIdentidad: actividad.reto?.modoIdentidad || 'nombre', calificable: actividad.reto?.calificable === true, tiempoSeg: tiempoDelReto(actividad) }
+  const original = { nombre: actividad.nombre || '', instrucciones: actividad.instrucciones || '', modoIdentidad: actividad.reto?.modoIdentidad || 'nombre', calificable: actividad.reto?.calificable === true, tiempoSeg: tiempoDelReto(actividad), aleatorizar: actividad.reto?.aleatorizar === true }
   const tiempoReto = tiempoDelReto(actividad)
   // ¿Alguna pregunta tiene un tiempo distinto del elegido? Entonces tiene sentido «Aplicar a todas».
   const tiemposDistintos = preguntas.some((p) => tiempoRespuestaMs(p) !== datos.tiempoSeg * 1000)
+  // Orden aleatorio (6-nov-2026): solo con TODAS las preguntas del mismo tiempo (el servidor lo vuelve a comprobar).
+  const mismoTiempo = duracionesIguales(preguntas)
   const duracionAprox = preguntas.length ? Math.ceil(duracionTotalMs({ totalPreguntas: preguntas.length, preguntas }) / 60000) : 0
   const sucio = JSON.stringify(datos) !== JSON.stringify(original)
 
@@ -170,14 +172,14 @@ export default function RetoPage() {
     setGuardandoDatos(true)
     try {
       const cambios = externo
-        ? { nombre: datos.nombre, instrucciones: datos.instrucciones, tiempoSeg: datos.tiempoSeg }
-        : { nombre: datos.nombre, instrucciones: datos.instrucciones, modoIdentidad: datos.modoIdentidad, calificable: datos.calificable, tiempoSeg: datos.tiempoSeg }
+        ? { nombre: datos.nombre, instrucciones: datos.instrucciones, tiempoSeg: datos.tiempoSeg, aleatorizar: datos.aleatorizar }
+        : { nombre: datos.nombre, instrucciones: datos.instrucciones, modoIdentidad: datos.modoIdentidad, calificable: datos.calificable, tiempoSeg: datos.tiempoSeg, aleatorizar: datos.aleatorizar }
       const patch = await guardarDatosReto(actividad, cambios)
       setActividad((a) => ({
         ...a, ...('nombre' in patch && { nombre: patch.nombre }), ...('instrucciones' in patch && { instrucciones: patch.instrucciones }),
         ...('sinCalificacion' in patch && { sinCalificacion: patch.sinCalificacion }),
         reto: { ...a.reto, ...('reto.modoIdentidad' in patch && { modoIdentidad: patch['reto.modoIdentidad'] }), ...('reto.calificable' in patch && { calificable: patch['reto.calificable'] }),
-          ...('reto.tiempoSeg' in patch && { tiempoSeg: patch['reto.tiempoSeg'] }) },
+          ...('reto.tiempoSeg' in patch && { tiempoSeg: patch['reto.tiempoSeg'] }), ...('reto.aleatorizar' in patch && { aleatorizar: patch['reto.aleatorizar'] }) },
       }))
       toast('Datos del reto guardados')
     } catch (e) {
@@ -375,6 +377,13 @@ export default function RetoPage() {
               </Button>
             )}
           </div>
+          <Switch label="Orden aleatorio por participante" checked={datos.aleatorizar && mismoTiempo} disabled={!mismoTiempo}
+            onChange={(v) => setDatos((d) => ({ ...d, aleatorizar: v }))}
+            hint={!mismoTiempo
+              ? 'Solo disponible cuando todas las preguntas tienen el mismo tiempo. Con tiempos distintos, todos reciben tu orden.'
+              : datos.aleatorizar
+                ? 'Cada participante recibe las mismas preguntas en otro orden, fijo durante toda su competencia. El proyector solo muestra el número de pregunta, el tiempo y cuántos respondieron.'
+                : 'Todos reciben las preguntas en tu orden.'} />
           <p className="text-xs text-hint">La modalidad no se puede cambiar. Para usar la otra, crea otro reto.</p>
           <div className="flex justify-end">
             <Button icon={Save} onClick={guardarDatos} busy={guardandoDatos} disabled={!sucio || !datos.nombre.trim()}>Guardar datos</Button>
@@ -413,7 +422,7 @@ export default function RetoPage() {
           <h2 id="reto-competencias" className="text-lg font-semibold text-on-surface">Competencias</h2>
           {sesiones === null
             ? <p className="text-sm text-muted">Cargando…</p>
-            : <HistorialRetoSesiones activityId={activityId} actividad={actividad} docenteId={uid} sesiones={sesiones} onCambio={() => setVersionSesiones((v) => v + 1)} />}
+            : <HistorialRetoSesiones activityId={activityId} actividad={actividad} asignatura={asignatura} docenteId={uid} sesiones={sesiones} onCambio={() => setVersionSesiones((v) => v + 1)} />}
         </section>
 
         <div className="flex flex-wrap items-center justify-end gap-3 pb-6">

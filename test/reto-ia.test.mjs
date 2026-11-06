@@ -1,4 +1,5 @@
-// Reto Exprés · etapa 2 — la operación `reactivos` con un reto como actividad madre, contra el emulador.
+// Reto Exprés · etapa 2 — la operación `reactivos` con un reto como actividad madre, contra el emulador. Grupo Z
+// (6-nov-2026): «Analizar resultados con IA» de una competencia (rama de Reto de `analizar_resultados`).
 //
 //   firebase emulators:exec --only firestore,auth --project demo-test "node test/reto-ia.test.mjs"
 //
@@ -332,6 +333,155 @@ await caso('cuestionario y examen: los archivos se siguen IGNORANDO (ni se leen 
   await rechazaSinCobro({ actividadId: 'cuest_1', cantidad: 2, tipos: ['verdadero_falso'], extra: { quiereEvaluar: '', fuentes: [CELULA] } }, 'CONTEXTO_INSUFICIENTE')
 })
 docExtract.clasificarDocumento = clasificarReal
+
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('Z. Analizar resultados con IA de UNA competencia (6-nov-2026): rama de Reto de analizar_resultados')
+
+const TARIFAS_ANALISIS = {
+  version: 1, tarifas: { analizar_resultados: 5 }, categorias: { analizar_resultados: 'Evaluaciones' },
+  modeloPorOperacion: { analizar_resultados: 'claude-haiku-4-5' },
+}
+const PREG_Z = Array.from({ length: 10 }, (_, i) => ({
+  id: `q${i}`, tipo: i % 2 ? 'verdadero_falso' : 'opcion_multiple', enunciado: `Enunciado ${i + 1}`, tiempoSeg: 20,
+  opciones: i % 2 ? [{ id: 'v', texto: 'Verdadero' }, { id: 'f', texto: 'Falso' }] : [{ id: 'a', texto: 'Mitocondria' }, { id: 'b', texto: 'Núcleo' }, { id: 'c', texto: 'Ribosoma' }],
+}))
+const CORRECTA_Z = (i) => (i % 2 ? 'v' : 'a')
+const ERRADA_Z = (i) => (i % 2 ? 'f' : 'b')
+// `aciertos[k]` = cuántas acierta el participante k (las primeras); el resto las falla con la opción errada.
+function resultadosZ(nombres, aciertos, extra = {}) {
+  const clasificacion = nombres.map((n, k) => ({ participanteId: `Z_${n}`, nombreVisible: n, aciertos: aciertos[k], respondidas: 10, posicion: k + 1 }))
+  const detalle = Object.fromEntries(nombres.map((n, k) => [`Z_${n}`, PREG_Z.map((q, i) => ({
+    preguntaId: q.id, opcionSeleccionada: i < aciertos[k] ? CORRECTA_Z(i) : ERRADA_Z(i), respuestaCorrecta: CORRECTA_Z(i), acerto: i < aciertos[k], tiempoDecimas: 50,
+  }))]))
+  return { ok: true, realizadas: 10, sinResultados: false, clasificacion, expulsados: [], detalle, descartadas: {}, criterio: 'aciertos_tiempo', ...extra }
+}
+async function sesionZ(codigo, { actividadId = 'reto_an', modalidad = 'inscritos', resultados, estado = 'finalizada' } = {}) {
+  await db.doc(`retoSesiones/${codigo}`).set({ actividadId, asignaturaId: 'sub_reto', docenteId: DOCENTE, titulo: 'Reto Z', modalidad, modoIdentidad: 'alias', estado, preguntas: PREG_Z, totalPreguntas: 10, version: 2 })
+  if (resultados) await db.doc(`retoResultados/${codigo}`).set({ ...resultados, sesionId: codigo, actividadId, docenteId: DOCENTE, modalidad })
+}
+const analizar = ({ sesionId, actividadId = 'reto_an', k = clave(), uid = DOCENTE }) => IA_FN.ejecutarOperacionIA.run({
+  auth: { uid }, data: { operacion: 'analizar_resultados', idempotencyKey: k, unidades: 1, params: { actividadId, asignaturaId: 'sub_reto', sesionId } },
+})
+const ANALISIS_FALSO = () => ({
+  resumenGeneral: 'El grupo domina las primeras preguntas y falla las últimas.', resumenEjecutivo: 'Repasar los últimos temas.',
+  patrones: [{ observacion: 'Las preguntas 8 a 10 casi nadie las acierta', interpretacion: 'Tema visto al final' }],
+  estudiantesAtencion: [{ anonId: 'Participante 4', senal: 'acertó 2 de 10' }, { anonId: 'Participante 99', senal: 'inventado' }],
+  recomendaciones: ['Repasar organelos con un esquema'],
+})
+async function rechazaAnalisis(args, codigo) {
+  const antes = await saldo()
+  pedidosIA.length = 0
+  let error = null
+  await analizar(args).catch((e) => { error = e })
+  assert.ok(error, 'debió rechazarse')
+  assert.strictEqual(codigoDe(error), codigo, `código ${codigoDe(error)} ≠ ${codigo}`)
+  assert.strictEqual(await saldo(), antes, 'no se cobró')
+  assert.strictEqual(pedidosIA.length, 0, 'no se llamó a la IA')
+}
+
+await preparar()
+await db.doc('config/iaTarifas').set(TARIFAS_ANALISIS)
+await crearReto('reto_an')
+await crearReto('reto_ext', { modalidad: 'externo' })
+
+await caso('cobra 5 una vez, guarda el análisis con su sesión y los números los pone el código (no la IA)', async () => {
+  await sesionZ('ANALISIS01', { resultados: resultadosZ(['Zorro Plateado', 'Beto', 'Caro', 'Dani'], [9, 7, 5, 2]) })
+  respuestaIA = ANALISIS_FALSO
+  pedidosIA.length = 0
+  const r = await analizar({ sesionId: 'ANALISIS01' })
+  assert.strictEqual(await saldo(), 95)
+  assert.strictEqual(pedidosIA.length, 1)
+  const texto = textoDelPedido(pedidosIA[0])
+  assert.ok(texto.includes('RETO EXPRÉS') && texto.includes('Participante 1: 9 de 10 aciertos'), 'desempeño anónimo')
+  assert.ok(!texto.includes('Zorro Plateado') && !texto.includes('Z_'), 'ni alias ni ids viajan a la IA')
+  assert.ok(texto.includes('"Núcleo"'), 'la respuesta incorrecta más elegida va con su texto')
+  const res = r.resultado
+  assert.strictEqual(res.porcentajeAciertosGeneral, 58) // (9+7+5+2) / 40
+  assert.deepStrictEqual(res.estudiantesAtencion.map((e) => e.anonId), ['Participante 4'], 'solo candidatos (< 60 %); el inventado se descarta')
+  assert.deepStrictEqual(res.reactivosDificiles.map((q) => q.pctAciertos), [0, 25, 25])
+  const regs = (await db.doc('retoResultados/ANALISIS01').get()).data()
+  assert.ok(regs.analisisId && !regs.analisisEnCurso, 'queda el id y se suelta el candado')
+  const guardado = (await db.doc(`activities/reto_an/analisisIA/${regs.analisisId}`).get()).data()
+  assert.strictEqual(guardado.sesionId, 'ANALISIS01')
+  assert.deepStrictEqual(guardado.resultado.mapaAlumnos[0], { anonId: 'Participante 1', alumnoId: 'Z_Zorro Plateado' })
+})
+
+await caso('volver a pedirlo: se rechaza SIN cobro ni IA (YA_ANALIZADA); consultar el guardado es gratis', async () => {
+  await rechazaAnalisis({ sesionId: 'ANALISIS01' }, 'YA_ANALIZADA')
+})
+
+await caso('dos pedidos a la vez: se cobra UNO; el otro se rechaza o se reembolsa', async () => {
+  await sesionZ('ANALISIS02', { resultados: resultadosZ(['Ana', 'Beto', 'Caro'], [8, 6, 4]) })
+  respuestaIA = async () => { await new Promise((ok) => setTimeout(ok, 150)); return ANALISIS_FALSO() }
+  const antes = await saldo()
+  const r = await Promise.allSettled([analizar({ sesionId: 'ANALISIS02' }), analizar({ sesionId: 'ANALISIS02' })])
+  assert.strictEqual(r.filter((x) => x.status === 'fulfilled').length, 1)
+  assert.strictEqual(await saldo(), antes - 5)
+  const docs = await db.collection('activities/reto_an/analisisIA').where('sesionId', '==', 'ANALISIS02').get()
+  assert.strictEqual(docs.size, 1)
+})
+
+await caso('si la IA falla: reembolso íntegro, sin análisis y el candado se suelta (se puede reintentar)', async () => {
+  await sesionZ('ANALISIS03', { resultados: resultadosZ(['Ana', 'Beto', 'Caro'], [8, 6, 4]) })
+  respuestaIA = () => ({ resumenGeneral: '', resumenEjecutivo: '' })
+  const antes = await saldo()
+  await assert.rejects(analizar({ sesionId: 'ANALISIS03' }))
+  assert.strictEqual(await saldo(), antes)
+  const regs = (await db.doc('retoResultados/ANALISIS03').get()).data()
+  assert.ok(!regs.analisisId && !regs.analisisEnCurso)
+  respuestaIA = ANALISIS_FALSO
+  await analizar({ sesionId: 'ANALISIS03' })
+  assert.strictEqual(await saldo(), antes - 5)
+})
+
+await caso('sin datos suficientes, en curso, sin terminar, de otro docente o de otro reto: rechazo sin cobro', async () => {
+  await sesionZ('ANALISIS04', { resultados: resultadosZ(['Ana', 'Beto'], [8, 6]) })
+  await rechazaAnalisis({ sesionId: 'ANALISIS04' }, 'CONTEXTO_INSUFICIENTE')
+  await sesionZ('ANALISIS05', { resultados: { ok: true, realizadas: 0, sinResultados: true, clasificacion: [], detalle: {} } })
+  await rechazaAnalisis({ sesionId: 'ANALISIS05' }, 'CONTEXTO_INSUFICIENTE')
+  await sesionZ('ANALISIS06', { resultados: resultadosZ(['Ana', 'Beto', 'Caro'], [8, 6, 4], { analisisEnCurso: { clave: 'otro', hastaMs: Date.now() + 60000 } }) })
+  await rechazaAnalisis({ sesionId: 'ANALISIS06' }, 'EN_CURSO')
+  await sesionZ('ANALISIS07', { estado: 'en_curso' })
+  await rechazaAnalisis({ sesionId: 'ANALISIS07' }, 'SIN_RESULTADOS')
+  await rechazaAnalisis({ sesionId: 'ANALISIS01', actividadId: 'reto_ext' }, null) // la sesión es de otro reto
+  await rechazaAnalisis({ sesionId: 'ANALISIS02', uid: 'otro_docente' }, null)
+})
+
+await caso('un candado vencido (análisis que nunca terminó) ya no bloquea', async () => {
+  await sesionZ('ANALISIS08', { resultados: resultadosZ(['Ana', 'Beto', 'Caro'], [8, 6, 4], { analisisEnCurso: { clave: 'viejo', hastaMs: Date.now() - 1000 } }) })
+  respuestaIA = ANALISIS_FALSO
+  await analizar({ sesionId: 'ANALISIS08' })
+  assert.ok((await db.doc('retoResultados/ANALISIS08').get()).data().analisisId)
+})
+
+await caso('reto externo: también se analiza, con identificadores anónimos', async () => {
+  await sesionZ('ANALISIS09', { actividadId: 'reto_ext', modalidad: 'externo', resultados: resultadosZ(['Gato', 'Perro', 'Loro'], [10, 3, 1]) })
+  pedidosIA.length = 0
+  const r = await analizar({ sesionId: 'ANALISIS09', actividadId: 'reto_ext' })
+  assert.ok(!textoDelPedido(pedidosIA[0]).includes('Gato'))
+  assert.deepStrictEqual(r.resultado.estudiantesAtencion.map((e) => e.anonId), []) // «Participante 4» no existe aquí
+})
+
+await caso('con orden aleatorio: cada pregunta se mide sobre quienes la recibieron', async () => {
+  // Terminó a la 2.ª pregunta: Ana recibió q0 y q1, Beto q2 y q3, Caro q0 y q2.
+  const item = (q, acerto) => ({ preguntaId: q, opcionSeleccionada: acerto ? 'a' : 'b', respuestaCorrecta: 'a', acerto, tiempoDecimas: 30 })
+  const resultados = {
+    ok: true, realizadas: 2, sinResultados: false, criterio: 'aciertos_tiempo',
+    clasificacion: [{ participanteId: 'A', aciertos: 2, posicion: 1 }, { participanteId: 'B', aciertos: 1, posicion: 2 }, { participanteId: 'C', aciertos: 0, posicion: 3 }],
+    detalle: { A: [item('q0', true), item('q1', true)], B: [item('q2', true), item('q3', false)], C: [item('q0', false), item('q2', false)] },
+  }
+  const ctx = require('../functions/analisisReto.js').agregarResultadosReto({ nombre: 'X', preguntas: PREG_Z, resultados })
+  const por = Object.fromEntries(ctx.reactivos.map((r) => [r.id, [r.recibieron, r.pctAciertos]]))
+  assert.deepStrictEqual(por, { q0: [2, 50], q1: [1, 100], q2: [2, 50], q3: [1, 0] })
+  assert.strictEqual(ctx.porcentajeAciertosGeneral, 50) // 3 de 6 recibidas
+})
+
+await caso('cuestionarios y exámenes siguen sin aceptar un reto como si fuera evaluación (rama aparte)', async () => {
+  // Sin sesionId, un reto se rechaza antes de cobrar; un cuestionario sigue su camino de siempre (sus pruebas: test:ia).
+  let error = null
+  await analizar({ sesionId: '' }).catch((e) => { error = e })
+  assert.ok(error && error.code === 'invalid-argument')
+})
 
 await limpiar()
 resumen('Reto Exprés · reactivos con IA')

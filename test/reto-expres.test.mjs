@@ -42,7 +42,8 @@ import {
 import {
   esVersionRitmo, revelarDe, cerrarPreguntaReto, mostrarClasificacionReto, cancelarClasificacionReto, continuarReto, cortesValidos,
   tiempoRespuestaDecimas, textoTiempoReto, revisionPregunta, filasRankingVivo, vistaRankingVivo,
-  rankingDocenteEnVivo, filasRankingFinal,
+  rankingDocenteEnVivo, filasRankingFinal, estadoAplicacionReto, columnasRankingFinal,
+  duracionesIguales, ordenAleatorio, ordenValido, ordenDe, preguntaDelTurno,
 } from '../src/utils/retoExpres.js'
 import { esCopiable } from '../src/utils/copiaActividad.js'
 import { tituloMovimiento } from '../src/utils/movimientosCreditos.js'
@@ -1189,6 +1190,26 @@ caso('Q · sin inscripción conocida no hay nota (participante ausente de la lis
   assert.deepStrictEqual(p.map((x) => x.alumnoId), ['ana'])
 })
 
+caso('Q · estado de la asignación: pendiente, completada (con la hora más reciente) e incompleta, solo de lo guardado', () => {
+  const marca = (sesionId, ms) => ({ retoAplicacion: { sesionId, aplicadaEn: { toMillis: () => ms } } })
+  const fila = (entrega) => ({ entrega })
+  // Nada guardado de esta sesión: pendiente (una nota de otro origen no cuenta como aplicada).
+  let e = estadoAplicacionReto({ sesionId: 'S1', filas: [fila(null), fila({ calificacion: 7 })] })
+  assert.deepStrictEqual([e.estado, e.aplicadas, e.pendientes, e.conNotaPrevia, e.aplicadaEnMs], ['pendiente', 0, 1, 1, null])
+  // Todas con nota y al menos una de esta sesión: completada, con la hora más reciente.
+  e = estadoAplicacionReto({ sesionId: 'S1', filas: [fila({ calificacion: 9, ...marca('S1', 1000) }), fila({ calificacion: 6, ...marca('S1', 3000) }), fila({ calificacion: 5 })] })
+  assert.deepStrictEqual([e.estado, e.aplicadas, e.conNotaPrevia, e.aplicadaEnMs], ['completada', 2, 1, 3000])
+  // Se interrumpió: algunas aplicadas y una sin nota → incompleta (se puede reintentar).
+  e = estadoAplicacionReto({ sesionId: 'S1', filas: [fila({ calificacion: 9, ...marca('S1', 1000) }), fila(null)] })
+  assert.deepStrictEqual([e.estado, e.aplicadas, e.pendientes], ['incompleta', 1, 1])
+  // La marca de OTRA sesión del mismo reto no cuenta como de esta.
+  e = estadoAplicacionReto({ sesionId: 'S2', filas: [fila({ calificacion: 9, ...marca('S1', 1000) })] })
+  assert.deepStrictEqual([e.estado, e.conNotaPrevia], ['pendiente', 1])
+  // Una marca sin nota (se borró la calificación) no cuenta como aplicada.
+  e = estadoAplicacionReto({ sesionId: 'S1', filas: [fila({ calificacion: null, ...marca('S1', 1000) })] })
+  assert.deepStrictEqual([e.estado, e.pendientes], ['pendiente', 1])
+})
+
 // ── R. Tiempo para responder por pregunta (4-nov-2026) ──────────────────────
 // Tres preguntas: 20 s, 1 min y 5 min. Turnos = 4 s de preparación + su tiempo.
 const SEG = [20, 60, 300]
@@ -1763,6 +1784,136 @@ caso('T · ranking final (etapa B): filas del registro definitivo con el tiempo 
   // Retos de antes: sin tiempos en el registro → null, nunca inventados.
   const viejo = calcularResultadosReto({ sesion: { ...sesionEnCurso(), estado: ESTADOS_RETO.finalizada }, preguntas: PREGUNTAS, claves: CLAVES, participantes: gente('ana'), respuestas: [] })
   assert.deepStrictEqual(filasRankingFinal(viejo).map((f) => [f.tiempoDecimas, f.tiempos.every((t) => t === null)]), [[null, true]])
+})
+
+// ── U. Orden aleatorio por participante (6-nov-2026) ──────────────────────────
+grupo('U. Orden aleatorio por participante: mismas preguntas, otro orden, misma calificación')
+
+const INVERSO = [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
+const IDENTIDAD = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+const sesionAl = (extra = {}) => sesionV2({ aleatorizar: true, ...extra })
+// Respuesta del turno `t` de quien tiene el orden `orden`: pregunta original orden[t], recibida `ms` después de abrir el turno.
+const resAl = (participanteId, orden, t, ms, { correcta = true } = {}) => ({
+  id: `u${String(nResp++).padStart(4, '0')}`, participanteId, preguntaId: `p${orden[t]}`, indice: t,
+  opcionSeleccionada: correcta ? correctaDe(orden[t]) : incorrectaDe(orden[t]), recibidaMs: abre(t) + ms, vistos: { cortes: 0, pausas: 0 },
+})
+const genteAl = (...pares) => pares.map(([id, orden]) => ({ id, nombre: id, alias: id, unidoMs: T0 - 5000, orden }))
+
+caso('U · solo con duraciones iguales; el orden es una permutación sin repetir ni omitir', () => {
+  assert.strictEqual(duracionesIguales(PREG_V2), true)
+  assert.strictEqual(duracionesIguales([{ tiempoSeg: 30 }, { tiempoSeg: 30 }]), true)
+  assert.strictEqual(duracionesIguales([{ tiempoSeg: 30 }, { tiempoSeg: 60 }]), false)
+  assert.strictEqual(duracionesIguales([{ tiempoSeg: 20 }, {}]), true, 'sin tiempo = 20 s')
+  assert.strictEqual(duracionesIguales([]), false)
+  let semilla = 7
+  const azar = () => { semilla = (semilla * 16807) % 2147483647; return semilla / 2147483647 }
+  const distintos = new Set()
+  for (let k = 0; k < 200; k++) {
+    const o = ordenAleatorio(10, azar)
+    assert.ok(ordenValido(o, 10), `permutación válida: ${o}`)
+    distintos.add(o.join(','))
+  }
+  assert.ok(distintos.size > 190, 'los órdenes son independientes entre participantes')
+  assert.strictEqual(ordenValido([0, 1, 1, 3, 4, 5, 6, 7, 8, 9], 10), false, 'repetida')
+  assert.strictEqual(ordenValido([0, 1, 2], 10), false, 'omitidas')
+  assert.strictEqual(ordenValido([0, 1, 2, 3, 4, 5, 6, 7, 8, 10], 10), false, 'fuera de rango')
+  // Sin aleatorizar en la sesión, el orden del participante se ignora: todos el del docente.
+  assert.deepStrictEqual(ordenDe(sesionV2(), { orden: INVERSO }), IDENTIDAD)
+  assert.deepStrictEqual(ordenDe(sesionAl(), { orden: INVERSO }), INVERSO)
+  assert.deepStrictEqual(ordenDe(sesionAl(), { orden: [1, 1] }), IDENTIDAD, 'un orden inválido nunca se usa')
+  assert.strictEqual(preguntaDelTurno(sesionAl(), { orden: INVERSO }, 0).pregunta.id, 'p9')
+})
+
+caso('U · se califica por la pregunta original: mismos aciertos, tiempo y lugar que sin mezclar', () => {
+  // Ana responde en orden inverso; Beto en el del docente. Los dos aciertan las preguntas originales 0, 2 y 5 con el
+  // mismo tiempo cada una (aunque les tocaron en turnos distintos) y fallan el resto.
+  const aciertan = new Set([0, 2, 5])
+  const respuestasDe = (id, orden) => orden.map((orig, t) => resAl(id, orden, t, 1000 + orig * 100, { correcta: aciertan.has(orig) }))
+  const res = calcularResultadosReto({
+    sesion: sesionAl({ estado: ESTADOS_RETO.finalizada }), preguntas: PREG_V2, claves: CLAVES,
+    participantes: genteAl(['ana', INVERSO], ['beto', IDENTIDAD]), respuestas: [...respuestasDe('ana', INVERSO), ...respuestasDe('beto', IDENTIDAD)],
+  })
+  assert.ok(res.ok && res.aleatorio)
+  const fila = (id) => res.clasificacion.find((f) => f.participanteId === id)
+  assert.deepStrictEqual([fila('ana').aciertos, fila('ana').tiempoDecimas], [3, 10 + 12 + 15])
+  assert.deepStrictEqual([fila('beto').aciertos, fila('beto').tiempoDecimas], [3, 37])
+  assert.strictEqual(fila('ana').posicion, fila('beto').posicion, 'empatados: comparten lugar')
+  // P1…P10 son las preguntas ORIGINALES: la casilla P3 de Ana (le tocó en el turno 7) es su tiempo en p2.
+  const ana = res.detalle.ana
+  assert.deepStrictEqual(ana.map((d) => d.preguntaId), PREG_V2.map((q) => q.id))
+  assert.deepStrictEqual([ana[2].turno, ana[2].tiempoDecimas, ana[2].acerto], [7, 12, true])
+  assert.deepStrictEqual(filasRankingFinal(res).find((f) => f.participanteId === 'ana').tiempos, Array.from({ length: 10 }, (_, i) => 10 + i))
+  assert.deepStrictEqual(columnasRankingFinal(res), { preguntas: 10, etiquetas: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] })
+  // Calificación igual que sin mezclar: aciertos ÷ realizadas.
+  const p = propuestasCalificacionReto({ reto: { modalidad: 'inscritos', calificable: true }, maxCalif: 10, resultados: { ...res, modalidad: 'inscritos' },
+    participantes: [{ id: 'ana', alumnoId: 'A' }, { id: 'beto', alumnoId: 'B' }] })
+  assert.deepStrictEqual(p.map((x) => x.calificacion), [3, 3])
+})
+
+caso('U · una respuesta que no es de la pregunta que le tocó en ese turno no cuenta; la primera gana', () => {
+  const res = calcularResultadosReto({
+    sesion: sesionAl({ estado: ESTADOS_RETO.finalizada }), preguntas: PREG_V2, claves: CLAVES, participantes: genteAl(['ana', INVERSO]),
+    respuestas: [
+      { ...resAl('ana', IDENTIDAD, 0, 1000), participanteId: 'ana' }, // turno 0 con p0, pero a Ana le tocaba p9
+      resAl('ana', INVERSO, 1, 1000), resAl('ana', INVERSO, 1, 2000, { correcta: false }), // doble: vale la primera
+      resAl('ana', INVERSO, 2, RESP + 500), // fuera de tiempo
+    ],
+  })
+  assert.deepStrictEqual(res.descartadas, { desconocidas: 1, noRealizada: 0, duplicadas: 1, fueraDeTiempo: 1 })
+  assert.deepStrictEqual([res.clasificacion[0].aciertos, res.detalle.ana.find((d) => d.preguntaId === 'p8').acerto], [1, true])
+})
+
+caso('U · terminar antes: cada quien recibió otras preguntas; columnas con su número original y «no le tocó»', () => {
+  // Termina con el turno 2 abierto: cuentan los turnos 0 y 1. Ana recibió p9 y p8; Beto p0 y p1.
+  const sesion = sesionAl({ estado: ESTADOS_RETO.finalizada, terminadaMs: abre(2) + 1000 })
+  const res = calcularResultadosReto({
+    sesion, preguntas: PREG_V2, claves: CLAVES, participantes: genteAl(['ana', INVERSO], ['beto', IDENTIDAD]),
+    respuestas: [resAl('ana', INVERSO, 0, 1000), resAl('beto', IDENTIDAD, 1, 2000)],
+  })
+  assert.deepStrictEqual([res.realizadas, res.interrumpida, res.columnas], [2, null, [0, 1, 8, 9]])
+  assert.deepStrictEqual(res.detalle.ana.map((d) => d.preguntaId), ['p8', 'p9'])
+  const filas = filasRankingFinal(res)
+  assert.deepStrictEqual(filas.find((f) => f.participanteId === 'ana').tiempos, [false, false, null, 10])
+  assert.deepStrictEqual(filas.find((f) => f.participanteId === 'beto').tiempos, [null, 20, false, false])
+  assert.deepStrictEqual(columnasRankingFinal(res).etiquetas, [1, 2, 9, 10])
+  const p = propuestasCalificacionReto({ reto: { modalidad: 'inscritos', calificable: true }, maxCalif: 10, resultados: { ...res, modalidad: 'inscritos' },
+    participantes: [{ id: 'ana', alumnoId: 'A' }, { id: 'beto', alumnoId: 'B' }] })
+  assert.deepStrictEqual(p.map((x) => [x.alumnoId, x.calificacion]), [['A', 5], ['B', 5]], '1 de 2 realizadas cada uno')
+})
+
+caso('U · provisional y ranking en vivo: casillas por pregunta original y estado propio de cada fila', () => {
+  const sesion = sesionAl()
+  const participantes = genteAl(['ana', INVERSO], ['beto', IDENTIDAD])
+  const respuestas = [resAl('ana', INVERSO, 0, 1500), resAl('beto', IDENTIDAD, 0, 900, { correcta: false }), resAl('ana', INVERSO, 1, 700)]
+  const parcial = clasificacionParcialReto({ sesion, preguntas: PREG_V2, claves: CLAVES, participantes, respuestas, cerradas: 1 })
+  assert.ok(parcial.ok && parcial.aleatorio)
+  const ana = parcial.clasificacion.find((f) => f.participanteId === 'ana')
+  assert.deepStrictEqual(ana.tiempos, [false, false, false, false, false, false, false, false, false, 15])
+  // Turno 1 abierto: Ana ya respondió su p8; Beto todavía no su p1.
+  const r = rankingDocenteEnVivo({ sesion, claves: CLAVES, participantes, respuestas, ahoraMs: abre(1) + 5000 })
+  const fAna = r.filas.find((f) => f.participanteId === 'ana')
+  const fBeto = r.filas.find((f) => f.participanteId === 'beto')
+  assert.deepStrictEqual([fAna.aciertos, fAna.tiempos[9], fAna.tiempos[8], fAna.estados[9], fAna.estados[8], fAna.estados[0], fAna.respondioActual], [2, 15, 7, 'cerrada', 'abierta', 'futura', true])
+  assert.deepStrictEqual([fBeto.aciertos, fBeto.tiempos[0], fBeto.estados[0], fBeto.estados[1], fBeto.respondioActual], [0, 9, 'cerrada', 'abierta', false])
+  // Al celular: sin ids y con su estado por fila.
+  const v = vistaRankingVivo({ filas: r.filas, participanteId: 'ana', cerradas: r.cerradas, abierta: r.abierta })
+  assert.ok(v.filas.every((f) => !('participanteId' in f) && Array.isArray(f.estados)))
+})
+
+caso('U · sin «aleatorizar» en la sesión, nada cambia aunque el participante traiga un orden', () => {
+  const participantes = genteAl(['ana', INVERSO])
+  const respuestas = [resV2('ana', 0, abre(0) + 1000), resV2('ana', 1, abre(1) + 2000)]
+  const conOrden = calcularResultadosReto({ sesion: v2Final(), preguntas: PREG_V2, claves: CLAVES, participantes, respuestas })
+  const sinOrden = calcularResultadosReto({ sesion: v2Final(), preguntas: PREG_V2, claves: CLAVES, participantes: gente('ana'), respuestas })
+  assert.deepStrictEqual(conOrden, sinOrden)
+  assert.ok(!('aleatorio' in conOrden))
+})
+
+caso('U · el docente lo activa o lo apaga en los datos del reto (las dos modalidades)', () => {
+  const ins = { reto: { modalidad: 'inscritos' } }
+  assert.deepStrictEqual(cambiosDatosReto(ins, { aleatorizar: true }).patch, { 'reto.aleatorizar': true })
+  assert.deepStrictEqual(cambiosDatosReto({ reto: { modalidad: 'externo' } }, { aleatorizar: false }).patch, { 'reto.aleatorizar': false })
+  assert.strictEqual(cambiosDatosReto(ins, { aleatorizar: 'si' }).ok, false)
 })
 
 console.log(`\n${pasadas} pasaron, ${fallos} fallaron`)

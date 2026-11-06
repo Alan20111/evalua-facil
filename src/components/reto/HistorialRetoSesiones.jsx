@@ -2,6 +2,7 @@
 // borrar una sesión (como la tachita de «Sesiones» de Participación en vivo). Nada se borra solo: solo lo que el docente
 // borra aquí (o al borrar el reto); el servidor limpia sus participantes, respuestas y resultados.
 // Etapa 5: en un reto de inscritos calificable, «Resultados» permite aplicar la competencia como calificación.
+// 6-nov-2026: «Resultados» también ofrece «Analizar resultados con IA» (AnalisisRetoIA), en las dos modalidades.
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BarChart3, Play, Trash2 } from 'lucide-react'
@@ -11,6 +12,8 @@ import ConfirmModal from '../ConfirmModal'
 import { useToast } from '../Toast'
 import ResultadosRetoDocente from './ResultadosRetoDocente'
 import PanelCalificacionReto from './PanelCalificacionReto'
+import AnalisisRetoIA from './AnalisisRetoIA'
+import AnalisisResultadosIA from '../evaluacion/AnalisisResultadosIA'
 import { esCalificable } from '../../utils/retoExpres'
 import { borrarSesionReto, escucharParticipantesReto, escucharResultadosReto } from '../../utils/retoExpresDb'
 
@@ -19,7 +22,7 @@ const fecha = (ms) => (Number.isFinite(ms)
   ? new Date(ms).toLocaleString('es-MX', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })
   : '')
 
-function ResultadosModal({ sesion, actividad, docenteId, onClose }) {
+function ResultadosModal({ sesion, actividad, asignatura, docenteId, onClose, onVerAnalisis }) {
   const [resultados, setResultados] = useState(undefined)
   const [participantes, setParticipantes] = useState([])
   useEffect(() => {
@@ -34,18 +37,22 @@ function ResultadosModal({ sesion, actividad, docenteId, onClose }) {
           <div className="space-y-4">
             <ResultadosRetoDocente resultados={resultados} sesion={sesion} participantes={participantes} />
             {esCalificable(actividad?.reto) && !resultados.sinResultados && (
-              <PanelCalificacionReto actividad={actividad} resultados={resultados} participantes={participantes} />
+              <PanelCalificacionReto actividad={actividad} resultados={resultados} participantes={participantes} sesionId={sesion.codigo} />
             )}
+            {/* 6-nov-2026: análisis pedagógico con IA de esta competencia (las dos modalidades). */}
+            <AnalisisRetoIA actividad={actividad} asignatura={asignatura} sesion={sesion} resultados={resultados} participantes={participantes} onVer={onVerAnalisis} />
           </div>
         ) : <p className="text-base text-muted">Esta competencia todavía no tiene resultados.</p>}
     </Modal>
   )
 }
 
-export default function HistorialRetoSesiones({ activityId, actividad, docenteId, sesiones, onCambio }) {
+export default function HistorialRetoSesiones({ activityId, actividad, asignatura = null, docenteId, sesiones, onCambio }) {
   const navigate = useNavigate()
   const toast = useToast()
   const [viendo, setViendo] = useState(null)
+  // Análisis con IA abierto (pantalla completa, fuera de la ventana de Resultados): al volver, Resultados se reabre.
+  const [analisis, setAnalisis] = useState(null)
   const [borrando, setBorrando] = useState(null)
   const [trabajando, setTrabajando] = useState(false)
 
@@ -81,7 +88,15 @@ export default function HistorialRetoSesiones({ activityId, actividad, docenteId
           </li>
         ))}
       </ul>
-      {viendo && <ResultadosModal sesion={viendo} actividad={actividad} docenteId={docenteId} onClose={() => setViendo(null)} />}
+      {viendo && (
+        <ResultadosModal sesion={viendo} actividad={actividad} asignatura={asignatura} docenteId={docenteId} onClose={() => setViendo(null)}
+          onVerAnalisis={(v) => { setAnalisis({ ...v, sesion: viendo }); setViendo(null) }} />
+      )}
+      {analisis && (
+        <AnalisisResultadosIA resultado={analisis.resultado} students={analisis.students} activity={actividad} subject={asignatura || { nombre: '' }}
+          generadoEn={analisis.generadoEn ? new Date(analisis.generadoEn).toISOString() : null}
+          onClose={() => { setViendo(analisis.sesion); setAnalisis(null) }} />
+      )}
       {borrando && (
         <ConfirmModal danger busy={trabajando} title="Borrar competencia" confirmLabel="Borrar" onConfirm={borrar} onCancel={() => setBorrando(null)}
           message={`Se borran sus participantes, respuestas y resultados${borrando.estado !== 'finalizada' ? ', y la competencia termina para quienes estén dentro' : ''}. El reto, sus preguntas y las calificaciones ya aplicadas no cambian. No se puede deshacer.`} />
