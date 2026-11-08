@@ -31,7 +31,7 @@ import useParcialesAbiertos from '../../hooks/useParcialesAbiertos'
 import FiltroSoloCalificables from '../../components/FiltroSoloCalificables'
 import SubjectIcon from '../../components/SubjectIcon'
 import AttachmentList from '../../components/AttachmentList'
-import { ArrowLeft, ChevronDown, ChevronUp, Clock, Star, FolderOpen, BookOpen, Paperclip, GraduationCap, ListChecks, FileText, ClipboardCheck, ExternalLink, Download, Megaphone, CheckCircle2, Bookmark, ChevronRight, Trash2, LogOut, RotateCcw, Sparkles,  } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronUp, Clock, Star, FolderOpen, BookOpen, Paperclip, GraduationCap, ListChecks, FileText, ClipboardCheck, ExternalLink, Download, Megaphone, CheckCircle2, Bookmark, ChevronRight, Trash2, LogOut, RotateCcw, Sparkles, LoaderPinwheel } from 'lucide-react'
 import { sanitizeHtml, richTextContentClass } from '../../utils/sanitizeHtml'
 import StudentLayout from '../../components/StudentLayout'
 import { promedioParcial, notasParaPromedio, cuentaEnPromedioDelAlumno, ponderacionActivaEnParcial, normalizeGrade, resultadoPublicadoAlumno, pesosVisiblesAlumno, parcialCerrado } from '../../utils/ponderacion'
@@ -116,7 +116,7 @@ const TABS = ['Actividades y calificaciones', 'Asistencias', 'Recursos', 'Avisos
 // 'actividad'/'tarea' are legacy categoria values from before they were
 // merged into a single "Entregable" option — still mapped here so old
 // activities keep showing a correct label without needing a data migration.
-const CATEGORIA_LABELS = { actividad: 'Entregable', tarea: 'Entregable', entregable: 'Entregable', cuestionario: 'Cuestionario', examen: 'Examen', observacion: 'Observación', juego: 'Juego', participacion: 'Participación en vivo', reto: 'Reto Exprés' }
+const CATEGORIA_LABELS = { actividad: 'Entregable', tarea: 'Entregable', entregable: 'Entregable', cuestionario: 'Cuestionario', examen: 'Examen', observacion: 'Observación', juego: 'Juego', participacion: 'Participación en vivo', reto: 'Reto Exprés', ruleta: 'La Ruleta del Destino' }
 
 export default function StudentSubjectPage() {
   const { subjectId } = useParams()
@@ -787,11 +787,12 @@ export default function StudentSubjectPage() {
                           : a.categoria === 'cuestionario' ? ListChecks
                           : a.categoria === 'observacion' ? ClipboardCheck
                           : a.categoria === 'juego' || a.categoria === 'participacion' || a.categoria === 'reto' ? Sparkles
+                          : a.categoria === 'ruleta' ? LoaderPinwheel
                           : FileText
                         return (
                           <Button variant="secondary" fullWidth className="text-left"
                             key={a.id}
-                            onClick={() => navigate(a.categoria === 'participacion' ? `/alumno/participacion/${a.id}` : a.categoria === 'reto' ? `/alumno/reto/${a.id}` : `/alumno/actividad/${a.id}`)}>
+                            onClick={() => navigate(a.categoria === 'participacion' ? `/alumno/participacion/${a.id}` : a.categoria === 'reto' ? `/alumno/reto/${a.id}` : a.categoria === 'ruleta' ? `/alumno/ruleta/${a.id}` : `/alumno/actividad/${a.id}`)}>
                             <ActIcon size={ICONO.md} className={`flex-shrink-0 ${a.categoria === 'examen' ? 'text-accent' : a.categoria === 'cuestionario' ? 'text-emerald-600' : a.categoria === 'observacion' ? 'text-amber-600' : 'text-hint'}`} />
                             <div className="flex-1 min-w-0">
                               <p className="text-base font-medium leading-tight text-on-surface truncate">

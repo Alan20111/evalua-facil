@@ -55,10 +55,22 @@ export async function guardarRankingRuleta(activityId, ranking) {
  * mensaje para la pantalla, `status`, `codigo` y `errores`.
  */
 export async function operacionBanco(operacion, cuerpo) {
+  return llamarServidor('ruleta-banco', operacion, cuerpo)
+}
+
+/**
+ * Partida del estudiante (fases 4 y 5, individual): estado (inicia o recupera), girar o responder. Lo que devuelve el
+ * servidor nunca trae la respuesta correcta. Si falla, lanza un Error con el mensaje para la pantalla, `status` y `codigo`.
+ */
+export async function operacionPartida(operacion, cuerpo) {
+  return llamarServidor('ruleta-partida', operacion, cuerpo)
+}
+
+async function llamarServidor(accion, operacion, cuerpo) {
   const headers = { 'Content-Type': 'application/json' }
   const token = await auth.currentUser?.getIdToken()
   if (token) headers.Authorization = `Bearer ${token}`
-  const res = await fetchApi('/api/subject/ruleta-banco', { method: 'POST', headers, body: JSON.stringify({ operacion, ...cuerpo }) })
+  const res = await fetchApi(`/api/subject/${accion}`, { method: 'POST', headers, body: JSON.stringify({ operacion, ...cuerpo }) })
   const json = await res.json().catch(() => ({}))
   if (!res.ok) {
     throw Object.assign(new Error(json?.error || 'No se pudo completar. Intenta de nuevo.'), {

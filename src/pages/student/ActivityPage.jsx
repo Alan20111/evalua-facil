@@ -530,8 +530,8 @@ export default function StudentActivityPage() {
   // Participación en vivo se responde en su propia pantalla (el servidor verifica la inscripción).
   if (activity?.categoria === 'participacion') return <Navigate to={`/alumno/participacion/${activityId}`} replace />
   if (activity?.categoria === 'reto') return <Navigate to={`/alumno/reto/${activityId}`} replace />
-  // La Ruleta del Destino todavía no tiene pantalla del estudiante (F2-9): nunca la pantalla de entrega genérica.
-  if (activity?.categoria === 'ruleta') return <Navigate to={activity.asignaturaId ? `/alumno/materia/${activity.asignaturaId}` : '/alumno/dashboard'} replace />
+  // La Ruleta del Destino: su propia pantalla de partida (el servidor decide si se puede jugar), nunca la de entrega.
+  if (activity?.categoria === 'ruleta') return <Navigate to={`/alumno/ruleta/${activityId}`} replace />
 
   if (activity?.tipo === 'evaluacion') {
     const ev = activity.evaluacion || {}

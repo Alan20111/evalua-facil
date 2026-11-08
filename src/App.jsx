@@ -61,6 +61,7 @@ const paginas = {
   RetoEnVivo: () => import('./pages/teacher/RetoEnVivoPage'),
   RetoRanking: () => import('./pages/teacher/RetoRankingPage'),
   RetoAlumno: () => import('./pages/student/RetoPage'),
+  RuletaAlumno: () => import('./pages/student/RuletaAlumnoPage'),
   RetoPublica: () => import('./pages/RetoPublica'),
   EvaluacionRevision: () => import('./pages/student/EvaluacionRevision'),
   NotificationSettings: () => import('./pages/student/NotificationSettings'),
@@ -125,6 +126,7 @@ const ParticipacionPublica = lazy(paginas.ParticipacionPublica)
 const RetoEnVivo = lazy(paginas.RetoEnVivo)
 const RetoRanking = lazy(paginas.RetoRanking)
 const RetoAlumno = lazy(paginas.RetoAlumno)
+const RuletaAlumno = lazy(paginas.RuletaAlumno)
 const RetoPublica = lazy(paginas.RetoPublica)
 const EvaluacionRevision = lazy(paginas.EvaluacionRevision)
 const NotificationSettings = lazy(paginas.NotificationSettings)
@@ -401,6 +403,7 @@ export default function App() {
             <Route path="/alumno/juego/:activityId" element={<ProtectedStudent><JuegoRunner /></ProtectedStudent>} />
             <Route path="/alumno/participacion/:activityId" element={<ProtectedStudent><ParticipacionAlumno /></ProtectedStudent>} />
             <Route path="/alumno/reto/:activityId" element={<ProtectedStudent><RetoAlumno /></ProtectedStudent>} />
+            <Route path="/alumno/ruleta/:activityId" element={<ProtectedStudent><RuletaAlumno /></ProtectedStudent>} />
             <Route path="/alumno/notificaciones" element={<ProtectedStudent><NotificationSettings /></ProtectedStudent>} />
             <Route path="/alumno/agenda" element={<ProtectedStudent><StudentAgenda /></ProtectedStudent>} />
             <Route path="/alumno/perfil" element={<ProtectedStudent><StudentProfile /></ProtectedStudent>} />

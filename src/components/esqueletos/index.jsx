@@ -464,6 +464,22 @@ export function EsqueletoRuletaDocente({ filas = 4 }) {
   )
 }
 
+// ── Estudiante · La Ruleta del Destino (/alumno/ruleta/:id): avance, ruleta y botón de girar (PartidaRuleta) ──
+export function EsqueletoRuletaAlumno() {
+  return (
+    <SkeletonGroup etiqueta="Cargando tu partida…">
+      <div data-esq="ruleta-alumno" className="px-4 py-8 max-w-md mx-auto space-y-6">
+        <div className="space-y-2">
+          <SkeletonLine texto="text-sm" className="w-40 mx-auto" />
+          <Skeleton className="h-2 w-full rounded-full" />
+        </div>
+        <Skeleton className="mx-auto size-56 rounded-full" />
+        <Skeleton className="h-control w-full rounded-full" />
+      </div>
+    </SkeletonGroup>
+  )
+}
+
 // Reto Exprés · celular del participante (etapa 4): la tarjeta centrada con la que abre cualquier estado
 // (ParticipanteReto · Aviso).
 export function EsqueletoRetoParticipante() {

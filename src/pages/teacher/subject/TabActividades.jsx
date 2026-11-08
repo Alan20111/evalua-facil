@@ -203,9 +203,10 @@ export default function TabActividades() {
                                 // queda oculto para los inscritos (las reglas lo exigen), así que no lleva esos botones.
                                 const esReto = a.categoria === 'reto'
                                 const esRetoExterno = esReto && a.reto?.modalidad === 'externo'
-                                // La Ruleta del Destino (fase 2): pantalla propia (/ruleta/:id). Todavía no se publica ni se
-                                // juega (F2-9), así que no lleva los botones de publicar u ocultar.
+                                // La Ruleta del Destino: pantalla propia (/ruleta/:id). Solo la individual e interna se juega
+                                // (fases 4 y 5), así que solo ella lleva los botones de publicar u ocultar; las demás todavía no.
                                 const esRuleta = a.categoria === 'ruleta'
+                                const ruletaSinPublicar = esRuleta && !(a.ruleta?.modalidad === 'individual' && a.ruleta?.acceso === 'interno')
                                 // Solo los BORRADORES se arrastran (mismo arrastre HTML5 que los
                                 // materiales, solo web). Las publicadas se mueven con Subir/Bajar.
                                 const arrastrable = !IS_NATIVE_APP && isDraftActivity(a)
@@ -305,7 +306,7 @@ export default function TabActividades() {
                                           </div>
                                         )}
                                       </button>
-                                      {(esJuego && a.juego?.estado !== 'juego_confirmado') || esRetoExterno || esRuleta ? null : isHidden ? (
+                                      {(esJuego && a.juego?.estado !== 'juego_confirmado') || esRetoExterno || ruletaSinPublicar ? null : isHidden ? (
                                         <IconButton icon={EyeOff} label={a.publishedAt ? 'Mostrar a estudiantes' : 'Publicar para estudiantes'} tooltip={false} onClick={(e) => { e.stopPropagation(); a.publishedAt ? showActivityNow(a) : setPublishDraftConfirm(a) }}
                                          
                                           data-tooltip={a.publishedAt ? 'Mostrar a estudiantes' : 'Publicar para estudiantes'} />

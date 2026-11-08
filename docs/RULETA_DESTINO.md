@@ -4,9 +4,10 @@ Actividad educativa interactiva de Evalúa Fácil. El docente prepara con IA un 
 partir de sus documentos; cada participante gira una ruleta que **solo selecciona una pregunta** del banco (sin
 premios, puntos extra, multiplicadores, penalizaciones ni segundas oportunidades).
 
-> Estado (6-nov-2026): fases 0, 1 y 2 terminadas en el worktree `evalua-facil-ruleta` (rama local
-> `feat/ruleta-destino-fase0`), **sin commit, sin PR y sin despliegue**. Cada fase se autoriza por separado
-> (`AGENTS.md`); la autorización de una fase no autoriza la siguiente ni el despliegue.
+> Estado (7-nov-2026): fases 0, 1 y 2 en el commit local `e52565e0` de la rama `feat/ruleta-destino-fase0` (worktree
+> `evalua-facil-ruleta`); partida individual interna (fases 4 y 5, paso 1) terminada **sin commit**. Sin PR y sin
+> despliegue. Cada fase se autoriza por separado (`AGENTS.md`); la autorización de una fase no autoriza la siguiente ni
+> el despliegue.
 
 - Lógica pura: `src/utils/ruletaDestino.js` · pruebas: `test/ruleta-destino.test.mjs` (`node test/ruleta-destino.test.mjs`)
 - Reglas: bloque «La Ruleta del Destino» de `firestore.rules` (helpers `esRuleta`, `esRuletaExterna`, `ruletaJugada`,
@@ -123,6 +124,19 @@ Motivos de rechazo, contados por separado:
    todavía cuenta; después, incorrecta.
 3. Sin respuesta = incorrecta. Solo cuenta la primera respuesta; no hay giros fuera de las rondas autorizadas.
 4. La respuesta correcta nunca viaja al navegador antes de responder.
+
+**Partida individual interna** (paso 1, 7-nov-2026; `api/_lib/ruletaPartida.js`, acción `ruleta-partida`, pantalla
+`/alumno/ruleta/:id`). Decisiones del PO:
+- **Una sola partida por estudiante** (`ruletaParticipantes/{actividadId}_{alumnoId}`); al volver continúa donde se
+  quedó. Si la pregunta abierta venció mientras estaba fuera, queda registrada como sin respuesta.
+- Durante la partida solo se muestra «Respuesta registrada» o «Se acabó el tiempo»; al final, la calificación sobre 10
+  y cuántas acertó. **La respuesta correcta nunca sale del servidor**, ni durante ni al final.
+- **Las opciones no se mezclan** por participante (se muestran en el orden del banco).
+- Solo se juega con la ruleta individual e interna, visible para el estudiante y con el banco aprobado y completo.
+- Al iniciar, el servidor sortea con azar criptográfico y **guarda una copia** de las preguntas sorteadas en la partida:
+  editar el banco después no la cambia. La primera partida pone `preguntasCongeladas` (R8).
+- Cada respuesta se guarda también en `ruletaRespuestas/{participante}_{i}`. La nota todavía **no** se publica en
+  `submissions` (paso 2) y el docente aún no ve los resultados.
 
 ### Calificación y ranking
 - **Calificación = (correctas ÷ total de preguntas) × 10**, con el redondeo de las evaluaciones
@@ -297,8 +311,8 @@ todavía en producción; las crean las fases de servidor.
 | 1 | Reglas de seguridad y su documentación | Hecha (sin commit) |
 | 2 | Crear la actividad y editor del banco (acciones del API), lista de actividades, copias excluidas, trigger de limpieza de borradores (C2) y borrado de cuenta | Hecha (autorizada; sin commit) |
 | 3 | IA del banco (lotes, reembolso total, sustento documental); la sustitución de reactivos queda pendiente hasta definir su tarifa | Sin autorizar (implementación) |
-| 4 | Servidor individual: unirse, girar, responder, estado, recuperación; bandera `preguntasCongeladas` | Sin autorizar |
-| 5 | Pantallas individuales (celular y docente) | Sin autorizar |
+| 4 | Servidor individual: unirse, girar, responder, estado, recuperación; bandera `preguntasCongeladas` | Hecha para acceso interno (paso 1, sin commit) |
+| 5 | Pantallas individuales (celular y docente) | Pantalla del estudiante hecha (paso 1, sin commit); resultados del docente en el paso 2 |
 | 6 | Concurso en vivo y ranking | Sin autorizar |
 | 7 | Publicación automática de calificaciones | Sin autorizar |
 | 8 | Borrado definitivo con limpieza, borrado de asignatura (C1) y de cuenta (C3) | Sin autorizar |
