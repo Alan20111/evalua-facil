@@ -434,6 +434,36 @@ export function EsqueletoRetoDocente({ filas = 4 }) {
   )
 }
 
+// ── Docente · La Ruleta del Destino (/ruleta/:id): encabezado + tarjeta de datos + tarjeta del banco ──
+export function EsqueletoRuletaDocente({ filas = 4 }) {
+  return (
+    <SkeletonGroup etiqueta="Cargando la ruleta…">
+      <div data-esq="ruleta-contenedor" className={`${TEACHER_CONTAINER} px-4 py-4 space-y-4`}>
+        <Skeleton className="h-8 w-36 rounded-full" />
+        <div className="space-y-2">
+          <SkeletonLine texto="text-xl font-semibold" className="w-56" />
+          <div className="flex gap-2">
+            <Skeleton className="h-5 w-40 rounded-full" />
+            <Skeleton className="h-5 w-28 rounded-full" />
+          </div>
+        </div>
+        <div data-esq="ruleta-datos" className="bg-surface-card rounded-card shadow-card p-4 space-y-4">
+          <SkeletonLine texto="text-lg font-semibold" className="w-40" />
+          <Skeleton className="h-control w-full rounded-full" />
+          <Skeleton className="h-16 w-full rounded-card" />
+        </div>
+        <div data-esq="ruleta-banco" className="bg-surface-card rounded-card shadow-card p-4 space-y-4">
+          <SkeletonLine texto="text-lg font-semibold" className="w-48" />
+          <Skeleton className="h-2 w-full rounded-full" />
+          {Array.from({ length: filas }, (_, i) => (
+            <Skeleton key={i} className="h-20 w-full rounded-card" />
+          ))}
+        </div>
+      </div>
+    </SkeletonGroup>
+  )
+}
+
 // Reto Exprés · celular del participante (etapa 4): la tarjeta centrada con la que abre cualquier estado
 // (ParticipanteReto · Aviso).
 export function EsqueletoRetoParticipante() {

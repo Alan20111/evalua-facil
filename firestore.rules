@@ -348,6 +348,59 @@ service cloud.firestore {
         retoBienFormado(despues);
     }
 
+    // ── La Ruleta del Destino: candados de la actividad (fase 1, docs/RULETA_DESTINO.md) ──
+    // Una ruleta (`categoria: 'ruleta'`) declara en el mapa `ruleta` su modalidad ('vivo' | 'individual'), su acceso
+    // ('interno' | 'externo'), las preguntas por partida (5 o 10) y, opcionalmente, si muestra ranking (solo en
+    // vivo). El cliente fija modalidad, acceso y preguntas SOLO al crear (R6); después solo cambia `ranking`. Cambiar
+    // las preguntas es una acción del servidor. `preguntasCongeladas` la pone SOLO el servidor al crear la primera
+    // sesión (R8): con ella la actividad ya no se borra desde un cliente. Una ruleta externa nace y se queda oculta,
+    // sin calificación ni programación, y nunca tiene entregas (R5). Las demás actividades no pasan por aquí.
+    function esRuletaData(d) {
+      return d.get('categoria', null) == 'ruleta';
+    }
+    function esRuleta(actId) {
+      return exists(/databases/$(database)/documents/activities/$(actId)) &&
+        esRuletaData(get(/databases/$(database)/documents/activities/$(actId)).data);
+    }
+    function esRuletaExterna(actId) {
+      return esRuleta(actId) &&
+        get(/databases/$(database)/documents/activities/$(actId)).data.get('ruleta', {}).get('acceso', null) == 'externo';
+    }
+    // Ya tiene sesiones: el servidor congeló sus preguntas (R8).
+    function ruletaJugada(d) {
+      return esRuletaData(d) && d.get('ruleta', {}).get('preguntasCongeladas', false) == true;
+    }
+    // Forma válida del mapa `ruleta` (admite la bandera del servidor, que solo puede ser booleana).
+    function ruletaFormaValida(d) {
+      return d.get('ruleta', null) is map &&
+        d.ruleta.keys().hasAll(['modalidad', 'acceso', 'preguntasPorPartida']) &&
+        d.ruleta.keys().hasOnly(['modalidad', 'acceso', 'preguntasPorPartida', 'ranking', 'preguntasCongeladas']) &&
+        d.ruleta.modalidad in ['vivo', 'individual'] &&
+        d.ruleta.acceso in ['interno', 'externo'] &&
+        d.ruleta.preguntasPorPartida in [5, 10] &&
+        (!('ranking' in d.ruleta) || (d.ruleta.ranking is bool && (d.ruleta.modalidad == 'vivo' || d.ruleta.ranking == false))) &&
+        (!('preguntasCongeladas' in d.ruleta) || d.ruleta.preguntasCongeladas is bool) &&
+        (d.ruleta.acceso != 'externo' || (
+          d.get('sinCalificacion', false) == true &&
+          d.get('oculta', false) == true &&
+          vacio(d.get('publishAt', null)) &&
+          vacio(d.get('publishedAt', null))
+        ));
+    }
+    // Al crear desde un cliente: forma válida y SIN la bandera del servidor (ni siquiera en false).
+    function ruletaBienFormada(d) {
+      return !esRuletaData(d) || (ruletaFormaValida(d) && !('preguntasCongeladas' in d.ruleta));
+    }
+    // Al actualizar desde un cliente: nada entra ni sale de la categoría y, dentro de `ruleta`, solo cambia `ranking`
+    // (modalidad, acceso, preguntas y la bandera quedan exactamente igual, también si se reemplaza el mapa completo).
+    function ruletaIntacta(antes, despues) {
+      return esRuletaData(antes) == esRuletaData(despues) &&
+        (!esRuletaData(antes) || (
+          ruletaFormaValida(despues) &&
+          despues.ruleta.diff(antes.get('ruleta', {})).affectedKeys().hasOnly(['ranking'])
+        ));
+    }
+
     // ¿Cuenta para la calificación? Espejo de cuentaParaCalificacion
     // (src/utils/activityVisibility.js): no es borrador ni "sin calificación".
     function actividadCuenta(d) {
@@ -911,7 +964,9 @@ service cloud.firestore {
         !(actividadCuenta(request.resource.data) &&
           parcialCerradoEn(request.resource.data.get('asignaturaId', ''), request.resource.data.get('parcial', 0))) &&
         // Reto Exprés: modalidad válida; un reto externo nace oculto y no calificable.
-        retoBienFormado(request.resource.data);
+        retoBienFormado(request.resource.data) &&
+        // La Ruleta del Destino: forma válida al crear; un cliente nunca la crea con la bandera del servidor (R6, R8).
+        ruletaBienFormada(request.resource.data);
       allow update, delete: if isDocente() &&
         request.auth.uid == resource.data.docenteId &&
         // Crucigrama / Sopa de letras (22-ago-2026): no se puede publicar
@@ -944,7 +999,10 @@ service cloud.firestore {
           : actividadCerradaIntacta()) &&
         // Reto Exprés: no se entra ni se sale de la categoría reto, la modalidad no cambia y un reto externo sigue
         // oculto y no calificable. Borrar no pasa por aquí (en un delete no hay request.resource).
-        (request.method == 'delete' || retoIntacto(resource.data, request.resource.data));
+        (request.method == 'delete' || retoIntacto(resource.data, request.resource.data)) &&
+        // La Ruleta del Destino: una ruleta con sesiones no se borra desde un cliente (R8; el borrado con limpieza será
+        // del servidor); al actualizar, la categoría no cambia y dentro de `ruleta` solo cambia `ranking` (R6).
+        (request.method == 'delete' ? !ruletaJugada(resource.data) : ruletaIntacta(resource.data, request.resource.data));
 
       // Reactivos de una evaluación. Los lee cualquier cuenta autenticada
       // porque el alumno los necesita para contestar; los escribe solo el
@@ -1466,6 +1524,55 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ── La Ruleta del Destino: colecciones propias (fase 1, docs/RULETA_DESTINO.md) ──
+    // Ningún cliente crea, modifica ni borra: todo lo escribe el servidor (Admin SDK, que no pasa por estas reglas).
+    // El docente administra su banco con acciones del API (R1) y no borra sesiones directamente (R2; el borrado con
+    // limpieza en cascada llega en la fase 8). Los estudiantes y los participantes externos nunca leen Firestore: lo
+    // que les toca (su pregunta sin clave, su resultado) lo reciben del servidor.
+    //
+    // Lectura: el docente dueño (campo `docenteId` del propio documento, que escribe el servidor) y el admin (R3, R7).
+    // Una consulta del docente debe filtrar por docenteId. ruletaCupos y ruletaIdentificadores: nadie, ni el admin (R7).
+    match /ruletaReactivos/{reactivoId} {
+      allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
+      allow write: if false;
+    }
+    match /ruletaGeneraciones/{generacionId} {
+      allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
+      allow write: if false;
+    }
+    match /ruletaSesiones/{sesionId} {
+      allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
+      allow write: if false;
+    }
+    match /ruletaClaves/{sesionId} {
+      allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
+      allow write: if false;
+    }
+    match /ruletaParticipantes/{participanteId} {
+      allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
+      allow write: if false;
+    }
+    match /ruletaRespuestas/{respuestaId} {
+      allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
+      allow write: if false;
+    }
+    match /ruletaResultados/{sesionId} {
+      allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
+      allow write: if false;
+    }
+    // Fase 2 (F2-1): estado del banco de cada actividad (total, huellas de los enunciados y aprobación). La aprobación
+    // vive SOLO aquí: el cliente no puede falsificarla. Lo escribe el servidor (api/_lib/ruletaBanco.js).
+    match /ruletaBancos/{actividadId} {
+      allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
+      allow write: if false;
+    }
+    match /ruletaCupos/{lugarId} {
+      allow read, write: if false;
+    }
+    match /ruletaIdentificadores/{identificadorId} {
+      allow read, write: if false;
+    }
+
     match /submissions/{submissionId} {
       // F-06 (2026-09-06): acceso cruzado entre docentes de distintas escuelas.
       // Antes: isDocente() sin restricción → cualquier docente leía las calificaciones
@@ -1532,7 +1639,11 @@ service cloud.firestore {
         // Reto Exprés: un reto externo nunca tiene entregas ni calificaciones (ni del estudiante ni del docente), y uno
         // de práctica tampoco (etapa 5: solo el que el docente marcó calificable recibe nota, y solo del docente).
         !esRetoExterno(request.resource.data.actividadId) &&
-        !retoSinNota(request.resource.data.actividadId);
+        !retoSinNota(request.resource.data.actividadId) &&
+        // La Ruleta del Destino: un estudiante nunca escribe una entrega de ruleta (su nota la publica el servidor y el
+        // docente dueño la corrige por su camino, R4); una ruleta externa nunca tiene entregas, ni del docente (R5).
+        (!esRuleta(request.resource.data.actividadId) || (isDocente() && ownsActivity(request.resource.data.actividadId))) &&
+        !esRuletaExterna(request.resource.data.actividadId);
       allow update: if request.auth != null && (
         (
           ownsStudentDoc(resource.data.alumnoId) &&
@@ -1562,7 +1673,10 @@ service cloud.firestore {
         // Reto Exprés: aunque existiera (solo por un error del servidor), una entrega de un reto externo no se modifica;
         // la de un reto que dejó de ser calificable tampoco (el docente aún puede borrarla).
         !esRetoExterno(resource.data.actividadId) &&
-        !retoSinNota(resource.data.actividadId);
+        !retoSinNota(resource.data.actividadId) &&
+        // La Ruleta del Destino: lo mismo al actualizar (R4, R5).
+        (!esRuleta(resource.data.actividadId) || (isDocente() && ownsActivity(resource.data.actividadId))) &&
+        !esRuletaExterna(resource.data.actividadId);
       // Borrar una submission borra su nota — eso es manipulación de
       // calificaciones si lo hace el alumno (ningún flujo del alumno borra
       // submissions). Solo el docente dueño de la actividad.
@@ -1640,7 +1754,9 @@ service cloud.firestore {
           )
         ) &&
           // Reto Exprés: defensa adicional; la entrega de un reto externo no puede existir (ver allow create arriba).
-          !esRetoExterno(get(/databases/$(database)/documents/submissions/$(submissionId)).data.actividadId);
+          !esRetoExterno(get(/databases/$(database)/documents/submissions/$(submissionId)).data.actividadId) &&
+          // La Ruleta del Destino: defensa adicional; una entrega de ruleta no lleva respuestas escritas por un cliente.
+          !esRuleta(get(/databases/$(database)/documents/submissions/$(submissionId)).data.actividadId);
       }
 
       // Video interactivo: avance del estudiante en su intento (ver

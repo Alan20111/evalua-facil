@@ -54,6 +54,7 @@ const paginas = {
   JuegoRunner: () => import('./pages/student/JuegoRunner'),
   ParticipacionDocente: () => import('./pages/teacher/ParticipacionPage'),
   RetoDocente: () => import('./pages/teacher/RetoPage'),
+  RuletaDocente: () => import('./pages/teacher/RuletaPage'),
   ProyeccionVivo: () => import('./pages/teacher/ProyeccionVivoPage'),
   ParticipacionAlumno: () => import('./pages/student/ParticipacionPage'),
   ParticipacionPublica: () => import('./pages/ParticipacionPublica'),
@@ -117,6 +118,7 @@ const EvaluacionRunner = lazy(paginas.EvaluacionRunner)
 const JuegoRunner = lazy(paginas.JuegoRunner)
 const ParticipacionDocente = lazy(paginas.ParticipacionDocente)
 const RetoDocente = lazy(paginas.RetoDocente)
+const RuletaDocente = lazy(paginas.RuletaDocente)
 const ProyeccionVivo = lazy(paginas.ProyeccionVivo)
 const ParticipacionAlumno = lazy(paginas.ParticipacionAlumno)
 const ParticipacionPublica = lazy(paginas.ParticipacionPublica)
@@ -380,6 +382,8 @@ export default function App() {
               <Route path="/participacion/:activityId" element={<ParticipacionDocente />} />
               {/* Reto Exprés: armar el reto (docs/RETO_EXPRES.md). */}
               <Route path="/reto/:activityId" element={<RetoDocente />} />
+              {/* La Ruleta del Destino: preparar la ruleta y su banco (docs/RULETA_DESTINO.md). */}
+              <Route path="/ruleta/:activityId" element={<RuletaDocente />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/perfil-ia" element={<PerfilIA />} />
               <Route path="/calendario" element={<CalendarPage />} />

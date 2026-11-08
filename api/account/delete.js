@@ -36,7 +36,10 @@ const POR_DOCENTE = ['subjects', 'activities', 'attendance', 'events', 'horarioB
   'avisos', 'avisoPlantillas', 'academicEvents', 'subscriptions', 'payments',
   'observacionesAsistencia', 'vivoSesiones', 'vivoRespuestas', 'vivoInformes', 'vivoNotas',
   // Reto Exprés: todos sus documentos llevan docenteId (también claves, alias y cupos, que ningún cliente lee).
-  'retoSesiones', 'retoParticipantes', 'retoRespuestas', 'retoResultados', 'retoClaves', 'retoAlias', 'retoCupos']
+  'retoSesiones', 'retoParticipantes', 'retoRespuestas', 'retoResultados', 'retoClaves', 'retoAlias', 'retoCupos',
+  // La Ruleta del Destino (fase 2, F2-3): su banco y el estado del banco llevan docenteId. Las colecciones de sesiones
+  // y participantes se agregan en la fase 8 (C3).
+  'ruletaReactivos', 'ruletaBancos']
 
 // Colecciones cuyos documentos tienen subcolecciones. Borrar un documento en
 // Firestore NO borra lo que cuelga de él: los hijos quedan huérfanos,
@@ -245,6 +248,8 @@ export default async function handler(req, res) {
       ...porColeccion.bancoReactivos, ...porColeccion.bancoRubricas,
       ...porColeccion.avisos, ...porColeccion.avisoPlantillas, ...porColeccion.academicEvents,
       ...porColeccion.subjects, ...porColeccion.subscriptions, ...porColeccion.payments, ...porColeccion.observacionesAsistencia,
+      // La Ruleta del Destino (fase 2, F2-3): se borran aquí mismo, sin depender del trigger onRuletaBorrada.
+      ...porColeccion.ruletaReactivos, ...porColeccion.ruletaBancos,
       ...bitacora,
     ].map((d) => d.ref).filter((r) => !conSubcolecciones.has(r.path))
 

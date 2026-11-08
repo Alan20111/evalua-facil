@@ -17,6 +17,7 @@ import { handleVivoEstado, handleVivoResponder } from '../_lib/vivo.js'
 import { handleVivoControl, handleVivoReloj } from '../_lib/vivoControl.js'
 import { handleRetoUnirse, handleRetoEstado, handleRetoResponder } from '../_lib/reto.js'
 import { handleRetoCrear, handleRetoControl } from '../_lib/retoControl.js'
+import { handleRuletaBanco } from '../_lib/ruletaBanco.js'
 
 // ── /api/subject/info ──────────────────────────────────────────────────────
 // F-11 (2026-09-07): endpoint público para el flujo de activación QR.
@@ -505,6 +506,8 @@ async function handleSignUpload(req, res) {
 // │ reto-unirse / reto-estado /     │ Según │ Reto Exprés (api/_lib/reto.js); 'inscritos'  │
 // │ reto-responder                  │ sesión│ exige estudiante, 'externo' usa token        │
 // │ reto-crear / reto-control       │ Sí    │ Docente dueño (api/_lib/retoControl.js)      │
+// │ ruleta-banco                    │ Sí    │ Docente dueño: banco de La Ruleta del Destino │
+// │                                 │       │ (api/_lib/ruletaBanco.js)                    │
 // └─────────────────────────────────┴───────┴─────────────────────────────┘
 
 export default async function handler(req, res) {
@@ -527,6 +530,7 @@ export default async function handler(req, res) {
     if (action === 'reto-responder')            return await handleRetoResponder(req, res)
     if (action === 'reto-crear')                return await handleRetoCrear(req, res)
     if (action === 'reto-control')              return await handleRetoControl(req, res)
+    if (action === 'ruleta-banco')              return await handleRuletaBanco(req, res)
     return res.status(404).json({ error: 'Acción no encontrada.' })
   } catch (err) {
     return res.status(err.status || 500).json({ error: err.message || 'Error interno.' })

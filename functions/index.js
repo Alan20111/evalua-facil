@@ -98,6 +98,12 @@ exports.onRetoBorrado = onDocumentDeleted('activities/{activityId}', async (even
 exports.onSesionRetoBorrada = onDocumentDeleted('retoSesiones/{codigo}', async (event) => {
   await require('./retoLimpieza').limpiarRetoDeSesion({ sesionId: event.params.codigo })
 })
+// La Ruleta del Destino (fase 2, C2): al borrar una ruleta se limpian su banco (ruletaReactivos) y su estado
+// (ruletaBancos). Solo las ruletas; idempotente (functions/ruletaLimpieza.js).
+exports.onRuletaBorrada = onDocumentDeleted('activities/{activityId}', async (event) => {
+  if (event.data?.data()?.categoria !== 'ruleta') return
+  await require('./ruletaLimpieza').limpiarRuletaDeActividad({ activityId: event.params.activityId })
+})
 // Análisis integral de asignatura con IA (functions/analisisAcademico.js): la
 // preparación gratuita del diálogo (qué fuentes tienen datos y cuánto cuesta
 // la selección) y la limpieza del historial al borrar la asignatura. La
