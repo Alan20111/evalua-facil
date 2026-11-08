@@ -5,13 +5,14 @@ partir de sus documentos; cada participante gira una ruleta que **solo seleccion
 premios, puntos extra, multiplicadores, penalizaciones ni segundas oportunidades).
 
 > Estado (7-nov-2026): fases 0, 1 y 2 en el commit local `e52565e0` de la rama `feat/ruleta-destino-fase0` (worktree
-> `evalua-facil-ruleta`); partida individual interna (paso 1) en el commit local `37ad199e`; resultados y calificaciones
-> (paso 2) terminados **sin commit**. Sin PR y sin despliegue. Cada fase se autoriza por separado (`AGENTS.md`); la autorización de una fase no autoriza la siguiente ni
-> el despliegue.
+> `evalua-facil-ruleta`); partida individual interna (paso 1) en `37ad199e`; resultados y calificaciones (paso 2) en
+> `37db5c9e`; solo modalidad individual en `b7d59b7f`; borrado seguro (paso 3) terminado **sin commit**. Sin PR y sin
+> despliegue. Cada fase se autoriza por separado (`AGENTS.md`); la autorización de una fase no autoriza la siguiente
+> ni el despliegue.
 
 - Lógica pura: `src/utils/ruletaDestino.js` · pruebas: `test/ruleta-destino.test.mjs` (`node test/ruleta-destino.test.mjs`)
-- Reglas: bloque «La Ruleta del Destino» de `firestore.rules` (helpers `esRuleta`, `esRuletaExterna`, `ruletaJugada`,
-  `ruletaFormaValida`, `ruletaBienFormada`, `ruletaIntacta` y nueve colecciones `ruleta*`) · pruebas: sección
+- Reglas: bloque «La Ruleta del Destino» de `firestore.rules` (helpers `esRuleta`, `esRuletaExterna`,
+  `ruletaFormaValida`, `ruletaBienFormada`, `ruletaIntacta` y las colecciones `ruleta*`) · pruebas: sección
   `RULETA ·` de `test/firestore-rules.test.mjs` (`npm run test:rules`, necesita JDK 21)
 
 La Ruleta es **independiente de Reto Exprés**: categoría propia (`ruleta`), colecciones propias (`ruleta*`), helpers de
@@ -193,11 +194,16 @@ Motivos de rechazo, contados por separado:
 16. (7-nov-2026) **Se elimina definitivamente la modalidad en vivo**: la Ruleta es solo individual. Fuera el concurso,
     la proyección, el ranking, el desempate y las colecciones `ruletaSesiones`, `ruletaClaves` y `ruletaResultados`
     (sin reglas: nadie las lee ni las escribe desde un cliente). La competencia en tiempo real es de Reto Exprés.
+17. (7-nov-2026, paso 3) **Borrado seguro, como en Reto Exprés**: el docente dueño borra su ruleta aunque ya tenga
+    partidas, y el trigger `onRuletaBorrada` limpia en el servidor el banco, las partidas, las respuestas y las
+    entregas que quedaran (con su historial). El borrado de cuenta elimina directamente partidas y respuestas. Las
+    partidas de un estudiante dado de baja (o de «empezar de cero») se quedan con la ruleta y se ven como «Estudiante
+    dado de baja» hasta que se borre la ruleta o la cuenta.
 
 ### Seguridad (R1–R8, 6-nov-2026)
 - **R1** Solo el servidor escribe `ruletaReactivos`; el docente administra el banco con acciones del API. Ningún cliente
   escribe en las colecciones protegidas.
-- **R2** El docente no borra sus partidas directamente; el borrado y la limpieza en cascada llegan en la fase 8.
+- **R2** El docente no borra sus partidas directamente: al borrar la ruleta, las limpia el trigger `onRuletaBorrada`.
 - **R3** Las claves congeladas las leen el docente dueño y el admin; nunca estudiantes, externos ni otros docentes.
 - **R4** El docente corrige una nota por el camino existente de `submissions` (guardián de entregas, bloqueo de parciales
   cerrados y auditoría en `calificacionHistorial`). El estudiante nunca modifica su nota.
@@ -207,21 +213,22 @@ Motivos de rechazo, contados por separado:
   crear; después, cambiarlo es una acción del servidor (sin partidas y con el banco mínimo del nuevo tamaño). Después
   de crear, el cliente no cambia nada del mapa `ruleta` (desde el 7-nov-2026 ya no existe `ranking`).
 - **R7** El admin lee todas las colecciones `ruleta*` salvo `ruletaCupos` y `ruletaIdentificadores`, que no lee nadie.
-- **R8** El docente borra una ruleta sin partidas. Al iniciar la primera partida, el servidor pone
-  `ruleta.preguntasCongeladas = true` en la misma transacción; con esa bandera ningún cliente borra la actividad. El
-  cliente nunca crea, cambia ni quita la bandera. El borrado definitivo de una ruleta con partidas será un procedimiento
-  del servidor con limpieza completa (fase 8): sin participantes ni respuestas huérfanos.
+- **R8** Al iniciar la primera partida, el servidor pone `ruleta.preguntasCongeladas = true` en la misma transacción:
+  desde ahí las preguntas por partida ya no cambian. El cliente nunca crea, cambia ni quita la bandera. **Cambiado en
+  el paso 3 (decisión 17):** el docente dueño sí borra una ruleta con partidas (con las reglas de cualquier actividad,
+  incluido el parcial cerrado) y el trigger `onRuletaBorrada` la limpia por completo, sin huérfanos.
 
 ### Dependencias de borrado (C1–C3, 6-nov-2026)
 - **C1** Eliminar asignatura: `src/utils/deleteSubjectCascade.js` borra recursos y materiales y después las
-  actividades, en lotes desde el cliente. Con R8, una ruleta jugada haría fallar ese lote y dejaría la asignatura a
-  medias. Se corrige en la fase 8 integrando el procedimiento del servidor en `deleteSubjectCascade.js`. Mientras
-  tanto, **no se habilita en producción que se jueguen ruletas**.
+  actividades, en lotes desde el cliente. Antes del paso 3, una ruleta jugada hacía fallar ese lote y dejaba la
+  asignatura sin notas pero a medias. **Resuelto en el paso 3:** las reglas ya dejan borrarla y el trigger limpia el
+  resto; `deleteSubjectCascade.js` no cambió.
 - **C2** Borradores sin partidas: desde la fase 2 ya tienen banco (`ruletaReactivos` y `ruletaBancos`). El trigger
   de limpieza al borrar la actividad (`onRuletaBorrada` en `functions/index.js`, `functions/ruletaLimpieza.js`) se
-  adelantó y quedó **implementado en la fase 2** (F2-2); la fase 3 le agregará `ruletaGeneraciones`. Seguro,
-  idempotente y sin tocar otras actividades.
-- **C3** Eliminar cuenta: `api/account/delete.js` (Admin SDK) agregará las colecciones `ruleta*` en la fase 8.
+  adelantó y quedó **implementado en la fase 2** (F2-2); el paso 3 le agregó partidas, respuestas y entregas, y la
+  fase 3 (IA) le agregará `ruletaGeneraciones`. Seguro, idempotente y sin tocar otras actividades.
+- **C3** Eliminar cuenta: `api/account/delete.js` (Admin SDK) borra el banco, su estado, las partidas y las respuestas
+  del docente (paso 3), sin depender del trigger; sus entregas ya se borraban por actividad.
 
 ---
 
@@ -251,7 +258,7 @@ ve solo lo suyo» lo garantiza el servidor.
 | `ruletaRespuestas` | Lee | ✗ | Lee | ✗ | ✗ | Escribe |
 | `ruletaCupos` | ✗ | ✗ | ✗ | ✗ | ✗ | Escribe |
 | `ruletaIdentificadores` | ✗ | ✗ | ✗ | ✗ | ✗ | Escribe |
-| `activities` (`categoria: 'ruleta'`) | Crea y edita con candado; borra sin partidas | ✗ | Lee | ✗ | ✗ | Pone la bandera |
+| `activities` (`categoria: 'ruleta'`) | Crea y edita con candado; borra (también con partidas) | ✗ | Lee | ✗ | ✗ | Pone la bandera |
 | `submissions` de ruleta interna | Lee y corrige (R4) | ✗ | Lee | Lee la suya; nunca escribe | ✗ | Publica la nota |
 | `submissions` de ruleta externa | Nadie crea ni modifica (sí borra una que existiera por error) | ✗ | — | ✗ | ✗ | No escribe |
 
@@ -268,7 +275,8 @@ eliminado el 7-nov-2026) ya no tienen reglas: nadie los lee ni los escribe desde
   (modalidad, acceso, preguntas y bandera quedan exactamente igual, también si se reemplaza el mapa completo); la forma
   sigue siendo válida (externa sigue oculta y sin calificación). Los demás campos (nombre, parcial, publicar en
   internas) siguen las reglas de cualquier actividad.
-- **Borrar**: rechazado si `ruleta.preguntasCongeladas == true` (`ruletaJugada`).
+- **Borrar**: las reglas de cualquier actividad (dueño; no en un parcial cerrado si cuenta), también con partidas
+  (paso 3). La limpieza la hace el trigger `onRuletaBorrada`.
 
 ### Candados de las entregas (`submissions`)
 - Crear y actualizar: en una ruleta solo pasa el camino del docente dueño
@@ -308,9 +316,10 @@ concurso en vivo (`ruletaSesiones`, `ruletaClaves`, `ruletaResultados`) se elimi
 |---|---|
 | El Admin SDK no pasa por las reglas | Cada acción del servidor verifica identidad, propiedad y estado; pruebas de servidor contra el emulador |
 | Publicar notas desde el servidor saltaría el bloqueo de parcial cerrado | El servidor usa `parcialCerrado` y no pisa una corrección del docente (`ultimaCalificacionPor`) |
-| Borrar asignatura con una ruleta jugada (C1) | Fase 8 antes de habilitar las partidas en producción |
+| Borrar asignatura con una ruleta jugada (C1) | Resuelto en el paso 3: se borra y el trigger limpia |
+| La limpieza es asíncrona y depende del despliegue de Functions | Idempotente; si fallara, los restos no los lee ningún cliente y repetirla es seguro |
 | Borradores con banco (C2) | Trigger de limpieza implementado en la fase 2; la fase 3 lo amplía a `ruletaGeneraciones` |
-| Residuos al eliminar la cuenta (C3) | Fase 8 en `api/account/delete.js` |
+| Residuos al eliminar la cuenta (C3) | Resuelto en el paso 3 en `api/account/delete.js` |
 | Límite de lecturas de las reglas en lotes | Probado: lote de 10 notas mezcladas (ruleta y entregable) pasa |
 | Desplegar reglas | El CI las despliega al fusionar en `main`: fusionar es desplegar; requiere autorización aparte |
 
@@ -328,7 +337,7 @@ concurso en vivo (`ruletaSesiones`, `ruletaClaves`, `ruletaResultados`) se elimi
 | 5 | Pantallas individuales (celular y docente) | Pantalla del estudiante (paso 1) y resultados del docente (paso 2, sin commit) |
 | 6 | ~~Concurso en vivo y ranking~~ | **Eliminada** (7-nov-2026, decisión 16): la competencia en vivo es de Reto Exprés |
 | 7 | Publicación automática de calificaciones | Hecha para acceso interno (paso 2, sin commit) |
-| 8 | Borrado definitivo con limpieza, borrado de asignatura (C1) y de cuenta (C3) | Sin autorizar |
+| 8 | Borrado definitivo con limpieza, borrado de asignatura (C1) y de cuenta (C3) | Hecha (paso 3, sin commit) |
 | 9 | Prueba real y de carga | Sin autorizar |
 
 ## 7. Condiciones de despliegue
@@ -336,7 +345,8 @@ concurso en vivo (`ruletaSesiones`, `ruletaClaves`, `ruletaResultados`) se elimi
 - Ninguna fase se despliega sin autorización expresa y separada.
 - Las reglas de la fase 1 pueden desplegarse solas sin riesgo (colecciones vacías, ninguna pantalla crea ruletas),
   pero se recomienda desplegarlas junto con el servidor.
-- **Nada que permita jugar ruletas en producción** antes de que estén en producción la fase 8 y la corrección de C1.
+- La fase 8 (borrado seguro, C1 y C3) quedó hecha en el paso 3: se despliega junto con la partida. Fusionar en `main`
+  despliega web, reglas y Functions a la vez; requiere autorización aparte.
 - El trigger de limpieza de borradores (C2) debe estar en producción antes o junto con la generación del banco.
 
 ## 8. Pendientes de definición

@@ -98,8 +98,8 @@ exports.onRetoBorrado = onDocumentDeleted('activities/{activityId}', async (even
 exports.onSesionRetoBorrada = onDocumentDeleted('retoSesiones/{codigo}', async (event) => {
   await require('./retoLimpieza').limpiarRetoDeSesion({ sesionId: event.params.codigo })
 })
-// La Ruleta del Destino (fase 2, C2): al borrar una ruleta se limpian su banco (ruletaReactivos) y su estado
-// (ruletaBancos). Solo las ruletas; idempotente (functions/ruletaLimpieza.js).
+// La Ruleta del Destino (fase 2, C2; paso 3): al borrar una ruleta se limpian su banco, su estado, sus partidas, sus
+// respuestas y las entregas que quedaran. Solo las ruletas; idempotente (functions/ruletaLimpieza.js).
 exports.onRuletaBorrada = onDocumentDeleted('activities/{activityId}', async (event) => {
   if (event.data?.data()?.categoria !== 'ruleta') return
   await require('./ruletaLimpieza').limpiarRuletaDeActividad({ activityId: event.params.activityId })

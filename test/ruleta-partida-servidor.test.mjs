@@ -454,4 +454,25 @@ await caso('N · otro grupo, el docente, sin sesión o sin asignatura: rechazado
   assert.deepStrictEqual([propia.statusCode, propia.cuerpo.ruletas], [200, {}])
 })
 
+// ── O · Borrado a mitad de partida (paso 3) ─────────────────────────────────
+grupo('O · si el docente borra la ruleta a mitad de una partida')
+
+await caso('O · las operaciones responden «no existe» y no se escribe ni partida ni nota', async () => {
+  await crearRuleta('ru_borrada')
+  await op('estado', { actividadId: 'ru_borrada' })
+  await op('girar', { actividadId: 'ru_borrada' })
+  ahora += 1000
+  const clave = await claveAbierta('ru_borrada', 'st_a1')
+  await db.doc('activities/ru_borrada').delete()
+  for (const [o, cuerpo] of [['responder', { indice: 0, opcion: clave }], ['girar', {}], ['estado', {}]]) {
+    const r = await op(o, { actividadId: 'ru_borrada', ...cuerpo })
+    assert.deepStrictEqual([r.statusCode, r.cuerpo.codigo], [404, 'NO_EXISTE'], o)
+  }
+  assert.strictEqual((await participante('ru_borrada', 'st_a1')).partida.respuestas.length, 0)
+  assert.strictEqual(await entrega('ru_borrada', 'st_a1'), null)
+  const nuevo = await op('estado', { actividadId: 'ru_borrada' }, tk.a2)
+  assert.strictEqual(nuevo.statusCode, 404)
+  assert.strictEqual((await db.doc('ruletaParticipantes/ru_borrada_st_a2').get()).exists, false)
+})
+
 resumen('RULETA-PARTIDA-SERVIDOR CHECKS')

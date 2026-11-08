@@ -540,6 +540,52 @@ await caso('F · la limpieza no toca otras categorías ni documentos sin ese act
   assert.ok((await db.doc('activities/act_normal/preguntas/p1').get()).exists)
 })
 
+// Paso 3: datos de una ruleta jugada, como los deja el servidor de la partida (api/_lib/ruletaPartida.js).
+async function jugada(actId, docenteId, alumnoId, { conEntrega = true } = {}) {
+  const pid = `${actId}_${alumnoId}`
+  await db.doc(`ruletaParticipantes/${pid}`).set({ docenteId, actividadId: actId, asignaturaId: S, alumnoId, uid: `u_${alumnoId}`, partida: { estado: 'terminada' } })
+  for (let i = 0; i < 2; i++) await db.doc(`ruletaRespuestas/${pid}_${i}`).set({ docenteId, actividadId: actId, participanteId: pid, alumnoId, indice: i, opcion: 1 })
+  if (conEntrega) {
+    await db.doc(`submissions/${pid}`).set({ actividadId: actId, alumnoId, calificacion: 8, estado: 'calificado', ultimaCalificacionPor: 'servidor', sinEntrega: true, ruleta: { participanteId: pid, correctas: 4, total: 5 } })
+    await db.doc(`submissions/${pid}/calificacionHistorial/e1`).set({ calificacionNueva: 8 })
+  }
+}
+const contar = async (coleccion, campo, valor) => (await db.collection(coleccion).where(campo, '==', valor).get()).size
+
+await caso('F · paso 3: borrar una ruleta JUGADA limpia partidas, respuestas y entregas que quedaran (con su historial); nada ajeno', async () => {
+  await crearRuleta('ru_jugada_b')
+  await llenar('ru_jugada_b', 0, 50)
+  await jugada('ru_jugada_b', DOC, 'st_1')
+  await jugada('ru_jugada_b', DOC, 'st_2', { conEntrega: false })
+  // Otra ruleta del mismo docente y una del otro docente, también jugadas: no se tocan.
+  await crearRuleta('ru_jugada_otra')
+  await jugada('ru_jugada_otra', DOC, 'st_1')
+  await jugada('ru_ajena', DOC2, 'st_9')
+  await db.doc('submissions/act_normal_st_1').set({ actividadId: 'act_normal', alumnoId: 'st_1', calificacion: 9 })
+  await db.doc('activities/ru_jugada_b').delete()
+  const r = await limpiarRuletaDeActividad({ activityId: 'ru_jugada_b' })
+  assert.strictEqual(r.borrados, 50 + 1 + 2 + 4 + 1) // reactivos + estado + 2 partidas + 4 respuestas + 1 entrega
+  for (const c of ['ruletaReactivos', 'ruletaParticipantes', 'ruletaRespuestas', 'submissions']) {
+    assert.strictEqual(await contar(c, 'actividadId', 'ru_jugada_b'), 0, c)
+  }
+  assert.strictEqual((await db.doc('ruletaBancos/ru_jugada_b').get()).exists, false)
+  assert.strictEqual((await db.collection('submissions/ru_jugada_b_st_1/calificacionHistorial').get()).size, 0)
+  assert.deepStrictEqual(
+    [await contar('ruletaParticipantes', 'actividadId', 'ru_jugada_otra'), await contar('ruletaRespuestas', 'actividadId', 'ru_jugada_otra'), await contar('submissions', 'actividadId', 'ru_jugada_otra')],
+    [1, 2, 1])
+  assert.deepStrictEqual([await contar('ruletaParticipantes', 'actividadId', 'ru_ajena'), await contar('submissions', 'actividadId', 'ru_ajena')], [1, 1])
+  assert.ok((await db.doc('submissions/act_normal_st_1').get()).exists)
+  assert.ok((await db.doc('submissions/ru_jugada_otra_st_1/calificacionHistorial/e1').get()).exists)
+})
+
+await caso('F · paso 3: una nota que llega DESPUÉS de borrar la ruleta (carrera) también se limpia; repetir no borra nada más', async () => {
+  await db.doc('submissions/ru_jugada_b_st_3').set({ actividadId: 'ru_jugada_b', alumnoId: 'st_3', calificacion: 6, ruleta: { participanteId: 'ru_jugada_b_st_3' } })
+  assert.deepStrictEqual(await limpiarRuletaDeActividad({ activityId: 'ru_jugada_b' }), { borrados: 1 })
+  assert.strictEqual(await contar('submissions', 'actividadId', 'ru_jugada_b'), 0)
+  assert.deepStrictEqual(await limpiarRuletaDeActividad({ activityId: 'ru_jugada_b' }), { borrados: 0 })
+  assert.strictEqual(await contar('ruletaParticipantes', 'actividadId', 'ru_jugada_otra'), 1)
+})
+
 await caso('F · borrar la cuenta del docente elimina ruletaReactivos y ruletaBancos SUYOS; los del otro docente quedan', async () => {
   // Datos del otro docente: su ruleta (ru_ajena) con un reactivo guardado por él.
   assert.strictEqual((await guardar('ru_ajena', reactivo(1), tk.doc2)).statusCode, 200)
@@ -552,6 +598,11 @@ await caso('F · borrar la cuenta del docente elimina ruletaReactivos y ruletaBa
   assert.strictEqual((await db.collection('ruletaBancos').where('docenteId', '==', DOC).get()).size, 0)
   assert.strictEqual((await db.collection('ruletaReactivos').where('docenteId', '==', DOC2).get()).size, 1)
   assert.ok((await db.doc('ruletaBancos/ru_ajena').get()).exists)
+  // Paso 3 (C3): sin residuos de partidas ni respuestas del docente; las del otro docente quedan.
+  assert.strictEqual(await contar('ruletaParticipantes', 'docenteId', DOC), 0)
+  assert.strictEqual(await contar('ruletaRespuestas', 'docenteId', DOC), 0)
+  assert.strictEqual(await contar('submissions', 'actividadId', 'ru_jugada_otra'), 0)
+  assert.deepStrictEqual([await contar('ruletaParticipantes', 'docenteId', DOC2), await contar('ruletaRespuestas', 'docenteId', DOC2)], [1, 2])
 })
 
 resumen('RULETA-BANCO-SERVIDOR CHECKS')

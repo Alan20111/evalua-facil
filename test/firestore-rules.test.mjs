@@ -5113,6 +5113,9 @@ ok('F-05 · admin CAN read publicProfiles')
     // Ya tienen partidas: el servidor (Admin SDK) puso la bandera al crear la primera (R8).
     await setDoc(doc(db, 'activities', 'RU_JUGADA'), interna({ preguntasCongeladas: true }))
     await setDoc(doc(db, 'activities', 'RU_JUGADA_EXT'), externa({ preguntasCongeladas: true }))
+    // Paso 3: jugadas que el dueño borra (la limpieza es del trigger onRuletaBorrada).
+    await setDoc(doc(db, 'activities', 'RU_JUGADA_BORRAR'), interna({ preguntasCongeladas: true }))
+    await setDoc(doc(db, 'activities', 'RU_JUGADA_EXT_BORRAR'), externa({ preguntasCongeladas: true }))
     await setDoc(doc(db, 'activities', 'RU_CERR'), interna({}, { asignaturaId: 'SRU_CERR', oculta: false, publishedAt: HOYR }))
     await setDoc(doc(db, 'activities', 'RU_NORMAL'), { docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', parcial: 1, nombre: 'Entregable' })
     await setDoc(doc(db, 'activities', 'RU_CUEST'), { docenteId: T1, asignaturaId: 'S1', categoria: 'cuestionario', tipo: 'evaluacion', parcial: 1, oculta: true, nombre: 'Cuestionario' })
@@ -5240,14 +5243,18 @@ ok('F-05 · admin CAN read publicProfiles')
   await assertFails(updateDoc(doc(asAnon, 'activities', 'RU_INT'), { nombre: 'Ajena' }))
   ok('RULETA · solo el docente dueño edita su ruleta (ni otro docente, ni un estudiante, ni sin sesión)')
 
-  // — Borrar (R8) —
+  // — Borrar (paso 3: también con partidas; la limpieza es del trigger onRuletaBorrada) —
   await assertSucceeds(deleteDoc(doc(asT1, 'activities', 'RU_BORRAR')))
   await assertSucceeds(deleteDoc(doc(asT1, 'activities', 'RU_BORRAR_EXT')))
-  await assertFails(deleteDoc(doc(asT1, 'activities', 'RU_JUGADA')))
-  await assertFails(deleteDoc(doc(asT1, 'activities', 'RU_JUGADA_EXT')))
+  await assertSucceeds(deleteDoc(doc(asT1, 'activities', 'RU_JUGADA_BORRAR')))
+  await assertSucceeds(deleteDoc(doc(asT1, 'activities', 'RU_JUGADA_EXT_BORRAR')))
   await assertFails(deleteDoc(doc(asT2, 'activities', 'RU_BORRAR_AJENA')))
   await assertFails(deleteDoc(doc(asJuan, 'activities', 'RU_BORRAR_AJENA')))
-  ok('RULETA · R8: el dueño borra una ruleta sin partidas; con partidas no la borra nadie desde un cliente; otro docente o un estudiante nunca')
+  await assertFails(deleteDoc(doc(asT2, 'activities', 'RU_JUGADA')))
+  await assertFails(deleteDoc(doc(asJuan, 'activities', 'RU_JUGADA')))
+  await assertFails(deleteDoc(doc(asAnon, 'activities', 'RU_JUGADA')))
+  await assertFails(deleteDoc(doc(asT1, 'activities', 'RU_CERR')), 'parcial cerrado')
+  ok('RULETA · paso 3: el dueño borra su ruleta con o sin partidas (interna o externa); otro docente, un estudiante o sin sesión nunca; con el parcial cerrado, nadie')
 
   // — Las demás actividades no cambian —
   const refCuest = doc(asT1, 'activities', 'RU_CUEST')

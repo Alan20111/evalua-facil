@@ -352,9 +352,10 @@ service cloud.firestore {
     // Una ruleta (`categoria: 'ruleta'`) declara en el mapa `ruleta` su modalidad (solo 'individual' desde el
     // 7-nov-2026: sin concurso en vivo ni ranking), su acceso ('interno' | 'externo') y las preguntas por partida (5 o
     // 10). El cliente los fija SOLO al crear (R6); después el mapa no cambia desde un cliente. Cambiar las preguntas es
-    // una acción del servidor. `preguntasCongeladas` la pone SOLO el servidor al iniciar la primera partida (R8): con
-    // ella la actividad ya no se borra desde un cliente. Una ruleta externa nace y se queda oculta,
-    // sin calificación ni programación, y nunca tiene entregas (R5). Las demás actividades no pasan por aquí.
+    // una acción del servidor. `preguntasCongeladas` la pone SOLO el servidor al iniciar la primera partida (R8) y
+    // ningún cliente la cambia. El docente dueño SÍ borra su ruleta aunque ya tenga partidas (paso 3, 7-nov-2026, como
+    // Reto Exprés): el trigger onRuletaBorrada limpia banco, partidas, respuestas y entregas. Una ruleta externa nace y
+    // se queda oculta, sin calificación ni programación, y nunca tiene entregas (R5). Las demás actividades no pasan por aquí.
     function esRuletaData(d) {
       return d.get('categoria', null) == 'ruleta';
     }
@@ -365,10 +366,6 @@ service cloud.firestore {
     function esRuletaExterna(actId) {
       return esRuleta(actId) &&
         get(/databases/$(database)/documents/activities/$(actId)).data.get('ruleta', {}).get('acceso', null) == 'externo';
-    }
-    // Ya tiene partidas: el servidor congeló sus preguntas (R8).
-    function ruletaJugada(d) {
-      return esRuletaData(d) && d.get('ruleta', {}).get('preguntasCongeladas', false) == true;
     }
     // Forma válida del mapa `ruleta` (admite la bandera del servidor, que solo puede ser booleana).
     function ruletaFormaValida(d) {
@@ -999,9 +996,9 @@ service cloud.firestore {
         // Reto Exprés: no se entra ni se sale de la categoría reto, la modalidad no cambia y un reto externo sigue
         // oculto y no calificable. Borrar no pasa por aquí (en un delete no hay request.resource).
         (request.method == 'delete' || retoIntacto(resource.data, request.resource.data)) &&
-        // La Ruleta del Destino: una ruleta con partidas no se borra desde un cliente (R8; el borrado con limpieza será
-        // del servidor); al actualizar, la categoría y el mapa `ruleta` no cambian (R6).
-        (request.method == 'delete' ? !ruletaJugada(resource.data) : ruletaIntacta(resource.data, request.resource.data));
+        // La Ruleta del Destino: al actualizar, la categoría y el mapa `ruleta` no cambian (R6, R8). Borrar sigue las
+        // reglas de cualquier actividad, también con partidas: la limpieza la hace el trigger onRuletaBorrada (paso 3).
+        (request.method == 'delete' || ruletaIntacta(resource.data, request.resource.data));
 
       // Reactivos de una evaluación. Los lee cualquier cuenta autenticada
       // porque el alumno los necesita para contestar; los escribe solo el
@@ -1525,8 +1522,8 @@ service cloud.firestore {
 
     // ── La Ruleta del Destino: colecciones propias (fase 1, docs/RULETA_DESTINO.md) ──
     // Ningún cliente crea, modifica ni borra: todo lo escribe el servidor (Admin SDK, que no pasa por estas reglas).
-    // El docente administra su banco con acciones del API (R1) y no borra partidas directamente (R2; el borrado con
-    // limpieza en cascada llega en la fase 8). Los estudiantes y los participantes externos nunca leen Firestore: lo
+    // El docente administra su banco con acciones del API (R1) y no borra partidas directamente (R2): al borrar la
+    // ruleta, el trigger onRuletaBorrada las limpia (paso 3). Los estudiantes y los participantes externos nunca leen Firestore: lo
     // que les toca (su pregunta sin clave, su resultado) lo reciben del servidor.
     //
     // Lectura: el docente dueño (campo `docenteId` del propio documento, que escribe el servidor) y el admin (R3, R7).
