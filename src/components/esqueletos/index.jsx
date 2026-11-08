@@ -459,6 +459,10 @@ export function EsqueletoRuletaDocente({ filas = 4 }) {
             <Skeleton key={i} className="h-20 w-full rounded-card" />
           ))}
         </div>
+        <div data-esq="ruleta-resultados" className="bg-surface-card rounded-card shadow-card p-4 space-y-4">
+          <SkeletonLine texto="text-lg font-semibold" className="w-32" />
+          <Skeleton className="h-24 w-full rounded-card" />
+        </div>
       </div>
     </SkeletonGroup>
   )

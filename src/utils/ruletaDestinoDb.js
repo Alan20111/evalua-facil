@@ -66,6 +66,46 @@ export async function operacionPartida(operacion, cuerpo) {
   return llamarServidor('ruleta-partida', operacion, cuerpo)
 }
 
+/**
+ * Avance del estudiante en las ruletas de una asignatura (solo lectura; nunca crea partidas):
+ * { [actividadId]: { estado: 'en_curso' | 'terminada', respondidas, total } }.
+ */
+export async function estadosRuletaAlumno(asignaturaId) {
+  const r = await llamarServidor('ruleta-partida', 'estados', { asignaturaId })
+  return r.ruletas || {}
+}
+
+/**
+ * Resultados de una ruleta para el docente (paso 2): los participantes con su avance, aciertos, calificación, qué
+ * pasó con la nota y el detalle de cada pregunta, con el nombre de cada estudiante. Solo lee lo del propio docente
+ * (las reglas exigen el filtro por docenteId).
+ */
+export async function cargarResultadosRuleta(actividad, uid) {
+  const [partSnap, alumnosSnap] = await Promise.all([
+    getDocs(query(collection(db, 'ruletaParticipantes'), where('docenteId', '==', uid), where('actividadId', '==', actividad.id))),
+    getDocs(query(collection(db, 'students'), where('asignaturaId', '==', actividad.asignaturaId))),
+  ])
+  const alumnos = new Map(alumnosSnap.docs.map((d) => [d.id, d.data()]))
+  return partSnap.docs.map((d) => {
+    const p = d.data()
+    const respuestas = Array.isArray(p.partida?.respuestas) ? p.partida.respuestas : []
+    return {
+      id: d.id,
+      alumnoId: p.alumnoId,
+      alumno: alumnos.get(p.alumnoId) || null,
+      terminada: p.partida?.estado === 'terminada',
+      respondidas: respuestas.length,
+      total: p.preguntasPorPartida,
+      resultado: p.resultado || null,
+      nota: p.nota || null,
+      detalle: respuestas.map((r) => {
+        const q = p.preguntas?.[r.reactivoId] || {}
+        return { indice: r.indice, enunciado: q.enunciado || '', opciones: q.opciones || [], correcta: q.correcta, opcion: r.opcion, motivo: r.motivo, acierto: r.correcta === true, tiempoMs: r.tiempoMs }
+      }),
+    }
+  })
+}
+
 async function llamarServidor(accion, operacion, cuerpo) {
   const headers = { 'Content-Type': 'application/json' }
   const token = await auth.currentUser?.getIdToken()

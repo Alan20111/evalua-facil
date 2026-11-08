@@ -20,6 +20,7 @@ import { subjectDisplayName } from '../../utils/subjectName'
 import { subjectPaletteProps } from '../../utils/subjectPalette'
 import { getEnrollmentForSubject } from '../../utils/studentLookup'
 import { fetchContent, fetchMisEntregas } from '../../utils/apiContent'
+import { estadosRuletaAlumno } from '../../utils/ruletaDestinoDb'
 import { estaCalificada, promedioParcialVisible } from '../../utils/entregasCliente'
 import NotaOculta from '../../components/NotaOculta'
 import { getResourceIcon, getLinkResourceIcon } from '../../utils/resourceTypes'
@@ -145,6 +146,8 @@ export default function StudentSubjectPage() {
   // Promedios que calculó el servidor ({ parciales, final }): se usan solo cuando al
   // estudiante le falta una nota oculta o el docente ocultó el promedio.
   const [promediosServidor, setPromediosServidor] = useState(null)
+  // La Ruleta del Destino: { [actividadId]: { estado: 'en_curso' | 'terminada', respondidas, total } } (del servidor).
+  const [ruletaEstados, setRuletaEstados] = useState({})
   const [resources, setResources] = useState([])
   const [materials, setMaterials] = useState([])
   const [avisos, setAvisos] = useState([])
@@ -509,7 +512,13 @@ export default function StudentSubjectPage() {
       // Las entregas las entrega el servidor SIN lo que el docente ocultó (la nota
       // se quita allá, no aquí) y con los promedios que el estudiante no puede
       // calcular solo cuando le falta alguna nota oculta.
-      const { entregas, promedios } = await fetchMisEntregas({ asignaturaId: subjectId })
+      // El avance en las ruletas (En curso) solo se pide si hay alguna; si falla, se muestran como Pendiente.
+      const hayRuletas = acts.some((a) => a.categoria === 'ruleta')
+      const [{ entregas, promedios }, ruletas] = await Promise.all([
+        fetchMisEntregas({ asignaturaId: subjectId }),
+        hayRuletas ? estadosRuletaAlumno(subjectId).catch(() => ({})) : Promise.resolve({}),
+      ])
+      setRuletaEstados(ruletas)
       const actIds = new Set(acts.map((a) => a.id))
       const subsMap = {}
       const subsTodas = {}
@@ -830,11 +839,16 @@ export default function StudentSubjectPage() {
                                 <NotaOculta compacta />
                               ) : graded ? (
                                 <div>
+                                  {a.categoria === 'ruleta' && <p className="text-xs text-muted">Terminada</p>}
                                   <p className="text-sm font-bold text-emerald-600 flex items-center gap-0.5">
                                     <Star size={ICONO.xs} /> {sub.calificacion}
                                   </p>
                                   <p className="text-xs text-muted">/{a.maxCalif}</p>
                                 </div>
+                              ) : a.categoria === 'ruleta' && ruletaEstados[a.id]?.estado === 'terminada' ? (
+                                <span className="text-xs bg-accent-light text-accent px-2 py-1 rounded-full">Terminada</span>
+                              ) : a.categoria === 'ruleta' && ruletaEstados[a.id]?.estado === 'en_curso' ? (
+                                <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full">En curso</span>
                               ) : delivered ? (
                                 <span className="text-xs bg-accent-light text-accent px-2 py-1 rounded-full">Entregada</span>
                               ) : a.categoria === 'participacion' || a.categoria === 'reto' ? (

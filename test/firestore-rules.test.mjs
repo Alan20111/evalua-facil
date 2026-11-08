@@ -5057,6 +5057,19 @@ ok('F-05 · admin CAN read publicProfiles')
     }
   })
   ok('RULETA · después de todos los intentos de escritura, los datos siguen intactos')
+
+  // Paso 2 · la consulta de «Resultados» del docente: sus participantes de UNA ruleta (docenteId + actividadId).
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'ruletaParticipantes', 'ARULETA_ST_JUAN'),
+      { docenteId: T1, actividadId: 'ARULETA', asignaturaId: 'S1', alumnoId: 'ST_JUAN', uid: U_JUAN, partida: { estado: 'terminada' }, resultado: { calificacion: 8 } })
+  })
+  const consultaResultados = (ctxDb) => getDocs(query(collection(ctxDb, 'ruletaParticipantes'), where('docenteId', '==', T1), where('actividadId', '==', 'ARULETA')))
+  assert.strictEqual((await assertSucceeds(consultaResultados(asT1))).size, 1)
+  await assertFails(consultaResultados(asT2))
+  await assertFails(consultaResultados(asJuan))
+  await assertFails(getDocs(query(collection(asJuan, 'ruletaParticipantes'), where('uid', '==', U_JUAN))))
+  await assertFails(getDoc(doc(asJuan, 'ruletaParticipantes', 'ARULETA_ST_JUAN')))
+  ok('RULETA · paso 2: el docente dueño consulta los resultados de su ruleta; otro docente y el propio estudiante no')
 }
 
 // ── La Ruleta del Destino · fase 1: candados de la actividad (R5, R6, R8) y de las entregas (R4, R5) ──

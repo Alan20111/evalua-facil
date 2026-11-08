@@ -13,6 +13,7 @@ import { Badge, Button, Input, Select, Switch, Textarea } from '../../components
 import ConfirmModal from '../../components/ConfirmModal'
 import BancoRuleta from '../../components/ruleta/BancoRuleta'
 import EditorReactivoRuleta from '../../components/ruleta/EditorReactivoRuleta'
+import ResultadosRuleta from '../../components/ruleta/ResultadosRuleta'
 import { EsqueletoRuletaDocente } from '../../components/esqueletos'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { TEACHER_CONTAINER } from '../../config/layout'
@@ -254,6 +255,13 @@ export default function RuletaPage() {
             onAprobar={aprobarBanco}
           />
         </section>
+
+        {/* Paso 2: resultados de la partida individual interna (las demás modalidades todavía no se juegan). */}
+        {!vivo && !externa && (
+          <section data-esq="ruleta-resultados" className="bg-surface-card rounded-card shadow-card p-4 space-y-4" aria-labelledby="ruleta-resultados-titulo">
+            <ResultadosRuleta actividad={actividad} uid={uid} />
+          </section>
+        )}
       </div>
 
       {editor && (

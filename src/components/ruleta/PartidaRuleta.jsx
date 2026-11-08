@@ -4,6 +4,7 @@
 // Decisiones del PO (7-nov-2026): una sola partida por estudiante; durante el juego solo «Respuesta registrada» o
 // «Se acabó el tiempo»; al final, la calificación sobre 10 y cuántas acertó, sin revelar las opciones correctas.
 // Al volver a entrar continúa donde se quedó (el servidor recupera la partida).
+// Paso 2: al terminar, el servidor registra la nota; con el parcial cerrado no se juega (el mensaje viene del servidor).
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { CheckCircle2, Hourglass, LoaderPinwheel, RotateCw, Trophy, TriangleAlert } from 'lucide-react'
 import { Button, Progress } from '../ui'
@@ -149,6 +150,10 @@ export default function PartidaRuleta({ actividadId }) {
 
   if (fase === 'terminada') {
     const r = vista.resultado
+    // Paso 2: si el docente ocultó las calificaciones de esta actividad, no se muestra ni la nota ni los aciertos.
+    if (r.notaOculta) {
+      return <Aviso icono={Trophy} titulo="¡Terminaste tu partida!" texto="Tu docente publicará tu calificación más adelante." />
+    }
     return (
       <Aviso icono={Trophy} titulo="¡Terminaste tu partida!">
         <div className="rounded-card bg-surface-card shadow-card p-6 space-y-2" aria-live="polite">
@@ -156,6 +161,9 @@ export default function PartidaRuleta({ actividadId }) {
           <p className="text-4xl font-bold text-accent">{r.calificacion} <span className="text-xl font-semibold text-muted">/ {RULETA_CFG.CALIFICACION_MAXIMA}</span></p>
           <p className="text-base text-on-surface">Acertaste {r.correctas} de {r.total} preguntas.</p>
         </div>
+        {r.notaConservada && (
+          <p className="text-sm text-muted">Tu docente ya te había calificado esta actividad, así que se conserva esa calificación.</p>
+        )}
       </Aviso>
     )
   }

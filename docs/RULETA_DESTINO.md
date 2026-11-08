@@ -5,8 +5,8 @@ partir de sus documentos; cada participante gira una ruleta que **solo seleccion
 premios, puntos extra, multiplicadores, penalizaciones ni segundas oportunidades).
 
 > Estado (7-nov-2026): fases 0, 1 y 2 en el commit local `e52565e0` de la rama `feat/ruleta-destino-fase0` (worktree
-> `evalua-facil-ruleta`); partida individual interna (fases 4 y 5, paso 1) terminada **sin commit**. Sin PR y sin
-> despliegue. Cada fase se autoriza por separado (`AGENTS.md`); la autorización de una fase no autoriza la siguiente ni
+> `evalua-facil-ruleta`); partida individual interna (paso 1) en el commit local `37ad199e`; resultados y calificaciones
+> (paso 2) terminados **sin commit**. Sin PR y sin despliegue. Cada fase se autoriza por separado (`AGENTS.md`); la autorización de una fase no autoriza la siguiente ni
 > el despliegue.
 
 - Lógica pura: `src/utils/ruletaDestino.js` · pruebas: `test/ruleta-destino.test.mjs` (`node test/ruleta-destino.test.mjs`)
@@ -135,8 +135,28 @@ Motivos de rechazo, contados por separado:
 - Solo se juega con la ruleta individual e interna, visible para el estudiante y con el banco aprobado y completo.
 - Al iniciar, el servidor sortea con azar criptográfico y **guarda una copia** de las preguntas sorteadas en la partida:
   editar el banco después no la cambia. La primera partida pone `preguntasCongeladas` (R8).
-- Cada respuesta se guarda también en `ruletaRespuestas/{participante}_{i}`. La nota todavía **no** se publica en
-  `submissions` (paso 2) y el docente aún no ve los resultados.
+- Cada respuesta se guarda también en `ruletaRespuestas/{participante}_{i}`.
+
+**Resultados y calificaciones** (paso 2, 7-nov-2026). Decisiones del PO:
+- **Publicación automática:** al terminar la partida (última respuesta o última pregunta vencida), en la MISMA
+  transacción el servidor escribe `submissions/{actividadId}_{alumnoId}` con `estado: 'calificado'`,
+  `ultimaCalificacionPor: 'servidor'`, `sinEntrega: true` y `ruleta: { participanteId, correctas, total }`. No puede
+  quedar una partida terminada sin su intento de nota ni una nota registrada dos veces. El historial de notas y el aviso
+  al estudiante salen de los triggers de siempre (`onCalificacionCambiada`, `onSubmissionActualizada`).
+- **Parcial cerrado definitivamente:** no se inicia, no se gira ni se responde (`PARCIAL_CERRADO`) y no se escribe nada;
+  quien ya terminó sigue viendo su resultado. Al reabrirlo continúa donde iba (la pregunta que estaba abierta vence).
+- **Nota previa del docente:** si la entrega ya trae una calificación, se conserva; el participante guarda
+  `nota: { estado: 'conservada', motivo: 'nota_previa' }` y la pantalla final lo dice. La nota automática de cierre
+  (`esNotaAutomaticaDeCierre`) sí se reemplaza, sin su marca `cierreParcial`.
+- **Nota oculta** (`calificacionesOcultas`): la nota se registra, pero la pantalla final no muestra ni la nota ni los
+  aciertos («Tu docente publicará tu calificación más adelante»).
+- **Docente:** sección «Resultados» en la pantalla de la ruleta (`ResultadosRuleta.jsx`): estado, aciertos,
+  calificación, qué pasó con la nota y el detalle por pregunta (opción elegida, la correcta y el tiempo). Lee
+  `ruletaParticipantes` filtrando por su `docenteId`. La corrección sigue por el camino de siempre de las entregas (R4).
+- **Estudiante:** en su lista, Pendiente / En curso / Terminada con la calificación. «En curso» sale de la operación
+  `estados` (solo lectura, nunca crea partidas); la nota, de su entrega, que ya respeta la visibilidad.
+- Una partida que se queda con la última pregunta abierta se termina (y registra la nota) cuando el estudiante vuelve a
+  entrar; mientras tanto aparece «En curso».
 
 ### Calificación y ranking
 - **Calificación = (correctas ÷ total de preguntas) × 10**, con el redondeo de las evaluaciones
@@ -311,10 +331,10 @@ todavía en producción; las crean las fases de servidor.
 | 1 | Reglas de seguridad y su documentación | Hecha (sin commit) |
 | 2 | Crear la actividad y editor del banco (acciones del API), lista de actividades, copias excluidas, trigger de limpieza de borradores (C2) y borrado de cuenta | Hecha (autorizada; sin commit) |
 | 3 | IA del banco (lotes, reembolso total, sustento documental); la sustitución de reactivos queda pendiente hasta definir su tarifa | Sin autorizar (implementación) |
-| 4 | Servidor individual: unirse, girar, responder, estado, recuperación; bandera `preguntasCongeladas` | Hecha para acceso interno (paso 1, sin commit) |
-| 5 | Pantallas individuales (celular y docente) | Pantalla del estudiante hecha (paso 1, sin commit); resultados del docente en el paso 2 |
+| 4 | Servidor individual: unirse, girar, responder, estado, recuperación; bandera `preguntasCongeladas` | Hecha para acceso interno (paso 1, commit `37ad199e`) |
+| 5 | Pantallas individuales (celular y docente) | Pantalla del estudiante (paso 1) y resultados del docente (paso 2, sin commit) |
 | 6 | Concurso en vivo y ranking | Sin autorizar |
-| 7 | Publicación automática de calificaciones | Sin autorizar |
+| 7 | Publicación automática de calificaciones | Hecha para acceso interno (paso 2, sin commit) |
 | 8 | Borrado definitivo con limpieza, borrado de asignatura (C1) y de cuenta (C3) | Sin autorizar |
 | 9 | Prueba real y de carga | Sin autorizar |
 
