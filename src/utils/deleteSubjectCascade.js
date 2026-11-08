@@ -2,9 +2,8 @@ import {
   collection, query, where, getDocs, getDoc, doc, deleteField,
 } from 'firebase/firestore'
 // Escrituras a través del candado de suscripción vencida (ver ./firestoreGuard.js).
-import { deleteDoc, updateDoc, writeBatch } from './firestoreGuard'
-import { db, auth } from '../firebase'
-import { fetchApi } from './apiBase'
+import { updateDoc, writeBatch } from './firestoreGuard'
+import { db } from '../firebase'
 
 // F-06: usa queries '==' individuales por actividad en lugar de 'in' con
 // múltiples IDs. La regla de lectura de submissions ahora exige
@@ -47,37 +46,6 @@ async function batchDeleteDocs(refs) {
   }
 }
 
-// A12 · H1 — `resources` y `materials` guardan archivos en Cloudinary
-// (url / archivos[]), y borrarlos ahí exige CLOUDINARY_API_KEY/
-// CLOUDINARY_API_SECRET, que nunca viven en el cliente (ver
-// api/subject/delete-resources.js). Antes esta cascada ni siquiera borraba
-// los DOCUMENTOS de `resources` — quedaban huérfanos y legibles para
-// siempre — y para `materials` tampoco se limpiaba Cloudinary.
-//
-// Se llama primero, mientras los documentos todavía existen: es el único
-// momento en que el servidor puede leer sus URLs antes de que la cascada del
-// cliente borre el resto. Si falla (sin conexión, función caída), se
-// registra pero NO bloquea el resto del borrado — mismo criterio que ya
-// usaba el `.catch` de `materials` aquí abajo: peor es un botón "Eliminar"
-// atorado que unos cuantos archivos huérfanos.
-async function deleteSubjectResourcesAndFiles(subjectId) {
-  try {
-    const token = await auth.currentUser?.getIdToken()
-    if (!token) return
-    const res = await fetchApi('/api/subject/delete-resources', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ subjectId }),
-    })
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
-      console.warn(`[borrar-asignatura ${subjectId}] resources/materials no se pudieron borrar: ${data.error || res.status}`)
-    }
-  } catch (err) {
-    console.warn(`[borrar-asignatura ${subjectId}] resources/materials no se pudieron borrar: ${err.message}`)
-  }
-}
-
 // Un parcial CERRADO DEFINITIVAMENTE no deja borrar sus calificaciones ni sus
 // actividades (firestore.rules). Las dos operaciones administrativas que sí
 // deben poder hacerlo —eliminar la asignatura y "empezar de cero" al
@@ -96,44 +64,11 @@ async function liberarParcialesCerrados(subjectId) {
   if (Object.keys(updates).length) await updateDoc(doc(db, 'subjects', subjectId), updates)
 }
 
-// Fully deletes a subject and all related data in cascade:
-// resources+materials (server, incl. their Cloudinary files) → activities →
-// submissions → students → attendance → horarioBloques → subject doc.
-// NOTE: Firebase Auth accounts of students are NOT deleted (same as per-student delete today).
-// El historial de "Analizar asignatura con IA" (subjects/{id}/analisisIA) NO se
-// borra desde aquí: sus reglas no dejan que ningún cliente lo escriba ni lo
-// borre. Lo limpia el servidor al eliminarse el documento de la asignatura
-// (functions/analisisAcademico.js → limpiarAnalisisAsignatura).
-// `docenteId` is required to list `horarioBloques`: its Firestore rule is owner-only
-// (unlike activities/students/attendance, which any authenticated user can
-// read), so the query must filter by docenteId too or the list itself is denied.
-export async function deleteSubjectCascade(subjectId, docenteId) {
-  await deleteSubjectResourcesAndFiles(subjectId)
-  await liberarParcialesCerrados(subjectId)
-
-  // observacionesAsistencia: owner-only como horarioBloques, mismo filtro doble.
-  const [actsSnap, studsSnap, attSnap, bloquesSnap, obsSnap] = await Promise.all([
-    getDocs(query(collection(db, 'activities'), where('asignaturaId', '==', subjectId))),
-    getDocs(query(collection(db, 'students'), where('asignaturaId', '==', subjectId))),
-    getDocs(query(collection(db, 'attendance'), where('asignaturaId', '==', subjectId))),
-    getDocs(query(collection(db, 'horarioBloques'), where('docenteId', '==', docenteId), where('asignaturaId', '==', subjectId))),
-    getDocs(query(collection(db, 'observacionesAsistencia'), where('asignaturaId', '==', subjectId), where('docenteId', '==', docenteId))),
-  ])
-
-  const actIds = actsSnap.docs.map((d) => d.id)
-  const subsDocs = await fetchSubmissionsForActivities(actIds)
-  await borrarEntregasPorActividad(subsDocs)
-
-  const refs = [
-    ...actsSnap.docs.map((d) => doc(db, 'activities', d.id)),
-    ...studsSnap.docs.map((d) => doc(db, 'students', d.id)),
-    ...attSnap.docs.map((d) => doc(db, 'attendance', d.id)),
-    ...bloquesSnap.docs.map((d) => doc(db, 'horarioBloques', d.id)),
-    ...obsSnap.docs.map((d) => doc(db, 'observacionesAsistencia', d.id)),
-  ]
-  await batchDeleteDocs(refs)
-  await deleteDoc(doc(db, 'subjects', subjectId))
-}
+// Aquí vivía deleteSubjectCascade, el borrado de una asignatura completa desde el navegador. Desde F-09 (#1416) se
+// detenía a la mitad: no podía listar las actividades sin filtrar por docenteId y nunca pudo borrar sus subcolecciones
+// ni los registros que solo escribe el servidor. Ahora lo hace el servidor, por partes y reanudable:
+// /api/subject/eliminar-asignatura (api/_lib/eliminarAsignatura.js), que el navegador llama con
+// src/utils/eliminarAsignatura.js.
 
 // Aquí vivía deleteSubjectSubmissions, que borraba las entregas de toda la
 // asignatura al archivarla. Se quitó junto con ese comportamiento: archivar ya

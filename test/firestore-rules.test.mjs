@@ -5371,5 +5371,28 @@ ok('F-05 · admin CAN read publicProfiles')
   ok('RULETA 2 · ruletaBancos: ningún cliente crea, aprueba, cambia (ni el origen a IA), sobrescribe ni borra (ni el dueño ni el admin); los datos siguen intactos')
 }
 
+// ── F-09 · registro de avance del borrado de asignaturas (api/_lib/eliminarAsignatura.js) ──
+// `eliminacionesAsignatura/{subjectId}` lo escribe y lee SOLO el servidor; no tiene `match` en las reglas, así que
+// ningún cliente (ni el docente dueño, ni el admin) lo lee, lo crea, lo cambia ni lo borra.
+{
+  const asAnonF09 = testEnv.unauthenticatedContext().firestore()
+  const asAdminF09 = testEnv.authenticatedContext(ADMIN).firestore()
+  const registro = { subjectId: 'S1', docenteId: T1, fase: 'entregas', lease: { token: 't', hasta: 0 } }
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'eliminacionesAsignatura', 'S1'), registro)
+    await setDoc(doc(ctx.firestore(), 'eliminacionesAsignatura', 'S1', 'archivos', 'x'), { publicId: 'p' })
+  })
+  for (const [quien, ctxDb] of [['dueño', asT1], ['admin', asAdminF09], ['otro docente', asT2], ['estudiante', asJuan], ['sin sesión', asAnonF09]]) {
+    await assertFails(getDoc(doc(ctxDb, 'eliminacionesAsignatura', 'S1')), `lee ${quien}`)
+    await assertFails(getDocs(query(collection(ctxDb, 'eliminacionesAsignatura'), where('docenteId', '==', T1))), `consulta ${quien}`)
+    await assertFails(getDoc(doc(ctxDb, 'eliminacionesAsignatura', 'S1', 'archivos', 'x')), `lee archivos ${quien}`)
+    await assertFails(setDoc(doc(ctxDb, 'eliminacionesAsignatura', 'S1'), { ...registro, fase: 'asignatura' }), `escribe ${quien}`)
+    await assertFails(updateDoc(doc(ctxDb, 'eliminacionesAsignatura', 'S1'), { lease: { token: null, hasta: 0 } }), `cambia ${quien}`)
+    await assertFails(deleteDoc(doc(ctxDb, 'eliminacionesAsignatura', 'S1')), `borra ${quien}`)
+    await assertFails(setDoc(doc(ctxDb, 'eliminacionesAsignatura', 'S2'), { subjectId: 'S2', docenteId: T1 }), `crea ${quien}`)
+  }
+  ok('F-09 · el registro de avance del borrado de asignaturas: ningún cliente lo lee, consulta, crea, cambia ni borra')
+}
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

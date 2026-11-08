@@ -186,6 +186,10 @@ export default function ModalesAsignatura() {
     deletingMaterial,
     deletingResource,
     deletingSubject,
+    deleteSubjectProgreso,
+    deleteSubjectError,
+    setDeleteSubjectError,
+    setDeleteSubjectProgreso,
     duplicateConfirm,
     duplicating,
     editStudentChanged,
@@ -1867,7 +1871,7 @@ export default function ModalesAsignatura() {
 
       {/* ── Delete subject confirm modal ── */}
       {showDeleteSubjectConfirm && (
-        <Modal open onClose={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }} variant="centered" padding="p-4" ariaLabel="¿Eliminar asignatura?">
+        <Modal open busy={deletingSubject} onClose={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText(''); setDeleteSubjectError(null); setDeleteSubjectProgreso(null) }} variant="centered" padding="p-4" ariaLabel="¿Eliminar asignatura?">
             <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-2">
               <Trash2 size={ICONO.lg} className="text-red-500" />
             </div>
@@ -1883,13 +1887,32 @@ export default function ModalesAsignatura() {
               onChange={(e) => setDeleteSubjectConfirmText(e.target.value)}
               className="focus-visible:ring-red-400 mb-2"
               aria-label={subject?.nombre}
+              disabled={deletingSubject}
             />
+            {/* F-09: el servidor borra por partes; aquí, la parte en curso. No se cierra a la mitad. */}
+            {deletingSubject && deleteSubjectProgreso && (
+              <output className="block text-sm text-muted text-center mb-2">
+                {deleteSubjectProgreso.etiqueta || 'Eliminando'}…
+                {deleteSubjectProgreso.avance && (
+                  <span className="block text-xs text-hint">
+                    {deleteSubjectProgreso.avance.actividades || 0} actividades · {deleteSubjectProgreso.avance.entregas || 0} entregas · {deleteSubjectProgreso.avance.estudiantes || 0} estudiantes
+                  </span>
+                )}
+                <span className="block text-xs text-hint">No cierres esta ventana.</span>
+              </output>
+            )}
+            {deleteSubjectError && !deletingSubject && (
+              <p role="alert" className="text-sm text-red-700 bg-red-50 rounded-card p-2 mb-2">
+                La asignatura <strong>todavía no se eliminó por completo</strong>. Vuelve a intentarlo: continuará donde se quedó.
+                {!/contin/i.test(deleteSubjectError) && <span className="block text-xs mt-1">{deleteSubjectError}</span>}
+              </p>
+            )}
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText('') }} className="flex-1">Cancelar</Button>
+              <Button variant="secondary" onClick={() => { setShowDeleteSubjectConfirm(false); setDeleteSubjectConfirmText(''); setDeleteSubjectError(null); setDeleteSubjectProgreso(null) }} className="flex-1" disabled={deletingSubject}>Cancelar</Button>
               <Button variant="danger" icon={Trash2} iconEffect="balanceo" busy={deletingSubject} className="flex-1" onClick={handleDeleteSubject}
                 disabled={deletingSubject || deleteSubjectConfirmText !== subject?.nombre}>
-                
-                {deletingSubject ? 'Eliminando…' : 'Eliminar todo'}
+
+                {deletingSubject ? 'Eliminando…' : deleteSubjectError ? 'Reintentar' : 'Eliminar todo'}
               </Button>
             </div>
           </Modal>
