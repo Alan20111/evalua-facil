@@ -17,6 +17,7 @@ import { handleVivoEstado, handleVivoResponder } from '../_lib/vivo.js'
 import { handleVivoControl, handleVivoReloj } from '../_lib/vivoControl.js'
 import { handleRetoUnirse, handleRetoEstado, handleRetoResponder } from '../_lib/reto.js'
 import { handleRetoCrear, handleRetoControl } from '../_lib/retoControl.js'
+import { handleEliminarAsignatura } from '../_lib/eliminarAsignatura.js'
 
 // ── /api/subject/info ──────────────────────────────────────────────────────
 // F-11 (2026-09-07): endpoint público para el flujo de activación QR.
@@ -500,6 +501,7 @@ async function handleSignUpload(req, res) {
 // │ delete-fuente                   │ Sí    │ Borra fuente de IA          │
 // │ delete-planeacion-archivo       │ Sí    │ Borra archivo de planeación │
 // │ delete-resources                │ Sí    │ Borra recursos/materiales   │
+// │ eliminar-asignatura             │ Sí    │ Borra TODA una asignatura del docente, reanudable (api/_lib/eliminarAsignatura.js) │
 // │ vivo-estado / vivo-responder    │ Según │ Participación en vivo (api/_lib/vivo.js);
 // │                                 │ sesión│ 'grupo' exige sesión de estudiante, 'externo' no │
 // │ reto-unirse / reto-estado /     │ Según │ Reto Exprés (api/_lib/reto.js); 'inscritos'  │
@@ -518,6 +520,7 @@ export default async function handler(req, res) {
     if (action === 'delete-fuente')             return await handleDeleteFuente(req, res)
     if (action === 'delete-planeacion-archivo') return await handleDeletePlaneacionArchivo(req, res)
     if (action === 'delete-resources')          return await handleDeleteResources(req, res)
+    if (action === 'eliminar-asignatura')       return await handleEliminarAsignatura(req, res)
     if (action === 'vivo-estado')               return await handleVivoEstado(req, res)
     if (action === 'vivo-responder')            return await handleVivoResponder(req, res)
     if (action === 'vivo-control')              return await handleVivoControl(req, res)
