@@ -1,7 +1,7 @@
 // La Ruleta del Destino — acceso a Firestore y al servidor desde la pantalla del docente (fase 2).
 //
-// El navegador solo escribe la ACTIVIDAD (como cualquier actividad; las reglas de la fase 1 exigen su forma: modalidad,
-// acceso y preguntas fijos, ranking solo en vivo). El banco (`ruletaReactivos`) y su estado (`ruletaBancos`) los
+// El navegador solo escribe la ACTIVIDAD (como cualquier actividad; las reglas de la fase 1 exigen su forma: modalidad
+// individual, acceso y preguntas fijos). El banco (`ruletaReactivos`) y su estado (`ruletaBancos`) los
 // escribe SOLO el servidor (R1, F2-1): aquí se leen y se piden cambios a /api/subject/ruleta-banco. La lógica (qué se
 // puede guardar, el avance del banco) vive en src/utils/ruletaDestino.js.
 import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, updateDoc, where } from 'firebase/firestore'
@@ -43,11 +43,6 @@ export async function cargarRuleta(activityId, uid) {
 /** Nombre y tema (campos de la actividad; el tema va fuera del mapa `ruleta`). */
 export async function guardarDatosRuleta(activityId, { nombre, tema }) {
   await updateDoc(doc(db, 'activities', activityId), { nombre: nombre.trim(), tema: tema.trim() })
-}
-
-/** Ranking (solo en vivo; las reglas lo rechazan en individual). */
-export async function guardarRankingRuleta(activityId, ranking) {
-  await updateDoc(doc(db, 'activities', activityId), { 'ruleta.ranking': ranking === true })
 }
 
 /**

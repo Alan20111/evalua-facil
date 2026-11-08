@@ -185,10 +185,8 @@ async function config(db, uid, body) {
   return db.runTransaction(async (tx) => {
     const act = await ruletaDelDocente(tx, refs.actividad, uid)
     const banco = await bancoDe(tx, refs.banco)
-    // Defensa adicional: la bandera la pone el servidor al crear la primera sesión (fase 4); además se comprueba que
-    // no exista ninguna sesión de esta ruleta.
-    const sesiones = await tx.get(db.collection('ruletaSesiones').where('actividadId', '==', actividadId).limit(1))
-    if (!sesiones.empty) throw new ErrorRuleta(409, 'Esta ruleta ya tiene partidas: sus preguntas no cambian.', 'CONGELADAS')
+    // La bandera `preguntasCongeladas` la pone el servidor en la misma transacción que crea la primera partida
+    // (api/_lib/ruletaPartida.js); `puedeCambiarPreguntas` la revisa.
     const origen = origenBanco(banco)
     const p = puedeCambiarPreguntas({ ruleta: act.ruleta, total: banco.total, nuevo, origen })
     if (!p.ok) {

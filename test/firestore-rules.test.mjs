@@ -4982,19 +4982,20 @@ ok('F-05 · admin CAN read publicProfiles')
 // ── La Ruleta del Destino · fase 1: colecciones propias, escritas SOLO por el servidor (Admin SDK) ──
 // docs/RULETA_DESTINO.md. Lectura: docente dueño (docenteId del documento) y admin (R3, R7). ruletaCupos y
 // ruletaIdentificadores: nadie, ni el admin (R7). Ningún cliente crea, modifica ni borra; el dueño tampoco borra sus
-// sesiones (R2) ni escribe su banco (R1).
+// partidas (R2) ni escribe su banco (R1). Sin concurso en vivo (7-nov-2026), ruletaSesiones, ruletaClaves y
+// ruletaResultados ya no tienen reglas: nadie los lee ni los escribe desde un cliente.
 {
   const asAnon = testEnv.unauthenticatedContext().firestore()
   const LEGIBLES = {
     ruletaReactivos: (dueno) => ({ docenteId: dueno, actividadId: 'ARULETA', enunciado: '¿?', opciones: ['a', 'b', 'c', 'd'], correcta: 2 }),
     ruletaGeneraciones: (dueno) => ({ docenteId: dueno, actividadId: 'ARULETA', estado: 'en_curso', pedidos: 50, entregados: 13 }),
-    ruletaSesiones: (dueno) => ({ docenteId: dueno, actividadId: 'ARULETA', asignaturaId: 'S1', estado: 'en_curso', preguntasPorPartida: 5 }),
-    ruletaClaves: (dueno) => ({ docenteId: dueno, sesionId: 'RUL1', actividadId: 'ARULETA', claves: { r1: 2 } }),
     ruletaParticipantes: (dueno) => ({ docenteId: dueno, sesionId: 'RUL1', alumnoId: 'ST_JUAN', nombre: 'Juan Real', orden: ['r1'], indice: 0 }),
     ruletaRespuestas: (dueno) => ({ docenteId: dueno, sesionId: 'RUL1', participanteId: 'RUL1_ST_JUAN', reactivoId: 'r1', opcion: 1, tiempoMs: 4000 }),
-    ruletaResultados: (dueno) => ({ docenteId: dueno, sesionId: 'RUL1', actividadId: 'ARULETA', clasificacion: [] }),
   }
   const PRIVADAS = {
+    ruletaSesiones: (dueno) => ({ docenteId: dueno, actividadId: 'ARULETA', asignaturaId: 'S1', estado: 'en_curso', preguntasPorPartida: 5 }),
+    ruletaClaves: (dueno) => ({ docenteId: dueno, sesionId: 'RUL1', actividadId: 'ARULETA', claves: { r1: 2 } }),
+    ruletaResultados: (dueno) => ({ docenteId: dueno, sesionId: 'RUL1', actividadId: 'ARULETA', clasificacion: [] }),
     ruletaCupos: (dueno) => ({ docenteId: dueno, sesionId: 'RUL1', participanteId: 'RUL1_x1' }),
     ruletaIdentificadores: (dueno) => ({ docenteId: dueno, sesionId: 'RUL1', participanteId: 'RUL1_x1' }),
   }
@@ -5088,7 +5089,7 @@ ok('F-05 · admin CAN read publicProfiles')
   }
   const interna = (ruleta = {}, extra = {}) => armar({
     ...baseR, sinCalificacion: false, oculta: true, publishAt: null, publishedAt: null,
-    ruleta: { modalidad: 'vivo', acceso: 'interno', preguntasPorPartida: 10, ranking: true, ...ruleta }, ...extra,
+    ruleta: { modalidad: 'individual', acceso: 'interno', preguntasPorPartida: 10, ...ruleta }, ...extra,
   })
   const externa = (ruleta = {}, extra = {}) => armar({
     ...baseR, sinCalificacion: true, oculta: true, publishAt: null, publishedAt: null,
@@ -5103,50 +5104,49 @@ ok('F-05 · admin CAN read publicProfiles')
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore()
     await setDoc(doc(db, 'subjects', 'SRU_CERR'), { docenteId: T1, escuelaId: 'E1', parciales: 3, nombre: 'Cerrada', parcialesCerrados: { 1: HOYR } })
-    await setDoc(doc(db, 'activities', 'RU_VIVO'), interna())
-    await setDoc(doc(db, 'activities', 'RU_IND'), interna({ modalidad: 'individual', ranking: false }))
+    await setDoc(doc(db, 'activities', 'RU_INT'), interna())
+    await setDoc(doc(db, 'activities', 'RU_IND'), interna({ preguntasPorPartida: 5 }))
     await setDoc(doc(db, 'activities', 'RU_EXT'), externa())
     await setDoc(doc(db, 'activities', 'RU_BORRAR'), interna())
     await setDoc(doc(db, 'activities', 'RU_BORRAR_EXT'), externa())
     await setDoc(doc(db, 'activities', 'RU_BORRAR_AJENA'), interna())
-    // Ya tienen sesiones: el servidor (Admin SDK) puso la bandera al crear la primera (R8).
+    // Ya tienen partidas: el servidor (Admin SDK) puso la bandera al crear la primera (R8).
     await setDoc(doc(db, 'activities', 'RU_JUGADA'), interna({ preguntasCongeladas: true }))
     await setDoc(doc(db, 'activities', 'RU_JUGADA_EXT'), externa({ preguntasCongeladas: true }))
     await setDoc(doc(db, 'activities', 'RU_CERR'), interna({}, { asignaturaId: 'SRU_CERR', oculta: false, publishedAt: HOYR }))
     await setDoc(doc(db, 'activities', 'RU_NORMAL'), { docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', parcial: 1, nombre: 'Entregable' })
     await setDoc(doc(db, 'activities', 'RU_CUEST'), { docenteId: T1, asignaturaId: 'S1', categoria: 'cuestionario', tipo: 'evaluacion', parcial: 1, oculta: true, nombre: 'Cuestionario' })
     // Notas que publicó el servidor (decisión 5: cálculo y publicación automáticos).
-    await setDoc(doc(db, 'submissions', 'RU_VIVO_ST_JUAN'), nota('RU_VIVO', 'ST_JUAN', 8, { ultimaCalificacionPor: 'servidor' }))
+    await setDoc(doc(db, 'submissions', 'RU_INT_ST_JUAN'), nota('RU_INT', 'ST_JUAN', 8, { ultimaCalificacionPor: 'servidor' }))
     await setDoc(doc(db, 'submissions', 'RU_CERR_ST_JUAN'), nota('RU_CERR', 'ST_JUAN', 6, { ultimaCalificacionPor: 'servidor' }))
     // Entrega de una ruleta externa que solo podría existir por un error del servidor.
     await setDoc(doc(db, 'submissions', 'RU_EXT_ST_JUAN'), entrega('RU_EXT', 'ST_JUAN'))
   })
 
   // — Crear (R5, R6, R8) —
-  await assertSucceeds(setDoc(doc(asT1, 'activities', 'RU_N_VIVO'), interna()))
-  await assertSucceeds(setDoc(doc(asT1, 'activities', 'RU_N_VIVO_SINRANK'), interna({ ranking: undefined })))
-  await assertSucceeds(setDoc(doc(asT1, 'activities', 'RU_N_IND'), interna({ modalidad: 'individual', ranking: false })))
-  await assertSucceeds(setDoc(doc(asT1, 'activities', 'RU_N_IND_SINRANK'), interna({ modalidad: 'individual', ranking: undefined })))
+  await assertSucceeds(setDoc(doc(asT1, 'activities', 'RU_N_INT'), interna()))
   await assertSucceeds(setDoc(doc(asT1, 'activities', 'RU_N_EXT'), externa()))
-  await assertSucceeds(setDoc(doc(asT1, 'activities', 'RU_N_EXT_VIVO'), externa({ modalidad: 'vivo', ranking: true })))
   for (const n of [5, 10]) await assertSucceeds(setDoc(doc(asT1, 'activities', `RU_N_${n}`), interna({ preguntasPorPartida: n })))
   for (const n of [5, 10]) await assertSucceeds(setDoc(doc(asT1, 'activities', `RU_N_EXT_${n}`), externa({ preguntasPorPartida: n })))
-  ok('RULETA · se crean ruletas internas y externas bien formadas: vivo o individual, 5 o 10 preguntas, con o sin ranking en vivo')
+  ok('RULETA · se crean ruletas individuales internas y externas bien formadas, de 5 o 10 preguntas')
 
   for (const [motivo, datos] of [
     ['sin el mapa ruleta', interna({}, { ruleta: undefined })],
     ['con ruleta que no es mapa', interna({}, { ruleta: 'vivo' })],
     ['con modalidad desconocida', interna({ modalidad: 'equipos' })],
+    ['en vivo (eliminada el 7-nov-2026)', interna({ modalidad: 'vivo' })],
+    ['externa en vivo', externa({ modalidad: 'vivo' })],
+    ['con ranking encendido', interna({ ranking: true })],
+    ['con ranking apagado', interna({ ranking: false })],
+    ['externa con ranking', externa({ ranking: false })],
     ['con acceso desconocido', interna({ acceso: 'publico' })],
     ['sin modalidad', interna({}, { ruleta: { acceso: 'interno', preguntasPorPartida: 10 } })],
-    ['sin acceso', interna({}, { ruleta: { modalidad: 'vivo', preguntasPorPartida: 10 } })],
-    ['sin preguntas por partida', interna({}, { ruleta: { modalidad: 'vivo', acceso: 'interno' } })],
+    ['sin acceso', interna({}, { ruleta: { modalidad: 'individual', preguntasPorPartida: 10 } })],
+    ['sin preguntas por partida', interna({}, { ruleta: { modalidad: 'individual', acceso: 'interno' } })],
     ['con 6 preguntas', interna({ preguntasPorPartida: 6 })],
     ['con 20 preguntas (eliminadas el 7-nov-2026)', interna({ preguntasPorPartida: 20 })],
     ['externa con 20 preguntas', externa({ preguntasPorPartida: 20 })],
-    ['individual con 20 preguntas', interna({ modalidad: 'individual', ranking: false, preguntasPorPartida: 20 })],
     ['con preguntas como texto', interna({ preguntasPorPartida: '10' })],
-    ['con ranking en individual', interna({ modalidad: 'individual', ranking: true })],
     ['con ranking que no es booleano', interna({ ranking: 'si' })],
     ['con una clave de más', interna({ banco: 'aprobado' })],
     ['con la bandera del servidor en true', interna({ preguntasCongeladas: true })],
@@ -5154,7 +5154,7 @@ ok('F-05 · admin CAN read publicProfiles')
   ]) {
     await assertFails(setDoc(doc(asT1, 'activities', `RU_MAL_${motivo.replace(/\W/g, '')}`), datos), `se creó ${motivo}`)
   }
-  ok('RULETA · R6/R8: no se crea una ruleta mal formada, con valores desconocidos, ranking en individual, claves de más ni con la bandera del servidor')
+  ok('RULETA · R6/R8: no se crea una ruleta mal formada, en vivo, con ranking, con valores desconocidos, claves de más ni con la bandera del servidor')
 
   for (const [motivo, cambio] of [
     ['con número y promedio', { sinCalificacion: false }],
@@ -5173,52 +5173,54 @@ ok('F-05 · admin CAN read publicProfiles')
   ok('RULETA · otro docente, un estudiante o alguien sin sesión no crean una ruleta en la asignatura del docente')
 
   // — Actualizar (R5, R6, R8) —
-  const refVivo = doc(asT1, 'activities', 'RU_VIVO')
-  await assertSucceeds(updateDoc(refVivo, { 'ruleta.ranking': false }))
-  await assertSucceeds(updateDoc(refVivo, { 'ruleta.ranking': true, nombre: 'Ruleta del parcial' }))
-  await assertSucceeds(updateDoc(refVivo, { 'ruleta.ranking': deleteField() }))
-  await assertSucceeds(updateDoc(refVivo, { 'ruleta.ranking': true }))
-  await assertSucceeds(updateDoc(refVivo, { oculta: false, publishAt: null, publishedAt: HOYR }))
-  await assertSucceeds(updateDoc(refVivo, { parcial: 2, oculta: true, publishedAt: null }))
-  ok('RULETA · R6: en vivo el docente dueño enciende, apaga o quita el ranking; edita nombre, publica y mueve de parcial como siempre')
+  const refInt = doc(asT1, 'activities', 'RU_INT')
+  await assertSucceeds(updateDoc(refInt, { nombre: 'Ruleta del parcial', tema: 'La célula' }))
+  await assertSucceeds(updateDoc(refInt, { oculta: false, publishAt: null, publishedAt: HOYR }))
+  await assertSucceeds(updateDoc(refInt, { parcial: 2, oculta: true, publishedAt: null }))
+  await assertSucceeds(updateDoc(refInt, { ruleta: { modalidad: 'individual', acceso: 'interno', preguntasPorPartida: 10 } }))
+  ok('RULETA · R6: el docente dueño edita nombre y tema, publica y mueve de parcial como siempre (el mapa igual también pasa)')
 
   for (const [motivo, cambio] of [
-    ['cambiar la modalidad', { 'ruleta.modalidad': 'individual', 'ruleta.ranking': false }],
+    ['cambiar la modalidad a en vivo', { 'ruleta.modalidad': 'vivo' }],
+    ['encender el ranking', { 'ruleta.ranking': true }],
+    ['agregar el ranking apagado', { 'ruleta.ranking': false }],
     ['cambiar el acceso', { 'ruleta.acceso': 'externo', sinCalificacion: true, oculta: true, publishedAt: null }],
     ['cambiar las preguntas por partida', { 'ruleta.preguntasPorPartida': 5 }],
     ['cambiar a 20 preguntas', { 'ruleta.preguntasPorPartida': 20 }],
-    ['cambiar preguntas junto con el ranking', { 'ruleta.preguntasPorPartida': 5, 'ruleta.ranking': false }],
     ['poner la bandera en true', { 'ruleta.preguntasCongeladas': true }],
     ['poner la bandera en false', { 'ruleta.preguntasCongeladas': false }],
     ['agregar una clave nueva', { 'ruleta.bancoAprobado': true }],
     ['ranking que no es booleano', { 'ruleta.ranking': 'si' }],
     ['quitar el mapa ruleta', { ruleta: deleteField() }],
-    ['reemplazar el mapa con otras preguntas', { ruleta: { modalidad: 'vivo', acceso: 'interno', preguntasPorPartida: 5, ranking: true } }],
-    ['reemplazar el mapa con 20 preguntas', { ruleta: { modalidad: 'vivo', acceso: 'interno', preguntasPorPartida: 20, ranking: true } }],
-    ['reemplazar el mapa con la bandera', { ruleta: { modalidad: 'vivo', acceso: 'interno', preguntasPorPartida: 10, ranking: true, preguntasCongeladas: true } }],
+    ['reemplazar el mapa con otras preguntas', { ruleta: { modalidad: 'individual', acceso: 'interno', preguntasPorPartida: 5 } }],
+    ['reemplazar el mapa con 20 preguntas', { ruleta: { modalidad: 'individual', acceso: 'interno', preguntasPorPartida: 20 } }],
+    ['reemplazar el mapa con la bandera', { ruleta: { modalidad: 'individual', acceso: 'interno', preguntasPorPartida: 10, preguntasCongeladas: true } }],
+    ['reemplazar el mapa en vivo con ranking', { ruleta: { modalidad: 'vivo', acceso: 'interno', preguntasPorPartida: 10, ranking: true } }],
     ['cambiar su categoría', { categoria: 'cuestionario' }],
   ]) {
-    await assertFails(updateDoc(refVivo, cambio), `vivo: se pudo ${motivo}`)
+    await assertFails(updateDoc(refInt, cambio), `interna: se pudo ${motivo}`)
   }
-  ok('RULETA · R6/R8: el cliente no cambia modalidad, acceso, preguntas, la bandera, claves nuevas, el mapa completo ni la categoría')
+  ok('RULETA · R6/R8: el cliente no pasa a en vivo, no agrega ranking ni cambia acceso, preguntas, la bandera, claves nuevas, el mapa completo ni la categoría')
 
   const refInd = doc(asT1, 'activities', 'RU_IND')
   await assertFails(updateDoc(refInd, { 'ruleta.ranking': true }))
-  await assertSucceeds(updateDoc(refInd, { 'ruleta.ranking': false, nombre: 'Individual' }))
-  await assertSucceeds(updateDoc(refInd, { 'ruleta.ranking': deleteField() }))
-  ok('RULETA · R6: en modalidad individual el ranking no se enciende (sí puede quedar apagado o ausente)')
+  await assertFails(updateDoc(refInd, { 'ruleta.ranking': false, nombre: 'Individual' }))
+  await assertSucceeds(updateDoc(refInd, { nombre: 'Individual' }))
+  await assertSucceeds(updateDoc(refInd, { 'ruleta.ranking': deleteField() })) // quitar lo que no existe no cambia el mapa
+  ok('RULETA · R6: una ruleta de 5 preguntas tampoco admite ranking (ni encendido ni apagado); sí se edita su nombre')
 
   const refJugada = doc(asT1, 'activities', 'RU_JUGADA')
-  await assertSucceeds(updateDoc(refJugada, { 'ruleta.ranking': false, nombre: 'Ruleta jugada' }))
+  await assertSucceeds(updateDoc(refJugada, { nombre: 'Ruleta jugada' }))
   for (const [motivo, cambio] of [
     ['quitar la bandera', { 'ruleta.preguntasCongeladas': deleteField() }],
     ['apagar la bandera', { 'ruleta.preguntasCongeladas': false }],
-    ['reemplazar el mapa sin la bandera', { ruleta: { modalidad: 'vivo', acceso: 'interno', preguntasPorPartida: 10, ranking: true } }],
+    ['reemplazar el mapa sin la bandera', { ruleta: { modalidad: 'individual', acceso: 'interno', preguntasPorPartida: 10 } }],
+    ['agregar el ranking', { 'ruleta.ranking': false }],
     ['cambiar las preguntas', { 'ruleta.preguntasPorPartida': 5 }],
   ]) {
     await assertFails(updateDoc(refJugada, cambio), `jugada: se pudo ${motivo}`)
   }
-  ok('RULETA · R8: con sesiones, el cliente no quita, apaga ni reemplaza la bandera y no cambia las preguntas (sí el ranking y el nombre)')
+  ok('RULETA · R8: con partidas, el cliente no quita, apaga ni reemplaza la bandera, no cambia las preguntas ni agrega ranking (sí el nombre)')
 
   const refExt = doc(asT1, 'activities', 'RU_EXT')
   for (const [motivo, cambio] of [
@@ -5233,9 +5235,9 @@ ok('F-05 · admin CAN read publicProfiles')
   await assertSucceeds(updateDoc(refExt, { nombre: 'Ruleta abierta', parcial: 2 }))
   ok('RULETA · R5: una ruleta externa no se muestra, publica, programa, califica ni se vuelve interna (sí se edita su nombre y parcial)')
 
-  await assertFails(updateDoc(doc(asT2, 'activities', 'RU_VIVO'), { 'ruleta.ranking': false }))
-  await assertFails(updateDoc(doc(asJuan, 'activities', 'RU_VIVO'), { 'ruleta.ranking': false }))
-  await assertFails(updateDoc(doc(asAnon, 'activities', 'RU_VIVO'), { 'ruleta.ranking': false }))
+  await assertFails(updateDoc(doc(asT2, 'activities', 'RU_INT'), { nombre: 'Ajena' }))
+  await assertFails(updateDoc(doc(asJuan, 'activities', 'RU_INT'), { nombre: 'Ajena' }))
+  await assertFails(updateDoc(doc(asAnon, 'activities', 'RU_INT'), { nombre: 'Ajena' }))
   ok('RULETA · solo el docente dueño edita su ruleta (ni otro docente, ni un estudiante, ni sin sesión)')
 
   // — Borrar (R8) —
@@ -5245,12 +5247,12 @@ ok('F-05 · admin CAN read publicProfiles')
   await assertFails(deleteDoc(doc(asT1, 'activities', 'RU_JUGADA_EXT')))
   await assertFails(deleteDoc(doc(asT2, 'activities', 'RU_BORRAR_AJENA')))
   await assertFails(deleteDoc(doc(asJuan, 'activities', 'RU_BORRAR_AJENA')))
-  ok('RULETA · R8: el dueño borra una ruleta sin sesiones; con sesiones no la borra nadie desde un cliente; otro docente o un estudiante nunca')
+  ok('RULETA · R8: el dueño borra una ruleta sin partidas; con partidas no la borra nadie desde un cliente; otro docente o un estudiante nunca')
 
   // — Las demás actividades no cambian —
   const refCuest = doc(asT1, 'activities', 'RU_CUEST')
   await assertSucceeds(updateDoc(refCuest, { nombre: 'Cuestionario R', oculta: false, publishedAt: HOYR }))
-  await assertFails(updateDoc(refCuest, { categoria: 'ruleta', ruleta: { modalidad: 'vivo', acceso: 'interno', preguntasPorPartida: 10 } }))
+  await assertFails(updateDoc(refCuest, { categoria: 'ruleta', ruleta: { modalidad: 'individual', acceso: 'interno', preguntasPorPartida: 10 } }))
   await assertSucceeds(updateDoc(doc(asT1, 'activities', 'RU_NORMAL'), { nombre: 'Entregable R' }))
   await assertSucceeds(setDoc(doc(asT1, 'activities', 'RU_N_NORMAL'), { docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', parcial: 1, nombre: 'Otro entregable' }))
   ok('RULETA · las demás actividades se crean, editan y publican como antes; ninguna se convierte en ruleta')
@@ -5261,17 +5263,17 @@ ok('F-05 · admin CAN read publicProfiles')
   await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'RU_NORMAL_ST_JUAN'), entrega('RU_NORMAL', 'ST_JUAN')))
   ok('RULETA · R4: un estudiante inscrito no crea entregas de una ruleta, interna ni externa (la misma entrega en un entregable sí)')
 
-  await assertSucceeds(getDoc(doc(asJuan, 'submissions', 'RU_VIVO_ST_JUAN')))
-  await assertFails(updateDoc(doc(asJuan, 'submissions', 'RU_VIVO_ST_JUAN'), { calificacion: 10 }))
-  await assertFails(updateDoc(doc(asJuan, 'submissions', 'RU_VIVO_ST_JUAN'), { comentario: 'subirme' }))
-  await assertFails(updateDoc(doc(asJuan, 'submissions', 'RU_VIVO_ST_JUAN'), { archivoURL: 'y' }))
+  await assertSucceeds(getDoc(doc(asJuan, 'submissions', 'RU_INT_ST_JUAN')))
+  await assertFails(updateDoc(doc(asJuan, 'submissions', 'RU_INT_ST_JUAN'), { calificacion: 10 }))
+  await assertFails(updateDoc(doc(asJuan, 'submissions', 'RU_INT_ST_JUAN'), { comentario: 'subirme' }))
+  await assertFails(updateDoc(doc(asJuan, 'submissions', 'RU_INT_ST_JUAN'), { archivoURL: 'y' }))
   ok('RULETA · R4: el estudiante lee la nota que publicó el servidor pero no la modifica ni toca su entrega')
 
-  await assertSucceeds(updateDoc(doc(asT1, 'submissions', 'RU_VIVO_ST_JUAN'), { calificacion: 9, ultimaCalificacionPor: 'docente' }))
-  await assertFails(updateDoc(doc(asT1, 'submissions', 'RU_VIVO_ST_JUAN'), { calificacion: 11 }), 'fuera de rango')
-  await assertSucceeds(setDoc(doc(asT1, 'submissions', 'RU_VIVO_ST_OTRO'), nota('RU_VIVO', 'ST_OTRO', 7)))
-  await assertFails(setDoc(doc(asT1, 'submissions', 'RU_VIVO_ST_OTRO2'), nota('RU_VIVO', 'ST_OTRO2', -1)), 'negativa')
-  await assertFails(updateDoc(doc(asT2, 'submissions', 'RU_VIVO_ST_JUAN'), { calificacion: 5 }), 'otro docente')
+  await assertSucceeds(updateDoc(doc(asT1, 'submissions', 'RU_INT_ST_JUAN'), { calificacion: 9, ultimaCalificacionPor: 'docente' }))
+  await assertFails(updateDoc(doc(asT1, 'submissions', 'RU_INT_ST_JUAN'), { calificacion: 11 }), 'fuera de rango')
+  await assertSucceeds(setDoc(doc(asT1, 'submissions', 'RU_INT_ST_OTRO'), nota('RU_INT', 'ST_OTRO', 7)))
+  await assertFails(setDoc(doc(asT1, 'submissions', 'RU_INT_ST_OTRO2'), nota('RU_INT', 'ST_OTRO2', -1)), 'negativa')
+  await assertFails(updateDoc(doc(asT2, 'submissions', 'RU_INT_ST_JUAN'), { calificacion: 5 }), 'otro docente')
   ok('RULETA · R4: el docente dueño corrige la nota dentro de la escala por el camino existente; fuera de rango u otro docente no')
 
   await assertFails(updateDoc(doc(asT1, 'submissions', 'RU_CERR_ST_JUAN'), { calificacion: 9 }))
@@ -5288,18 +5290,18 @@ ok('F-05 · admin CAN read publicProfiles')
   ok('RULETA · R5: una ruleta externa no tiene entregas ni notas (ni del docente, ni con forma de cierre); una que existiera no se modifica, sí se borra')
 
   // — Respuestas y auditoría —
-  await assertFails(setDoc(doc(asT1, 'submissions', 'RU_VIVO_ST_JUAN', 'respuestas', 'r1'), { puntosObtenidos: 1 }))
-  await assertFails(setDoc(doc(asJuan, 'submissions', 'RU_VIVO_ST_JUAN', 'respuestas', 'r1'), { valor: 'a' }))
+  await assertFails(setDoc(doc(asT1, 'submissions', 'RU_INT_ST_JUAN', 'respuestas', 'r1'), { puntosObtenidos: 1 }))
+  await assertFails(setDoc(doc(asJuan, 'submissions', 'RU_INT_ST_JUAN', 'respuestas', 'r1'), { valor: 'a' }))
   await assertSucceeds(setDoc(doc(asT1, 'submissions', 'RU_NORMAL_ST_JUAN', 'respuestas', 'p1'), { comentario: 'ok' }))
   ok('RULETA · nadie escribe respuestas en una entrega de ruleta desde un cliente (en un entregable el docente dueño sí)')
 
-  await assertFails(setDoc(doc(asT1, 'submissions', 'RU_VIVO_ST_JUAN', 'calificacionHistorial', 'e1'), { calificacionAnterior: 8 }))
-  await assertFails(setDoc(doc(asJuan, 'submissions', 'RU_VIVO_ST_JUAN', 'calificacionHistorial', 'e1'), { calificacionAnterior: 8 }))
+  await assertFails(setDoc(doc(asT1, 'submissions', 'RU_INT_ST_JUAN', 'calificacionHistorial', 'e1'), { calificacionAnterior: 8 }))
+  await assertFails(setDoc(doc(asJuan, 'submissions', 'RU_INT_ST_JUAN', 'calificacionHistorial', 'e1'), { calificacionAnterior: 8 }))
   ok('RULETA · R4: la auditoría de notas (calificacionHistorial) sigue cerrada a cualquier cliente')
 
   // — Límite de lecturas de las reglas en lote (como el cierre de parcial) —
   const lote = writeBatch(asT1)
-  for (const a of ['ST_L1', 'ST_L2', 'ST_L3', 'ST_L4', 'ST_L5']) lote.set(doc(asT1, 'submissions', `RU_VIVO_${a}`), nota('RU_VIVO', a, 0, { cierreParcial: true }))
+  for (const a of ['ST_L1', 'ST_L2', 'ST_L3', 'ST_L4', 'ST_L5']) lote.set(doc(asT1, 'submissions', `RU_INT_${a}`), nota('RU_INT', a, 0, { cierreParcial: true }))
   for (const a of ['ST_L1', 'ST_L2', 'ST_L3', 'ST_L4', 'ST_L5']) lote.set(doc(asT1, 'submissions', `RU_NORMAL_${a}`), nota('RU_NORMAL', a, 0, { cierreParcial: true }))
   await assertSucceeds(lote.commit())
   ok('RULETA · un lote de 10 notas del docente (ruleta y entregable mezclados) cabe en el límite de lecturas de las reglas')
@@ -5307,11 +5309,11 @@ ok('F-05 · admin CAN read publicProfiles')
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore()
     const jug = (await getDoc(doc(db, 'activities', 'RU_JUGADA'))).data()
-    assert.deepStrictEqual([jug.ruleta.preguntasCongeladas, jug.ruleta.preguntasPorPartida, jug.ruleta.modalidad, jug.ruleta.acceso], [true, 10, 'vivo', 'interno'])
+    assert.deepStrictEqual([jug.ruleta.preguntasCongeladas, jug.ruleta.preguntasPorPartida, jug.ruleta.modalidad, jug.ruleta.acceso], [true, 10, 'individual', 'interno'])
     const ext = (await getDoc(doc(db, 'activities', 'RU_EXT'))).data()
     assert.deepStrictEqual([ext.oculta, ext.sinCalificacion, ext.publishAt, ext.publishedAt, ext.ruleta.acceso], [true, true, null, null, 'externo'])
-    const viv = (await getDoc(doc(db, 'activities', 'RU_VIVO'))).data()
-    assert.deepStrictEqual([viv.ruleta.preguntasPorPartida, viv.ruleta.modalidad, viv.ruleta.acceso, 'preguntasCongeladas' in viv.ruleta], [10, 'vivo', 'interno', false])
+    const int = (await getDoc(doc(db, 'activities', 'RU_INT'))).data()
+    assert.deepStrictEqual([int.ruleta.preguntasPorPartida, int.ruleta.modalidad, int.ruleta.acceso, 'preguntasCongeladas' in int.ruleta, 'ranking' in int.ruleta], [10, 'individual', 'interno', false, false])
     assert.strictEqual((await getDoc(doc(db, 'activities', 'RU_JUGADA_EXT'))).exists(), true)
     assert.strictEqual((await getDoc(doc(db, 'submissions', 'RU_IND_ST_JUAN'))).exists(), false)
     assert.strictEqual((await getDoc(doc(db, 'submissions', 'RU_N_EXT_ST_OTRO'))).exists(), false)

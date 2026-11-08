@@ -501,7 +501,7 @@ export default function ModalesAsignatura() {
                       desc="Competencia en vivo de 10 preguntas, con el tiempo que elijas para cada una: tú la proyectas y responden desde su celular. Para tu grupo o para participantes externos con un QR."
                       onClick={() => { setShowModal(false); setCrearRetoAbierto(true) }} />
                     <OpcionCreacion icon={LoaderPinwheel} label="La Ruleta del Destino"
-                      desc="Cada estudiante gira una ruleta que le elige preguntas al azar de tu banco de reactivos. En vivo o individual, para tu grupo o con un enlace."
+                      desc="Cada estudiante gira una ruleta que le elige preguntas al azar de tu banco de reactivos. Cada quien juega por su cuenta, para tu grupo o con un enlace."
                       onClick={() => { setShowModal(false); setCrearRuletaAbierta(true) }} />
                     <p className="text-xs text-muted text-center pt-2">Próximamente más actividades interactivas</p>
                   </>

@@ -349,11 +349,11 @@ service cloud.firestore {
     }
 
     // ── La Ruleta del Destino: candados de la actividad (fase 1, docs/RULETA_DESTINO.md) ──
-    // Una ruleta (`categoria: 'ruleta'`) declara en el mapa `ruleta` su modalidad ('vivo' | 'individual'), su acceso
-    // ('interno' | 'externo'), las preguntas por partida (5 o 10) y, opcionalmente, si muestra ranking (solo en
-    // vivo). El cliente fija modalidad, acceso y preguntas SOLO al crear (R6); después solo cambia `ranking`. Cambiar
-    // las preguntas es una acción del servidor. `preguntasCongeladas` la pone SOLO el servidor al crear la primera
-    // sesión (R8): con ella la actividad ya no se borra desde un cliente. Una ruleta externa nace y se queda oculta,
+    // Una ruleta (`categoria: 'ruleta'`) declara en el mapa `ruleta` su modalidad (solo 'individual' desde el
+    // 7-nov-2026: sin concurso en vivo ni ranking), su acceso ('interno' | 'externo') y las preguntas por partida (5 o
+    // 10). El cliente los fija SOLO al crear (R6); después el mapa no cambia desde un cliente. Cambiar las preguntas es
+    // una acción del servidor. `preguntasCongeladas` la pone SOLO el servidor al iniciar la primera partida (R8): con
+    // ella la actividad ya no se borra desde un cliente. Una ruleta externa nace y se queda oculta,
     // sin calificación ni programación, y nunca tiene entregas (R5). Las demás actividades no pasan por aquí.
     function esRuletaData(d) {
       return d.get('categoria', null) == 'ruleta';
@@ -366,7 +366,7 @@ service cloud.firestore {
       return esRuleta(actId) &&
         get(/databases/$(database)/documents/activities/$(actId)).data.get('ruleta', {}).get('acceso', null) == 'externo';
     }
-    // Ya tiene sesiones: el servidor congeló sus preguntas (R8).
+    // Ya tiene partidas: el servidor congeló sus preguntas (R8).
     function ruletaJugada(d) {
       return esRuletaData(d) && d.get('ruleta', {}).get('preguntasCongeladas', false) == true;
     }
@@ -374,11 +374,10 @@ service cloud.firestore {
     function ruletaFormaValida(d) {
       return d.get('ruleta', null) is map &&
         d.ruleta.keys().hasAll(['modalidad', 'acceso', 'preguntasPorPartida']) &&
-        d.ruleta.keys().hasOnly(['modalidad', 'acceso', 'preguntasPorPartida', 'ranking', 'preguntasCongeladas']) &&
-        d.ruleta.modalidad in ['vivo', 'individual'] &&
+        d.ruleta.keys().hasOnly(['modalidad', 'acceso', 'preguntasPorPartida', 'preguntasCongeladas']) &&
+        d.ruleta.modalidad == 'individual' &&
         d.ruleta.acceso in ['interno', 'externo'] &&
         d.ruleta.preguntasPorPartida in [5, 10] &&
-        (!('ranking' in d.ruleta) || (d.ruleta.ranking is bool && (d.ruleta.modalidad == 'vivo' || d.ruleta.ranking == false))) &&
         (!('preguntasCongeladas' in d.ruleta) || d.ruleta.preguntasCongeladas is bool) &&
         (d.ruleta.acceso != 'externo' || (
           d.get('sinCalificacion', false) == true &&
@@ -391,13 +390,13 @@ service cloud.firestore {
     function ruletaBienFormada(d) {
       return !esRuletaData(d) || (ruletaFormaValida(d) && !('preguntasCongeladas' in d.ruleta));
     }
-    // Al actualizar desde un cliente: nada entra ni sale de la categoría y, dentro de `ruleta`, solo cambia `ranking`
-    // (modalidad, acceso, preguntas y la bandera quedan exactamente igual, también si se reemplaza el mapa completo).
+    // Al actualizar desde un cliente: nada entra ni sale de la categoría y el mapa `ruleta` no cambia (modalidad,
+    // acceso, preguntas y la bandera quedan exactamente igual, también si se reemplaza el mapa completo).
     function ruletaIntacta(antes, despues) {
       return esRuletaData(antes) == esRuletaData(despues) &&
         (!esRuletaData(antes) || (
           ruletaFormaValida(despues) &&
-          despues.ruleta.diff(antes.get('ruleta', {})).affectedKeys().hasOnly(['ranking'])
+          despues.ruleta.diff(antes.get('ruleta', {})).affectedKeys().size() == 0
         ));
     }
 
@@ -1000,8 +999,8 @@ service cloud.firestore {
         // Reto Exprés: no se entra ni se sale de la categoría reto, la modalidad no cambia y un reto externo sigue
         // oculto y no calificable. Borrar no pasa por aquí (en un delete no hay request.resource).
         (request.method == 'delete' || retoIntacto(resource.data, request.resource.data)) &&
-        // La Ruleta del Destino: una ruleta con sesiones no se borra desde un cliente (R8; el borrado con limpieza será
-        // del servidor); al actualizar, la categoría no cambia y dentro de `ruleta` solo cambia `ranking` (R6).
+        // La Ruleta del Destino: una ruleta con partidas no se borra desde un cliente (R8; el borrado con limpieza será
+        // del servidor); al actualizar, la categoría y el mapa `ruleta` no cambian (R6).
         (request.method == 'delete' ? !ruletaJugada(resource.data) : ruletaIntacta(resource.data, request.resource.data));
 
       // Reactivos de una evaluación. Los lee cualquier cuenta autenticada
@@ -1526,12 +1525,14 @@ service cloud.firestore {
 
     // ── La Ruleta del Destino: colecciones propias (fase 1, docs/RULETA_DESTINO.md) ──
     // Ningún cliente crea, modifica ni borra: todo lo escribe el servidor (Admin SDK, que no pasa por estas reglas).
-    // El docente administra su banco con acciones del API (R1) y no borra sesiones directamente (R2; el borrado con
+    // El docente administra su banco con acciones del API (R1) y no borra partidas directamente (R2; el borrado con
     // limpieza en cascada llega en la fase 8). Los estudiantes y los participantes externos nunca leen Firestore: lo
     // que les toca (su pregunta sin clave, su resultado) lo reciben del servidor.
     //
     // Lectura: el docente dueño (campo `docenteId` del propio documento, que escribe el servidor) y el admin (R3, R7).
-    // Una consulta del docente debe filtrar por docenteId. ruletaCupos y ruletaIdentificadores: nadie, ni el admin (R7).
+    // Una consulta del docente debe filtrar por docenteId. ruletaCupos y ruletaIdentificadores (acceso externo, aún sin
+    // definir): nadie, ni el admin (R7). Sin concurso en vivo (7-nov-2026) ya no existen ruletaSesiones, ruletaClaves ni
+    // ruletaResultados: sin `match`, nadie los lee ni los escribe desde un cliente.
     match /ruletaReactivos/{reactivoId} {
       allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
       allow write: if false;
@@ -1540,23 +1541,11 @@ service cloud.firestore {
       allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
       allow write: if false;
     }
-    match /ruletaSesiones/{sesionId} {
-      allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
-      allow write: if false;
-    }
-    match /ruletaClaves/{sesionId} {
-      allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
-      allow write: if false;
-    }
     match /ruletaParticipantes/{participanteId} {
       allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
       allow write: if false;
     }
     match /ruletaRespuestas/{respuestaId} {
-      allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
-      allow write: if false;
-    }
-    match /ruletaResultados/{sesionId} {
       allow read: if isAdmin() || (isDocente() && resource.data.docenteId == request.auth.uid);
       allow write: if false;
     }

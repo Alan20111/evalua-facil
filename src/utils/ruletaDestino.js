@@ -13,21 +13,20 @@
 //   · 15 s para responder cada pregunta, medidos con el reloj del servidor.
 //   · Una pregunta sin respuesta (o respondida fuera de tiempo) es incorrecta.
 //   · Calificación = (correctas ÷ total de preguntas) × 10. La rapidez NUNCA cambia la calificación.
-//   · Ranking: más correctas; a iguales correctas, menor tiempo acumulado SOLO en las respuestas correctas.
+//   · Solo modalidad individual (7-nov-2026): sin concurso en vivo ni ranking; la competencia en tiempo real es de
+//     Reto Exprés.
 //   · Nunca se repite una pregunta dentro de una partida ni se juegan más preguntas de las autorizadas.
 //
 // Lo que este archivo NO decide (pendiente del Product Owner, ver el informe de la fase 0):
 //   · El margen de red sobre los 15 s: `margenMs` existe como opción y vale 0 por omisión.
 //   · (Decidido el 6-nov-2026: el banco manual mínimo para iniciar es de 10 reactivos por pregunta; el banco generado
 //     con IA, de 5 (7-nov-2026); ver `validarBanco`.)
-//   · Un empate exacto (mismas correctas y mismo tiempo) comparte el puesto (1, 1, 3), como en Reto Exprés; el orden
-//     dentro del empate es estable (por id) solo para mostrarlo siempre igual.
 //
 // Formas de responder:
 //   · Validaciones: { ok, errores } (o { ok, codigo }).
 //   · Transiciones de la partida (girar, responder, vencer): { ok: true, partida, ... } o { ok: false, codigo }.
 //     Nunca modifican la partida recibida: devuelven una nueva.
-//   · Cálculos con datos inválidos (calificación, sorteo, clasificación): lanzan RangeError o TypeError.
+//   · Cálculos con datos inválidos (calificación, sorteo): lanzan RangeError o TypeError.
 //
 // Constantes agrupadas en objetos, como en src/utils/retoExpres.js.
 
@@ -422,44 +421,6 @@ export function resumenPartida(partida) {
   }
 }
 
-function validarResultado(r) {
-  if (!r || typeof r !== 'object' || !esTextoConContenido(r.id)) throw new TypeError('Resultado sin id')
-  if (!esEnteroNoNegativo(r.correctas)) throw new RangeError(`Correctas inválidas en ${r.id}`)
-  if (!esEnteroNoNegativo(r.tiempoCorrectasMs)) throw new RangeError(`Tiempo inválido en ${r.id}`)
-}
-
-/**
- * Orden del ranking: más correctas; a iguales correctas, menor tiempo acumulado en correctas; a iguales ambos, por
- * id (solo para que el orden sea siempre el mismo; el puesto se comparte, ver `clasificarResultados`).
- */
-export function compararResultados(a, b) {
-  validarResultado(a)
-  validarResultado(b)
-  if (a.correctas !== b.correctas) return b.correctas - a.correctas
-  if (a.tiempoCorrectasMs !== b.tiempoCorrectasMs) return a.tiempoCorrectasMs - b.tiempoCorrectasMs
-  return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0)
-}
-
-/**
- * Ranking con puestos. Un empate exacto (mismas correctas y mismo tiempo) comparte el puesto y el siguiente salta
- * (1, 1, 3). No modifica la lista recibida. Rechaza ids repetidos.
- */
-export function clasificarResultados(lista) {
-  if (!Array.isArray(lista)) throw new TypeError('La clasificación necesita una lista')
-  lista.forEach(validarResultado)
-  if (new Set(lista.map((r) => r.id)).size !== lista.length) throw new RangeError('Ids repetidos en la clasificación')
-  const ordenados = lista.map((r) => ({ ...r })).sort(compararResultados)
-  let puesto = 0
-  return ordenados.map((r, i) => {
-    const anterior = ordenados[i - 1]
-    const empataConAnterior = anterior && anterior.correctas === r.correctas && anterior.tiempoCorrectasMs === r.tiempoCorrectasMs
-    if (!empataConAnterior) puesto = i + 1
-    const siguiente = ordenados[i + 1]
-    const empataConSiguiente = siguiente && siguiente.correctas === r.correctas && siguiente.tiempoCorrectasMs === r.tiempoCorrectasMs
-    return { ...r, puesto, empatado: Boolean(empataConAnterior || empataConSiguiente) }
-  })
-}
-
 // ═════════════════════════════════════════════════════════════════════════════
 // Fase 2: la actividad y su banco (docs/RULETA_DESTINO.md). Mismas reglas en la pantalla y en el servidor
 // (api/_lib/ruletaBanco.js); quien decide es el servidor. El banco vive en `ruletaReactivos` (un documento por
@@ -467,7 +428,8 @@ export function clasificarResultados(lista) {
 // aprobación. Solo el servidor escribe ambos (R1, F2-1).
 // ═════════════════════════════════════════════════════════════════════════════
 
-export const MODALIDADES_RULETA = { vivo: 'Concurso en vivo', individual: 'Individual' }
+// Única modalidad (7-nov-2026): cada estudiante juega por su cuenta y puede continuar después.
+export const MODALIDADES_RULETA = { individual: 'Individual' }
 export const ACCESOS_RULETA = { interno: 'Interno', externo: 'Externo' }
 
 /** Mensajes para el docente de los códigos de validación de un reactivo. */
@@ -483,10 +445,10 @@ export const MOTIVOS_REACTIVO = {
 
 /**
  * Datos con los que nace una ruleta (desde el navegador; las reglas de la fase 1 vuelven a exigir su forma). Siempre
- * oculta (F2-9). El tema va FUERA del mapa `ruleta` (F2-7): las reglas solo admiten ahí modalidad, acceso, preguntas
- * y ranking. El ranking solo existe en vivo. Una ruleta externa nace sin calificación (R5).
+ * oculta (F2-9). El tema va FUERA del mapa `ruleta` (F2-7): las reglas solo admiten ahí modalidad, acceso y
+ * preguntas. La modalidad es siempre individual; si se pide otra, se rechaza. Una ruleta externa nace sin calificación (R5).
  */
-export function datosNuevaRuleta({ nombre, tema, modalidad, acceso, preguntasPorPartida, ranking, parcial, orden, asignaturaId, docenteId } = {}) {
+export function datosNuevaRuleta({ nombre, tema, modalidad = 'individual', acceso, preguntasPorPartida, parcial, orden, asignaturaId, docenteId } = {}) {
   const n = String(nombre ?? '').trim()
   const t = String(tema ?? '').trim()
   if (!n) return { ok: false, codigo: 'nombre', error: 'Escribe el nombre de la actividad.' }
@@ -505,7 +467,7 @@ export function datosNuevaRuleta({ nombre, tema, modalidad, acceso, preguntasPor
       nombre: n, tema: t, categoria: RULETA_CFG.CATEGORIA, tipo: 'archivo', parcial, orden: Number.isInteger(orden) ? orden : 1,
       asignaturaId, docenteId, maxCalif: RULETA_CFG.CALIFICACION_MAXIMA,
       oculta: true, publishAt: null, publishedAt: null, sinCalificacion: externa,
-      ruleta: { modalidad, acceso, preguntasPorPartida, ...(modalidad === 'vivo' ? { ranking: ranking === true } : {}) },
+      ruleta: { modalidad, acceso, preguntasPorPartida },
     },
   }
 }
@@ -601,7 +563,7 @@ export function evaluarAprobacion(banco, reactivos, n) {
 }
 
 /**
- * Cambiar las preguntas por partida (R6, F2-6): solo sin sesiones (`preguntasCongeladas`), a 5 o 10, distinto del
+ * Cambiar las preguntas por partida (R6, F2-6): solo sin partidas (`preguntasCongeladas`), a 5 o 10, distinto del
  * actual y con el banco dentro del mínimo (según el origen del banco) y el máximo del NUEVO tamaño.
  */
 export function puedeCambiarPreguntas({ ruleta, total, nuevo, origen = ORIGENES_BANCO.manual } = {}) {

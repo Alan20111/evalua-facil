@@ -1,5 +1,5 @@
-// La Ruleta del Destino · pantalla del docente para PREPARAR la ruleta (fase 2): datos (nombre, tema, preguntas por
-// partida y ranking) y el banco de reactivos escrito a mano. Todavía no se publica ni se juega: la actividad sigue
+// La Ruleta del Destino · pantalla del docente para PREPARAR la ruleta (fase 2): datos (nombre, tema y preguntas por
+// partida) y el banco de reactivos escrito a mano. Todavía no se publica ni se juega: la actividad sigue
 // oculta (F2-9). El banco lo escribe SOLO el servidor (R1): cada cambio pasa por /api/subject/ruleta-banco.
 // Especificación: docs/RULETA_DESTINO.md.
 import { useEffect, useMemo, useState } from 'react'
@@ -9,7 +9,7 @@ import { ArrowLeft, Save } from 'lucide-react'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
-import { Badge, Button, Input, Select, Switch, Textarea } from '../../components/ui'
+import { Badge, Button, Input, Select, Textarea } from '../../components/ui'
 import ConfirmModal from '../../components/ConfirmModal'
 import BancoRuleta from '../../components/ruleta/BancoRuleta'
 import EditorReactivoRuleta from '../../components/ruleta/EditorReactivoRuleta'
@@ -18,7 +18,7 @@ import { EsqueletoRuletaDocente } from '../../components/esqueletos'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { TEACHER_CONTAINER } from '../../config/layout'
 import { ACCESOS_RULETA, MODALIDADES_RULETA, ORIGENES_BANCO, RULETA_CFG, maximoBanco, minimoBanco, normalizarTexto, origenBanco } from '../../utils/ruletaDestino'
-import { cargarRuleta, guardarDatosRuleta, guardarRankingRuleta, operacionBanco } from '../../utils/ruletaDestinoDb'
+import { cargarRuleta, guardarDatosRuleta, operacionBanco } from '../../utils/ruletaDestinoDb'
 
 // Las cantidades del selector dependen del origen del banco (IA: 25 o 50 de mínimo; manual: 50 o 100).
 const opcionesPreguntas = (origen) => RULETA_CFG.PREGUNTAS_POR_PARTIDA.map((n) => ({
@@ -42,7 +42,7 @@ export default function RuletaPage() {
   const [datos, setDatos] = useState({ nombre: '', tema: '' })
   const [guardandoDatos, setGuardandoDatos] = useState(false)
   const [preguntasNuevas, setPreguntasNuevas] = useState('10')
-  const [ocupado, setOcupado] = useState(null) // 'guardar' | 'borrar' | 'aprobar' | 'config' | 'ranking'
+  const [ocupado, setOcupado] = useState(null) // 'guardar' | 'borrar' | 'aprobar' | 'config'
   const [editor, setEditor] = useState(null) // { reactivo } (null en reactivo = nuevo)
   const [porBorrar, setPorBorrar] = useState(null)
 
@@ -86,7 +86,6 @@ export default function RuletaPage() {
 
   const ruleta = actividad.ruleta || {}
   const n = ruleta.preguntasPorPartida
-  const vivo = ruleta.modalidad === 'vivo'
   const externa = ruleta.acceso === 'externo'
   const congeladas = ruleta.preguntasCongeladas === true
   const datosCambiaron = datos.nombre.trim() !== (actividad.nombre || '') || datos.tema.trim() !== (actividad.tema || '')
@@ -102,18 +101,6 @@ export default function RuletaPage() {
       toast(e.message || 'No se pudieron guardar los datos', 'error')
     } finally {
       setGuardandoDatos(false)
-    }
-  }
-
-  async function cambiarRanking(valor) {
-    setOcupado('ranking')
-    try {
-      await guardarRankingRuleta(actividad.id, valor)
-      setActividad((a) => ({ ...a, ruleta: { ...a.ruleta, ranking: valor } }))
-    } catch (e) {
-      toast(e.message || 'No se pudo cambiar el ranking', 'error')
-    } finally {
-      setOcupado(null)
     }
   }
 
@@ -239,10 +226,6 @@ export default function RuletaPage() {
             </div>
           )}
 
-          {vivo && (
-            <Switch label="Mostrar ranking" checked={ruleta.ranking === true} disabled={Boolean(ocupado)} onChange={cambiarRanking}
-              hint="Gana quien tenga más aciertos; si empatan, quien tardó menos en sus respuestas correctas." />
-          )}
         </section>
 
         <section data-esq="ruleta-banco" className="bg-surface-card rounded-card shadow-card p-4 space-y-4" aria-labelledby="ruleta-banco-titulo">
@@ -256,8 +239,8 @@ export default function RuletaPage() {
           />
         </section>
 
-        {/* Paso 2: resultados de la partida individual interna (las demás modalidades todavía no se juegan). */}
-        {!vivo && !externa && (
+        {/* Paso 2: resultados de la partida individual interna (el acceso externo todavía no se juega). */}
+        {!externa && (
           <section data-esq="ruleta-resultados" className="bg-surface-card rounded-card shadow-card p-4 space-y-4" aria-labelledby="ruleta-resultados-titulo">
             <ResultadosRuleta actividad={actividad} uid={uid} />
           </section>

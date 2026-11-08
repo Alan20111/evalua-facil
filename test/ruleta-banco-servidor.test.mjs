@@ -25,7 +25,7 @@ const S = 'sub_ruleta'
 const tk = {}
 
 async function crearRuleta(id, { docenteId = DOC, preguntasPorPartida = 5, extra = {} } = {}) {
-  const r = datosNuevaRuleta({ nombre: `Ruleta ${id}`, tema: 'La célula', modalidad: 'vivo', acceso: 'interno', preguntasPorPartida, ranking: true, parcial: 1, orden: 1, asignaturaId: S, docenteId })
+  const r = datosNuevaRuleta({ nombre: `Ruleta ${id}`, tema: 'La célula', acceso: 'interno', preguntasPorPartida, parcial: 1, orden: 1, asignaturaId: S, docenteId })
   assert.ok(r.ok, r.codigo)
   await db.doc(`activities/${id}`).set({ ...r.datos, ...extra })
 }
@@ -291,10 +291,10 @@ await caso('E · con 10 preguntas el banco manual va de 100 a 200: con 99 no se 
 })
 
 await caso('E · una ruleta guardada con 20 preguntas (fuera del sistema) no admite ninguna operación y no se toca', async () => {
-  const r = datosNuevaRuleta({ nombre: 'Ruleta 20', tema: 'La célula', modalidad: 'vivo', acceso: 'interno', preguntasPorPartida: 20, ranking: true, parcial: 1, orden: 1, asignaturaId: S, docenteId: DOC })
+  const r = datosNuevaRuleta({ nombre: 'Ruleta 20', tema: 'La célula', acceso: 'interno', preguntasPorPartida: 20, parcial: 1, orden: 1, asignaturaId: S, docenteId: DOC })
   assert.strictEqual(r.ok, false)
   assert.strictEqual(r.error, 'Elige 5 o 10 preguntas por partida.')
-  const base = datosNuevaRuleta({ nombre: 'Ruleta 20', tema: 'La célula', modalidad: 'vivo', acceso: 'interno', preguntasPorPartida: 10, ranking: true, parcial: 1, orden: 1, asignaturaId: S, docenteId: DOC }).datos
+  const base = datosNuevaRuleta({ nombre: 'Ruleta 20', tema: 'La célula', acceso: 'interno', preguntasPorPartida: 10, parcial: 1, orden: 1, asignaturaId: S, docenteId: DOC }).datos
   await db.doc('activities/ru_veinte').set({ ...base, ruleta: { ...base.ruleta, preguntasPorPartida: 20 } })
   for (const [operacion, extra] of [['guardar', { reactivo: reactivo(1) }], ['aprobar', {}], ['config', { preguntasPorPartida: 10 }], ['borrar', { reactivoId: 'x' }]]) {
     const res = await op(operacion, { actividadId: 'ru_veinte', ...extra })
@@ -305,7 +305,7 @@ await caso('E · una ruleta guardada con 20 preguntas (fuera del sistema) no adm
   assert.strictEqual((await db.doc('activities/ru_veinte').get()).data().ruleta.preguntasPorPartida, 20)
 })
 
-await caso('E · con preguntasCongeladas o con una sesión existente: rechazado sin cambios', async () => {
+await caso('E · con preguntasCongeladas (ya hay partidas): rechazado sin cambios', async () => {
   await crearRuleta('ru_jugada', { extra: {} })
   await db.doc('activities/ru_jugada').update({ 'ruleta.preguntasCongeladas': true })
   await llenar('ru_jugada', 0, 100)
@@ -313,17 +313,11 @@ await caso('E · con preguntasCongeladas o con una sesión existente: rechazado 
   assert.strictEqual(r.statusCode, 409)
   assert.strictEqual(r.cuerpo.codigo, 'CONGELADAS')
   assert.strictEqual((await db.doc('activities/ru_jugada').get()).data().ruleta.preguntasPorPartida, 5)
-  await crearRuleta('ru_con_sesion')
-  await llenar('ru_con_sesion', 0, 100)
-  await db.doc('ruletaSesiones/SESION1').set({ docenteId: DOC, actividadId: 'ru_con_sesion' })
-  const r2 = await op('config', { actividadId: 'ru_con_sesion', preguntasPorPartida: 10 })
-  assert.strictEqual(r2.statusCode, 409)
-  assert.strictEqual((await db.doc('activities/ru_con_sesion').get()).data().ruleta.preguntasPorPartida, 5)
 })
 
-await caso('E · el cambio deja intactos modalidad, acceso, ranking y la bandera', async () => {
+await caso('E · el cambio deja intactos la modalidad individual, el acceso y la bandera', async () => {
   const r = (await db.doc('activities/ru_a').get()).data().ruleta
-  assert.deepStrictEqual(r, { modalidad: 'vivo', acceso: 'interno', preguntasPorPartida: 10, ranking: true })
+  assert.deepStrictEqual(r, { modalidad: 'individual', acceso: 'interno', preguntasPorPartida: 10 })
 })
 
 // ── G · Origen del banco (manual / IA) ──────────────────────────────────────

@@ -9,7 +9,7 @@
 //   D. partida: girar, responder, vencer; sin giros extra, sin respuestas duplicadas, estados inválidos;
 //   E. tiempo: 15 s del servidor, fuera de tiempo y sin respuesta = incorrecta, margen opcional;
 //   F. calificación: 5/5=10, 4/5=8, 8/10=8, el tiempo no la cambia;
-//   G. ranking: más correctas, luego menor tiempo SOLO en correctas, empates exactos consistentes.
+//   G. solo modalidad individual: sin ranking ni concurso en vivo (7-nov-2026).
 
 import assert from 'node:assert'
 import {
@@ -17,8 +17,9 @@ import {
   normalizarTexto, preguntasPorPartidaValida, tamanoBanco, validarReactivo, validarBanco,
   generadorDeterminista, sortearPreguntas, ordenPerteneceAlBanco,
   crearPartida, validarPartida, girar, responder, vencerPregunta, tiempoRestanteMs,
-  calificacionRuleta, resumenPartida, compararResultados, clasificarResultados,
+  calificacionRuleta, resumenPartida,
 } from '../src/utils/ruletaDestino.js'
+import * as logicaRuleta from '../src/utils/ruletaDestino.js'
 
 let pasadas = 0
 let fallos = 0
@@ -468,80 +469,13 @@ caso('F · rechaza datos inválidos', () => {
   assert.throws(() => calificacionRuleta(3, 0), RangeError)
 })
 
-// ── G. Ranking ───────────────────────────────────────────────────────────────
-grupo('G · ranking y desempate')
+// ── G. Solo individual ───────────────────────────────────────────────────────
+grupo('G · solo modalidad individual (sin ranking ni concurso en vivo)')
 
-const res = (id, correctas, tiempoCorrectasMs) => ({ id, correctas, tiempoCorrectasMs })
-
-caso('G · más correctas va primero, aunque sea más lento', () => {
-  const c = clasificarResultados([res('rapido', 6, 1000), res('lento', 7, 90_000)])
-  assert.deepStrictEqual(c.map((r) => [r.id, r.puesto]), [['lento', 1], ['rapido', 2]])
-})
-
-caso('G · a iguales correctas, gana el menor tiempo acumulado en correctas', () => {
-  const c = clasificarResultados([res('b', 8, 40_000), res('a', 8, 39_999), res('c', 8, 50_000)])
-  assert.deepStrictEqual(c.map((r) => [r.id, r.puesto]), [['a', 1], ['b', 2], ['c', 3]])
-})
-
-caso('G · el tiempo de respuestas incorrectas o vencidas no cuenta para desempatar', () => {
-  // Los dos aciertan las mismas 2 en 2 s cada una; uno tarda mucho en las que falla y el otro vence 3.
-  const plan1 = [{ acierta: true, ms: 2000 }, { acierta: true, ms: 2000 }, { acierta: false, ms: 14_000 }, { acierta: false, ms: 14_000 }, { acierta: false, ms: 14_000 }]
-  const plan2 = [{ acierta: true, ms: 2000 }, { acierta: true, ms: 2000 }, { vence: true }, { vence: true }, { vence: true }]
-  const a = resumenPartida(jugar(5, plan1))
-  const b = resumenPartida(jugar(5, plan2))
-  assert.strictEqual(a.tiempoCorrectasMs, 4000)
-  assert.strictEqual(b.tiempoCorrectasMs, 4000)
-  const c = clasificarResultados([{ id: 'a', ...a }, { id: 'b', ...b }])
-  assert.deepStrictEqual(c.map((r) => r.puesto), [1, 1])
-})
-
-caso('G · empate exacto: comparten puesto y el siguiente salta (1, 1, 3), siempre en el mismo orden', () => {
-  const entrada = [res('zoe', 5, 20_000), res('ana', 5, 20_000), res('luis', 4, 1000), res('eva', 5, 10_000)]
-  const c = clasificarResultados(entrada)
-  assert.deepStrictEqual(c.map((r) => [r.id, r.puesto, r.empatado]), [['eva', 1, false], ['ana', 2, true], ['zoe', 2, true], ['luis', 4, false]])
-  // Cualquier orden de entrada da exactamente la misma clasificación.
-  const permutaciones = [[3, 2, 1, 0], [1, 3, 0, 2], [2, 0, 3, 1]]
-  for (const orden of permutaciones) assert.deepStrictEqual(clasificarResultados(orden.map((i) => entrada[i])), c)
-  // Tres empatados en primero.
-  assert.deepStrictEqual(clasificarResultados([res('a', 3, 9), res('b', 3, 9), res('c', 3, 9), res('d', 1, 0)]).map((r) => r.puesto), [1, 1, 1, 4])
-})
-
-caso('G · compararResultados es antisimétrica y 0 solo para el mismo id', () => {
-  const a = res('a', 5, 1000)
-  const b = res('b', 5, 1000)
-  assert.ok(compararResultados(a, b) < 0)
-  assert.ok(compararResultados(b, a) > 0)
-  assert.strictEqual(compararResultados(a, { ...a }), 0)
-})
-
-caso('G · no modifica la lista recibida', () => {
-  const entrada = [res('b', 1, 5), res('a', 2, 5)]
-  const copia = JSON.parse(JSON.stringify(entrada))
-  clasificarResultados(entrada)
-  assert.deepStrictEqual(entrada, copia)
-})
-
-caso('G · rechaza datos inválidos', () => {
-  assert.throws(() => clasificarResultados('x'), TypeError)
-  assert.throws(() => clasificarResultados([res('a', 1, 0), res('a', 2, 0)]), RangeError)
-  assert.throws(() => clasificarResultados([res('', 1, 0)]), TypeError)
-  assert.throws(() => clasificarResultados([res('a', -1, 0)]), RangeError)
-  assert.throws(() => clasificarResultados([res('a', 1, -5)]), RangeError)
-  assert.throws(() => clasificarResultados([res('a', 1.5, 0)]), RangeError)
-  assert.throws(() => clasificarResultados([{ id: 'a', correctas: 1 }]), RangeError)
-  assert.deepStrictEqual(clasificarResultados([]), [])
-})
-
-caso('G · de punta a punta: partidas reales → resumen → ranking', () => {
-  const jugadores = [
-    { id: 'p1', plan: aciertos(10, 9, 3000) }, // 9 correctas, 27 s
-    { id: 'p2', plan: aciertos(10, 9, 2000) }, // 9 correctas, 18 s
-    { id: 'p3', plan: aciertos(10, 10, 14_000) }, // 10 correctas, 140 s
-    { id: 'p4', plan: aciertos(10, 9, 2000) }, // empata exacto con p2
-  ]
-  const resultados = jugadores.map((j, i) => ({ id: j.id, ...resumenPartida(jugar(10, j.plan, i + 1)) }))
-  const c = clasificarResultados(resultados)
-  assert.deepStrictEqual(c.map((r) => [r.id, r.puesto, r.calificacion]), [['p3', 1, 10], ['p2', 2, 9], ['p4', 2, 9], ['p1', 4, 9]])
+caso('G · la lógica ya no trae ranking ni la modalidad en vivo', () => {
+  assert.strictEqual(logicaRuleta.clasificarResultados, undefined)
+  assert.strictEqual(logicaRuleta.compararResultados, undefined)
+  assert.deepStrictEqual(logicaRuleta.MODALIDADES_RULETA, { individual: 'Individual' })
 })
 
 // ══ Fase 2: actividad y banco ═════════════════════════════════════════════════
@@ -599,13 +533,14 @@ caso('H · normalizar un reactivo: quita espacios de más sin cambiar el conteni
 
 grupo('I · fase 2: alta de la actividad')
 
-const altaBase = { nombre: 'Ruleta del parcial', tema: 'La célula', modalidad: 'vivo', acceso: 'interno', preguntasPorPartida: 10, ranking: true, parcial: 1, orden: 3, asignaturaId: 'S1', docenteId: 'D1' }
+const altaBase = { nombre: 'Ruleta del parcial', tema: 'La célula', acceso: 'interno', preguntasPorPartida: 10, parcial: 1, orden: 3, asignaturaId: 'S1', docenteId: 'D1' }
 
-caso('I · las cuatro combinaciones de modalidad y acceso nacen ocultas y bien formadas', () => {
-  for (const modalidad of ['vivo', 'individual']) {
+caso('I · interna y externa nacen individuales, ocultas y bien formadas', () => {
+  for (const modalidad of [undefined, 'individual']) {
     for (const acceso of ['interno', 'externo']) {
       const r = datosNuevaRuleta({ ...altaBase, modalidad, acceso })
       assert.ok(r.ok, `${modalidad}/${acceso}: ${r.codigo}`)
+      assert.strictEqual(r.datos.ruleta.modalidad, 'individual')
       const d = r.datos
       assert.strictEqual(d.categoria, 'ruleta')
       assert.strictEqual(d.oculta, true)
@@ -614,16 +549,16 @@ caso('I · las cuatro combinaciones de modalidad y acceso nacen ocultas y bien f
       assert.strictEqual(d.sinCalificacion, acceso === 'externo')
       assert.strictEqual(d.tema, 'La célula')
       assert.ok(!('tema' in d.ruleta))
-      assert.deepStrictEqual(Object.keys(d.ruleta).sort(), modalidad === 'vivo' ? ['acceso', 'modalidad', 'preguntasPorPartida', 'ranking'] : ['acceso', 'modalidad', 'preguntasPorPartida'])
+      assert.deepStrictEqual(Object.keys(d.ruleta).sort(), ['acceso', 'modalidad', 'preguntasPorPartida'])
       assert.ok(!('preguntasCongeladas' in d.ruleta))
     }
   }
 })
 
-caso('I · el ranking solo existe en vivo (y siempre booleano)', () => {
-  assert.strictEqual(datosNuevaRuleta({ ...altaBase, ranking: true }).datos.ruleta.ranking, true)
-  assert.strictEqual(datosNuevaRuleta({ ...altaBase, ranking: 'si' }).datos.ruleta.ranking, false)
-  assert.ok(!('ranking' in datosNuevaRuleta({ ...altaBase, modalidad: 'individual', ranking: true }).datos.ruleta))
+caso('I · en vivo se rechaza y un ranking enviado no se guarda', () => {
+  const vivo = datosNuevaRuleta({ ...altaBase, modalidad: 'vivo' })
+  assert.deepStrictEqual([vivo.ok, vivo.codigo], [false, 'modalidad'])
+  assert.ok(!('ranking' in datosNuevaRuleta({ ...altaBase, ranking: true }).datos.ruleta))
 })
 
 caso('I · datos inválidos se rechazan con un mensaje para el docente', () => {
@@ -751,8 +686,8 @@ caso('K · datos inválidos en las transiciones se rechazan', () => {
 
 grupo('L · fase 2: cambiar preguntas por partida (R6, F2-6)')
 
-caso('L · solo sin sesiones, a 5 o 10, distinto del actual y con el banco entre el nuevo mínimo y máximo', () => {
-  const ruleta = { modalidad: 'vivo', acceso: 'interno', preguntasPorPartida: 5 }
+caso('L · solo sin partidas, a 5 o 10, distinto del actual y con el banco entre el nuevo mínimo y máximo', () => {
+  const ruleta = { modalidad: 'individual', acceso: 'interno', preguntasPorPartida: 5 }
   const diez = { ...ruleta, preguntasPorPartida: 10 }
   assert.deepStrictEqual(puedeCambiarPreguntas({ ruleta, total: 100, nuevo: 10 }), { ok: true })
   assert.deepStrictEqual(puedeCambiarPreguntas({ ruleta: diez, total: 100, nuevo: 5 }), { ok: true })

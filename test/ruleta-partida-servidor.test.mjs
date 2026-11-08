@@ -23,10 +23,11 @@ const entrega = async (act, alumnoId) => { const d = await db.doc(`submissions/$
 const entregasDe = async (act) => (await db.collection('submissions').where('actividadId', '==', act).get()).docs.map((d) => d.data())
 
 async function crearRuleta(id, { n = 5, modalidad = 'individual', acceso = 'interno', publicada = true, parcial = 1, aprobado = true, reactivos = null } = {}) {
-  const r = datosNuevaRuleta({ nombre: `Ruleta ${id}`, tema: 'La célula', modalidad, acceso, preguntasPorPartida: n, ranking: false, parcial, orden: 1, asignaturaId: S, docenteId: DOC })
+  const r = datosNuevaRuleta({ nombre: `Ruleta ${id}`, tema: 'La célula', acceso, preguntasPorPartida: n, parcial, orden: 1, asignaturaId: S, docenteId: DOC })
   assert.ok(r.ok, r.codigo)
   const visible = publicada && acceso === 'interno' ? { oculta: false, publishedAt: '2026-11-01T08:00' } : {}
-  await db.doc(`activities/${id}`).set({ ...r.datos, ...visible })
+  // Otra modalidad ya no se puede crear (7-nov-2026); se escribe directo para probar la defensa del servidor.
+  await db.doc(`activities/${id}`).set({ ...r.datos, ...visible, ruleta: { ...r.datos.ruleta, modalidad } })
   const total = reactivos ?? n * 10
   const lote = db.batch()
   const huellas = {}
@@ -90,7 +91,7 @@ await caso('A · sin sesión 401; docente 403; estudiante de otra asignatura 403
 // ── B · Disponibilidad ──────────────────────────────────────────────────────
 grupo('B · solo una ruleta individual, interna, visible y con el banco aprobado')
 
-await caso('B · oculta, en vivo, externa, parcial oculto o banco sin aprobar: no se crea partida ni se congela nada', async () => {
+await caso('B · oculta, modalidad ajena (en vivo, ya no existe), externa, parcial oculto o banco sin aprobar: no se crea partida ni se congela nada', async () => {
   await crearRuleta('ru_oculta', { publicada: false })
   await crearRuleta('ru_vivo', { modalidad: 'vivo' })
   await crearRuleta('ru_ext', { acceso: 'externo' })

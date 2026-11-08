@@ -21,16 +21,13 @@ reglas propios. No modifica Reto Exprés ni reutiliza su código con estado.
 
 ## 1. Especificación funcional
 
-### Modalidades (independientes del acceso)
-| | **Concurso en vivo** (`vivo`) | **Individual** (`individual`) |
-|---|---|---|
-| Participantes | Varios a la vez, cada uno con su propia ruleta | Cada uno por su cuenta |
-| Proyección | El docente puede proyectar | No aplica |
-| Ranking | Opcional (lo decide el docente) | **No existe** |
-| Desempate | Menor tiempo acumulado **solo en respuestas correctas** | No aplica |
-| Reingreso | — | Puede salir y volver; se conserva su progreso |
+### Modalidad: solo individual (7-nov-2026)
+Cada estudiante entra cuando quiere, gira su ruleta y contesta 5 o 10 preguntas por su cuenta; puede salir y volver, y
+se conserva su progreso. **No hay concurso en vivo, proyección, ranking ni desempate**: la participación y la
+competencia en tiempo real son de Reto Exprés. La actividad guarda `ruleta.modalidad: 'individual'` (las reglas y el
+servidor rechazan cualquier otro valor) y nunca lleva `ranking`.
 
-### Formas de acceso (independientes de la modalidad)
+### Formas de acceso
 - **Interno** (`interno`): estudiantes de la asignatura con su cuenta habitual; resultados ligados a su inscripción.
 - **Externo** (`externo`): enlace y QR, sin cuenta; resultados ligados a la partida y al identificador que defina el
   docente. Siempre oculta, sin calificación académica y sin entregas (R5).
@@ -158,13 +155,11 @@ Motivos de rechazo, contados por separado:
 - Una partida que se queda con la última pregunta abierta se termina (y registra la nota) cuando el estudiante vuelve a
   entrar; mientras tanto aparece «En curso».
 
-### Calificación y ranking
+### Calificación
 - **Calificación = (correctas ÷ total de preguntas) × 10**, con el redondeo de las evaluaciones
   (`calcularCalificacion`). La rapidez nunca cambia la calificación. Las preguntas no jugadas cuentan como incorrectas.
 - Cálculo y **publicación automáticos** para el acceso interno, respetando los mecanismos de calificación existentes.
-- Ranking (solo en vivo y solo si el docente lo activa): más correctas; a iguales correctas, menor tiempo acumulado en
-  correctas; a iguales ambos, **comparten puesto** (1, 1, 3). El orden por identificador dentro del empate es solo
-  visual y no altera el puesto.
+- Sin ranking (7-nov-2026). El resultado de la partida conserva `tiempoCorrectasMs` como dato, sin uso en la nota.
 
 ---
 
@@ -175,12 +170,12 @@ Motivos de rechazo, contados por separado:
    cobro proporcional. (La partida de 20 → 20 créditos se eliminó el 7-nov-2026.)
 2. Documento insuficiente: cancelar y reembolsar la reserva.
 3. Archivos .doc antiguos: sin conversión.
-4. Desempate: tiempo acumulado solo en respuestas correctas.
+4. ~~Desempate: tiempo acumulado solo en respuestas correctas.~~ Sin efecto: ya no hay ranking (decisión 16).
 5. Calificación: cálculo y publicación automáticos, respetando los mecanismos actuales.
 6. Banco manual mínimo de 10 reactivos por pregunta (50 o 100) y máximo de 20 (100 o 200); con más del mínimo
    también inicia. Un banco generado con IA se aprueba con 5 por pregunta (25 o 50) (7-nov-2026, decisión 15).
 7. Exactamente 15 s, sin margen.
-8. Empate exacto: comparten puesto; orden por id solo visual.
+8. ~~Empate exacto: comparten puesto; orden por id solo visual.~~ Sin efecto: ya no hay ranking (decisión 16).
 9. Un solo documento por generación: un PDF con texto o un DOCX.
 10. La IA genera solo con el banco vacío y siempre exactamente 25 reactivos para 5 preguntas o 50 para 10.
 11. Cita y contexto obligatorios y verificables en una sola página (en DOCX, una sola aparición); citas ambiguas,
@@ -195,31 +190,34 @@ Motivos de rechazo, contados por separado:
     (`reactivosGeneracionIA`); el banco manual va de 50 a 100 o de 100 a 200 (`tamanoBanco`, `maximoBanco`). El
     mínimo para aprobar depende del origen del banco (`ia`: 25 o 50; `manual`: 50 o 100), que guarda y protege el
     servidor en `ruletaBancos.origen`.
+16. (7-nov-2026) **Se elimina definitivamente la modalidad en vivo**: la Ruleta es solo individual. Fuera el concurso,
+    la proyección, el ranking, el desempate y las colecciones `ruletaSesiones`, `ruletaClaves` y `ruletaResultados`
+    (sin reglas: nadie las lee ni las escribe desde un cliente). La competencia en tiempo real es de Reto Exprés.
 
 ### Seguridad (R1–R8, 6-nov-2026)
 - **R1** Solo el servidor escribe `ruletaReactivos`; el docente administra el banco con acciones del API. Ningún cliente
   escribe en las colecciones protegidas.
-- **R2** El docente no borra sus sesiones directamente; el borrado y la limpieza en cascada llegan en la fase 8.
+- **R2** El docente no borra sus partidas directamente; el borrado y la limpieza en cascada llegan en la fase 8.
 - **R3** Las claves congeladas las leen el docente dueño y el admin; nunca estudiantes, externos ni otros docentes.
 - **R4** El docente corrige una nota por el camino existente de `submissions` (guardián de entregas, bloqueo de parciales
   cerrados y auditoría en `calificacionHistorial`). El estudiante nunca modifica su nota.
 - **R5** Una ruleta externa es siempre oculta, sin calificación académica, sin entregas en `submissions` y sin
   incorporación automática al historial académico.
 - **R6** Categoría, modalidad y acceso no cambian después de crear. `preguntasPorPartida` lo fija el cliente solo al
-  crear; después, cambiarlo es una acción del servidor (sin sesiones y con el banco mínimo del nuevo tamaño). El único
-  campo de `ruleta` que el cliente cambia después de crear es `ranking`, y solo en modalidad en vivo.
+  crear; después, cambiarlo es una acción del servidor (sin partidas y con el banco mínimo del nuevo tamaño). Después
+  de crear, el cliente no cambia nada del mapa `ruleta` (desde el 7-nov-2026 ya no existe `ranking`).
 - **R7** El admin lee todas las colecciones `ruleta*` salvo `ruletaCupos` y `ruletaIdentificadores`, que no lee nadie.
-- **R8** El docente borra una ruleta sin sesiones. Al crear la primera sesión, el servidor pone
+- **R8** El docente borra una ruleta sin partidas. Al iniciar la primera partida, el servidor pone
   `ruleta.preguntasCongeladas = true` en la misma transacción; con esa bandera ningún cliente borra la actividad. El
-  cliente nunca crea, cambia ni quita la bandera. El borrado definitivo de una ruleta con sesiones será un procedimiento
-  del servidor con limpieza completa (fase 8): sin participantes, respuestas, resultados, claves ni sesiones huérfanos.
+  cliente nunca crea, cambia ni quita la bandera. El borrado definitivo de una ruleta con partidas será un procedimiento
+  del servidor con limpieza completa (fase 8): sin participantes ni respuestas huérfanos.
 
 ### Dependencias de borrado (C1–C3, 6-nov-2026)
 - **C1** Eliminar asignatura: `src/utils/deleteSubjectCascade.js` borra recursos y materiales y después las
   actividades, en lotes desde el cliente. Con R8, una ruleta jugada haría fallar ese lote y dejaría la asignatura a
   medias. Se corrige en la fase 8 integrando el procedimiento del servidor en `deleteSubjectCascade.js`. Mientras
-  tanto, **no se habilita en producción la creación de ruletas con sesiones**.
-- **C2** Borradores sin sesiones: desde la fase 2 ya tienen banco (`ruletaReactivos` y `ruletaBancos`). El trigger
+  tanto, **no se habilita en producción que se jueguen ruletas**.
+- **C2** Borradores sin partidas: desde la fase 2 ya tienen banco (`ruletaReactivos` y `ruletaBancos`). El trigger
   de limpieza al borrar la actividad (`onRuletaBorrada` en `functions/index.js`, `functions/ruletaLimpieza.js`) se
   adelantó y quedó **implementado en la fase 2** (F2-2); la fase 3 le agregará `ruletaGeneraciones`. Seguro,
   idempotente y sin tocar otras actividades.
@@ -232,7 +230,7 @@ Motivos de rechazo, contados por separado:
 Dos capas, cada una con su responsabilidad:
 
 - **Reglas de Firestore** (`firestore.rules`): impiden que un cliente (navegador, consola o app modificada) lea o
-  escriba directamente el banco, las claves, los participantes, las respuestas, los resultados o la configuración
+  escriba directamente el banco, los participantes, las respuestas o la configuración
   protegida de la actividad, o escriba una nota en una entrega de ruleta. Rechazan consultas sin filtro de dueño.
 - **Servidor** (Admin SDK en `api/` y Cloud Functions; **no pasa por las reglas**): identidad (sesión de estudiante
   inscrito o token de externo), selección de preguntas, reloj de 15 s, primera respuesta, calificación, publicación de
@@ -249,26 +247,24 @@ ve solo lo suyo» lo garantiza el servidor.
 |---|---|---|---|---|---|---|
 | `ruletaReactivos` | Lee | ✗ | Lee | ✗ | ✗ | Escribe |
 | `ruletaGeneraciones` | Lee | ✗ | Lee | ✗ | ✗ | Escribe |
-| `ruletaSesiones` | Lee (no borra, R2) | ✗ | Lee | ✗ | ✗ | Escribe |
-| `ruletaClaves` | Lee | ✗ | Lee | ✗ | ✗ | Escribe |
 | `ruletaParticipantes` | Lee | ✗ | Lee | ✗ | ✗ | Escribe |
 | `ruletaRespuestas` | Lee | ✗ | Lee | ✗ | ✗ | Escribe |
-| `ruletaResultados` | Lee | ✗ | Lee | ✗ | ✗ | Escribe |
 | `ruletaCupos` | ✗ | ✗ | ✗ | ✗ | ✗ | Escribe |
 | `ruletaIdentificadores` | ✗ | ✗ | ✗ | ✗ | ✗ | Escribe |
-| `activities` (`categoria: 'ruleta'`) | Crea y edita con candado; borra sin sesiones | ✗ | Lee | ✗ | ✗ | Pone la bandera |
+| `activities` (`categoria: 'ruleta'`) | Crea y edita con candado; borra sin partidas | ✗ | Lee | ✗ | ✗ | Pone la bandera |
 | `submissions` de ruleta interna | Lee y corrige (R4) | ✗ | Lee | Lee la suya; nunca escribe | ✗ | Publica la nota |
 | `submissions` de ruleta externa | Nadie crea ni modifica (sí borra una que existiera por error) | ✗ | — | ✗ | ✗ | No escribe |
 
 Lectura del dueño = `resource.data.docenteId == request.auth.uid` (campo que escribe el servidor). Toda consulta del
-docente debe filtrar por `docenteId`.
+docente debe filtrar por `docenteId`. `ruletaSesiones`, `ruletaClaves` y `ruletaResultados` (del concurso en vivo,
+eliminado el 7-nov-2026) ya no tienen reglas: nadie los lee ni los escribe desde un cliente.
 
 ### Candados de la actividad (`activities`)
-- **Crear** (`ruletaBienFormada`): mapa `ruleta` con `modalidad` (`vivo` | `individual`), `acceso` (`interno` |
-  `externo`), `preguntasPorPartida` (5 | 10) y, opcional, `ranking` (booleano; en individual ausente o `false`);
-  ninguna otra clave y **nunca** `preguntasCongeladas` (ni en `false`). Externa: `oculta: true`,
-  `sinCalificacion: true`, sin `publishAt` ni `publishedAt`.
-- **Actualizar** (`ruletaIntacta`): nada entra ni sale de la categoría; dentro de `ruleta` solo puede cambiar `ranking`
+- **Crear** (`ruletaBienFormada`): mapa `ruleta` con `modalidad` (solo `individual`), `acceso` (`interno` |
+  `externo`) y `preguntasPorPartida` (5 | 10); ninguna otra clave (tampoco `ranking`) y **nunca**
+  `preguntasCongeladas` (ni en `false`). Externa: `oculta: true`, `sinCalificacion: true`, sin `publishAt` ni
+  `publishedAt`.
+- **Actualizar** (`ruletaIntacta`): nada entra ni sale de la categoría; el mapa `ruleta` no cambia
   (modalidad, acceso, preguntas y bandera quedan exactamente igual, también si se reemplaza el mapa completo); la forma
   sigue siendo válida (externa sigue oculta y sin calificación). Los demás campos (nombre, parcial, publicar en
   internas) siguen las reglas de cualquier actividad.
@@ -296,16 +292,13 @@ Cada condición nueva devuelve «sin efecto» en cuanto la categoría no es `rul
 |---|---|---|
 | `ruletaReactivos/{id}` | Enunciado, 4 opciones, correcta, fuente (documento y página si es viable), estado | Dueño, admin |
 | `ruletaGeneraciones/{clave}` | Trabajo de generación por lotes: pedidos, entregados, estado | Dueño, admin |
-| `ruletaSesiones/{código}` | Configuración congelada, acceso, estado, inicio y fin | Dueño, admin |
-| `ruletaClaves/{código}` | Clave congelada de la sesión | Dueño, admin |
-| `ruletaParticipantes/{id}` | Identidad o identificador, huella del token, orden asignado, avance, aciertos, tiempo | Dueño, admin |
+| `ruletaParticipantes/{actividadId}_{alumnoId}` | La partida: orden sorteado, copia de las preguntas, avance, resultado y qué pasó con la nota | Dueño, admin |
 | `ruletaRespuestas/{participante}_{i}` | Reactivo, opción, correcta, tiempo, motivo | Dueño, admin |
-| `ruletaResultados/{código}` | Registro definitivo y ranking | Dueño, admin |
 | `ruletaCupos/{código}_{n}` | Cupo de externos | Nadie |
 | `ruletaIdentificadores/{…}` | Unicidad del identificador externo | Nadie |
 
-Todos los documentos llevan `docenteId` (y `actividadId` / `sesionId` según corresponda). Las colecciones no existen
-todavía en producción; las crean las fases de servidor.
+Todos los documentos llevan `docenteId` y `actividadId`. Las colecciones no existen todavía en producción. Las del
+concurso en vivo (`ruletaSesiones`, `ruletaClaves`, `ruletaResultados`) se eliminaron del diseño el 7-nov-2026.
 
 ---
 
@@ -315,7 +308,7 @@ todavía en producción; las crean las fases de servidor.
 |---|---|
 | El Admin SDK no pasa por las reglas | Cada acción del servidor verifica identidad, propiedad y estado; pruebas de servidor contra el emulador |
 | Publicar notas desde el servidor saltaría el bloqueo de parcial cerrado | El servidor usa `parcialCerrado` y no pisa una corrección del docente (`ultimaCalificacionPor`) |
-| Borrar asignatura con una ruleta jugada (C1) | Fase 8 antes de habilitar sesiones en producción |
+| Borrar asignatura con una ruleta jugada (C1) | Fase 8 antes de habilitar las partidas en producción |
 | Borradores con banco (C2) | Trigger de limpieza implementado en la fase 2; la fase 3 lo amplía a `ruletaGeneraciones` |
 | Residuos al eliminar la cuenta (C3) | Fase 8 en `api/account/delete.js` |
 | Límite de lecturas de las reglas en lotes | Probado: lote de 10 notas mezcladas (ruleta y entregable) pasa |
@@ -327,13 +320,13 @@ todavía en producción; las crean las fases de servidor.
 
 | Fase | Contenido | Estado |
 |---|---|---|
-| 0 | Lógica pura: banco, sorteo, partida, tiempo, calificación, ranking | Hecha (sin commit) |
+| 0 | Lógica pura: banco, sorteo, partida, tiempo, calificación (el ranking se retiró el 7-nov-2026) | Hecha |
 | 1 | Reglas de seguridad y su documentación | Hecha (sin commit) |
 | 2 | Crear la actividad y editor del banco (acciones del API), lista de actividades, copias excluidas, trigger de limpieza de borradores (C2) y borrado de cuenta | Hecha (autorizada; sin commit) |
 | 3 | IA del banco (lotes, reembolso total, sustento documental); la sustitución de reactivos queda pendiente hasta definir su tarifa | Sin autorizar (implementación) |
 | 4 | Servidor individual: unirse, girar, responder, estado, recuperación; bandera `preguntasCongeladas` | Hecha para acceso interno (paso 1, commit `37ad199e`) |
 | 5 | Pantallas individuales (celular y docente) | Pantalla del estudiante (paso 1) y resultados del docente (paso 2, sin commit) |
-| 6 | Concurso en vivo y ranking | Sin autorizar |
+| 6 | ~~Concurso en vivo y ranking~~ | **Eliminada** (7-nov-2026, decisión 16): la competencia en vivo es de Reto Exprés |
 | 7 | Publicación automática de calificaciones | Hecha para acceso interno (paso 2, sin commit) |
 | 8 | Borrado definitivo con limpieza, borrado de asignatura (C1) y de cuenta (C3) | Sin autorizar |
 | 9 | Prueba real y de carga | Sin autorizar |
@@ -343,15 +336,14 @@ todavía en producción; las crean las fases de servidor.
 - Ninguna fase se despliega sin autorización expresa y separada.
 - Las reglas de la fase 1 pueden desplegarse solas sin riesgo (colecciones vacías, ninguna pantalla crea ruletas),
   pero se recomienda desplegarlas junto con el servidor.
-- **Nada que permita crear sesiones en producción** antes de que estén en producción la fase 8 y la corrección de C1.
+- **Nada que permita jugar ruletas en producción** antes de que estén en producción la fase 8 y la corrección de C1.
 - El trigger de limpieza de borradores (C2) debe estar en producción antes o junto con la generación del banco.
 
 ## 8. Pendientes de definición
 
 - Identificación de externos, prevención de duplicados y recuperación al cambiar de dispositivo.
 - Límite de participantes externos (referencia: Reto Exprés usa 40, decisión E7, medido solo en el emulador).
-- Control del concurso en vivo (inicio, fin, ingreso tardío) y si se muestra la opción correcta tras responder.
-- Si el mismo banco sirve para varias sesiones y el costo de sustituir un reactivo.
+- El costo de sustituir un reactivo.
 - Conservación de datos de externos.
 - **Longitud mínima de la cita**: se medirá en la calibración (longitud de citas aceptadas y rechazadas, ambigüedad
   según la longitud, capacidad del contexto para identificar una sola página) y se propondrá con esos datos; requiere
