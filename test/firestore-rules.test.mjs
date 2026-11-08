@@ -5394,5 +5394,25 @@ ok('F-05 · admin CAN read publicProfiles')
   ok('F-09 · el registro de avance del borrado de asignaturas: ningún cliente lo lee, consulta, crea, cambia ni borra')
 }
 
+// ── Limpieza al eliminar actividades (functions/actividadLimpieza.js) ──
+// `rastroEntregas/{submissionId}` lo escribe y lee SOLO el servidor: sin `match` en las reglas, ningún cliente lo lee,
+// lo consulta, lo crea, lo cambia ni lo borra (borrarlo dejaría huérfano el historial de esa entrega).
+{
+  const asAnonRastro = testEnv.unauthenticatedContext().firestore()
+  const asAdminRastro = testEnv.authenticatedContext(ADMIN).firestore()
+  const rastro = { actividadId: 'A1', alumnoId: 'st1', submissionId: 'A1_st1' }
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'rastroEntregas', 'A1_st1'), rastro)
+  })
+  for (const [quien, ctxDb] of [['docente dueño', asT1], ['admin', asAdminRastro], ['otro docente', asT2], ['estudiante', asJuan], ['sin sesión', asAnonRastro]]) {
+    await assertFails(getDoc(doc(ctxDb, 'rastroEntregas', 'A1_st1')), `lee ${quien}`)
+    await assertFails(getDocs(query(collection(ctxDb, 'rastroEntregas'), where('actividadId', '==', 'A1'))), `consulta ${quien}`)
+    await assertFails(setDoc(doc(ctxDb, 'rastroEntregas', 'A1_st2'), { ...rastro, alumnoId: 'st2', submissionId: 'A1_st2' }), `crea ${quien}`)
+    await assertFails(updateDoc(doc(ctxDb, 'rastroEntregas', 'A1_st1'), { actividadId: 'A2' }), `cambia ${quien}`)
+    await assertFails(deleteDoc(doc(ctxDb, 'rastroEntregas', 'A1_st1')), `borra ${quien}`)
+  }
+  ok('Limpieza de actividades · el rastro de entregas: ningún cliente lo lee, consulta, crea, cambia ni borra')
+}
+
 await testEnv.cleanup()
 console.log(`\nALL ${pass} FIRESTORE-RULES CHECKS PASSED`)

@@ -45,6 +45,7 @@ const { onDocumentWritten } = require('firebase-functions/v2/firestore')
 // Escribir la nota de la IA en una entrega (decide, en transacción, si puede):
 // ver functions/aplicarNotaIA.js.
 const { aplicarNotaIA } = require('./aplicarNotaIA')
+const { escribirSiActividadExiste, crearUnaVezSiActividadExiste } = require('./actividadLimpieza')
 const { ORIGEN_IA_RECALIFICAR } = require('./_shared/evaluacionGrading.js')
 // Lógica PURA de calendario/sesiones, compartida con el cliente — ver
 // src/utils/sesionesReales.js (fuente real) y scripts/sync-functions-shared.mjs
@@ -559,6 +560,27 @@ function c02PromptArchivo({ asignatura, categoria, titulo, enunciado, ponderacio
   )
 }
 
+// Lotes con candado por documento (C-02 y OP-11-lote): si la actividad desaparece mientras se adquieren los candados,
+// se sueltan los ya tomados (borrar no recrea nada) y la operación se rechaza antes de llamar a la IA, sin cobrar.
+async function soltarCandadosActividadBorrada(adquiridos) {
+  await Promise.all(adquiridos.map((a) => a.ref.delete().catch(() => {})))
+  return new HttpsError('not-found', 'La actividad ya no existe. No se descontaron créditos.')
+}
+
+// Crear evaluación y los dos diagnósticos con IA: reactivos (preguntas + clave) y el documento de la actividad en UNA
+// transacción que primero la lee (functions/actividadLimpieza.js). Si se borró mientras la IA trabajaba, no se escribe
+// nada —ni se recrea la actividad con el `merge`— y la operación falla como cualquier falla: no se cobra. Como mucho
+// 201 escrituras (100 reactivos × 2 + la actividad).
+async function guardarReactivosSiActividadExiste(actividadId, escrituras, updateActividad) {
+  const db = getFirestore()
+  const guardado = await escribirSiActividadExiste(actividadId, (tx) => {
+    escrituras.forEach(([ref, datos]) => tx.set(ref, datos))
+    tx.set(db.doc(`activities/${actividadId}`), updateActividad, { merge: true })
+    return true
+  })
+  if (!guardado) throw new HttpsError('not-found', 'La actividad ya no existe: se eliminó mientras la IA trabajaba. No se descontaron créditos.')
+}
+
 async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
   const Anthropic = require('@anthropic-ai/sdk')
   const client = new Anthropic({ apiKey })
@@ -676,19 +698,24 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
   // lote la tiene ahora (se deja), salvo que sea un huérfano de > 10 min.
   const adquiridos = []
   let yaProcesadas = 0
+  const actRef = db.doc(`activities/${actividadId}`)
   for (const item of items) {
     const ref = db.doc(`activities/${actividadId}/iaSugerencias/${item.sub}_${item.preg}`)
-    try {
-      await ref.create({
-        estado: 'procesando', actividadId, sub: item.sub, preg: item.preg,
-        consumoKey: params.__idempotencyKey || null, creadoEn: FieldValue.serverTimestamp(),
-      })
+    // El candado nace solo si la actividad sigue existiendo, en la misma transacción que la lee
+    // (functions/actividadLimpieza.js): nunca un candado colgando de una actividad borrada.
+    const creado = await crearUnaVezSiActividadExiste(actividadId, ref, {
+      estado: 'procesando', actividadId, sub: item.sub, preg: item.preg,
+      consumoKey: params.__idempotencyKey || null, creadoEn: FieldValue.serverTimestamp(),
+    })
+    if (creado === 'sin_actividad') throw await soltarCandadosActividadBorrada(adquiridos)
+    if (creado === 'creado') {
       adquiridos.push({ ...item, ref })
-    } catch {
+    } else {
       // Ya existe: decidir en transacción (evita que dos lotes retomen el
       // mismo huérfano a la vez).
       const tomado = await db.runTransaction(async (tx) => {
-        const s = await tx.get(ref)
+        const [s, act] = await Promise.all([tx.get(ref), tx.get(actRef)])
+        if (!act.exists) return 'sin_actividad'
         if (!s.exists) return false
         const d = s.data()
         const edadMs = d.creadoEn?.toDate ? Date.now() - d.creadoEn.toDate().getTime() : 0
@@ -698,6 +725,7 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
         }
         return false
       })
+      if (tomado === 'sin_actividad') throw await soltarCandadosActividadBorrada(adquiridos)
       if (tomado) adquiridos.push({ ...item, ref })
       else yaProcesadas++
     }
@@ -776,10 +804,14 @@ async function ejecutarCalificarAbierta({ params, modelo, apiKey, unidades }) {
           requiere_revision_humana: true, // lo fija EF por código, siempre
         }
         // Persistir ANTES de contar como cobrable: si esta escritura falla,
-        // la respuesta cae al catch (candado liberado, sin cobro).
-        await item.ref.set({
-          estado: 'pendiente', sugerencia, actualizadoEn: FieldValue.serverTimestamp(),
-        }, { merge: true })
+        // la respuesta cae al catch (candado liberado, sin cobro). Solo si la
+        // actividad sigue existiendo (misma transacción que la lee): borrada a
+        // mitad del lote, la propuesta no se guarda y cuenta como fallida.
+        const guardada = await escribirSiActividadExiste(actividadId, (tx) => {
+          tx.set(item.ref, { estado: 'pendiente', sugerencia, actualizadoEn: FieldValue.serverTimestamp() }, { merge: true })
+          return true
+        })
+        if (!guardada) throw new Error('la actividad se eliminó durante la revisión')
         sugerencias.push(sugerencia)
       } catch (e) {
         // Esta respuesta no se cobra y su candado se libera para reintentos.
@@ -1813,7 +1845,11 @@ async function ejecutarCalificarEntregableIA({ params, modelo, apiKey }) {
   // dispone; aplicar sigue siendo un paso aparte y explícito.
   const actividadId = String(params?.actividadId || '')
   const submissionId = String(params?.submissionId || '')
-  await getFirestore().doc(`activities/${actividadId}/iaSugerenciasEntregable/${submissionId}`).set({
+  const sugerenciaRef = getFirestore().doc(`activities/${actividadId}/iaSugerenciasEntregable/${submissionId}`)
+  // Solo si la actividad sigue existiendo, en la misma transacción que la lee (functions/actividadLimpieza.js): la
+  // llamada a la IA tarda, y si el docente borró la actividad mientras tanto la propuesta quedaría huérfana. El
+  // resultado y el cobro no cambian.
+  await escribirSiActividadExiste(actividadId, (tx) => tx.set(sugerenciaRef, {
     estado: 'pendiente',
     actividadId, sub: submissionId,
     sugerencia: resultado,
@@ -1824,7 +1860,7 @@ async function ejecutarCalificarEntregableIA({ params, modelo, apiKey }) {
     rubricaFirma: rubricaFirma(ctx.rubrica),
     creadoEn: FieldValue.serverTimestamp(),
     actualizadoEn: FieldValue.serverTimestamp(),
-  })
+  }))
 
   return {
     resultado,
@@ -1992,6 +2028,13 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
   // "ya procesada" (eso dejaría al docente viendo una propuesta obsoleta).
   const adquiridos = []
   let yaProcesadas = 0
+  const actRef = db.doc(`activities/${actividadId}`)
+  // Cada candado nace solo si la actividad sigue existiendo, en la misma transacción que la lee
+  // (functions/actividadLimpieza.js): nunca un candado colgando de una actividad borrada.
+  const datosCandado = (item) => ({
+    estado: 'procesando', actividadId, sub: item.submissionId,
+    consumoKey: params.__idempotencyKey || null, creadoEn: FieldValue.serverTimestamp(),
+  })
   for (const item of ctx.items) {
     const ref = db.doc(`activities/${actividadId}/iaSugerenciasEntregable/${item.submissionId}`)
     if (ctx.recalificar) {
@@ -1999,22 +2042,19 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
       // hacerlo se guarda lo que había, porque decide si la nota actual de la
       // entrega es de la propia IA (y por tanto se puede reemplazar) o no.
       const previa = await ref.get()
-      await ref.set({
-        estado: 'procesando', actividadId, sub: item.submissionId,
-        consumoKey: params.__idempotencyKey || null, creadoEn: FieldValue.serverTimestamp(),
-      })
+      const tomado = await escribirSiActividadExiste(actividadId, (tx) => { tx.set(ref, datosCandado(item)); return true })
+      if (!tomado) throw await soltarCandadosActividadBorrada(adquiridos)
       adquiridos.push({ ...item, ref, sugerenciaPrevia: previa.exists ? previa.data() : null })
       continue
     }
-    try {
-      await ref.create({
-        estado: 'procesando', actividadId, sub: item.submissionId,
-        consumoKey: params.__idempotencyKey || null, creadoEn: FieldValue.serverTimestamp(),
-      })
+    const creado = await crearUnaVezSiActividadExiste(actividadId, ref, datosCandado(item))
+    if (creado === 'sin_actividad') throw await soltarCandadosActividadBorrada(adquiridos)
+    if (creado === 'creado') {
       adquiridos.push({ ...item, ref })
-    } catch {
+    } else {
       const tomado = await db.runTransaction(async (tx) => {
-        const s = await tx.get(ref)
+        const [s, act] = await Promise.all([tx.get(ref), tx.get(actRef)])
+        if (!act.exists) return 'sin_actividad'
         if (!s.exists) return false
         const d = s.data()
         const edadMs = d.creadoEn?.toDate ? Date.now() - d.creadoEn.toDate().getTime() : 0
@@ -2024,6 +2064,7 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
         }
         return false
       })
+      if (tomado === 'sin_actividad') throw await soltarCandadosActividadBorrada(adquiridos)
       if (tomado) adquiridos.push({ ...item, ref })
       else yaProcesadas++
     }
@@ -2115,13 +2156,19 @@ async function ejecutarCalificarEntregableIALote({ params, modelo, apiKey, unida
         }
         if (!aplicadaAhora) {
           // Persistir ANTES de contar como cobrable — si esta escritura
-          // falla, la entrega cae al catch (candado liberado, sin cobro).
-          await item.ref.set({
-            estado: 'pendiente',
-            sugerencia: sugerenciaCompleta,
-            rubricaFirma: firmaGeneracion,
-            actualizadoEn: FieldValue.serverTimestamp(),
-          }, { merge: true })
+          // falla, la entrega cae al catch (candado liberado, sin cobro). Solo
+          // si la actividad sigue existiendo (misma transacción que la lee):
+          // borrada a mitad del lote, la propuesta no se guarda y cuenta como fallida.
+          const guardada = await escribirSiActividadExiste(actividadId, (tx) => {
+            tx.set(item.ref, {
+              estado: 'pendiente',
+              sugerencia: sugerenciaCompleta,
+              rubricaFirma: firmaGeneracion,
+              actualizadoEn: FieldValue.serverTimestamp(),
+            }, { merge: true })
+            return true
+          })
+          if (!guardada) throw new Error('la actividad se eliminó durante la calificación')
         }
         generadas++
         if (item.tipoTarifa === 'imagenes') generadasConImagenes++
@@ -3287,7 +3334,7 @@ async function ejecutarCrearEvaluacion({ params, modelo, apiKey }) {
     await delBatch.commit()
   }
 
-  const batch = db.batch()
+  const escrituras = []
   reactivos.forEach((r, i) => {
     const pregRef = db.collection(`activities/${actividadId}/preguntas`).doc()
     const claveRef = db.collection(`activities/${actividadId}/clave`).doc(pregRef.id)
@@ -3297,27 +3344,26 @@ async function ejecutarCrearEvaluacion({ params, modelo, apiKey }) {
     }
     if (r.tipo === 'opcion_multiple') {
       const opciones = r.opciones.map((texto) => ({ id: idOpcion(), texto }))
-      batch.set(pregRef, { ...base, opciones })
-      batch.set(claveRef, { respuestaCorrecta: opciones[r.correcta]?.id ?? opciones[0]?.id ?? null, respuestaEsperada: null })
+      escrituras.push([pregRef, { ...base, opciones }])
+      escrituras.push([claveRef, { respuestaCorrecta: opciones[r.correcta]?.id ?? opciones[0]?.id ?? null, respuestaEsperada: null }])
     } else if (r.tipo === 'verdadero_falso') {
-      batch.set(pregRef, { ...base, opciones: [{ id: 'v', texto: 'Verdadero' }, { id: 'f', texto: 'Falso' }] })
-      batch.set(claveRef, { respuestaCorrecta: r.correcta === 'f' ? 'f' : 'v', respuestaEsperada: null })
+      escrituras.push([pregRef, { ...base, opciones: [{ id: 'v', texto: 'Verdadero' }, { id: 'f', texto: 'Falso' }] }])
+      escrituras.push([claveRef, { respuestaCorrecta: r.correcta === 'f' ? 'f' : 'v', respuestaEsperada: null }])
     } else if (r.tipo === 'respuesta_corta') {
-      batch.set(pregRef, { ...base, opciones: null })
-      batch.set(claveRef, { respuestaCorrecta: null, respuestaEsperada: r.respuestaEsperada || null })
+      escrituras.push([pregRef, { ...base, opciones: null }])
+      escrituras.push([claveRef, { respuestaCorrecta: null, respuestaEsperada: r.respuestaEsperada || null }])
     } else { // subir_archivo: sin clave
-      batch.set(pregRef, { ...base, opciones: null })
-      batch.set(claveRef, { respuestaCorrecta: null, respuestaEsperada: null })
+      escrituras.push([pregRef, { ...base, opciones: null }])
+      escrituras.push([claveRef, { respuestaCorrecta: null, respuestaEsperada: null }])
     }
   })
-  await batch.commit()
   // El contador que muestran las pantallas del editor — mismo campo que
   // syncNumPreguntas actualiza desde el cliente en el flujo manual/OP-09.
   const updateActividad = { evaluacion: { numPreguntas: reactivos.length } }
   // Solo se sobrescribe si la IA sí trajo instrucciones — nunca se pisa con
   // vacío lo que ya hubiera (aunque al nacer la actividad siempre es '').
   if (instruccionesHtml) updateActividad.instrucciones = instruccionesHtml
-  await db.doc(`activities/${actividadId}`).set(updateActividad, { merge: true })
+  await guardarReactivosSiActividadExiste(actividadId, escrituras, updateActividad)
 
   return {
     // `avisos` viaja al cliente para que el docente vea qué documento no se
@@ -3698,7 +3744,9 @@ async function ejecutarGenerarContenidoJuego({ params, modelo, apiKey }) {
   // definitivo es `activities/{id}/clave/contenido`, que las reglas solo le
   // abren al docente dueño (ver functions/juego.js para el porqué completo).
   // Se escribe SIEMPRE, en las dos fases: es la fuente de verdad nueva.
-  await actRef.collection('clave').doc('contenido').set({ contenido: palabras })
+  // Solo si la actividad sigue existiendo (functions/actividadLimpieza.js): si el docente la borró mientras la IA
+  // generaba, la clave quedaría huérfana. En ese caso el `update` de abajo falla como siempre (la actividad no existe).
+  await escribirSiActividadExiste(actividadId, (tx) => tx.set(actRef.collection('clave').doc('contenido'), { contenido: palabras }))
 
   // Mientras `config/juegos.compatibilidadLegacy` siga encendida se mantiene
   // ADEMÁS la copia embebida, porque el frontend viejo —incluido cualquier APK
@@ -4115,7 +4163,7 @@ async function ejecutarDiagnosticoContexto({ params, modelo, apiKey }) {
 
   const ponderaciones = repartirPonderacion(preguntas.length)
   const db = getFirestore()
-  const batch = db.batch()
+  const escrituras = []
   preguntas.forEach((r, i) => {
     const pregRef = db.collection(`activities/${actividadId}/preguntas`).doc()
     const claveRef = db.collection(`activities/${actividadId}/clave`).doc(pregRef.id)
@@ -4124,13 +4172,12 @@ async function ejecutarDiagnosticoContexto({ params, modelo, apiKey }) {
       retroalimentacion: null, imagenUrl: null, orden: i, origenBancoId: null,
     }
     if (r.tipo === 'opcion_multiple') {
-      batch.set(pregRef, { ...base, opciones: r.opciones.map((texto) => ({ id: idOpcion(), texto })) })
+      escrituras.push([pregRef, { ...base, opciones: r.opciones.map((texto) => ({ id: idOpcion(), texto })) }])
     } else {
-      batch.set(pregRef, { ...base, opciones: null })
+      escrituras.push([pregRef, { ...base, opciones: null }])
     }
-    batch.set(claveRef, { respuestaCorrecta: null, respuestaEsperada: null })
+    escrituras.push([claveRef, { respuestaCorrecta: null, respuestaEsperada: null }])
   })
-  await batch.commit()
   // Nombre + instrucciones también los propone la IA (corrección de Kike,
   // 13-ago-2026) — solo se sobrescriben si sí vinieron, nunca se pisa con
   // vacío lo que ya hubiera.
@@ -4139,7 +4186,7 @@ async function ejecutarDiagnosticoContexto({ params, modelo, apiKey }) {
   const updateActividad = { evaluacion: { numPreguntas: preguntas.length } }
   if (nombre) updateActividad.nombre = nombre
   if (instruccionesHtml) updateActividad.instrucciones = instruccionesHtml
-  await db.doc(`activities/${actividadId}`).set(updateActividad, { merge: true })
+  await guardarReactivosSiActividadExiste(actividadId, escrituras, updateActividad)
 
   return {
     resultado: { actividadId, cantidad: preguntas.length },
@@ -4204,18 +4251,17 @@ async function ejecutarDiagnosticoConocimientos({ params, modelo, apiKey }) {
 
   const ponderaciones = repartirPonderacion(reactivos.length)
   const db = getFirestore()
-  const batch = db.batch()
+  const escrituras = []
   reactivos.forEach((r, i) => {
     const pregRef = db.collection(`activities/${actividadId}/preguntas`).doc()
     const claveRef = db.collection(`activities/${actividadId}/clave`).doc(pregRef.id)
     const opciones = r.opciones.map((texto) => ({ id: idOpcion(), texto }))
-    batch.set(pregRef, {
+    escrituras.push([pregRef, {
       tipo: 'opcion_multiple', enunciado: r.enunciado, ponderacion: ponderaciones[i],
       retroalimentacion: null, imagenUrl: null, orden: i, origenBancoId: null, opciones,
-    })
-    batch.set(claveRef, { respuestaCorrecta: opciones[r.correcta]?.id ?? opciones[0]?.id ?? null, respuestaEsperada: null })
+    }])
+    escrituras.push([claveRef, { respuestaCorrecta: opciones[r.correcta]?.id ?? opciones[0]?.id ?? null, respuestaEsperada: null }])
   })
-  await batch.commit()
   // Nombre + instrucciones también los propone la IA (corrección de Kike,
   // 13-ago-2026) — solo se sobrescriben si sí vinieron.
   const nombre = String(datos?.nombre || '').trim().slice(0, 120)
@@ -4223,7 +4269,7 @@ async function ejecutarDiagnosticoConocimientos({ params, modelo, apiKey }) {
   const updateActividad = { evaluacion: { numPreguntas: reactivos.length } }
   if (nombre) updateActividad.nombre = nombre
   if (instruccionesHtml) updateActividad.instrucciones = instruccionesHtml
-  await db.doc(`activities/${actividadId}`).set(updateActividad, { merge: true })
+  await guardarReactivosSiActividadExiste(actividadId, escrituras, updateActividad)
 
   return {
     resultado: { actividadId, cantidad: reactivos.length },
@@ -7354,4 +7400,6 @@ exports._pruebas = {
   pendientesEvaluacionesIATexto,
   validarClavesVerdaderoFalso, bloqueFechaActualChat, extraerJsonVeredictos,
   CALIFICAR_ENTREGABLE_SISTEMA,
+  // Escritores tardíos (functions/actividadLimpieza.js): se prueban directo, sin sus prechecks.
+  ejecutarCalificarAbierta, ejecutarDiagnosticoContexto, ejecutarDiagnosticoConocimientos,
 }

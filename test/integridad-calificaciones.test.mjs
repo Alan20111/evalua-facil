@@ -166,6 +166,7 @@ await caso('una actividad que no es evaluación ni juego no genera historial de 
 })
 
 await caso('un juego sí registra el cambio; no se recalcula ninguna nota', async () => {
+  await db.doc('activities/ACTJ').set({ docenteId: DOCENTE, categoria: 'juego', evaluacion: { conservar: 'mejor' } }) // sin actividad no hay historial
   await db.doc('submissions/SJ1').set({ actividadId: 'ACTJ', alumnoId: 'A1', calificacion: 6, intentos: [{ numero: 1, calificacion: 6 }] })
   await correrPolitica('ACTJ', { categoria: 'juego', evaluacion: { conservar: 'mejor' } }, { categoria: 'juego', evaluacion: { conservar: 'primero' } }, 'pol-5')
   assert.strictEqual((await cambios('ACTJ')).length, 1)
@@ -178,6 +179,8 @@ grupo('aplicarNotaIA — la IA solo escribe donde puede')
 const DATOS = { calificacion: 9, comentario: 'IA', rubricaEval: [2] }
 const SUG_NUEVA = { estado: 'aplicada', aplicadaAutomaticamente: true, sugerencia: { calificacionPropuesta: 9 } }
 async function sembrarEntrega(id, extra) {
+  // Sin actividad, aplicarNotaIA no escribe (functions/actividadLimpieza.js): la de estos casos existe.
+  await db.doc('activities/ACT-IA').set({ docenteId: DOCENTE }, { merge: true })
   await db.doc(`submissions/${id}`).set({ actividadId: 'ACT-IA', alumnoId: id, archivos: [], ...extra })
   await db.doc(`activities/ACT-IA/iaSugerenciasEntregable/${id}`).set({ estado: 'procesando', sub: id })
 }
@@ -426,13 +429,15 @@ await caso('cada intento conserva sus respuestas aunque lleguen cierres de vario
 // ═════════════════════════════════════════════════════════════════════════════
 grupo('historial de reactivos, clave y rúbrica — versiones anteriores archivadas por el servidor')
 // ═════════════════════════════════════════════════════════════════════════════
+// Sin actividad no hay historial (functions/actividadLimpieza.js): las que usan estos casos existen.
+const limpiarConActividades = async () => { await limpiar(); for (const a of ['ACTH', 'ACTR']) await db.doc(`activities/${a}`).set({ docenteId: DOCENTE }) }
 const correrReactivo = (fn, act, id, antes, despues, evento) => funciones[fn].run({
   id: evento, time: '2026-10-16T12:00:00.000Z', params: { activityId: act, preguntaId: id }, data: { before: snapDe(antes), after: snapDe(despues) },
 })
 const histReactivos = async (act) => (await db.collection(`activities/${act}/reactivosHistorial`).get()).docs.map((d) => ({ id: d.id, ...d.data() }))
 
 await caso('editar un reactivo archiva lo anterior y lo nuevo, con la hora del evento', async () => {
-  await limpiar()
+  await limpiarConActividades()
   const antes = { tipo: 'opcion_multiple', ponderacion: 1, enunciado: 'viejo' }
   const despues = { tipo: 'opcion_multiple', ponderacion: 3, enunciado: 'viejo' }
   await correrReactivo('onReactivoCambiado', 'ACTH', 'p1', antes, despues, 'ev-r1')
@@ -449,7 +454,7 @@ await caso('editar un reactivo archiva lo anterior y lo nuevo, con la hora del e
 })
 
 await caso('cambiar la clave archiva la anterior; borrar un reactivo queda como «eliminado»', async () => {
-  await limpiar()
+  await limpiarConActividades()
   await correrReactivo('onClaveCambiada', 'ACTH', 'p1', { respuestaCorrecta: 'a' }, { respuestaCorrecta: 'b' }, 'ev-c1')
   await correrReactivo('onReactivoCambiado', 'ACTH', 'p2', { tipo: 'opcion_multiple', ponderacion: 2 }, null, 'ev-r2')
   const h = (await histReactivos('ACTH')).sort((a, b) => a.id.localeCompare(b.id))
@@ -458,7 +463,7 @@ await caso('cambiar la clave archiva la anterior; borrar un reactivo queda como 
 })
 
 await caso('crear un reactivo queda como «creado»; la clave que nace con él no duplica el registro', async () => {
-  await limpiar()
+  await limpiarConActividades()
   await correrReactivo('onReactivoCambiado', 'ACTH', 'p9', null, { tipo: 'opcion_multiple', ponderacion: 1 }, 'ev-n1')
   await correrReactivo('onClaveCambiada', 'ACTH', 'p9', null, { respuestaCorrecta: 'a' }, 'ev-n2')
   const h = await histReactivos('ACTH')
@@ -466,14 +471,14 @@ await caso('crear un reactivo queda como «creado»; la clave que nace con él n
 })
 
 await caso('una escritura sin cambio real no archiva nada', async () => {
-  await limpiar()
+  await limpiarConActividades()
   const d = { tipo: 'opcion_multiple', ponderacion: 1, opciones: [{ id: 'a', texto: 'A' }] }
   await correrReactivo('onReactivoCambiado', 'ACTH', 'p1', d, { ...d, opciones: [{ texto: 'A', id: 'a' }] }, 'ev-s1')
   assert.strictEqual((await histReactivos('ACTH')).length, 0)
 })
 
 await caso('operaciones simultáneas: el MISMO evento reintentado 8 veces deja una fila; 8 eventos distintos, ocho', async () => {
-  await limpiar()
+  await limpiarConActividades()
   const antes = { ponderacion: 1 }
   const despues = { ponderacion: 2 }
   await Promise.all(Array.from({ length: 8 }, () => correrReactivo('onReactivoCambiado', 'ACTH', 'p1', antes, despues, 'ev-dup')))
@@ -488,7 +493,7 @@ const correrRubrica = (act, antes, despues, evento) => funciones.onRubricaCambia
 const histRubrica = async (act) => (await db.collection(`activities/${act}/rubricaHistorial`).get()).docs.map((d) => ({ id: d.id, ...d.data() }))
 
 await caso('cambiar la rúbrica archiva la anterior y la nueva; reintento del evento no duplica; otros cambios no registran', async () => {
-  await limpiar()
+  await limpiarConActividades()
   const r1 = { criterios: [{ nombre: 'Claridad', peso: 50 }] }
   const r2 = { criterios: [{ nombre: 'Claridad', peso: 70 }] }
   await correrRubrica('ACTR', { titulo: 'x', rubrica: r1 }, { titulo: 'x', rubrica: r2 }, 'ev-ru1')
@@ -502,7 +507,7 @@ await caso('cambiar la rúbrica archiva la anterior y la nueva; reintento del ev
 })
 
 await caso('8 · cambiar la política NO recalcula notas ya puestas: solo deja constancia', async () => {
-  await limpiar()
+  await limpiarConActividades()
   await sembrarEvaluacion({}, { conservar: 'mejor' })
   await cerrarIntento(1, ['b', 'b'])
   const s2 = await cerrarIntento(2, ['a', 'a'])
