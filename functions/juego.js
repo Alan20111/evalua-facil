@@ -16,6 +16,7 @@ const { normalizarPalabra } = require('./_shared/normalizarPalabra.js')
 const { actividadOculta } = require('./_shared/visibilidadCalificaciones.js')
 const { construirSopaDeLetras, construirCrucigrama } = require('./juegoGenerator')
 const ledger = require('./creditosLedger')
+const { escribirSiActividadExiste } = require('./actividadLimpieza')
 
 const MIN_PALABRAS = 5
 const MAX_PALABRAS = 20
@@ -287,8 +288,13 @@ async function construirJuegoImpl(request) {
   // pública (el juego no avanza a 'juego_generado' y el docente reintenta)
   // que una estructura pública enmascarada cuya clave no existe — eso sí
   // dejaría un juego imposible de calificar.
-  await actSnap.ref.collection('clave').doc('juego').set(clave)
-  await actSnap.ref.collection('clave').doc('contenido').set({ contenido })
+  // Las dos piezas de la clave, juntas y solo si la actividad sigue existiendo (functions/actividadLimpieza.js): si
+  // el docente la borró mientras se armaba el tablero, no queda una clave huérfana. En ese caso el `update` de abajo
+  // falla como siempre (la actividad no existe).
+  await escribirSiActividadExiste(actividadId, (tx) => {
+    tx.set(actSnap.ref.collection('clave').doc('juego'), clave)
+    tx.set(actSnap.ref.collection('clave').doc('contenido'), { contenido })
+  })
 
   await actSnap.ref.update({
     'juego.estructura': publica,

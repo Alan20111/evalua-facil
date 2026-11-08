@@ -4,6 +4,8 @@
 import { useId, useState } from 'react'
 import CrearParticipacionModal from '../../../components/participacion/CrearParticipacionModal'
 import CrearRetoModal from '../../../components/reto/CrearRetoModal'
+import CrearRuletaModal from '../../../components/ruleta/CrearRuletaModal'
+import { LoaderPinwheel } from 'lucide-react'
 import { AlertTriangle, Archive, ArrowDown, ArrowLeft, ArrowRightLeft, ArrowUp, ArrowUpDown, Check as CheckIcon, ChevronRight, ClipboardCheck, Copy, Download, Eye, FileText, Gamepad2, GraduationCap, KeyRound, ListChecks, Lock, LogIn, Paperclip, Pencil, Plus, RotateCcw, Trash2, WandSparkles, Upload, UserPlus, X } from 'lucide-react'
 import { Animado, Button, Checkbox, IconButton, IconTile, Input, Modal, MotivoApagado, PanelFlotante, Radio, SkeletonList } from '../../../components/ui'
 import EFDateTimePicker from '../../../components/EFDateTimePicker'
@@ -356,6 +358,8 @@ export default function ModalesAsignatura() {
   // Participación en vivo con IA: su modal se abre desde el menú «Interactiva» de este mismo diálogo.
   const [crearParticipacion, setCrearParticipacion] = useState(false)
   const [crearRetoAbierto, setCrearRetoAbierto] = useState(false)
+  // La Ruleta del Destino (fase 2): se crea a mano, sin IA todavía (F2-10).
+  const [crearRuletaAbierta, setCrearRuletaAbierta] = useState(false)
   // Lo que falta para poder guardar (el botón se apaga y lo dice). Las fechas
   // aquí son recomendadas, no obligatorias: hay asignaturas viejas sin ellas.
   const faltanEditar = [
@@ -393,6 +397,17 @@ export default function ModalesAsignatura() {
           existingActivitiesCountInParcial={activities.filter((a) => a.parcial === modalParcial).length}
           onClose={() => setCrearRetoAbierto(false)}
           onCreated={(activityId) => { setCrearRetoAbierto(false); navigate(`/reto/${activityId}`) }}
+        />
+      )}
+      {crearRuletaAbierta && (
+        <CrearRuletaModal
+          open
+          asignaturaId={subjectId}
+          parcial={modalParcial}
+          docenteId={currentUser?.uid}
+          existingActivitiesCountInParcial={activities.filter((a) => a.parcial === modalParcial).length}
+          onClose={() => setCrearRuletaAbierta(false)}
+          onCreated={(activityId) => { setCrearRuletaAbierta(false); navigate(`/ruleta/${activityId}`) }}
         />
       )}
       {/* ── Activity create/edit modal ── */}
@@ -489,6 +504,9 @@ export default function ModalesAsignatura() {
                     <OpcionCreacion ia label="Reto Exprés"
                       desc="Competencia en vivo de 10 preguntas, con el tiempo que elijas para cada una: tú la proyectas y responden desde su celular. Para tu grupo o para participantes externos con un QR."
                       onClick={() => { setShowModal(false); setCrearRetoAbierto(true) }} />
+                    <OpcionCreacion icon={LoaderPinwheel} label="La Ruleta del Destino"
+                      desc="Cada estudiante gira una ruleta que le elige preguntas al azar de tu banco de reactivos. Cada quien juega por su cuenta, para tu grupo o con un enlace."
+                      onClick={() => { setShowModal(false); setCrearRuletaAbierta(true) }} />
                     <p className="text-xs text-muted text-center pt-2">Próximamente más actividades interactivas</p>
                   </>
                 )}
@@ -1073,7 +1091,7 @@ export default function ModalesAsignatura() {
                 quedaría imposible de confirmar y de publicar. */}
             <button type="button"
               disabled={!esCopiable(activityMenu.a)}
-              data-tooltip={!esCopiable(activityMenu.a) ? (activityMenu.a.categoria === 'participacion' ? 'Una participación en vivo no se duplica: genérala de nuevo en la asignatura que la necesite' : activityMenu.a.categoria === 'reto' ? 'Un Reto Exprés no se duplica: crea uno nuevo donde lo necesites' : 'Termina y confirma el juego para poder duplicarlo') : undefined}
+              data-tooltip={!esCopiable(activityMenu.a) ? (activityMenu.a.categoria === 'participacion' ? 'Una participación en vivo no se duplica: genérala de nuevo en la asignatura que la necesite' : activityMenu.a.categoria === 'reto' ? 'Un Reto Exprés no se duplica: crea uno nuevo donde lo necesites' : activityMenu.a.categoria === 'ruleta' ? 'La Ruleta del Destino no se duplica: crea una nueva donde la necesites' : 'Termina y confirma el juego para poder duplicarlo') : undefined}
               onClick={() => { const a = activityMenu.a; setActivityMenu(null); setDuplicateConfirm(a) }}
               className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-on-surface hover:bg-[var(--accent-tint)] transition-colors text-left disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-default">
               <Copy size={ICONO.sm} className="text-hint flex-shrink-0" /> Duplicar como borrador

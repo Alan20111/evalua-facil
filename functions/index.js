@@ -98,6 +98,23 @@ exports.onRetoBorrado = onDocumentDeleted('activities/{activityId}', async (even
 exports.onSesionRetoBorrada = onDocumentDeleted('retoSesiones/{codigo}', async (event) => {
   await require('./retoLimpieza').limpiarRetoDeSesion({ sesionId: event.params.codigo })
 })
+// La Ruleta del Destino (fase 2, C2; paso 3): al borrar una ruleta se limpian su banco, su estado, sus partidas, sus
+// respuestas y las entregas que quedaran. Solo las ruletas; idempotente (functions/ruletaLimpieza.js).
+exports.onRuletaBorrada = onDocumentDeleted('activities/{activityId}', async (event) => {
+  if (event.data?.data()?.categoria !== 'ruleta') return
+  await require('./ruletaLimpieza').limpiarRuletaDeActividad({ activityId: event.params.activityId })
+})
+// Limpieza automática al eliminar CUALQUIER actividad (functions/actividadLimpieza.js): el rastro de cada entrega nace
+// con ella, y al borrar la actividad se borra el árbol de sus entregas (historial de notas, respuestas, avance del
+// video, fotografías de intentos) y el de la propia actividad. Con reintentos: todo es repetible. Anular una entrega
+// no pasa por aquí: su historial se conserva.
+exports.onEntregaCreadaRastro = onDocumentCreated({ document: 'submissions/{submissionId}', retry: true }, async (event) => {
+  await require('./actividadLimpieza').registrarEntrega(event.params.submissionId, event.data?.data())
+})
+exports.onActividadBorradaLimpiar = onDocumentDeleted({ document: 'activities/{activityId}', retry: true }, async (event) => {
+  const r = await require('./actividadLimpieza').limpiarActividadBorrada(event.params.activityId, event.data?.data())
+  if (r?.entregas || r?.rastros) logger.info(`onActividadBorradaLimpiar(${event.params.activityId}): ${JSON.stringify(r)}`)
+})
 // Análisis integral de asignatura con IA (functions/analisisAcademico.js): la
 // preparación gratuita del diálogo (qué fuentes tienen datos y cuánto cuesta
 // la selección) y la limpieza del historial al borrar la asignatura. La
@@ -220,6 +237,7 @@ exports.aprobarCompraCreditos = onCall(async (request) => {
   }
 })
 const db = getFirestore()
+const { escribirSiActividadExiste, crearUnaVezSiActividadExiste } = require('./actividadLimpieza')
 const messaging = getMessaging()
 
 const TITULOS = {
@@ -842,7 +860,7 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
   const revelarCorrectas = publicacionVisible(
     ev.publicarRespuestas || 'inmediato', ev.publicarRespuestasFecha, ev.respuestasPublicadas
   )
-  await Promise.all(preguntas.map((p) => {
+  const marcasPorPregunta = preguntas.map((p) => {
     const puntos = respuestasPorPregunta[p.id].puntosObtenidos
     const marcas = { puntosObtenidos: puntos }
     // Las abiertas quedan pendientes de revisión: ahí no hay veredicto todavía.
@@ -850,8 +868,18 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
     // Se escribe también cuando NO se revela, para borrar lo que hubiera
     // quedado de una configuración anterior más permisiva.
     marcas.respuestaCorrecta = revelarCorrectas ? (p.respuestaCorrecta ?? null) : null
-    return after.ref.collection('respuestas').doc(p.id).set(marcas, { merge: true })
-  }))
+    return [after.ref.collection('respuestas').doc(p.id), marcas]
+  })
+  // Solo si la actividad sigue existiendo, en la misma transacción que la lee (functions/actividadLimpieza.js): una
+  // marca que llegara después de borrarla dejaría `respuestas` huérfanas. En tramos de 400 (límite de escrituras).
+  for (let i = 0; i < marcasPorPregunta.length; i += 400) {
+    const tramo = marcasPorPregunta.slice(i, i + 400)
+    const escrito = await escribirSiActividadExiste(sub.actividadId, (tx) => {
+      tramo.forEach(([ref, marcas]) => tx.set(ref, marcas, { merge: true }))
+      return true
+    })
+    if (!escrito) return // la actividad se borró mientras se calificaba
+  }
 
   const calificacionIntento = calcularCalificacion(preguntas, respuestasPorPregunta, act.maxCalif || 10)
   // Un instrumento "Sin calificación" (diagnóstico) no produce nota. El
@@ -899,7 +927,10 @@ exports.onEvaluacionFinalizada = onDocumentWritten('submissions/{submissionId}',
 
   await db.runTransaction(async (tx) => {
     const freshSnap = await tx.get(after.ref)
-    if (!freshSnap.exists) return
+    // La actividad se lee en la MISMA transacción: si ya se borró, no nace un `intentosRespuestas` huérfano
+    // (functions/actividadLimpieza.js).
+    const actFresh = await tx.get(actSnap.ref)
+    if (!freshSnap.exists || !actFresh.exists) return
     const fresh = freshSnap.data()
     if (fresh.estadoEvaluacion !== 'finalizado') return
     const num = fresh.intentoActual || ((fresh.intentos?.length || 0) + 1)
@@ -1074,10 +1105,12 @@ exports.onCalificacionCambiada = onDocumentWritten('submissions/{submissionId}',
   const antes = event.data?.before?.exists ? event.data.before.data() : null
   const datos = datosHistorialCalificacion(antes, despues)
   if (!datos) return
-  await crearUnaVez(
-    db.collection('submissions').doc(event.params.submissionId).collection('calificacionHistorial').doc(event.id),
-    { ...datos, evento: event.id, registradoEn: FieldValue.serverTimestamp() },
-  )
+  const ref = db.collection('submissions').doc(event.params.submissionId).collection('calificacionHistorial').doc(event.id)
+  const fila = { ...datos, evento: event.id, registradoEn: FieldValue.serverTimestamp() }
+  // Solo si la actividad sigue existiendo (functions/actividadLimpieza.js): un evento que llega después de borrarla
+  // no deja historial huérfano. Una entrega sin `actividadId` (no debería existir) se registra como siempre.
+  if (typeof despues.actividadId === 'string' && despues.actividadId) await crearUnaVezSiActividadExiste(despues.actividadId, ref, fila)
+  else await crearUnaVez(ref, fila)
 })
 
 exports.onPoliticaConservarCambiada = onDocumentUpdated('activities/{activityId}', async (event) => {
@@ -1099,7 +1132,8 @@ exports.onPoliticaConservarCambiada = onDocumentUpdated('activities/{activityId}
   } catch (err) {
     logger.warn(`onPoliticaConservarCambiada(${event.params.activityId}): no se pudieron contar las entregas (${err?.name || 'Error'})`)
   }
-  await crearUnaVez(
+  await crearUnaVezSiActividadExiste(
+    event.params.activityId,
     db.collection('activities').doc(event.params.activityId).collection('configHistorial').doc(event.id),
     { ...datos, entregasConIntentos, entregasConVariosIntentos, evento: event.id, registradoEn: FieldValue.serverTimestamp() },
   )
@@ -1128,7 +1162,9 @@ async function archivarCambioReactivo(event, fuente) {
   const despues = event.data?.after?.exists ? event.data.after.data() : null
   const datos = datosCambioReactivo(fuente, antes, despues)
   if (!datos) return
-  await crearUnaVez(
+  // Solo si la actividad sigue existiendo: borrarla (con sus reactivos) ya no deja un historial huérfano.
+  await crearUnaVezSiActividadExiste(
+    event.params.activityId,
     db.collection('activities').doc(event.params.activityId).collection('reactivosHistorial').doc(event.id),
     {
       ...datos,
@@ -1157,7 +1193,8 @@ exports.onRubricaCambiada = onDocumentUpdated('activities/{activityId}', async (
   if (!antes || !despues) return
   const datos = datosCambioRubrica(antes, despues)
   if (!datos) return
-  await crearUnaVez(
+  await crearUnaVezSiActividadExiste(
+    event.params.activityId,
     db.collection('activities').doc(event.params.activityId).collection('rubricaHistorial').doc(event.id),
     { ...datos, cambioEn: event.time ? Timestamp.fromDate(new Date(event.time)) : FieldValue.serverTimestamp(), evento: event.id, registradoEn: FieldValue.serverTimestamp() },
   )

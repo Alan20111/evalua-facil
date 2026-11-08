@@ -18,9 +18,8 @@ import { handleEliminarAsignatura, ejecutarEliminacionAsignatura, fijarPruebasEl
 const require = createRequire(import.meta.url)
 const { limpiarRetoDeActividad } = require('../functions/retoLimpieza.js')
 const { limpiarVivoDeActividad } = require('../functions/participacionVivo.js')
-// La Ruleta todavía vive en su rama (worktree evalua-facil-ruleta); su limpieza se usa tal cual, solo para leerla.
-let limpiarRuletaDeActividad = null
-try { ({ limpiarRuletaDeActividad } = require('../../evalua-facil-ruleta/functions/ruletaLimpieza.js')) } catch { /* sin la rama */ }
+// La Ruleta del Destino: su limpieza real (trigger onRuletaBorrada → functions/ruletaLimpieza.js).
+const { limpiarRuletaDeActividad } = require('../functions/ruletaLimpieza.js')
 
 const DOC = 'doc_f09', DOC2 = 'doc_ajeno', S = 'sub_f09', S_MISMO = 'sub_mismo', S_AJENA = 'sub_ajena'
 const HOY = '2026-11-01T08:00'
@@ -166,7 +165,7 @@ async function simularTriggers(actIds) {
   for (const id of actIds) {
     await limpiarRetoDeActividad({ activityId: id })
     await limpiarVivoDeActividad({ activityId: id })
-    if (limpiarRuletaDeActividad) await limpiarRuletaDeActividad({ activityId: id })
+    await limpiarRuletaDeActividad({ activityId: id })
   }
 }
 
@@ -295,7 +294,6 @@ await caso('10 · Reto Exprés, Participación en vivo y Ruleta: sus datos los l
   await simularTriggers(datos.S.actIds) // …los triggers onRetoBorrado / onParticipacionBorrada / onRuletaBorrada sí
   assert.strictEqual(await modulos(datos.S.actIds), 0)
   assert.ok(await modulos(datos.MISMO.actIds) > 0 && await modulos(datos.AJENA.actIds) > 0)
-  assert.ok(limpiarRuletaDeActividad, 'no se encontró la limpieza de la Ruleta (rama evalua-facil-ruleta)')
 })
 
 // ── 14 · Idempotencia y simultaneidad ────────────────────────────────────────

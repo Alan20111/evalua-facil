@@ -33,6 +33,13 @@ async function aplicarNotaIA(db, { subRef, sugRef = null, datos, origen, sobresc
   return db.runTransaction(async (tx) => {
     const subSnap = await tx.get(subRef)
     if (!subSnap.exists) return { aplicada: false, motivo: 'sin_entrega' }
+    // La actividad se lee en la MISMA transacción: si se borró mientras la IA trabajaba, ni la nota ni la propuesta
+    // se escriben (la propuesta quedaría huérfana bajo la actividad borrada; ver functions/actividadLimpieza.js).
+    const actividadId = subSnap.data().actividadId
+    if (typeof actividadId === 'string' && actividadId) {
+      const actSnap = await tx.get(db.doc(`activities/${actividadId}`))
+      if (!actSnap.exists) return { aplicada: false, motivo: 'sin_actividad' }
+    }
     let previa = sugerenciaPrevia
     if (!previa && sugRef) {
       const sugSnap = await tx.get(sugRef)

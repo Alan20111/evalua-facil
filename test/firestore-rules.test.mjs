@@ -4979,6 +4979,398 @@ ok('F-05 · admin CAN read publicProfiles')
   ok('RETO 5 · la marca de la asignación (sesión y hora) se guarda al crear y al reemplazar; el parcial cerrado sigue rechazando')
 }
 
+// ── La Ruleta del Destino · fase 1: colecciones propias, escritas SOLO por el servidor (Admin SDK) ──
+// docs/RULETA_DESTINO.md. Lectura: docente dueño (docenteId del documento) y admin (R3, R7). ruletaCupos y
+// ruletaIdentificadores: nadie, ni el admin (R7). Ningún cliente crea, modifica ni borra; el dueño tampoco borra sus
+// partidas (R2) ni escribe su banco (R1). Sin concurso en vivo (7-nov-2026), ruletaSesiones, ruletaClaves y
+// ruletaResultados ya no tienen reglas: nadie los lee ni los escribe desde un cliente.
+{
+  const asAnon = testEnv.unauthenticatedContext().firestore()
+  const LEGIBLES = {
+    ruletaReactivos: (dueno) => ({ docenteId: dueno, actividadId: 'ARULETA', enunciado: '¿?', opciones: ['a', 'b', 'c', 'd'], correcta: 2 }),
+    ruletaGeneraciones: (dueno) => ({ docenteId: dueno, actividadId: 'ARULETA', estado: 'en_curso', pedidos: 50, entregados: 13 }),
+    ruletaParticipantes: (dueno) => ({ docenteId: dueno, sesionId: 'RUL1', alumnoId: 'ST_JUAN', nombre: 'Juan Real', orden: ['r1'], indice: 0 }),
+    ruletaRespuestas: (dueno) => ({ docenteId: dueno, sesionId: 'RUL1', participanteId: 'RUL1_ST_JUAN', reactivoId: 'r1', opcion: 1, tiempoMs: 4000 }),
+  }
+  const PRIVADAS = {
+    ruletaSesiones: (dueno) => ({ docenteId: dueno, actividadId: 'ARULETA', asignaturaId: 'S1', estado: 'en_curso', preguntasPorPartida: 5 }),
+    ruletaClaves: (dueno) => ({ docenteId: dueno, sesionId: 'RUL1', actividadId: 'ARULETA', claves: { r1: 2 } }),
+    ruletaResultados: (dueno) => ({ docenteId: dueno, sesionId: 'RUL1', actividadId: 'ARULETA', clasificacion: [] }),
+    ruletaCupos: (dueno) => ({ docenteId: dueno, sesionId: 'RUL1', participanteId: 'RUL1_x1' }),
+    ruletaIdentificadores: (dueno) => ({ docenteId: dueno, sesionId: 'RUL1', participanteId: 'RUL1_x1' }),
+  }
+  const TODAS = { ...LEGIBLES, ...PRIVADAS }
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    for (const [col, datos] of Object.entries(TODAS)) {
+      await setDoc(doc(db, col, 'RU_T1'), datos(T1))
+      await setDoc(doc(db, col, 'RU_T2'), datos(T2))
+      await setDoc(doc(db, col, 'RU_JUAN'), datos(U_JUAN)) // un docenteId con el uid de un estudiante no le da acceso
+    }
+  })
+
+  for (const col of Object.keys(LEGIBLES)) {
+    await assertSucceeds(getDoc(doc(asT1, col, 'RU_T1')))
+    await assertSucceeds(getDocs(query(collection(asT1, col), where('docenteId', '==', T1))))
+    await assertSucceeds(getDoc(doc(asAdmin, col, 'RU_T1')))
+    await assertSucceeds(getDocs(query(collection(asAdmin, col), where('docenteId', '==', T1))))
+    ok(`RULETA · ${col}: el docente dueño (también por consulta con su docenteId) y el admin leen`)
+
+    await assertFails(getDoc(doc(asT1, col, 'RU_T2')))
+    await assertFails(getDoc(doc(asT2, col, 'RU_T1')))
+    await assertFails(getDoc(doc(asMallory, col, 'RU_T1')))
+    await assertFails(getDocs(query(collection(asT1, col), where('actividadId', '==', 'ARULETA'))))
+    await assertFails(getDocs(collection(asT1, col)))
+    ok(`RULETA · ${col}: otro docente no lee, el dueño no lee lo ajeno y una consulta sin filtro de docente se rechaza`)
+
+    await assertFails(getDoc(doc(asJuan, col, 'RU_T1')))
+    await assertFails(getDoc(doc(asJuan, col, 'RU_JUAN')))
+    await assertFails(getDocs(query(collection(asJuan, col), where('docenteId', '==', U_JUAN))))
+    await assertFails(getDoc(doc(asAnon, col, 'RU_T1')))
+    await assertFails(getDocs(query(collection(asAnon, col), where('docenteId', '==', T1))))
+    ok(`RULETA · ${col}: un estudiante (aunque el documento lleve su uid) y un participante sin sesión no leen`)
+  }
+
+  for (const col of Object.keys(PRIVADAS)) {
+    for (const [quien, ctxDb] of [['dueño', asT1], ['admin', asAdmin], ['otro docente', asT2], ['estudiante', asJuan], ['sin sesión', asAnon]]) {
+      await assertFails(getDoc(doc(ctxDb, col, 'RU_T1')), `${col} legible por ${quien}`)
+      await assertFails(getDocs(query(collection(ctxDb, col), where('docenteId', '==', T1))), `${col} consultable por ${quien}`)
+    }
+    ok(`RULETA · ${col}: nadie lo lee ni lo consulta desde un cliente (ni el dueño ni el admin)`)
+  }
+
+  for (const [col, datos] of Object.entries(TODAS)) {
+    for (const [quien, ctxDb, uid] of [['dueño', asT1, T1], ['admin', asAdmin, T1], ['otro docente', asT2, T2], ['estudiante', asJuan, U_JUAN], ['sin sesión', asAnon, T1]]) {
+      await assertFails(setDoc(doc(ctxDb, col, `NUEVO_${uid}`), datos(uid)), `${col}: crea ${quien}`)
+      await assertFails(setDoc(doc(ctxDb, col, 'RU_T1'), datos(T1)), `${col}: sobrescribe ${quien}`)
+      await assertFails(updateDoc(doc(ctxDb, col, 'RU_T1'), { docenteId: uid }), `${col}: modifica ${quien}`)
+      await assertFails(deleteDoc(doc(ctxDb, col, 'RU_T1')), `${col}: borra ${quien}`)
+    }
+    ok(`RULETA · ${col}: ningún cliente crea, modifica ni borra (ni el dueño, ni el admin, ni otro docente, ni un estudiante, ni sin sesión)`)
+  }
+  ok('RULETA · R1: el banco (ruletaReactivos) solo lo escribe el servidor; R2: el dueño no borra sus sesiones')
+
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    for (const [col, datos] of Object.entries(TODAS)) {
+      assert.deepStrictEqual((await getDoc(doc(db, col, 'RU_T1'))).data(), datos(T1), `${col} cambió`)
+      assert.strictEqual((await getDocs(collection(db, col))).size, 3, `${col} tiene documentos nuevos`)
+    }
+  })
+  ok('RULETA · después de todos los intentos de escritura, los datos siguen intactos')
+
+  // Paso 2 · la consulta de «Resultados» del docente: sus participantes de UNA ruleta (docenteId + actividadId).
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'ruletaParticipantes', 'ARULETA_ST_JUAN'),
+      { docenteId: T1, actividadId: 'ARULETA', asignaturaId: 'S1', alumnoId: 'ST_JUAN', uid: U_JUAN, partida: { estado: 'terminada' }, resultado: { calificacion: 8 } })
+  })
+  const consultaResultados = (ctxDb) => getDocs(query(collection(ctxDb, 'ruletaParticipantes'), where('docenteId', '==', T1), where('actividadId', '==', 'ARULETA')))
+  assert.strictEqual((await assertSucceeds(consultaResultados(asT1))).size, 1)
+  await assertFails(consultaResultados(asT2))
+  await assertFails(consultaResultados(asJuan))
+  await assertFails(getDocs(query(collection(asJuan, 'ruletaParticipantes'), where('uid', '==', U_JUAN))))
+  await assertFails(getDoc(doc(asJuan, 'ruletaParticipantes', 'ARULETA_ST_JUAN')))
+  ok('RULETA · paso 2: el docente dueño consulta los resultados de su ruleta; otro docente y el propio estudiante no')
+}
+
+// ── La Ruleta del Destino · fase 1: candados de la actividad (R5, R6, R8) y de las entregas (R4, R5) ──
+// Cada rechazo va junto a una acción que sí pasa (otra ruleta, otra clave o una actividad normal): así se comprueba que
+// lo que rechaza es el candado y no otra regla.
+{
+  const asAnon = testEnv.unauthenticatedContext().firestore()
+  const HOYR = new Date().toISOString()
+  const baseR = { docenteId: T1, asignaturaId: 'S1', categoria: 'ruleta', tipo: 'archivo', parcial: 1, maxCalif: 10, nombre: 'Ruleta' }
+  // Un valor `undefined` significa «sin esa clave» (Firestore no acepta undefined al escribir).
+  const sinIndefinidos = (d) => { for (const k of Object.keys(d)) if (d[k] === undefined) delete d[k]; return d }
+  const armar = (d) => {
+    sinIndefinidos(d)
+    if (d.ruleta && typeof d.ruleta === 'object') d.ruleta = sinIndefinidos({ ...d.ruleta })
+    return d
+  }
+  const interna = (ruleta = {}, extra = {}) => armar({
+    ...baseR, sinCalificacion: false, oculta: true, publishAt: null, publishedAt: null,
+    ruleta: { modalidad: 'individual', acceso: 'interno', preguntasPorPartida: 10, ...ruleta }, ...extra,
+  })
+  const externa = (ruleta = {}, extra = {}) => armar({
+    ...baseR, sinCalificacion: true, oculta: true, publishAt: null, publishedAt: null,
+    ruleta: { modalidad: 'individual', acceso: 'externo', preguntasPorPartida: 5, ...ruleta }, ...extra,
+  })
+  const nota = (actId, alumnoId, cal, extra = {}) => ({
+    actividadId: actId, alumnoId, calificacion: cal, comentario: '', estado: 'calificado',
+    ultimaCalificacionPor: 'docente', sinEntrega: true, fechaEntrega: serverTimestamp(), ...extra,
+  })
+  const entrega = (actId, alumnoId, extra = {}) => ({ alumnoId, actividadId: actId, archivoURL: 'x', ...extra })
+
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, 'subjects', 'SRU_CERR'), { docenteId: T1, escuelaId: 'E1', parciales: 3, nombre: 'Cerrada', parcialesCerrados: { 1: HOYR } })
+    await setDoc(doc(db, 'activities', 'RU_INT'), interna())
+    await setDoc(doc(db, 'activities', 'RU_IND'), interna({ preguntasPorPartida: 5 }))
+    await setDoc(doc(db, 'activities', 'RU_EXT'), externa())
+    await setDoc(doc(db, 'activities', 'RU_BORRAR'), interna())
+    await setDoc(doc(db, 'activities', 'RU_BORRAR_EXT'), externa())
+    await setDoc(doc(db, 'activities', 'RU_BORRAR_AJENA'), interna())
+    // Ya tienen partidas: el servidor (Admin SDK) puso la bandera al crear la primera (R8).
+    await setDoc(doc(db, 'activities', 'RU_JUGADA'), interna({ preguntasCongeladas: true }))
+    await setDoc(doc(db, 'activities', 'RU_JUGADA_EXT'), externa({ preguntasCongeladas: true }))
+    // Paso 3: jugadas que el dueño borra (la limpieza es del trigger onRuletaBorrada).
+    await setDoc(doc(db, 'activities', 'RU_JUGADA_BORRAR'), interna({ preguntasCongeladas: true }))
+    await setDoc(doc(db, 'activities', 'RU_JUGADA_EXT_BORRAR'), externa({ preguntasCongeladas: true }))
+    await setDoc(doc(db, 'activities', 'RU_CERR'), interna({}, { asignaturaId: 'SRU_CERR', oculta: false, publishedAt: HOYR }))
+    await setDoc(doc(db, 'activities', 'RU_NORMAL'), { docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', parcial: 1, nombre: 'Entregable' })
+    await setDoc(doc(db, 'activities', 'RU_CUEST'), { docenteId: T1, asignaturaId: 'S1', categoria: 'cuestionario', tipo: 'evaluacion', parcial: 1, oculta: true, nombre: 'Cuestionario' })
+    // Notas que publicó el servidor (decisión 5: cálculo y publicación automáticos).
+    await setDoc(doc(db, 'submissions', 'RU_INT_ST_JUAN'), nota('RU_INT', 'ST_JUAN', 8, { ultimaCalificacionPor: 'servidor' }))
+    await setDoc(doc(db, 'submissions', 'RU_CERR_ST_JUAN'), nota('RU_CERR', 'ST_JUAN', 6, { ultimaCalificacionPor: 'servidor' }))
+    // Entrega de una ruleta externa que solo podría existir por un error del servidor.
+    await setDoc(doc(db, 'submissions', 'RU_EXT_ST_JUAN'), entrega('RU_EXT', 'ST_JUAN'))
+  })
+
+  // — Crear (R5, R6, R8) —
+  await assertSucceeds(setDoc(doc(asT1, 'activities', 'RU_N_INT'), interna()))
+  await assertSucceeds(setDoc(doc(asT1, 'activities', 'RU_N_EXT'), externa()))
+  for (const n of [5, 10]) await assertSucceeds(setDoc(doc(asT1, 'activities', `RU_N_${n}`), interna({ preguntasPorPartida: n })))
+  for (const n of [5, 10]) await assertSucceeds(setDoc(doc(asT1, 'activities', `RU_N_EXT_${n}`), externa({ preguntasPorPartida: n })))
+  ok('RULETA · se crean ruletas individuales internas y externas bien formadas, de 5 o 10 preguntas')
+
+  for (const [motivo, datos] of [
+    ['sin el mapa ruleta', interna({}, { ruleta: undefined })],
+    ['con ruleta que no es mapa', interna({}, { ruleta: 'vivo' })],
+    ['con modalidad desconocida', interna({ modalidad: 'equipos' })],
+    ['en vivo (eliminada el 7-nov-2026)', interna({ modalidad: 'vivo' })],
+    ['externa en vivo', externa({ modalidad: 'vivo' })],
+    ['con ranking encendido', interna({ ranking: true })],
+    ['con ranking apagado', interna({ ranking: false })],
+    ['externa con ranking', externa({ ranking: false })],
+    ['con acceso desconocido', interna({ acceso: 'publico' })],
+    ['sin modalidad', interna({}, { ruleta: { acceso: 'interno', preguntasPorPartida: 10 } })],
+    ['sin acceso', interna({}, { ruleta: { modalidad: 'individual', preguntasPorPartida: 10 } })],
+    ['sin preguntas por partida', interna({}, { ruleta: { modalidad: 'individual', acceso: 'interno' } })],
+    ['con 6 preguntas', interna({ preguntasPorPartida: 6 })],
+    ['con 20 preguntas (eliminadas el 7-nov-2026)', interna({ preguntasPorPartida: 20 })],
+    ['externa con 20 preguntas', externa({ preguntasPorPartida: 20 })],
+    ['con preguntas como texto', interna({ preguntasPorPartida: '10' })],
+    ['con ranking que no es booleano', interna({ ranking: 'si' })],
+    ['con una clave de más', interna({ banco: 'aprobado' })],
+    ['con la bandera del servidor en true', interna({ preguntasCongeladas: true })],
+    ['con la bandera del servidor en false', interna({ preguntasCongeladas: false })],
+  ]) {
+    await assertFails(setDoc(doc(asT1, 'activities', `RU_MAL_${motivo.replace(/\W/g, '')}`), datos), `se creó ${motivo}`)
+  }
+  ok('RULETA · R6/R8: no se crea una ruleta mal formada, en vivo, con ranking, con valores desconocidos, claves de más ni con la bandera del servidor')
+
+  for (const [motivo, cambio] of [
+    ['con número y promedio', { sinCalificacion: false }],
+    ['sin sinCalificacion', { sinCalificacion: undefined }],
+    ['visible', { oculta: false }],
+    ['con publicación programada', { publishAt: '2026-12-01T08:00' }],
+    ['ya publicada', { publishedAt: '2026-10-01T08:00' }],
+  ]) {
+    await assertFails(setDoc(doc(asT1, 'activities', `RU_MAL_EXT_${motivo.replace(/\W/g, '')}`), externa({}, cambio)), `externa ${motivo} se creó`)
+  }
+  ok('RULETA · R5: una ruleta externa no nace con calificación, visible, programada ni publicada')
+
+  await assertFails(setDoc(doc(asT2, 'activities', 'RU_N_AJENA'), interna()))
+  await assertFails(setDoc(doc(asJuan, 'activities', 'RU_N_JUAN'), interna()))
+  await assertFails(setDoc(doc(asAnon, 'activities', 'RU_N_ANON'), interna()))
+  ok('RULETA · otro docente, un estudiante o alguien sin sesión no crean una ruleta en la asignatura del docente')
+
+  // — Actualizar (R5, R6, R8) —
+  const refInt = doc(asT1, 'activities', 'RU_INT')
+  await assertSucceeds(updateDoc(refInt, { nombre: 'Ruleta del parcial', tema: 'La célula' }))
+  await assertSucceeds(updateDoc(refInt, { oculta: false, publishAt: null, publishedAt: HOYR }))
+  await assertSucceeds(updateDoc(refInt, { parcial: 2, oculta: true, publishedAt: null }))
+  await assertSucceeds(updateDoc(refInt, { ruleta: { modalidad: 'individual', acceso: 'interno', preguntasPorPartida: 10 } }))
+  ok('RULETA · R6: el docente dueño edita nombre y tema, publica y mueve de parcial como siempre (el mapa igual también pasa)')
+
+  for (const [motivo, cambio] of [
+    ['cambiar la modalidad a en vivo', { 'ruleta.modalidad': 'vivo' }],
+    ['encender el ranking', { 'ruleta.ranking': true }],
+    ['agregar el ranking apagado', { 'ruleta.ranking': false }],
+    ['cambiar el acceso', { 'ruleta.acceso': 'externo', sinCalificacion: true, oculta: true, publishedAt: null }],
+    ['cambiar las preguntas por partida', { 'ruleta.preguntasPorPartida': 5 }],
+    ['cambiar a 20 preguntas', { 'ruleta.preguntasPorPartida': 20 }],
+    ['poner la bandera en true', { 'ruleta.preguntasCongeladas': true }],
+    ['poner la bandera en false', { 'ruleta.preguntasCongeladas': false }],
+    ['agregar una clave nueva', { 'ruleta.bancoAprobado': true }],
+    ['ranking que no es booleano', { 'ruleta.ranking': 'si' }],
+    ['quitar el mapa ruleta', { ruleta: deleteField() }],
+    ['reemplazar el mapa con otras preguntas', { ruleta: { modalidad: 'individual', acceso: 'interno', preguntasPorPartida: 5 } }],
+    ['reemplazar el mapa con 20 preguntas', { ruleta: { modalidad: 'individual', acceso: 'interno', preguntasPorPartida: 20 } }],
+    ['reemplazar el mapa con la bandera', { ruleta: { modalidad: 'individual', acceso: 'interno', preguntasPorPartida: 10, preguntasCongeladas: true } }],
+    ['reemplazar el mapa en vivo con ranking', { ruleta: { modalidad: 'vivo', acceso: 'interno', preguntasPorPartida: 10, ranking: true } }],
+    ['cambiar su categoría', { categoria: 'cuestionario' }],
+  ]) {
+    await assertFails(updateDoc(refInt, cambio), `interna: se pudo ${motivo}`)
+  }
+  ok('RULETA · R6/R8: el cliente no pasa a en vivo, no agrega ranking ni cambia acceso, preguntas, la bandera, claves nuevas, el mapa completo ni la categoría')
+
+  const refInd = doc(asT1, 'activities', 'RU_IND')
+  await assertFails(updateDoc(refInd, { 'ruleta.ranking': true }))
+  await assertFails(updateDoc(refInd, { 'ruleta.ranking': false, nombre: 'Individual' }))
+  await assertSucceeds(updateDoc(refInd, { nombre: 'Individual' }))
+  await assertSucceeds(updateDoc(refInd, { 'ruleta.ranking': deleteField() })) // quitar lo que no existe no cambia el mapa
+  ok('RULETA · R6: una ruleta de 5 preguntas tampoco admite ranking (ni encendido ni apagado); sí se edita su nombre')
+
+  const refJugada = doc(asT1, 'activities', 'RU_JUGADA')
+  await assertSucceeds(updateDoc(refJugada, { nombre: 'Ruleta jugada' }))
+  for (const [motivo, cambio] of [
+    ['quitar la bandera', { 'ruleta.preguntasCongeladas': deleteField() }],
+    ['apagar la bandera', { 'ruleta.preguntasCongeladas': false }],
+    ['reemplazar el mapa sin la bandera', { ruleta: { modalidad: 'individual', acceso: 'interno', preguntasPorPartida: 10 } }],
+    ['agregar el ranking', { 'ruleta.ranking': false }],
+    ['cambiar las preguntas', { 'ruleta.preguntasPorPartida': 5 }],
+  ]) {
+    await assertFails(updateDoc(refJugada, cambio), `jugada: se pudo ${motivo}`)
+  }
+  ok('RULETA · R8: con partidas, el cliente no quita, apaga ni reemplaza la bandera, no cambia las preguntas ni agrega ranking (sí el nombre)')
+
+  const refExt = doc(asT1, 'activities', 'RU_EXT')
+  for (const [motivo, cambio] of [
+    ['mostrarla', { oculta: false }],
+    ['publicarla', { oculta: false, publishedAt: HOYR }],
+    ['programarla', { publishAt: '2026-12-01T08:00' }],
+    ['ponerle número', { sinCalificacion: false }],
+    ['volverla interna', { 'ruleta.acceso': 'interno', sinCalificacion: false }],
+  ]) {
+    await assertFails(updateDoc(refExt, cambio), `externa: se pudo ${motivo}`)
+  }
+  await assertSucceeds(updateDoc(refExt, { nombre: 'Ruleta abierta', parcial: 2 }))
+  ok('RULETA · R5: una ruleta externa no se muestra, publica, programa, califica ni se vuelve interna (sí se edita su nombre y parcial)')
+
+  await assertFails(updateDoc(doc(asT2, 'activities', 'RU_INT'), { nombre: 'Ajena' }))
+  await assertFails(updateDoc(doc(asJuan, 'activities', 'RU_INT'), { nombre: 'Ajena' }))
+  await assertFails(updateDoc(doc(asAnon, 'activities', 'RU_INT'), { nombre: 'Ajena' }))
+  ok('RULETA · solo el docente dueño edita su ruleta (ni otro docente, ni un estudiante, ni sin sesión)')
+
+  // — Borrar (paso 3: también con partidas; la limpieza es del trigger onRuletaBorrada) —
+  await assertSucceeds(deleteDoc(doc(asT1, 'activities', 'RU_BORRAR')))
+  await assertSucceeds(deleteDoc(doc(asT1, 'activities', 'RU_BORRAR_EXT')))
+  await assertSucceeds(deleteDoc(doc(asT1, 'activities', 'RU_JUGADA_BORRAR')))
+  await assertSucceeds(deleteDoc(doc(asT1, 'activities', 'RU_JUGADA_EXT_BORRAR')))
+  await assertFails(deleteDoc(doc(asT2, 'activities', 'RU_BORRAR_AJENA')))
+  await assertFails(deleteDoc(doc(asJuan, 'activities', 'RU_BORRAR_AJENA')))
+  await assertFails(deleteDoc(doc(asT2, 'activities', 'RU_JUGADA')))
+  await assertFails(deleteDoc(doc(asJuan, 'activities', 'RU_JUGADA')))
+  await assertFails(deleteDoc(doc(asAnon, 'activities', 'RU_JUGADA')))
+  await assertFails(deleteDoc(doc(asT1, 'activities', 'RU_CERR')), 'parcial cerrado')
+  ok('RULETA · paso 3: el dueño borra su ruleta con o sin partidas (interna o externa); otro docente, un estudiante o sin sesión nunca; con el parcial cerrado, nadie')
+
+  // — Las demás actividades no cambian —
+  const refCuest = doc(asT1, 'activities', 'RU_CUEST')
+  await assertSucceeds(updateDoc(refCuest, { nombre: 'Cuestionario R', oculta: false, publishedAt: HOYR }))
+  await assertFails(updateDoc(refCuest, { categoria: 'ruleta', ruleta: { modalidad: 'individual', acceso: 'interno', preguntasPorPartida: 10 } }))
+  await assertSucceeds(updateDoc(doc(asT1, 'activities', 'RU_NORMAL'), { nombre: 'Entregable R' }))
+  await assertSucceeds(setDoc(doc(asT1, 'activities', 'RU_N_NORMAL'), { docenteId: T1, asignaturaId: 'S1', tipo: 'archivo', parcial: 1, nombre: 'Otro entregable' }))
+  ok('RULETA · las demás actividades se crean, editan y publican como antes; ninguna se convierte en ruleta')
+
+  // — Entregas (R4, R5) —
+  await assertFails(setDoc(doc(asJuan, 'submissions', 'RU_IND_ST_JUAN'), entrega('RU_IND', 'ST_JUAN')))
+  await assertFails(setDoc(doc(asJuan, 'submissions', 'RU_N_EXT_ST_JUAN'), entrega('RU_N_EXT', 'ST_JUAN')))
+  await assertSucceeds(setDoc(doc(asJuan, 'submissions', 'RU_NORMAL_ST_JUAN'), entrega('RU_NORMAL', 'ST_JUAN')))
+  ok('RULETA · R4: un estudiante inscrito no crea entregas de una ruleta, interna ni externa (la misma entrega en un entregable sí)')
+
+  await assertSucceeds(getDoc(doc(asJuan, 'submissions', 'RU_INT_ST_JUAN')))
+  await assertFails(updateDoc(doc(asJuan, 'submissions', 'RU_INT_ST_JUAN'), { calificacion: 10 }))
+  await assertFails(updateDoc(doc(asJuan, 'submissions', 'RU_INT_ST_JUAN'), { comentario: 'subirme' }))
+  await assertFails(updateDoc(doc(asJuan, 'submissions', 'RU_INT_ST_JUAN'), { archivoURL: 'y' }))
+  ok('RULETA · R4: el estudiante lee la nota que publicó el servidor pero no la modifica ni toca su entrega')
+
+  await assertSucceeds(updateDoc(doc(asT1, 'submissions', 'RU_INT_ST_JUAN'), { calificacion: 9, ultimaCalificacionPor: 'docente' }))
+  await assertFails(updateDoc(doc(asT1, 'submissions', 'RU_INT_ST_JUAN'), { calificacion: 11 }), 'fuera de rango')
+  await assertSucceeds(setDoc(doc(asT1, 'submissions', 'RU_INT_ST_OTRO'), nota('RU_INT', 'ST_OTRO', 7)))
+  await assertFails(setDoc(doc(asT1, 'submissions', 'RU_INT_ST_OTRO2'), nota('RU_INT', 'ST_OTRO2', -1)), 'negativa')
+  await assertFails(updateDoc(doc(asT2, 'submissions', 'RU_INT_ST_JUAN'), { calificacion: 5 }), 'otro docente')
+  ok('RULETA · R4: el docente dueño corrige la nota dentro de la escala por el camino existente; fuera de rango u otro docente no')
+
+  await assertFails(updateDoc(doc(asT1, 'submissions', 'RU_CERR_ST_JUAN'), { calificacion: 9 }))
+  await assertSucceeds(updateDoc(doc(asT1, 'submissions', 'RU_CERR_ST_JUAN'), { comentario: 'Revisado' }))
+  await assertFails(setDoc(doc(asT1, 'submissions', 'RU_CERR_ST_OTRO'), nota('RU_CERR', 'ST_OTRO', 9)))
+  ok('RULETA · R4: con el parcial cerrado el docente solo comenta; no cambia ni crea notas')
+
+  await assertFails(setDoc(doc(asT1, 'submissions', 'RU_N_EXT_ST_OTRO'), nota('RU_N_EXT', 'ST_OTRO', 8)))
+  await assertFails(setDoc(doc(asT1, 'submissions', 'RU_N_EXT_ST_OTRO'), { alumnoId: 'ST_OTRO', actividadId: 'RU_N_EXT', calificacion: 0, comentario: '', estado: 'calificado', sinEntrega: true, cierreParcial: true, fechaEntrega: '2026-11-06' }))
+  await assertFails(updateDoc(doc(asT1, 'submissions', 'RU_EXT_ST_JUAN'), { calificacion: 9 }))
+  await assertFails(updateDoc(doc(asT1, 'submissions', 'RU_EXT_ST_JUAN'), { comentario: 'bien' }))
+  await assertFails(updateDoc(doc(asJuan, 'submissions', 'RU_EXT_ST_JUAN'), { archivoURL: 'y' }))
+  await assertSucceeds(deleteDoc(doc(asT1, 'submissions', 'RU_EXT_ST_JUAN')))
+  ok('RULETA · R5: una ruleta externa no tiene entregas ni notas (ni del docente, ni con forma de cierre); una que existiera no se modifica, sí se borra')
+
+  // — Respuestas y auditoría —
+  await assertFails(setDoc(doc(asT1, 'submissions', 'RU_INT_ST_JUAN', 'respuestas', 'r1'), { puntosObtenidos: 1 }))
+  await assertFails(setDoc(doc(asJuan, 'submissions', 'RU_INT_ST_JUAN', 'respuestas', 'r1'), { valor: 'a' }))
+  await assertSucceeds(setDoc(doc(asT1, 'submissions', 'RU_NORMAL_ST_JUAN', 'respuestas', 'p1'), { comentario: 'ok' }))
+  ok('RULETA · nadie escribe respuestas en una entrega de ruleta desde un cliente (en un entregable el docente dueño sí)')
+
+  await assertFails(setDoc(doc(asT1, 'submissions', 'RU_INT_ST_JUAN', 'calificacionHistorial', 'e1'), { calificacionAnterior: 8 }))
+  await assertFails(setDoc(doc(asJuan, 'submissions', 'RU_INT_ST_JUAN', 'calificacionHistorial', 'e1'), { calificacionAnterior: 8 }))
+  ok('RULETA · R4: la auditoría de notas (calificacionHistorial) sigue cerrada a cualquier cliente')
+
+  // — Límite de lecturas de las reglas en lote (como el cierre de parcial) —
+  const lote = writeBatch(asT1)
+  for (const a of ['ST_L1', 'ST_L2', 'ST_L3', 'ST_L4', 'ST_L5']) lote.set(doc(asT1, 'submissions', `RU_INT_${a}`), nota('RU_INT', a, 0, { cierreParcial: true }))
+  for (const a of ['ST_L1', 'ST_L2', 'ST_L3', 'ST_L4', 'ST_L5']) lote.set(doc(asT1, 'submissions', `RU_NORMAL_${a}`), nota('RU_NORMAL', a, 0, { cierreParcial: true }))
+  await assertSucceeds(lote.commit())
+  ok('RULETA · un lote de 10 notas del docente (ruleta y entregable mezclados) cabe en el límite de lecturas de las reglas')
+
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    const jug = (await getDoc(doc(db, 'activities', 'RU_JUGADA'))).data()
+    assert.deepStrictEqual([jug.ruleta.preguntasCongeladas, jug.ruleta.preguntasPorPartida, jug.ruleta.modalidad, jug.ruleta.acceso], [true, 10, 'individual', 'interno'])
+    const ext = (await getDoc(doc(db, 'activities', 'RU_EXT'))).data()
+    assert.deepStrictEqual([ext.oculta, ext.sinCalificacion, ext.publishAt, ext.publishedAt, ext.ruleta.acceso], [true, true, null, null, 'externo'])
+    const int = (await getDoc(doc(db, 'activities', 'RU_INT'))).data()
+    assert.deepStrictEqual([int.ruleta.preguntasPorPartida, int.ruleta.modalidad, int.ruleta.acceso, 'preguntasCongeladas' in int.ruleta, 'ranking' in int.ruleta], [10, 'individual', 'interno', false, false])
+    assert.strictEqual((await getDoc(doc(db, 'activities', 'RU_JUGADA_EXT'))).exists(), true)
+    assert.strictEqual((await getDoc(doc(db, 'submissions', 'RU_IND_ST_JUAN'))).exists(), false)
+    assert.strictEqual((await getDoc(doc(db, 'submissions', 'RU_N_EXT_ST_OTRO'))).exists(), false)
+    assert.strictEqual((await getDoc(doc(db, 'submissions', 'RU_CERR_ST_JUAN'))).data().calificacion, 6)
+  })
+  ok('RULETA · después de todos los intentos, la bandera, la configuración, la ruleta externa y las notas protegidas siguen intactas')
+}
+
+// ── La Ruleta del Destino · fase 2: estado del banco (F2-1) ──
+// ruletaBancos/{actividadId}: total, huellas y aprobación. Lo lee el docente dueño y el admin; nadie lo escribe desde
+// un cliente (ni para aprobar un banco ni para quitarle la aprobación).
+{
+  const asAnon = testEnv.unauthenticatedContext().firestore()
+  const estado = (dueno, extra = {}) => ({ docenteId: dueno, actividadId: `A_${dueno}`, origen: 'manual', total: 50, huellas: { h1: 'r1' }, aprobado: false, version: 50, ...extra })
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, 'ruletaBancos', 'RB_T1'), estado(T1))
+    await setDoc(doc(db, 'ruletaBancos', 'RB_T2'), estado(T2))
+    await setDoc(doc(db, 'ruletaBancos', 'RB_JUAN'), estado(U_JUAN))
+  })
+
+  await assertSucceeds(getDoc(doc(asT1, 'ruletaBancos', 'RB_T1')))
+  await assertSucceeds(getDocs(query(collection(asT1, 'ruletaBancos'), where('docenteId', '==', T1))))
+  await assertSucceeds(getDoc(doc(asAdmin, 'ruletaBancos', 'RB_T1')))
+  ok('RULETA 2 · ruletaBancos: el docente dueño (también por consulta con su docenteId) y el admin leen')
+
+  await assertFails(getDoc(doc(asT1, 'ruletaBancos', 'RB_T2')))
+  await assertFails(getDoc(doc(asT2, 'ruletaBancos', 'RB_T1')))
+  await assertFails(getDocs(collection(asT1, 'ruletaBancos')))
+  await assertFails(getDoc(doc(asJuan, 'ruletaBancos', 'RB_JUAN')))
+  await assertFails(getDoc(doc(asAnon, 'ruletaBancos', 'RB_T1')))
+  ok('RULETA 2 · ruletaBancos: otro docente, un estudiante, alguien sin sesión o una consulta sin filtro de dueño no leen')
+
+  for (const [quien, ctxDb, uid] of [['dueño', asT1, T1], ['admin', asAdmin, T1], ['otro docente', asT2, T2], ['estudiante', asJuan, U_JUAN], ['sin sesión', asAnon, T1]]) {
+    await assertFails(setDoc(doc(ctxDb, 'ruletaBancos', `RB_NUEVO_${uid}`), estado(uid, { aprobado: true })), `crea ${quien}`)
+    await assertFails(updateDoc(doc(ctxDb, 'ruletaBancos', 'RB_T1'), { aprobado: true }), `aprueba ${quien}`)
+    await assertFails(updateDoc(doc(ctxDb, 'ruletaBancos', 'RB_T1'), { total: 100 }), `cambia el total ${quien}`)
+    await assertFails(updateDoc(doc(ctxDb, 'ruletaBancos', 'RB_T1'), { origen: 'ia' }), `cambia el origen a IA ${quien}`)
+    await assertFails(setDoc(doc(ctxDb, 'ruletaBancos', `RB_IA_${uid}`), estado(uid, { origen: 'ia', total: 25 })), `crea un banco IA ${quien}`)
+    await assertFails(setDoc(doc(ctxDb, 'ruletaBancos', 'RB_T1'), estado(T1, { aprobado: true })), `sobrescribe ${quien}`)
+    await assertFails(deleteDoc(doc(ctxDb, 'ruletaBancos', 'RB_T1')), `borra ${quien}`)
+  }
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    assert.deepStrictEqual((await getDoc(doc(db, 'ruletaBancos', 'RB_T1'))).data(), estado(T1))
+    assert.strictEqual((await getDocs(collection(db, 'ruletaBancos'))).size, 3)
+  })
+  ok('RULETA 2 · ruletaBancos: ningún cliente crea, aprueba, cambia (ni el origen a IA), sobrescribe ni borra (ni el dueño ni el admin); los datos siguen intactos')
+}
+
 // ── F-09 · registro de avance del borrado de asignaturas (api/_lib/eliminarAsignatura.js) ──
 // `eliminacionesAsignatura/{subjectId}` lo escribe y lee SOLO el servidor; no tiene `match` en las reglas, así que
 // ningún cliente (ni el docente dueño, ni el admin) lo lee, lo crea, lo cambia ni lo borra.
@@ -5000,6 +5392,26 @@ ok('F-05 · admin CAN read publicProfiles')
     await assertFails(setDoc(doc(ctxDb, 'eliminacionesAsignatura', 'S2'), { subjectId: 'S2', docenteId: T1 }), `crea ${quien}`)
   }
   ok('F-09 · el registro de avance del borrado de asignaturas: ningún cliente lo lee, consulta, crea, cambia ni borra')
+}
+
+// ── Limpieza al eliminar actividades (functions/actividadLimpieza.js) ──
+// `rastroEntregas/{submissionId}` lo escribe y lee SOLO el servidor: sin `match` en las reglas, ningún cliente lo lee,
+// lo consulta, lo crea, lo cambia ni lo borra (borrarlo dejaría huérfano el historial de esa entrega).
+{
+  const asAnonRastro = testEnv.unauthenticatedContext().firestore()
+  const asAdminRastro = testEnv.authenticatedContext(ADMIN).firestore()
+  const rastro = { actividadId: 'A1', alumnoId: 'st1', submissionId: 'A1_st1' }
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'rastroEntregas', 'A1_st1'), rastro)
+  })
+  for (const [quien, ctxDb] of [['docente dueño', asT1], ['admin', asAdminRastro], ['otro docente', asT2], ['estudiante', asJuan], ['sin sesión', asAnonRastro]]) {
+    await assertFails(getDoc(doc(ctxDb, 'rastroEntregas', 'A1_st1')), `lee ${quien}`)
+    await assertFails(getDocs(query(collection(ctxDb, 'rastroEntregas'), where('actividadId', '==', 'A1'))), `consulta ${quien}`)
+    await assertFails(setDoc(doc(ctxDb, 'rastroEntregas', 'A1_st2'), { ...rastro, alumnoId: 'st2', submissionId: 'A1_st2' }), `crea ${quien}`)
+    await assertFails(updateDoc(doc(ctxDb, 'rastroEntregas', 'A1_st1'), { actividadId: 'A2' }), `cambia ${quien}`)
+    await assertFails(deleteDoc(doc(ctxDb, 'rastroEntregas', 'A1_st1')), `borra ${quien}`)
+  }
+  ok('Limpieza de actividades · el rastro de entregas: ningún cliente lo lee, consulta, crea, cambia ni borra')
 }
 
 await testEnv.cleanup()

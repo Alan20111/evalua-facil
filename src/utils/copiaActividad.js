@@ -38,6 +38,9 @@ export function esCopiable(a) {
   // Reto Exprés (S2), en sus dos modalidades: sus sesiones y preguntas pertenecen al reto original. Además, una
   // copia visible de un reto externo la rechazarían las reglas (nace oculto y no calificable).
   if (a?.categoria === 'reto') return false
+  // La Ruleta del Destino (fase 2): su banco y su estado viven en ruletaReactivos/ruletaBancos con SU actividadId y
+  // solo el servidor los escribe; una copia nacería sin banco o apuntando al ajeno. Se crea de nuevo donde se necesite.
+  if (a?.categoria === 'ruleta') return false
   if (!esJuego(a)) return true
   return a?.juego?.estado === 'juego_confirmado'
 }

@@ -28,6 +28,7 @@ const { onDocumentDeleted } = require('firebase-functions/v2/firestore')
 const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const { logger } = require('firebase-functions')
 const ledger = require('./creditosLedger')
+const { escribirSiActividadExiste } = require('./actividadLimpieza')
 const {
   promedioParcial, notasParaPromedio, normalizeGrade, ponderacionActivaEnParcial, estadoParcial, esNotaAutomaticaDeCierre, pesoDe,
 } = require('./_shared/ponderacion.js')
@@ -1179,10 +1180,14 @@ async function ejecutarAnalizarEntregable({ params, modelo, apiKey, pedirJSON })
   if (!informe.resumenEjecutivo) throw new Error('El asistente de IA no generó un informe utilizable')
   // Se guarda ANTES de liquidar; el id es la clave de idempotencia.
   const analisisId = params.__idempotencyKey
-  await getFirestore().doc(`activities/${ctx.actividadId}/analisisActividadIA/${analisisId}`).set({
-    ...documentoAnalisisEntregable(ctx, informe, params.__uid, analisisId),
-    generadoEn: FieldValue.serverTimestamp(),
+  const analisisRef = getFirestore().doc(`activities/${ctx.actividadId}/analisisActividadIA/${analisisId}`)
+  // Solo si la actividad sigue existiendo, en la misma transacción que la lee (functions/actividadLimpieza.js): si se
+  // borró mientras la IA analizaba, el informe no se guarda (quedaría huérfano) y, como no se guardó, no se cobra.
+  const guardado = await escribirSiActividadExiste(ctx.actividadId, (tx) => {
+    tx.set(analisisRef, { ...documentoAnalisisEntregable(ctx, informe, params.__uid, analisisId), generadoEn: FieldValue.serverTimestamp() })
+    return true
   })
+  if (!guardado) throw new HttpsError('not-found', 'La actividad ya no existe: se eliminó mientras la IA trabajaba. No se descontaron créditos.')
   return {
     resultado: { analisisId, actividadId: ctx.actividadId },
     unidadesReales: 1,
