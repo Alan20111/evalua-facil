@@ -31,6 +31,9 @@ const DESCRIPCION_FUENTES = 'Las Fuentes para todo el curso y las de este parcia
 export default function FuentesIAInput({
   files, onChange, disabled = false, fuentesGuardadas = [],
   mostrarLimiteVisual = false, titulo = 'Fuentes adicionales para la IA (opcional)', descripcion = DESCRIPCION_FUENTES,
+  // `accept` (opcional): los formatos que ofrece el selector. Solo La Ruleta del Destino lo cambia (también .doc, que su
+  // servidor sí lee); sin la prop, el componente se ve y se comporta exactamente como antes.
+  accept = FUENTES_ACCEPT,
 }) {
   const toast = useToast()
   const maxVisual = DOCUMENTOS_VISUALES.maxPaginas
@@ -90,7 +93,7 @@ export default function FuentesIAInput({
         {files.length < MAX_FUENTES && (
           <label className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-full border border-dashed border-outline-variant text-sm text-accent cursor-pointer hover:bg-[var(--accent-tint)]">
             <Paperclip size={ICONO.xs} /> Agregar archivo
-            <input type="file" accept={FUENTES_ACCEPT} className="hidden" disabled={disabled}
+            <input type="file" accept={accept} className="hidden" disabled={disabled}
               onChange={(e) => { if (e.target.files.length) addArchivos(Array.from(e.target.files)); e.target.value = '' }} />
           </label>
         )}

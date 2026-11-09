@@ -88,6 +88,46 @@ export function preguntasPorPartidaValida(n) {
 /** Los tamaños permitidos para los mensajes («5 o 10»), tomados de `RULETA_CFG` para que no se desfasen. */
 export const TEXTO_PREGUNTAS_VALIDAS = RULETA_CFG.PREGUNTAS_POR_PARTIDA.join(' o ')
 
+/**
+ * Archivos de apoyo para generar el banco con IA (9-nov-2026, decisión 19): de 1 a 3, PDF, DOC o DOCX, hasta 15 MB
+ * cada uno. El servidor (functions/ruletaGeneracion.js → RULETA_IA) aplica exactamente los mismos límites.
+ */
+export const RULETA_ARCHIVOS = Object.freeze({
+  MIN: 1,
+  MAX: 3,
+  MAX_BYTES: 15 * 1024 * 1024,
+  EXTENSIONES: Object.freeze(['pdf', 'doc', 'docx']),
+  ACCEPT: '.pdf,.doc,.docx',
+})
+
+/** Extensión en minúsculas de un nombre de archivo («Tema 1.DOCX» → «docx»); '' si no tiene. */
+export function extensionArchivo(nombre) {
+  const base = String(nombre || '').split(/[\\/]/).pop()
+  const i = base.lastIndexOf('.')
+  return i > 0 ? base.slice(i + 1).toLowerCase() : ''
+}
+
+/**
+ * Revisa los archivos de apoyo elegidos ({ name | nombre, size | tamano }). Con `completa`, exige además el mínimo
+ * (al generar); sin ella solo revisa lo que ya se eligió (al ir agregando). { ok } o { ok: false, codigo, mensaje }.
+ */
+export function validarArchivosRuleta(archivos, { completa = true } = {}) {
+  const lista = Array.isArray(archivos) ? archivos : []
+  if (lista.length > RULETA_ARCHIVOS.MAX) return { ok: false, codigo: 'demasiados', mensaje: `Puedes adjuntar máximo ${RULETA_ARCHIVOS.MAX} archivos de apoyo.` }
+  for (const a of lista) {
+    const nombre = a?.name ?? a?.nombre ?? ''
+    if (!RULETA_ARCHIVOS.EXTENSIONES.includes(extensionArchivo(nombre))) {
+      return { ok: false, codigo: 'formato', mensaje: `«${nombre || 'El archivo'}» no es PDF, DOC ni DOCX.` }
+    }
+    const tamano = a?.size ?? a?.tamano
+    if (Number.isFinite(tamano) && tamano > RULETA_ARCHIVOS.MAX_BYTES) {
+      return { ok: false, codigo: 'tamano', mensaje: `«${nombre}» supera el máximo de 15 MB.` }
+    }
+  }
+  if (completa && lista.length < RULETA_ARCHIVOS.MIN) return { ok: false, codigo: 'sin_archivos', mensaje: 'Adjunta al menos 1 archivo de apoyo (PDF, DOC o DOCX).' }
+  return { ok: true }
+}
+
 /** Reactivos EXACTOS del banco para una partida de `n` preguntas (5→25, 10→50), manual o generado con IA. */
 export function tamanoBanco(n) {
   if (!preguntasPorPartidaValida(n)) throw new RangeError(`Preguntas por partida inválidas: ${n}`)

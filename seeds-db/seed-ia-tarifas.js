@@ -47,7 +47,9 @@ const TARIFAS = {
   // v13: se agregan generar_dinamica_vivo (6) y activar_analisis_vivo (10).
   // v14: generar_dinamica_vivo pasa a 3 POR PREGUNTA y activar_analisis_vivo a 0 (gratis). NO correr este seed para esto:
   // usar seeds-db/agregar-tarifas-participacion-vivo.js, que solo toca esas dos (ver su encabezado).
-  version: 14,
+  // v15 (9-nov-2026): se agrega generar_banco_ruleta (1 por pregunta de la partida). NO correr este seed para esto:
+  // usar seeds-db/agregar-tarifa-ruleta.js, que solo agrega esa operación (ver su encabezado).
+  version: 15,
   actualizadoEl: '2026-10-21',
   // Flag de sistema: false = endpoint rechaza ANTES de llamar a Anthropic.
   // true (o campo ausente) = activo. Cambia aquí y re-corre el seed.
@@ -124,6 +126,9 @@ const TARIFAS = {
     // activar_analisis_vivo: 5 fijos por sesión (oct-2026), opcional; antes 0 (gratis). Aplicar con agregar-tarifas-participacion-vivo.js.
     generar_dinamica_vivo: 3,
     activar_analisis_vivo: 5,
+    // La Ruleta del Destino (9-nov-2026): generar el banco con IA desde 1 a 3 archivos de apoyo. 1 crédito por PREGUNTA
+    // de la partida (5 → banco de 25: 5 créditos; 10 → banco de 50: 10 créditos). Aplicar con agregar-tarifa-ruleta.js.
+    generar_banco_ruleta: 1,
     // Crear entregable/observación completa con IA — incluye la actividad
     // de Observación con IA (no existe "guía de observación" aparte).
     crear_actividad_ia: 1,
@@ -221,6 +226,7 @@ const TARIFAS = {
     generar_preguntas_video: 'Evaluaciones',
     generar_dinamica_vivo: 'Actividades',
     activar_analisis_vivo: 'Actividades',
+    generar_banco_ruleta: 'Actividades',
     crear_actividad_ia: 'Actividades',
     analizar_resultados: 'Evaluaciones',
     diagnostico_contexto: 'Diagnóstico',
@@ -263,6 +269,7 @@ const TARIFAS = {
     // modelo de `activar_analisis_vivo`).
     generar_dinamica_vivo: 'claude-haiku-4-5',
     activar_analisis_vivo: 'claude-haiku-4-5',
+    generar_banco_ruleta: 'claude-haiku-4-5',
     // OP-05 (11-ago-2026): crear entregable/observación completo con IA.
     crear_actividad_ia: 'claude-haiku-4-5',
     // OP-10 (11-ago-2026): análisis de resultados de un cuestionario o examen.

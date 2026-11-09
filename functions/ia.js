@@ -41,6 +41,8 @@ const videoInteractivoIA = require('./videoInteractivoIA')
 const participacionVivo = require('./participacionVivo')
 // Reto Exprés: rama de `analizar_resultados` para UNA competencia terminada (6-nov-2026). Misma tarifa y ledger.
 const analisisReto = require('./analisisReto')
+// La Ruleta del Destino: generación del banco con IA a partir de 1 a 3 archivos de apoyo (functions/ruletaGeneracion.js).
+const ruletaGeneracion = require('./ruletaGeneracion')
 const { onDocumentWritten } = require('firebase-functions/v2/firestore')
 // Escribir la nota de la IA en una entrega (decide, en transacción, si puede):
 // ver functions/aplicarNotaIA.js.
@@ -368,6 +370,9 @@ const OPERACIONES = {
   // análisis de resultados con IA de UNA sesión finalizada (tarifa FIJA por sesión, opcional, lo pide el docente).
   generar_dinamica_vivo: (args) => participacionVivo.ejecutarGenerarDinamicaVivo({ ...args, pedirJSON }),
   activar_analisis_vivo: (args) => participacionVivo.ejecutarActivarAnalisisVivo({ ...args, deps: { pedirJSON, obtenerClave: () => args.apiKey } }),
+  // La Ruleta del Destino: el banco completo (25 o 50 reactivos exactos) desde los archivos de apoyo. Tarifa 1 por
+  // pregunta de la partida (5 o 10 créditos); sin la cantidad exacta verificada no se guarda nada y se reembolsa.
+  generar_banco_ruleta: (args) => ruletaGeneracion.ejecutarGenerarBancoRuleta({ ...args, pedirJSON }),
 }
 
 // Comprobaciones que corren ANTES de reservar créditos. Una operación con
@@ -394,6 +399,8 @@ const PRECHECKS = {
   generar_preguntas_video: (args) => videoInteractivoIA.precheckGenerarPreguntasVideo(args),
   generar_dinamica_vivo: (args) => participacionVivo.precheckGenerarDinamicaVivo({ ...args, deps: { fuentesIA, creditosDe } }),
   activar_analisis_vivo: (args) => participacionVivo.precheckActivarAnalisisVivo(args),
+  // Dueño, banco vacío, archivos (1 a 3, PDF/DOC/DOCX, 15 MB) y su lectura, antes de cobrar.
+  generar_banco_ruleta: (args) => ruletaGeneracion.precheckGenerarBancoRuleta(args),
 }
 
 // ── Piloto C-03 · Redactar aviso ────────────────────────────────────────────
