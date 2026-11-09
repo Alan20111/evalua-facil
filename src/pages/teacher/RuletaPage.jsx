@@ -1,6 +1,6 @@
 // La Ruleta del Destino · pantalla del docente para PREPARAR la ruleta (fase 2): datos (nombre, tema y preguntas por
-// partida) y el banco de reactivos escrito a mano. Todavía no se publica ni se juega: la actividad sigue
-// oculta (F2-9). El banco lo escribe SOLO el servidor (R1): cada cambio pasa por /api/subject/ruleta-banco.
+// partida) y el banco de reactivos, capturado a mano o generado con IA desde 1 a 3 archivos de apoyo (9-nov-2026).
+// Todavía no se publica ni se juega: la actividad sigue oculta (F2-9). El banco lo escribe SOLO el servidor (R1): cada cambio pasa por /api/subject/ruleta-banco.
 // Especificación: docs/RULETA_DESTINO.md.
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -9,10 +9,11 @@ import { ArrowLeft, Save } from 'lucide-react'
 import { db } from '../../firebase'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/Toast'
-import { Badge, Button, Input, Select, Textarea } from '../../components/ui'
+import { Badge, Button, Input, RadioGroup, Select, Textarea } from '../../components/ui'
 import ConfirmModal from '../../components/ConfirmModal'
 import BancoRuleta from '../../components/ruleta/BancoRuleta'
 import EditorReactivoRuleta from '../../components/ruleta/EditorReactivoRuleta'
+import GenerarBancoIA from '../../components/ruleta/GenerarBancoIA'
 import ResultadosRuleta from '../../components/ruleta/ResultadosRuleta'
 import { EsqueletoRuletaDocente } from '../../components/esqueletos'
 import { subjectDisplayName } from '../../utils/subjectName'
@@ -24,6 +25,12 @@ import { cargarRuleta, guardarDatosRuleta, operacionBanco } from '../../utils/ru
 const OPCIONES_PREGUNTAS = RULETA_CFG.PREGUNTAS_POR_PARTIDA.map((n) => ({
   value: String(n), label: `${n} preguntas (banco de ${tamanoBanco(n)} reactivos)`,
 }))
+
+// Las dos formas de preparar el banco (solo mientras está vacío: la IA genera el banco completo, nunca lo completa).
+const MODOS_BANCO = [
+  { value: 'manual', label: 'Captura manual', hint: 'Escribes cada pregunta con sus 4 opciones y la correcta.' },
+  { value: 'ia', label: 'Generar con IA', hint: 'Adjuntas de 1 a 3 archivos de apoyo y la IA genera el banco completo.' },
+]
 
 export default function RuletaPage() {
   const { activityId } = useParams()
@@ -45,6 +52,7 @@ export default function RuletaPage() {
   const [ocupado, setOcupado] = useState(null) // 'guardar' | 'borrar' | 'aprobar' | 'config'
   const [editor, setEditor] = useState(null) // { reactivo } (null en reactivo = nuevo)
   const [porBorrar, setPorBorrar] = useState(null)
+  const [modoBanco, setModoBanco] = useState('manual') // 'manual' | 'ia' (solo con el banco vacío)
 
   useEffect(() => {
     if (!uid) return undefined
@@ -89,6 +97,21 @@ export default function RuletaPage() {
   const externa = ruleta.acceso === 'externo'
   const congeladas = ruleta.preguntasCongeladas === true
   const datosCambiaron = datos.nombre.trim() !== (actividad.nombre || '') || datos.tema.trim() !== (actividad.tema || '')
+
+  // Después de generar con IA: el banco se vuelve a leer tal como lo guardó el servidor.
+  async function recargarBanco() {
+    try {
+      const r = await cargarRuleta(activityId, uid)
+      if (r?.actividad) {
+        setReactivos(r.reactivos)
+        setAprobado(r.banco.aprobado)
+        setOrigen(origenBanco(r.banco))
+      }
+    } catch (e) {
+      toast(e.message || 'No se pudo cargar el banco', 'error')
+    }
+    setModoBanco('manual')
+  }
 
   async function guardarDatos() {
     if (!datos.nombre.trim() || !datos.tema.trim()) { toast('Escribe el nombre y el tema', 'error'); return }
@@ -230,13 +253,22 @@ export default function RuletaPage() {
 
         <section data-esq="ruleta-banco" className="bg-surface-card rounded-card shadow-card p-4 space-y-4" aria-labelledby="ruleta-banco-titulo">
           <h2 id="ruleta-banco-titulo" className="text-lg font-semibold text-on-surface">Banco de reactivos</h2>
-          <BancoRuleta
-            reactivos={reactivos} preguntasPorPartida={n} origen={origen} aprobado={aprobado} ocupado={ocupado}
-            onAgregar={() => setEditor({ reactivo: null })}
-            onEditar={(r) => setEditor({ reactivo: r })}
-            onBorrar={(r) => setPorBorrar(r)}
-            onAprobar={aprobarBanco}
-          />
+          {reactivos.length === 0 && !congeladas && (
+            <RadioGroup label="¿Cómo quieres preparar el banco?" name="ruleta-modo-banco" options={MODOS_BANCO}
+              value={modoBanco} onChange={setModoBanco} />
+          )}
+          {reactivos.length === 0 && !congeladas && modoBanco === 'ia' ? (
+            <GenerarBancoIA actividadId={actividad.id} asignaturaId={actividad.asignaturaId} preguntasPorPartida={n}
+              disabled={Boolean(ocupado)} onGenerado={recargarBanco} />
+          ) : (
+            <BancoRuleta
+              reactivos={reactivos} preguntasPorPartida={n} origen={origen} aprobado={aprobado} ocupado={ocupado}
+              onAgregar={() => setEditor({ reactivo: null })}
+              onEditar={(r) => setEditor({ reactivo: r })}
+              onBorrar={(r) => setPorBorrar(r)}
+              onAprobar={aprobarBanco}
+            />
+          )}
         </section>
 
         {/* Paso 2: resultados de la partida individual interna (el acceso externo todavía no se juega). */}

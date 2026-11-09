@@ -46,15 +46,26 @@ partida, sea capturado a mano o generado con IA. Sin rangos ni mínimos o máxim
 `RULETA_CFG.REACTIVOS_POR_PREGUNTA = 5`; `tamanoBanco(n)`, `minimoBanco(n)`, `maximoBanco(n)` y
 `reactivosGeneracionIA(n)` devuelven ese mismo número para los dos orígenes.
 
+- **Dos formas de preparar el banco** (9-nov-2026), que el docente elige mientras está vacío: **captura manual** (cada
+  pregunta con sus 4 opciones y la correcta) o **generación con IA** (decisión 19).
+- **Generación con IA** (`functions/ruletaGeneracion.js`, operación `generar_banco_ruleta`): de **1 a 3 archivos de
+  apoyo, PDF, DOC o DOCX, hasta 15 MB cada uno** (`RULETA_ARCHIVOS` en el cliente, `RULETA_IA` en el servidor; los
+  dos los validan). Se suben a Cloudinary con la subida firmada de siempre y el servidor los descarga y los lee: el PDF
+  por páginas (`pdf-parse`), el DOCX con `mammoth` y el DOC (Word 97-2003) con `word-extractor`. Un documento que no
+  se puede leer, que pesa más de 15 MB o que no tiene texto verificable (un PDF escaneado) detiene la operación
+  **antes de cobrar**, con el nombre del archivo.
 - Opción múltiple: 4 opciones, 1 correcta, 3 distractores plausibles; sin duplicados ni paráfrasis triviales;
-  sustentados en el documento del docente: **exactamente un documento por generación, un PDF con texto o un DOCX**
-  (nunca varios ni combinados; el .doc antiguo no se convierte: el docente lo convierte a PDF o DOCX; un PDF escaneado
-  sin texto verificable se rechaza antes de cobrar).
-- Si el documento no alcanza: se **cancela** la generación y se **reembolsan** los créditos reservados.
+  sustentados en los documentos del docente (cada reactivo guarda en `sustento` el documento, la página si es PDF, la
+  cita y el contexto).
+- Si los documentos no alcanzan para la cantidad exacta de reactivos verificables (la IA se consulta por lotes de 25 y
+  puede pedir hasta dos lotes más para reponer los rechazados): se **cancela** la generación, no se guarda nada y se
+  **reembolsan** los créditos reservados.
 - **Generación con IA solo con el banco vacío** (6-nov-2026): genera exactamente `reactivosGeneracionIA(n)` (25 o 50,
   7-nov-2026), nunca los faltantes ni una cantidad parcial, y nunca `tamanoBanco(n)`. Si el banco ya tiene reactivos,
   se informa al docente y no se cobra: los conserva y lo completa a mano, o los elimina para generar con IA. El banco
-  generado queda con origen `ia` y sin aprobar.
+  generado queda con origen `ia` y sin aprobar; la ruleta no se publica ni se crean partidas. Lo escribe una
+  transacción que relee la actividad y exige el banco todavía vacío: si se borró la ruleta o el docente capturó un
+  reactivo mientras la IA trabajaba, no se escribe nada y se reembolsa (`functions/actividadLimpieza.js`).
 - El docente revisa, edita, elimina, sustituye y aprueba el banco (siempre mediante acciones del servidor, R1).
 - **Cantidad exacta para aprobar e iniciar** (9-nov-2026): con menos, `banco_incompleto`; con más, `banco_excedido`
   (`validarBanco` / `evaluarAprobacion`). El reactivo que pasaría de la cantidad se rechaza con `banco_lleno`.
@@ -62,10 +73,10 @@ partida, sea capturado a mano o generado con IA. Sin rangos ni mínimos o máxim
   - Lo escribe SOLO el servidor (`api/_lib/ruletaBanco.js`, `datosBanco`), tomado del estado leído en la transacción;
     nunca del cuerpo de la petición. Las reglas no dejan escribir `ruletaBancos` a ningún cliente (ni al dueño ni al
     admin), así que el navegador no puede crear un banco `ia` ni cambiar uno manual a `ia`.
-  - Un banco nace `manual` (`bancoVacio`). Solo la generación con IA de la fase 3 lo dejará en `ia`.
+  - Un banco nace `manual` (`bancoVacio`). Solo la generación con IA (`functions/ruletaGeneracion.js`) lo deja en `ia`.
   - Editar, agregar o borrar reactivos **no** cambia el origen (`guardarEnBanco` y `quitarDeBanco` lo conservan). Un
-    banco IA al que se le borran reactivos por debajo de su mínimo queda incompleto: no se aprueba ni se juega. No hay
-    sustitución automática ni generación parcial (fase 3).
+    banco IA al que se le borran reactivos por debajo de su cantidad queda incompleto: no se aprueba ni se juega
+    hasta reponerlos a mano. No hay sustitución automática ni generación parcial.
   - **Excepción** (7-nov-2026): borrar el último reactivo (total exactamente 0) deja el banco en `manual`. Lo que el
     docente capture después se cuenta como manual (la cantidad exacta es la misma). El cambio ocurre en la misma transacción que el borrado (`quitarDeBanco`), así que dos borrados simultáneos
     se serializan y solo el que deja el banco en 0 cambia el origen.
@@ -73,7 +84,9 @@ partida, sea capturado a mano o generado con IA. Sin rangos ni mínimos o máxim
   - Cambiar las preguntas por partida (`config`, 9-nov-2026) se permite si el banco no pasa de la cantidad exacta del
     nuevo tamaño (de 5 a 10 siempre; de 10 a 5 con 25 o menos) y retira la aprobación.
 - **Tarifa** (6-nov-2026): el precio depende de las preguntas por partida (5 o 10 créditos, tabla de generación), no de
-  los reactivos generados. El servidor calcula el precio (operación y tarifa propias, modelo Claude Haiku 4.5); nunca confía en el importe del
+  los reactivos generados: `generar_banco_ruleta = 1` crédito por pregunta de la partida, unidades que fija el servidor
+  (`unidadesMinimas` del precheck), modelo Claude Haiku 4.5. Se da de alta en producción con
+  `seeds-db/agregar-tarifa-ruleta.js`; sin ella la generación se rechaza sin cobrar. Nunca confía en el importe del
   navegador. Si la generación falla o no se completa, se reembolsa todo. Girar, responder y jugar no consumen créditos.
   Nunca se llama a la IA en un giro.
 
@@ -153,13 +166,13 @@ Motivos de rechazo, contados por separado:
 1. Tarifa por preguntas de la partida: 5 → 5 créditos, 10 → 10 créditos (reemplaza «1 crédito por reactivo»). Sin
    cobro proporcional. (La partida de 20 → 20 créditos se eliminó el 7-nov-2026.)
 2. Documento insuficiente: cancelar y reembolsar la reserva.
-3. Archivos .doc antiguos: sin conversión.
+3. ~~Archivos .doc antiguos: sin conversión.~~ Reemplazada por la 19: el .doc se lee en el servidor.
 4. ~~Desempate: tiempo acumulado solo en respuestas correctas.~~ Sin efecto: ya no hay ranking (decisión 16).
 5. Calificación: cálculo y publicación automáticos, respetando los mecanismos actuales.
 6. ~~Banco manual mínimo de 10 reactivos por pregunta (50 o 100) y máximo de 20 (100 o 200).~~ Reemplazada por la 18.
 7. Exactamente 15 s, sin margen.
 8. ~~Empate exacto: comparten puesto; orden por id solo visual.~~ Sin efecto: ya no hay ranking (decisión 16).
-9. Un solo documento por generación: un PDF con texto o un DOCX.
+9. ~~Un solo documento por generación: un PDF con texto o un DOCX.~~ Reemplazada por la 19.
 10. La IA genera solo con el banco vacío y siempre exactamente 25 reactivos para 5 preguntas o 50 para 10.
 11. Cita y contexto obligatorios y verificables en una sola página (en DOCX, una sola aparición); citas ambiguas,
     inexistentes y no verificables se rechazan con su motivo.
@@ -182,6 +195,11 @@ Motivos de rechazo, contados por separado:
 18. (9-nov-2026, definitiva) **Banco de cantidad exacta**: 25 reactivos para partidas de 5 preguntas y 50 para
     partidas de 10, capturado a mano o generado con IA. Sin rangos, mínimos ni máximos variables, y sin mostrar otras
     cantidades. Cambiar el número de preguntas retira la aprobación del banco.
+19. (9-nov-2026) **Dos modalidades para el banco: captura manual o generación con IA.** La IA analiza de 1 a 3 archivos
+    de apoyo (PDF, DOC o DOCX, hasta 15 MB cada uno; cantidad, formato y tamaño se validan en el cliente y en el
+    servidor) y genera el banco completo con la cantidad exacta de la decisión 18; cada reactivo, 4 opciones y una
+    correcta. El banco generado queda para que el docente lo revise y apruebe: no se publica la ruleta ni se inician
+    partidas.
 
 ### Seguridad (R1–R8, 6-nov-2026)
 - **R1** Solo el servidor escribe `ruletaReactivos`; el docente administra el banco con acciones del API. Ningún cliente
@@ -209,7 +227,8 @@ Motivos de rechazo, contados por separado:
 - **C2** Borradores sin partidas: desde la fase 2 ya tienen banco (`ruletaReactivos` y `ruletaBancos`). El trigger
   de limpieza al borrar la actividad (`onRuletaBorrada` en `functions/index.js`, `functions/ruletaLimpieza.js`) se
   adelantó y quedó **implementado en la fase 2** (F2-2); el paso 3 le agregó partidas, respuestas y entregas, y la
-  fase 3 (IA) le agregará `ruletaGeneraciones`. Seguro, idempotente y sin tocar otras actividades.
+  generación con IA no crea colecciones nuevas (sus reactivos son `ruletaReactivos`). Seguro, idempotente y sin tocar
+  otras actividades.
 - **C3** Eliminar cuenta: `api/account/delete.js` (Admin SDK) borra el banco, su estado, las partidas y las respuestas
   del docente (paso 3), sin depender del trigger; sus entregas ya se borraban por actividad.
 
@@ -282,7 +301,7 @@ Cada condición nueva devuelve «sin efecto» en cuanto la categoría no es `rul
 | Colección | Contenido previsto | Lectura |
 |---|---|---|
 | `ruletaReactivos/{id}` | Enunciado, 4 opciones, correcta, fuente (documento y página si es viable), estado | Dueño, admin |
-| `ruletaGeneraciones/{clave}` | Trabajo de generación por lotes: pedidos, entregados, estado | Dueño, admin |
+| `ruletaGeneraciones/{clave}` | Prevista para generaciones por lotes; **no se usa**: la generación se hace en una sola operación (9-nov-2026) | Dueño, admin |
 | `ruletaParticipantes/{actividadId}_{alumnoId}` | La partida: orden sorteado, copia de las preguntas, avance, resultado y qué pasó con la nota | Dueño, admin |
 | `ruletaRespuestas/{participante}_{i}` | Reactivo, opción, correcta, tiempo, motivo | Dueño, admin |
 | `ruletaCupos/{código}_{n}` | Cupo de externos | Nadie |
@@ -301,7 +320,7 @@ concurso en vivo (`ruletaSesiones`, `ruletaClaves`, `ruletaResultados`) se elimi
 | Publicar notas desde el servidor saltaría el bloqueo de parcial cerrado | El servidor usa `parcialCerrado` y no pisa una corrección del docente (`ultimaCalificacionPor`) |
 | Borrar asignatura con una ruleta jugada (C1) | Resuelto en el paso 3: se borra y el trigger limpia |
 | La limpieza es asíncrona y depende del despliegue de Functions | Idempotente; si fallara, los restos no los lee ningún cliente y repetirla es seguro |
-| Borradores con banco (C2) | Trigger de limpieza implementado en la fase 2; la fase 3 lo amplía a `ruletaGeneraciones` |
+| Borradores con banco (C2) | Trigger de limpieza implementado en la fase 2; los reactivos generados con IA son `ruletaReactivos` y los limpia el mismo trigger |
 | Residuos al eliminar la cuenta (C3) | Resuelto en el paso 3 en `api/account/delete.js` |
 | Límite de lecturas de las reglas en lotes | Probado: lote de 10 notas mezcladas (ruleta y entregable) pasa |
 | Desplegar reglas | El CI las despliega al fusionar en `main`: fusionar es desplegar; requiere autorización aparte |
