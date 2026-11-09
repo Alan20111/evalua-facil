@@ -17,12 +17,12 @@ import ResultadosRuleta from '../../components/ruleta/ResultadosRuleta'
 import { EsqueletoRuletaDocente } from '../../components/esqueletos'
 import { subjectDisplayName } from '../../utils/subjectName'
 import { TEACHER_CONTAINER } from '../../config/layout'
-import { ACCESOS_RULETA, MODALIDADES_RULETA, ORIGENES_BANCO, RULETA_CFG, maximoBanco, minimoBanco, normalizarTexto, origenBanco } from '../../utils/ruletaDestino'
+import { ACCESOS_RULETA, MODALIDADES_RULETA, ORIGENES_BANCO, RULETA_CFG, normalizarTexto, origenBanco, tamanoBanco } from '../../utils/ruletaDestino'
 import { cargarRuleta, guardarDatosRuleta, operacionBanco } from '../../utils/ruletaDestinoDb'
 
-// Las cantidades del selector dependen del origen del banco (IA: 25 o 50 de mínimo; manual: 50 o 100).
-const opcionesPreguntas = (origen) => RULETA_CFG.PREGUNTAS_POR_PARTIDA.map((n) => ({
-  value: String(n), label: `${n} preguntas (${minimoBanco(n, origen)} a ${maximoBanco(n)} reactivos)`,
+// Cantidad EXACTA del banco para cada tamaño de partida (5→25, 10→50), manual o con IA.
+const OPCIONES_PREGUNTAS = RULETA_CFG.PREGUNTAS_POR_PARTIDA.map((n) => ({
+  value: String(n), label: `${n} preguntas (banco de ${tamanoBanco(n)} reactivos)`,
 }))
 
 export default function RuletaPage() {
@@ -218,8 +218,8 @@ export default function RuletaPage() {
           ) : (
             <div className="flex flex-wrap items-end gap-2">
               <Select label="Preguntas por partida" value={preguntasNuevas} onChange={(v) => setPreguntasNuevas(String(v))}
-                options={opcionesPreguntas(origen)} wrapperClassName="flex-1 min-w-[16rem]"
-                hint="Solo cambia si el banco ya tiene entre el mínimo y el máximo del nuevo número." />
+                options={OPCIONES_PREGUNTAS} wrapperClassName="flex-1 min-w-[16rem]"
+                hint="El banco debe quedar con la cantidad exacta del nuevo número. Cambiarlo quita la aprobación." />
               {Number(preguntasNuevas) !== n && (
                 <Button variant="secondary" onClick={cambiarPreguntas} busy={ocupado === 'config'} disabled={Boolean(ocupado)}>Cambiar</Button>
               )}

@@ -72,7 +72,7 @@ await caso('A · el docente dueño guarda un reactivo: id del servidor, huella y
     [DOC, 'ru_a', '¿Pregunta número 1?', ['A1', 'B1', 'C1', 'D1'], 1, huellaEnunciado('¿Pregunta número 1?')])
   const b = await estadoBanco('ru_a')
   assert.deepStrictEqual([b.docenteId, b.actividadId, b.total, b.aprobado, Object.values(b.huellas)], [DOC, 'ru_a', 1, false, [id]])
-  assert.deepStrictEqual(r.cuerpo.banco, { total: 1, aprobado: false, version: 1, origen: 'manual', minimo: 50, maximo: 100 })
+  assert.deepStrictEqual(r.cuerpo.banco, { total: 1, aprobado: false, version: 1, origen: 'manual', minimo: 25, maximo: 25 })
   assert.strictEqual(b.origen, 'manual') // el servidor lo crea manual
 })
 
@@ -160,21 +160,22 @@ await caso('C · 12 guardados simultáneos distintos: entran todos y el total cu
 // ── D · Límites, aprobación y su pérdida ────────────────────────────────────
 grupo('D · límites, aprobación y pérdida de la aprobación')
 
-await caso('D · aprobar un banco manual incompleto (49 de 50) se rechaza sin aprobar', async () => {
-  await llenar('ru_a', 2, 50) // ya tenía 1 → 49
-  assert.strictEqual((await estadoBanco('ru_a')).total, 49)
+await caso('D · aprobar un banco incompleto (24 de 25) se rechaza sin aprobar', async () => {
+  await llenar('ru_a', 2, 25) // ya tenía 1 → 24
+  assert.strictEqual((await estadoBanco('ru_a')).total, 24)
   const r = await op('aprobar', { actividadId: 'ru_a' })
   assert.strictEqual(r.statusCode, 409)
   assert.strictEqual(r.cuerpo.codigo, 'BANCO_INCOMPLETO')
+  assert.strictEqual(r.cuerpo.error, 'Faltan reactivos: el banco lleva exactamente 25.')
   assert.strictEqual((await estadoBanco('ru_a')).aprobado, false)
 })
 
-await caso('D · con 50 de 50 se aprueba; la aprobación vive solo en ruletaBancos', async () => {
-  await llenar('ru_a', 50, 51)
+await caso('D · con 25 de 25 se aprueba; la aprobación vive solo en ruletaBancos', async () => {
+  await llenar('ru_a', 25, 26)
   const r = await op('aprobar', { actividadId: 'ru_a' })
   assert.strictEqual(r.statusCode, 200, JSON.stringify(r.cuerpo))
   const b = await estadoBanco('ru_a')
-  assert.deepStrictEqual([b.total, b.aprobado, b.aprobadoEn != null], [50, true, true])
+  assert.deepStrictEqual([b.total, b.aprobado, b.aprobadoEn != null], [25, true, true])
   const act = (await db.doc('activities/ru_a').get()).data()
   assert.ok(!('aprobado' in act) && !('aprobado' in act.ruleta) && !('bancoAprobado' in act.ruleta))
 })
@@ -188,7 +189,7 @@ await caso('D · editar después de aprobar retira la aprobación (también si s
   const r2 = await op('editar', { actividadId: 'ru_a', reactivoId: d.id, reactivo: { ...reactivo(999), correcta: 3 } })
   assert.strictEqual(r2.statusCode, 200)
   const b = await estadoBanco('ru_a')
-  assert.deepStrictEqual([b.aprobado, b.aprobadoEn, b.total], [false, null, 50])
+  assert.deepStrictEqual([b.aprobado, b.aprobadoEn, b.total], [false, null, 25])
 })
 
 await caso('D · editar actualiza la huella: el enunciado viejo queda libre y el nuevo ocupado', async () => {
@@ -216,7 +217,7 @@ await caso('D · borrar después de aprobar retira la aprobación y resta; borra
   const r = await op('borrar', { actividadId: 'ru_a', reactivoId: d.id })
   assert.strictEqual(r.statusCode, 200)
   const b = await estadoBanco('ru_a')
-  assert.deepStrictEqual([b.total, b.aprobado], [49, false])
+  assert.deepStrictEqual([b.total, b.aprobado], [24, false])
   assert.ok(!Object.values(b.huellas).includes(d.id))
   assert.strictEqual((await op('borrar', { actividadId: 'ru_a', reactivoId: d.id })).statusCode, 404)
   assert.strictEqual((await op('editar', { actividadId: 'ru_a', reactivoId: d.id, reactivo: reactivo(5000) })).statusCode, 404)
@@ -229,12 +230,14 @@ await caso('D · un reactivo de OTRA ruleta no se edita ni se borra desde esta',
   assert.ok((await db.doc(`ruletaReactivos/${ajeno.id}`).get()).exists)
 })
 
-await caso('D · con el máximo (100 para 5 preguntas) no entra uno más; aprobar con 100 sí', async () => {
-  await llenar('ru_a', 3000, 3051) // 49 → 100
-  assert.strictEqual((await estadoBanco('ru_a')).total, 100)
+await caso('D · con la cantidad exacta (25 para 5 preguntas) no entra el 26.º; aprobar con 25 sí', async () => {
+  await llenar('ru_a', 3000, 3001) // 24 → 25
+  assert.strictEqual((await estadoBanco('ru_a')).total, 25)
   const r = await guardar('ru_a', reactivo(4000))
   assert.strictEqual(r.statusCode, 409)
   assert.strictEqual(r.cuerpo.codigo, 'BANCO_LLENO')
+  assert.strictEqual(r.cuerpo.error, 'El banco ya tiene sus 25 reactivos: edita o quita uno para cambiarlo.')
+  assert.strictEqual((await estadoBanco('ru_a')).total, 25)
   assert.strictEqual((await op('aprobar', { actividadId: 'ru_a' })).statusCode, 200)
 })
 
@@ -249,11 +252,15 @@ await caso('D · aprobación falsificada imposible: un estado «aprobado» con r
 // ── E · Cambiar preguntas por partida ───────────────────────────────────────
 grupo('E · cambiar preguntas por partida (R6, F2-6)')
 
-await caso('E · con 100 reactivos: de 5 a 10 sí (mínimo 100, máximo 200); 20 no existe y nada cambia', async () => {
+await caso('E · con 25 reactivos aprobados: de 5 a 10 sí, pide 50 exactos y retira la aprobación; 20 no existe', async () => {
+  assert.strictEqual((await estadoBanco('ru_a')).aprobado, true)
   const r = await op('config', { actividadId: 'ru_a', preguntasPorPartida: 10 })
   assert.strictEqual(r.statusCode, 200, JSON.stringify(r.cuerpo))
-  assert.deepStrictEqual([r.cuerpo.banco.total, r.cuerpo.banco.minimo, r.cuerpo.banco.maximo], [100, 100, 200])
+  assert.deepStrictEqual([r.cuerpo.banco.total, r.cuerpo.banco.minimo, r.cuerpo.banco.maximo, r.cuerpo.banco.aprobado], [25, 50, 50, false])
+  assert.strictEqual((await estadoBanco('ru_a')).aprobado, false)
   assert.strictEqual((await db.doc('activities/ru_a').get()).data().ruleta.preguntasPorPartida, 10)
+  const ap = await op('aprobar', { actividadId: 'ru_a' })
+  assert.deepStrictEqual([ap.statusCode, ap.cuerpo.codigo], [409, 'BANCO_INCOMPLETO'])
   const r2 = await op('config', { actividadId: 'ru_a', preguntasPorPartida: 20 })
   assert.strictEqual(r2.statusCode, 409)
   assert.strictEqual(r2.cuerpo.codigo, 'PREGUNTAS_POR_PARTIDA')
@@ -261,33 +268,32 @@ await caso('E · con 100 reactivos: de 5 a 10 sí (mínimo 100, máximo 200); 20
   assert.strictEqual((await db.doc('activities/ru_a').get()).data().ruleta.preguntasPorPartida, 10)
 })
 
-await caso('E · valor inválido, el mismo valor o un banco por encima del nuevo máximo: rechazados sin cambios', async () => {
+await caso('E · valor inválido, el mismo valor o un banco que no cabe en el nuevo tamaño: rechazados sin cambios', async () => {
   for (const v of [7, '10', null, 20, 15]) assert.strictEqual((await op('config', { actividadId: 'ru_a', preguntasPorPartida: v })).statusCode, 409, String(v))
   assert.strictEqual((await op('config', { actividadId: 'ru_a', preguntasPorPartida: 10 })).cuerpo.codigo, 'SIN_CAMBIO')
-  // Un banco de 101 reactivos para 10 preguntas no puede pasar a 5 (máximo 100).
+  // Un banco de 26 reactivos para 10 preguntas no puede pasar a 5 (lleva exactamente 25).
   await crearRuleta('ru_grande', { preguntasPorPartida: 10 })
-  await llenar('ru_grande', 0, 101)
+  await llenar('ru_grande', 0, 26)
   const r = await op('config', { actividadId: 'ru_grande', preguntasPorPartida: 5 })
   assert.strictEqual(r.statusCode, 409)
   assert.strictEqual(r.cuerpo.codigo, 'BANCO_EXCEDIDO')
-  assert.strictEqual(r.cuerpo.error, 'Para 5 preguntas el banco puede tener como máximo 100 reactivos.')
+  assert.strictEqual(r.cuerpo.error, 'Para 5 preguntas el banco lleva exactamente 25 reactivos: quita los que sobran antes de cambiar.')
   assert.strictEqual((await db.doc('activities/ru_grande').get()).data().ruleta.preguntasPorPartida, 10)
 })
 
-await caso('E · con 10 preguntas el banco manual va de 100 a 200: con 99 no se aprueba, con 100 sí; con 200 no entra otro ni baja a 5', async () => {
+await caso('E · con 10 preguntas el banco lleva exactamente 50: con 49 no se aprueba, con 50 sí; el 51.º no entra ni baja a 5', async () => {
   await crearRuleta('ru_diez', { preguntasPorPartida: 10 })
-  await llenar('ru_diez', 0, 99)
+  await llenar('ru_diez', 0, 49)
   const inc = await op('aprobar', { actividadId: 'ru_diez' })
-  assert.deepStrictEqual([inc.statusCode, inc.cuerpo.codigo, inc.cuerpo.error], [409, 'BANCO_INCOMPLETO', 'Faltan reactivos: necesitas al menos 100.'])
-  await llenar('ru_diez', 99, 100)
+  assert.deepStrictEqual([inc.statusCode, inc.cuerpo.codigo, inc.cuerpo.error], [409, 'BANCO_INCOMPLETO', 'Faltan reactivos: el banco lleva exactamente 50.'])
+  await llenar('ru_diez', 49, 50)
   assert.strictEqual((await op('aprobar', { actividadId: 'ru_diez' })).statusCode, 200)
-  await llenar('ru_diez', 100, 200)
   const lleno = await guardar('ru_diez', reactivo(9999))
   assert.deepStrictEqual([lleno.statusCode, lleno.cuerpo.codigo], [409, 'BANCO_LLENO'])
-  assert.strictEqual((await estadoBanco('ru_diez')).total, 200)
-  // De 10 a 5 con 200 reactivos: excede el máximo de 5 (100).
+  assert.strictEqual((await estadoBanco('ru_diez')).total, 50)
   const bajar = await op('config', { actividadId: 'ru_diez', preguntasPorPartida: 5 })
   assert.deepStrictEqual([bajar.statusCode, bajar.cuerpo.codigo], [409, 'BANCO_EXCEDIDO'])
+  assert.strictEqual((await estadoBanco('ru_diez')).aprobado, true, 'un cambio rechazado no toca la aprobación')
 })
 
 await caso('E · una ruleta guardada con 20 preguntas (fuera del sistema) no admite ninguna operación y no se toca', async () => {
@@ -308,7 +314,7 @@ await caso('E · una ruleta guardada con 20 preguntas (fuera del sistema) no adm
 await caso('E · con preguntasCongeladas (ya hay partidas): rechazado sin cambios', async () => {
   await crearRuleta('ru_jugada', { extra: {} })
   await db.doc('activities/ru_jugada').update({ 'ruleta.preguntasCongeladas': true })
-  await llenar('ru_jugada', 0, 100)
+  await llenar('ru_jugada', 0, 25)
   const r = await op('config', { actividadId: 'ru_jugada', preguntasPorPartida: 10 })
   assert.strictEqual(r.statusCode, 409)
   assert.strictEqual(r.cuerpo.codigo, 'CONGELADAS')
@@ -321,7 +327,7 @@ await caso('E · el cambio deja intactos la modalidad individual, el acceso y la
 })
 
 // ── G · Origen del banco (manual / IA) ──────────────────────────────────────
-grupo('G · origen del banco: lo fija el servidor; el mínimo para aprobar depende de él')
+grupo('G · origen del banco: lo fija el servidor; la cantidad exacta es la misma para los dos')
 
 // Simula lo que hará la generación con IA de la fase 3 (todavía no existe): reactivos y estado escritos por el servidor
 // con origen 'ia'. Se escribe con el SDK de administrador, igual que lo haría el servidor.
@@ -340,7 +346,7 @@ async function sembrarBancoIA(id, n, total) {
   await lote.commit()
 }
 
-await caso('G · un origen enviado por el navegador se ignora: el banco nace manual y con 25 no se aprueba', async () => {
+await caso('G · un origen enviado por el navegador se ignora: el banco nace manual, y con 25 se aprueba manual', async () => {
   await crearRuleta('ru_trampa')
   for (let i = 0; i < 25; i++) {
     const r = await op('guardar', { actividadId: 'ru_trampa', reactivo: reactivo(i), origen: 'ia' })
@@ -349,49 +355,51 @@ await caso('G · un origen enviado por el navegador se ignora: el banco nace man
   const b = await estadoBanco('ru_trampa')
   assert.deepStrictEqual([b.origen, b.total], ['manual', 25])
   const a = await op('aprobar', { actividadId: 'ru_trampa', origen: 'ia', banco: { origen: 'ia' } })
-  assert.deepStrictEqual([a.statusCode, a.cuerpo.codigo, a.cuerpo.error], [409, 'BANCO_INCOMPLETO', 'Faltan reactivos: necesitas al menos 50.'])
-  assert.deepStrictEqual([(await estadoBanco('ru_trampa')).origen, (await estadoBanco('ru_trampa')).aprobado], ['manual', false])
+  assert.strictEqual(a.statusCode, 200, JSON.stringify(a.cuerpo))
+  assert.deepStrictEqual([(await estadoBanco('ru_trampa')).origen, (await estadoBanco('ru_trampa')).aprobado], ['manual', true])
 })
 
-await caso('G · banco IA de 25 para 5 preguntas: se aprueba; el resumen dice origen ia, mínimo 25 y máximo 100', async () => {
+await caso('G · banco IA de 25 para 5 preguntas: se aprueba; el resumen dice origen ia, mínimo 25 y máximo 25', async () => {
   await sembrarBancoIA('ru_ia5', 5, 25)
   const a = await op('aprobar', { actividadId: 'ru_ia5' })
   assert.strictEqual(a.statusCode, 200, JSON.stringify(a.cuerpo))
-  assert.deepStrictEqual([a.cuerpo.banco.origen, a.cuerpo.banco.minimo, a.cuerpo.banco.maximo, a.cuerpo.banco.aprobado], ['ia', 25, 100, true])
+  assert.deepStrictEqual([a.cuerpo.banco.origen, a.cuerpo.banco.minimo, a.cuerpo.banco.maximo, a.cuerpo.banco.aprobado], ['ia', 25, 25, true])
   assert.deepStrictEqual([(await estadoBanco('ru_ia5')).origen, (await estadoBanco('ru_ia5')).aprobado], ['ia', true])
 })
 
-await caso('G · editar o agregar en un banco IA conserva el origen; borrar por debajo de 25 impide aprobar', async () => {
+await caso('G · en un banco IA: editar conserva el origen, el 26.º no entra, con 24 no se aprueba y al reponer el 25.º sí', async () => {
   const [d] = await reactivosDe('ru_ia5')
   const e = await op('editar', { actividadId: 'ru_ia5', reactivoId: d.id, reactivo: reactivo(80001), origen: 'manual' })
   assert.strictEqual(e.statusCode, 200, JSON.stringify(e.cuerpo))
   assert.deepStrictEqual([e.cuerpo.banco.origen, (await estadoBanco('ru_ia5')).origen, (await estadoBanco('ru_ia5')).aprobado], ['ia', 'ia', false])
   const g = await guardar('ru_ia5', reactivo(80002))
-  assert.deepStrictEqual([g.statusCode, g.cuerpo.banco.origen, g.cuerpo.banco.total], [200, 'ia', 26])
-  assert.strictEqual((await op('aprobar', { actividadId: 'ru_ia5' })).statusCode, 200) // 26 ≥ 25
-  const docs = await reactivosDe('ru_ia5')
-  for (const x of docs.slice(0, 2)) assert.strictEqual((await op('borrar', { actividadId: 'ru_ia5', reactivoId: x.id })).statusCode, 200)
+  assert.deepStrictEqual([g.statusCode, g.cuerpo.codigo], [409, 'BANCO_LLENO'])
+  const [x] = await reactivosDe('ru_ia5')
+  assert.strictEqual((await op('borrar', { actividadId: 'ru_ia5', reactivoId: x.id })).statusCode, 200)
   const b = await estadoBanco('ru_ia5')
   assert.deepStrictEqual([b.origen, b.total, b.aprobado], ['ia', 24, false])
   const a = await op('aprobar', { actividadId: 'ru_ia5' })
-  assert.deepStrictEqual([a.statusCode, a.cuerpo.codigo, a.cuerpo.error], [409, 'BANCO_INCOMPLETO', 'Faltan reactivos: necesitas al menos 25.'])
+  assert.deepStrictEqual([a.statusCode, a.cuerpo.codigo, a.cuerpo.error], [409, 'BANCO_INCOMPLETO', 'Faltan reactivos: el banco lleva exactamente 25.'])
+  const repuesto = await guardar('ru_ia5', reactivo(80003))
+  assert.deepStrictEqual([repuesto.statusCode, repuesto.cuerpo.banco.origen, repuesto.cuerpo.banco.total], [200, 'ia', 25])
+  assert.strictEqual((await op('aprobar', { actividadId: 'ru_ia5' })).statusCode, 200)
 })
 
-await caso('G · banco IA para 10 preguntas: 49 no se aprueba, 50 sí; el máximo sigue siendo 200', async () => {
+await caso('G · banco IA para 10 preguntas: 49 no se aprueba, 50 sí; mínimo y máximo 50', async () => {
   await sembrarBancoIA('ru_ia10_49', 10, 49)
   const no = await op('aprobar', { actividadId: 'ru_ia10_49' })
-  assert.deepStrictEqual([no.statusCode, no.cuerpo.codigo, no.cuerpo.error], [409, 'BANCO_INCOMPLETO', 'Faltan reactivos: necesitas al menos 50.'])
+  assert.deepStrictEqual([no.statusCode, no.cuerpo.codigo, no.cuerpo.error], [409, 'BANCO_INCOMPLETO', 'Faltan reactivos: el banco lleva exactamente 50.'])
   await sembrarBancoIA('ru_ia10', 10, 50)
   const si = await op('aprobar', { actividadId: 'ru_ia10' })
   assert.strictEqual(si.statusCode, 200, JSON.stringify(si.cuerpo))
-  assert.deepStrictEqual([si.cuerpo.banco.origen, si.cuerpo.banco.minimo, si.cuerpo.banco.maximo], ['ia', 50, 200])
+  assert.deepStrictEqual([si.cuerpo.banco.origen, si.cuerpo.banco.minimo, si.cuerpo.banco.maximo], ['ia', 50, 50])
 })
 
-await caso('G · cambiar de tamaño con un banco IA usa el mínimo de IA del nuevo tamaño', async () => {
-  await sembrarBancoIA('ru_ia_cambio', 5, 50)
+await caso('G · cambiar de 5 a 10 con un banco IA de 25: conserva el origen y pide 50 exactos', async () => {
+  await sembrarBancoIA('ru_ia_cambio', 5, 25)
   const r = await op('config', { actividadId: 'ru_ia_cambio', preguntasPorPartida: 10 })
   assert.strictEqual(r.statusCode, 200, JSON.stringify(r.cuerpo))
-  assert.deepStrictEqual([r.cuerpo.banco.origen, r.cuerpo.banco.minimo, r.cuerpo.banco.maximo], ['ia', 50, 200])
+  assert.deepStrictEqual([r.cuerpo.banco.origen, r.cuerpo.banco.minimo, r.cuerpo.banco.maximo], ['ia', 50, 50])
   assert.strictEqual((await estadoBanco('ru_ia_cambio')).origen, 'ia')
 })
 
@@ -418,13 +426,13 @@ await caso('H · IA 2 → borrar uno → 1, sigue ia', async () => {
   assert.deepStrictEqual([(await estadoBanco('ru_v2')).total, (await estadoBanco('ru_v2')).origen], [1, 'ia'])
 })
 
-await caso('H · IA 1 → borrar el último → 0 y manual; la respuesta ya trae origen manual, mínimo 50 y máximo 100', async () => {
+await caso('H · IA 1 → borrar el último → 0 y manual; la respuesta ya trae origen manual, mínimo 25 y máximo 25', async () => {
   const [d] = await reactivosDe('ru_v2')
   const r = await borrar('ru_v2', d.id)
   assert.strictEqual(r.statusCode, 200, JSON.stringify(r.cuerpo))
   assert.deepStrictEqual(
     [r.cuerpo.banco.total, r.cuerpo.banco.origen, r.cuerpo.banco.minimo, r.cuerpo.banco.maximo, r.cuerpo.banco.aprobado],
-    [0, 'manual', 50, 100, false],
+    [0, 'manual', 25, 25, false],
   )
   const b = await estadoBanco('ru_v2')
   assert.deepStrictEqual([b.total, b.origen, b.aprobado, b.huellas], [0, 'manual', false, {}])
@@ -442,31 +450,30 @@ await caso('H · banco manual que llega a 0 sigue manual', async () => {
 await caso('H · el banco vacío no se aprueba (el que fue IA y el manual)', async () => {
   for (const id of ['ru_v2', 'ru_vman']) {
     const a = await op('aprobar', { actividadId: id })
-    assert.deepStrictEqual([a.statusCode, a.cuerpo.codigo, a.cuerpo.error], [409, 'BANCO_INCOMPLETO', 'Faltan reactivos: necesitas al menos 50.'], id)
+    assert.deepStrictEqual([a.statusCode, a.cuerpo.codigo, a.cuerpo.error], [409, 'BANCO_INCOMPLETO', 'Faltan reactivos: el banco lleva exactamente 25.'], id)
     assert.strictEqual((await estadoBanco(id)).aprobado, false)
   }
 })
 
-await caso('H · IA vaciado (5 preguntas) + 25 capturados a mano: NO se aprueba; con 50 sí', async () => {
-  await llenar('ru_v2', 1000, 1025)
+await caso('H · IA vaciado (5 preguntas) + 25 capturados a mano: se aprueba, como manual', async () => {
+  await llenar('ru_v2', 1000, 1024)
+  const no = await op('aprobar', { actividadId: 'ru_v2' })
+  assert.deepStrictEqual([no.statusCode, no.cuerpo.codigo], [409, 'BANCO_INCOMPLETO'])
+  await llenar('ru_v2', 1024, 1025)
   const b = await estadoBanco('ru_v2')
   assert.deepStrictEqual([b.total, b.origen], [25, 'manual'])
-  const a = await op('aprobar', { actividadId: 'ru_v2' })
-  assert.deepStrictEqual([a.statusCode, a.cuerpo.codigo, a.cuerpo.error], [409, 'BANCO_INCOMPLETO', 'Faltan reactivos: necesitas al menos 50.'])
-  await llenar('ru_v2', 1025, 1050)
   const si = await op('aprobar', { actividadId: 'ru_v2' })
-  assert.deepStrictEqual([si.statusCode, si.cuerpo.banco.origen, si.cuerpo.banco.minimo], [200, 'manual', 50])
+  assert.deepStrictEqual([si.statusCode, si.cuerpo.banco.origen, si.cuerpo.banco.minimo], [200, 'manual', 25])
 })
 
-await caso('H · IA vaciado (10 preguntas) + 50 capturados a mano: NO se aprueba (pide 100)', async () => {
+await caso('H · IA vaciado (10 preguntas) + 50 capturados a mano: se aprueba (mínimo y máximo 50)', async () => {
   await sembrarBancoIA('ru_v10', 10, 1)
   const [d] = await reactivosDe('ru_v10')
   const r = await borrar('ru_v10', d.id)
-  assert.deepStrictEqual([r.statusCode, r.cuerpo.banco.origen, r.cuerpo.banco.minimo, r.cuerpo.banco.maximo], [200, 'manual', 100, 200])
+  assert.deepStrictEqual([r.statusCode, r.cuerpo.banco.origen, r.cuerpo.banco.minimo, r.cuerpo.banco.maximo], [200, 'manual', 50, 50])
   await llenar('ru_v10', 2000, 2050)
   assert.deepStrictEqual([(await estadoBanco('ru_v10')).total, (await estadoBanco('ru_v10')).origen], [50, 'manual'])
-  const a = await op('aprobar', { actividadId: 'ru_v10' })
-  assert.deepStrictEqual([a.statusCode, a.cuerpo.codigo, a.cuerpo.error], [409, 'BANCO_INCOMPLETO', 'Faltan reactivos: necesitas al menos 100.'])
+  assert.strictEqual((await op('aprobar', { actividadId: 'ru_v10' })).statusCode, 200)
 })
 
 await caso('H · simultáneos: IA de 2, se borran los dos a la vez → 0 y manual', async () => {
@@ -517,7 +524,7 @@ await caso('F · borrar un borrador limpia SUS reactivos y su estado; las demás
   const ajenaAntes = (await reactivosDe('ru_ajena')).length
   await db.doc('activities/ru_grande').delete()
   const r = await limpiarRuletaDeActividad({ activityId: 'ru_grande' })
-  assert.strictEqual(r.borrados, 102) // 101 reactivos + su estado
+  assert.strictEqual(r.borrados, 27) // 26 reactivos + su estado
   assert.strictEqual((await reactivosDe('ru_grande')).length, 0)
   assert.strictEqual((await db.doc('ruletaBancos/ru_grande').get()).exists, false)
   assert.strictEqual((await reactivosDe('ru_b')).length, otrasAntes)
@@ -554,7 +561,7 @@ const contar = async (coleccion, campo, valor) => (await db.collection(coleccion
 
 await caso('F · paso 3: borrar una ruleta JUGADA limpia partidas, respuestas y entregas que quedaran (con su historial); nada ajeno', async () => {
   await crearRuleta('ru_jugada_b')
-  await llenar('ru_jugada_b', 0, 50)
+  await llenar('ru_jugada_b', 0, 25)
   await jugada('ru_jugada_b', DOC, 'st_1')
   await jugada('ru_jugada_b', DOC, 'st_2', { conEntrega: false })
   // Otra ruleta del mismo docente y una del otro docente, también jugadas: no se tocan.
@@ -564,7 +571,7 @@ await caso('F · paso 3: borrar una ruleta JUGADA limpia partidas, respuestas y 
   await db.doc('submissions/act_normal_st_1').set({ actividadId: 'act_normal', alumnoId: 'st_1', calificacion: 9 })
   await db.doc('activities/ru_jugada_b').delete()
   const r = await limpiarRuletaDeActividad({ activityId: 'ru_jugada_b' })
-  assert.strictEqual(r.borrados, 50 + 1 + 2 + 4 + 1) // reactivos + estado + 2 partidas + 4 respuestas + 1 entrega
+  assert.strictEqual(r.borrados, 25 + 1 + 2 + 4 + 1) // reactivos + estado + 2 partidas + 4 respuestas + 1 entrega
   for (const c of ['ruletaReactivos', 'ruletaParticipantes', 'ruletaRespuestas', 'submissions']) {
     assert.strictEqual(await contar(c, 'actividadId', 'ru_jugada_b'), 0, c)
   }

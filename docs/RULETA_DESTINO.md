@@ -34,31 +34,17 @@ servidor rechazan cualquier otro valor) y nunca lleva `ranking`.
   docente. Siempre oculta, sin calificación académica y sin entregas (R5).
 
 ### Banco de preguntas
-Solo dos tamaños de partida: 5 y 10 preguntas (las de 20 se eliminaron el 7-nov-2026). Hay **dos configuraciones
-distintas que no deben mezclarse** (decisión del PO, 7-nov-2026):
+Solo dos tamaños de partida: 5 y 10 preguntas (las de 20 se eliminaron el 7-nov-2026). **El banco tiene una cantidad
+EXACTA** (decisión definitiva del PO, 9-nov-2026; reemplaza las decisiones 6 y 15): 5 reactivos por pregunta de la
+partida, sea capturado a mano o generado con IA. Sin rangos ni mínimos o máximos distintos.
 
-**Generación con IA** (`reactivosGeneracionIA(n)`, `RULETA_CFG.REACTIVOS_IA_POR_PREGUNTA = 5`): cantidad EXACTA que
-pide y verifica una generación.
-
-| Preguntas por partida | Reactivos que genera la IA | Precio |
+| Preguntas por partida | Reactivos del banco (exactos) | Precio de la generación con IA |
 |---:|---:|---:|
 | 5 | 25 | 5 créditos |
 | 10 | 50 | 10 créditos |
 
-**Banco manual** (`tamanoBanco(n)` = mínimo, `RULETA_CFG.REACTIVOS_POR_PREGUNTA = 10`; `maximoBanco(n)` = máximo,
-`RULETA_CFG.REACTIVOS_MAXIMOS_POR_PREGUNTA = 20`):
-
-| Preguntas por partida | Mínimo | Máximo |
-|---:|---:|---:|
-| 5 | 50 | 100 |
-| 10 | 100 | 200 |
-
-**Aprobación según el origen del banco** (`minimoBanco(n, origen)`; el máximo es el mismo para los dos orígenes):
-
-| Origen | Mínimo con 5 preguntas | Mínimo con 10 preguntas | Máximo (5 / 10) |
-|---|---:|---:|---:|
-| `ia` | 25 | 50 | 100 / 200 |
-| `manual` | 50 | 100 | 100 / 200 |
+`RULETA_CFG.REACTIVOS_POR_PREGUNTA = 5`; `tamanoBanco(n)`, `minimoBanco(n)`, `maximoBanco(n)` y
+`reactivosGeneracionIA(n)` devuelven ese mismo número para los dos orígenes.
 
 - Opción múltiple: 4 opciones, 1 correcta, 3 distractores plausibles; sin duplicados ni paráfrasis triviales;
   sustentados en el documento del docente: **exactamente un documento por generación, un PDF con texto o un DOCX**
@@ -70,10 +56,8 @@ pide y verifica una generación.
   se informa al docente y no se cobra: los conserva y lo completa a mano, o los elimina para generar con IA. El banco
   generado queda con origen `ia` y sin aprobar.
 - El docente revisa, edita, elimina, sustituye y aprueba el banco (siempre mediante acciones del servidor, R1).
-- **Mínimo para iniciar y aprobar**: el de su origen (tabla de arriba); con más también se inicia y no se recorta nada.
-  Con menos: `banco_incompleto` (`validarBanco` / `evaluarAprobacion`).
-- **Máximo** (F2-4): 100 o 200 para los dos orígenes. Un reactivo más se rechaza con `banco_lleno`; un banco por encima
-  del máximo no se aprueba (`banco_excedido`).
+- **Cantidad exacta para aprobar e iniciar** (9-nov-2026): con menos, `banco_incompleto`; con más, `banco_excedido`
+  (`validarBanco` / `evaluarAprobacion`). El reactivo que pasaría de la cantidad se rechaza con `banco_lleno`.
 - **Origen del banco** (7-nov-2026), campo `origen` de `ruletaBancos/{actividadId}`:
   - Lo escribe SOLO el servidor (`api/_lib/ruletaBanco.js`, `datosBanco`), tomado del estado leído en la transacción;
     nunca del cuerpo de la petición. Las reglas no dejan escribir `ruletaBancos` a ningún cliente (ni al dueño ni al
@@ -83,12 +67,11 @@ pide y verifica una generación.
     banco IA al que se le borran reactivos por debajo de su mínimo queda incompleto: no se aprueba ni se juega. No hay
     sustitución automática ni generación parcial (fase 3).
   - **Excepción** (7-nov-2026): borrar el último reactivo (total exactamente 0) deja el banco en `manual`. Lo que el
-    docente capture después cumple los mínimos manuales (50 o 100); un banco vaciado nunca vuelve a aprobarse con los
-    de IA. El cambio ocurre en la misma transacción que el borrado (`quitarDeBanco`), así que dos borrados simultáneos
+    docente capture después se cuenta como manual (la cantidad exacta es la misma). El cambio ocurre en la misma transacción que el borrado (`quitarDeBanco`), así que dos borrados simultáneos
     se serializan y solo el que deja el banco en 0 cambia el origen.
-  - Solo el valor exacto `ia` cuenta como IA (`origenBanco`); ausente o cualquier otro valor se trata como `manual`, el
-    mínimo mayor: un dato extraño nunca baja el mínimo.
-  - Cambiar las preguntas por partida (`config`) usa el mínimo del origen para el nuevo tamaño.
+  - Solo el valor exacto `ia` cuenta como IA (`origenBanco`); ausente o cualquier otro valor se trata como `manual`.
+  - Cambiar las preguntas por partida (`config`, 9-nov-2026) se permite si el banco no pasa de la cantidad exacta del
+    nuevo tamaño (de 5 a 10 siempre; de 10 a 5 con 25 o menos) y retira la aprobación.
 - **Tarifa** (6-nov-2026): el precio depende de las preguntas por partida (5 o 10 créditos, tabla de generación), no de
   los reactivos generados. El servidor calcula el precio (operación y tarifa propias, modelo Claude Haiku 4.5); nunca confía en el importe del
   navegador. Si la generación falla o no se completa, se reembolsa todo. Girar, responder y jugar no consumen créditos.
@@ -173,8 +156,7 @@ Motivos de rechazo, contados por separado:
 3. Archivos .doc antiguos: sin conversión.
 4. ~~Desempate: tiempo acumulado solo en respuestas correctas.~~ Sin efecto: ya no hay ranking (decisión 16).
 5. Calificación: cálculo y publicación automáticos, respetando los mecanismos actuales.
-6. Banco manual mínimo de 10 reactivos por pregunta (50 o 100) y máximo de 20 (100 o 200); con más del mínimo
-   también inicia. Un banco generado con IA se aprueba con 5 por pregunta (25 o 50) (7-nov-2026, decisión 15).
+6. ~~Banco manual mínimo de 10 reactivos por pregunta (50 o 100) y máximo de 20 (100 o 200).~~ Reemplazada por la 18.
 7. Exactamente 15 s, sin margen.
 8. ~~Empate exacto: comparten puesto; orden por id solo visual.~~ Sin efecto: ya no hay ranking (decisión 16).
 9. Un solo documento por generación: un PDF con texto o un DOCX.
@@ -187,10 +169,8 @@ Motivos de rechazo, contados por separado:
 14. (7-nov-2026) Se eliminan definitivamente las partidas de 20 preguntas: solo 5 y 10. Se aplica en la lógica
     (`RULETA_CFG.PREGUNTAS_POR_PARTIDA`), en el servidor (`api/_lib/ruletaBanco.js`) y en las reglas
     (`ruletaFormaValida`).
-15. (7-nov-2026) La generación con IA y el banco manual son configuraciones separadas: la IA genera 25 o 50
-    (`reactivosGeneracionIA`); el banco manual va de 50 a 100 o de 100 a 200 (`tamanoBanco`, `maximoBanco`). El
-    mínimo para aprobar depende del origen del banco (`ia`: 25 o 50; `manual`: 50 o 100), que guarda y protege el
-    servidor en `ruletaBancos.origen`.
+15. ~~(7-nov-2026) La generación con IA y el banco manual son configuraciones separadas (manual de 50 a 100 o de 100 a
+    200).~~ Reemplazada por la 18.
 16. (7-nov-2026) **Se elimina definitivamente la modalidad en vivo**: la Ruleta es solo individual. Fuera el concurso,
     la proyección, el ranking, el desempate y las colecciones `ruletaSesiones`, `ruletaClaves` y `ruletaResultados`
     (sin reglas: nadie las lee ni las escribe desde un cliente). La competencia en tiempo real es de Reto Exprés.
@@ -199,6 +179,9 @@ Motivos de rechazo, contados por separado:
     entregas que quedaran (con su historial). El borrado de cuenta elimina directamente partidas y respuestas. Las
     partidas de un estudiante dado de baja (o de «empezar de cero») se quedan con la ruleta y se ven como «Estudiante
     dado de baja» hasta que se borre la ruleta o la cuenta.
+18. (9-nov-2026, definitiva) **Banco de cantidad exacta**: 25 reactivos para partidas de 5 preguntas y 50 para
+    partidas de 10, capturado a mano o generado con IA. Sin rangos, mínimos ni máximos variables, y sin mostrar otras
+    cantidades. Cambiar el número de preguntas retira la aprobación del banco.
 
 ### Seguridad (R1–R8, 6-nov-2026)
 - **R1** Solo el servidor escribe `ruletaReactivos`; el docente administra el banco con acciones del API. Ningún cliente

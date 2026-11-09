@@ -6,9 +6,10 @@
 //
 // Decisiones del Product Owner que aplica este archivo:
 //   · Partidas de 5 o 10 preguntas; las de 20 se eliminaron (7-nov-2026).
-//   · Dos cantidades DISTINTAS (7-nov-2026): la IA genera 5 reactivos por pregunta (25 o 50, `reactivosGeneracionIA`);
-//     el banco manual va de 10 a 20 por pregunta (50–100 o 100–200, `tamanoBanco` y `maximoBanco`). El mínimo para
-//     aprobar depende del origen del banco (`minimoBanco`): IA 25 o 50; manual 50 o 100.
+//   · Banco de cantidad EXACTA (9-nov-2026, decisión definitiva del PO; reemplaza las decisiones 6 y 15): 5 reactivos
+//     por pregunta, 25 para partidas de 5 y 50 para partidas de 10, se capture a mano o se genere con IA. Sin rangos:
+//     ni menos (no se aprueba) ni más (no se guarda). `tamanoBanco`, `minimoBanco`, `maximoBanco` y
+//     `reactivosGeneracionIA` devuelven ese mismo número.
 //   · Opción múltiple: 4 opciones y una sola correcta.
 //   · 15 s para responder cada pregunta, medidos con el reloj del servidor.
 //   · Una pregunta sin respuesta (o respondida fuera de tiempo) es incorrecta.
@@ -19,8 +20,6 @@
 //
 // Lo que este archivo NO decide (pendiente del Product Owner, ver el informe de la fase 0):
 //   · El margen de red sobre los 15 s: `margenMs` existe como opción y vale 0 por omisión.
-//   · (Decidido el 6-nov-2026: el banco manual mínimo para iniciar es de 10 reactivos por pregunta; el banco generado
-//     con IA, de 5 (7-nov-2026); ver `validarBanco`.)
 //
 // Formas de responder:
 //   · Validaciones: { ok, errores } (o { ok, codigo }).
@@ -35,13 +34,8 @@ import { calcularCalificacion } from './evaluacionGrading.js'
 export const RULETA_CFG = {
   CATEGORIA: 'ruleta',
   PREGUNTAS_POR_PARTIDA: [5, 10],
-  // BANCO MANUAL: mínimo por pregunta (5→50, 10→100).
-  REACTIVOS_POR_PREGUNTA: 10,
-  // BANCO (manual o IA), fase 2 (F2-4): máximo por pregunta, el doble del mínimo manual (5→100, 10→200).
-  REACTIVOS_MAXIMOS_POR_PREGUNTA: 20,
-  // GENERACIÓN CON IA (7-nov-2026): reactivos EXACTOS que pide una generación (5→25, 10→50). Es también el mínimo
-  // para aprobar un banco de origen IA. Nunca usar tamanoBanco/maximoBanco para esto.
-  REACTIVOS_IA_POR_PREGUNTA: 5,
+  // BANCO (manual o IA), 9-nov-2026: cantidad EXACTA por pregunta de la partida (5→25, 10→50). Sin rangos.
+  REACTIVOS_POR_PREGUNTA: 5,
   OPCIONES_POR_REACTIVO: 4,
   // Largos máximos (fase 2): el servidor los exige; la pantalla los usa como maxLength.
   MAX_ENUNCIADO: 500,
@@ -94,38 +88,34 @@ export function preguntasPorPartidaValida(n) {
 /** Los tamaños permitidos para los mensajes («5 o 10»), tomados de `RULETA_CFG` para que no se desfasen. */
 export const TEXTO_PREGUNTAS_VALIDAS = RULETA_CFG.PREGUNTAS_POR_PARTIDA.join(' o ')
 
-/** Mínimo del banco MANUAL para una partida de `n` preguntas: 10 por pregunta (5→50, 10→100). */
+/** Reactivos EXACTOS del banco para una partida de `n` preguntas (5→25, 10→50), manual o generado con IA. */
 export function tamanoBanco(n) {
   if (!preguntasPorPartidaValida(n)) throw new RangeError(`Preguntas por partida inválidas: ${n}`)
   return n * RULETA_CFG.REACTIVOS_POR_PREGUNTA
 }
 
-/** Máximo de reactivos del banco, sea manual o de IA: el doble del mínimo manual (5→100, 10→200). */
+/** Máximo del banco: el mismo número exacto (`tamanoBanco`). Un reactivo más se rechaza con `banco_lleno`. */
 export function maximoBanco(n) {
-  if (!preguntasPorPartidaValida(n)) throw new RangeError(`Preguntas por partida inválidas: ${n}`)
-  return n * RULETA_CFG.REACTIVOS_MAXIMOS_POR_PREGUNTA
+  return tamanoBanco(n)
 }
 
-/**
- * Reactivos EXACTOS que pide una generación con IA para una partida de `n` preguntas (5→25, 10→50). Independiente
- * de los límites del banco manual. La usará el servidor de la fase 3 al pedir y al verificar la generación.
- */
+/** Reactivos EXACTOS que pide una generación con IA: el mismo número exacto del banco (`tamanoBanco`). */
 export function reactivosGeneracionIA(n) {
-  if (!preguntasPorPartidaValida(n)) throw new RangeError(`Preguntas por partida inválidas: ${n}`)
-  return n * RULETA_CFG.REACTIVOS_IA_POR_PREGUNTA
+  return tamanoBanco(n)
 }
 
 /** Origen del banco: lo fija SOLO el servidor en `ruletaBancos` (las reglas no dejan escribir a ningún cliente). */
 export const ORIGENES_BANCO = Object.freeze({ manual: 'manual', ia: 'ia' })
 
-/** Origen efectivo: solo el valor exacto 'ia' cuenta como IA; ausente o cualquier otro, manual (el mínimo mayor). */
+/** Origen efectivo: solo el valor exacto 'ia' cuenta como IA; ausente o cualquier otro, manual. */
 export function origenBanco(banco) {
   return banco?.origen === ORIGENES_BANCO.ia ? ORIGENES_BANCO.ia : ORIGENES_BANCO.manual
 }
 
-/** Mínimo para aprobar e iniciar según el origen: IA 25 o 50; manual 50 o 100. El máximo es el mismo (`maximoBanco`). */
+/** Mínimo para aprobar e iniciar: el mismo número exacto para los dos orígenes (`origen` se conserva por compatibilidad). */
+// eslint-disable-next-line no-unused-vars
 export function minimoBanco(n, origen = ORIGENES_BANCO.manual) {
-  return origen === ORIGENES_BANCO.ia ? reactivosGeneracionIA(n) : tamanoBanco(n)
+  return tamanoBanco(n)
 }
 
 /**
@@ -152,11 +142,10 @@ export function validarReactivo(r) {
 }
 
 /**
- * Revisa un banco para partidas de `preguntasPorPartida` preguntas. El mínimo depende del origen (7-nov-2026):
- * manual, 10 por pregunta (5→50, 10→100); IA, 5 por pregunta (5→25, 10→50). Sin `origen`, manual. Con más del mínimo
- * también inicia y no se recorta nada; el máximo es el mismo para los dos (5→100, 10→200).
- * `ok` exige reactivos válidos, ids y enunciados sin repetir y ese mínimo (si falta: `banco_incompleto`).
- * `completo` dice si el banco alcanza el mínimo, aunque haya otros errores.
+ * Revisa un banco para partidas de `preguntasPorPartida` preguntas: debe tener EXACTAMENTE `tamanoBanco` reactivos
+ * (5→25, 10→50), sea manual o de IA. Con menos: `banco_incompleto`; con más: `banco_excedido`.
+ * `ok` exige además reactivos válidos e ids y enunciados sin repetir.
+ * `completo` dice si el banco tiene exactamente esa cantidad, aunque haya otros errores.
  */
 export function validarBanco(reactivos, preguntasPorPartida, { origen = ORIGENES_BANCO.manual } = {}) {
   const errores = []
@@ -177,14 +166,13 @@ export function validarBanco(reactivos, preguntasPorPartida, { origen = ORIGENES
 
   const requerido = preguntasPorPartidaValida(preguntasPorPartida) ? minimoBanco(preguntasPorPartida, origen) : null
   if (requerido != null && reactivos.length < requerido) errores.push('banco_incompleto')
-  // Fase 2 (F2-4): tampoco más del doble del mínimo manual (también en un banco de IA).
   if (requerido != null && reactivos.length > maximoBanco(preguntasPorPartida)) errores.push('banco_excedido')
   return {
     ok: errores.length === 0,
     errores,
     total: reactivos.length,
     requerido,
-    completo: requerido != null && reactivos.length >= requerido,
+    completo: requerido != null && reactivos.length === requerido,
   }
 }
 
@@ -472,7 +460,7 @@ export function datosNuevaRuleta({ nombre, tema, modalidad = 'individual', acces
   }
 }
 
-/** Avance del banco para la pantalla: «32 de 50 reactivos. Faltan 18.» El mínimo depende del origen (sin él, manual). */
+/** Avance del banco para la pantalla: «20 de 25 reactivos. Faltan 5.» La cantidad es exacta (5→25, 10→50). */
 export function avanceBanco(total, n, origen = ORIGENES_BANCO.manual) {
   if (!esEnteroNoNegativo(total)) throw new RangeError(`Total inválido: ${total}`)
   const minimo = minimoBanco(n, origen)
@@ -481,7 +469,7 @@ export function avanceBanco(total, n, origen = ORIGENES_BANCO.manual) {
   const sobran = Math.max(0, total - maximo)
   const completo = faltan === 0 && sobran === 0
   let mensaje
-  if (sobran) mensaje = `Pasaste el máximo de ${maximo}: quita ${sobran}.`
+  if (sobran) mensaje = `Sobran ${sobran}: el banco lleva exactamente ${maximo}.`
   else if (faltan) mensaje = `Faltan ${faltan}.`
   else mensaje = 'Banco completo. Puedes aprobarlo.'
   return { total, minimo, maximo, faltan, sobran, completo, lleno: total >= maximo, conteo: `${total} de ${minimo} reactivos.`, mensaje }
@@ -530,8 +518,7 @@ export function guardarEnBanco(banco, { id, huella, huellaAnterior = null, nuevo
 
 /**
  * Quitar un reactivo del estado del banco. Siempre retira la aprobación (F2-5). Conserva el origen mientras quede al
- * menos un reactivo; el banco que se queda en 0 vuelve a `manual` (7-nov-2026): lo que se capture después cumple los
- * mínimos manuales (50 o 100), nunca los de IA.
+ * menos un reactivo; el banco que se queda en 0 vuelve a `manual` (7-nov-2026).
  */
 export function quitarDeBanco(banco, { id, huella }) {
   if (!bancoValido(banco)) return { ok: false, codigo: 'banco_invalido' }
@@ -549,7 +536,7 @@ export function quitarDeBanco(banco, { id, huella }) {
 }
 
 /**
- * ¿Se puede aprobar? Exige el banco completo y sin errores (`validarBanco`: mínimo SEGÚN SU ORIGEN, máximo, reactivos
+ * ¿Se puede aprobar? Exige el banco completo y sin errores (`validarBanco`: la cantidad exacta, reactivos
  * válidos, sin enunciados ni ids repetidos) y que el estado guardado coincida con los reactivos reales. Editar,
  * agregar o borrar no cambia el origen (guardarEnBanco y quitarDeBanco lo conservan), salvo borrar el último reactivo:
  * el banco vacío vuelve a `manual`.
@@ -564,7 +551,8 @@ export function evaluarAprobacion(banco, reactivos, n) {
 
 /**
  * Cambiar las preguntas por partida (R6, F2-6): solo sin partidas (`preguntasCongeladas`), a 5 o 10, distinto del
- * actual y con el banco dentro del mínimo (según el origen del banco) y el máximo del NUEVO tamaño.
+ * actual y con un banco que no pase de la cantidad exacta del NUEVO tamaño (9-nov-2026): de 5 a 10 siempre se puede
+ * (después se completa a 50); de 10 a 5, solo con 25 reactivos o menos. El servidor retira la aprobación al cambiar.
  */
 export function puedeCambiarPreguntas({ ruleta, total, nuevo, origen = ORIGENES_BANCO.manual } = {}) {
   if (!ruleta || typeof ruleta !== 'object') return { ok: false, codigo: 'actividad_invalida' }
@@ -572,7 +560,7 @@ export function puedeCambiarPreguntas({ ruleta, total, nuevo, origen = ORIGENES_
   if (!preguntasPorPartidaValida(nuevo)) return { ok: false, codigo: 'preguntas_por_partida' }
   if (nuevo === ruleta.preguntasPorPartida) return { ok: false, codigo: 'sin_cambio' }
   if (!esEnteroNoNegativo(total)) return { ok: false, codigo: 'banco_invalido' }
-  if (total < minimoBanco(nuevo, origen)) return { ok: false, codigo: 'banco_incompleto' }
+  void origen
   if (total > maximoBanco(nuevo)) return { ok: false, codigo: 'banco_excedido' }
   return { ok: true }
 }

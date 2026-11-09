@@ -81,10 +81,10 @@ caso('A · solo 5 o 10 preguntas por partida; 20 ya no existe', () => {
   assert.deepStrictEqual(RULETA_CFG.PREGUNTAS_POR_PARTIDA, [5, 10])
 })
 
-caso('A · banco MANUAL de 10 reactivos por pregunta: 5→50, 10→100; 20 lanza RangeError', () => {
-  assert.strictEqual(RULETA_CFG.REACTIVOS_POR_PREGUNTA, 10)
-  assert.strictEqual(tamanoBanco(5), 50)
-  assert.strictEqual(tamanoBanco(10), 100)
+caso('A · banco de cantidad EXACTA: 5 reactivos por pregunta, 5→25, 10→50; 20 lanza RangeError', () => {
+  assert.strictEqual(RULETA_CFG.REACTIVOS_POR_PREGUNTA, 5)
+  assert.strictEqual(tamanoBanco(5), 25)
+  assert.strictEqual(tamanoBanco(10), 50)
   assert.throws(() => tamanoBanco(20), RangeError)
   assert.throws(() => tamanoBanco(7), RangeError)
 })
@@ -118,32 +118,32 @@ caso('B · rechaza clave fuera de 0..3, sin id o sin enunciado', () => {
   assert.deepStrictEqual(validarReactivo(null).errores, ['reactivo_invalido'])
 })
 
-caso('B · bancos manuales de 50 y 100 completos para 5 y 10', () => {
+caso('B · bancos de 25 y 50 exactos para 5 y 10', () => {
   for (const n of [5, 10]) {
-    const v = validarBanco(banco(n * 10), n)
-    assert.deepStrictEqual(v, { ok: true, errores: [], total: n * 10, requerido: n * 10, completo: true })
+    const v = validarBanco(banco(n * 5), n)
+    assert.deepStrictEqual(v, { ok: true, errores: [], total: n * 5, requerido: n * 5, completo: true })
   }
 })
 
-caso('B · banco manual mínimo = 10 por pregunta: debajo se rechaza con banco_incompleto; igual o más se acepta', () => {
+caso('B · cantidad exacta: uno menos es banco_incompleto, uno más es banco_excedido; solo la exacta se acepta', () => {
   const casos = [
-    [5, 49, false], [5, 50, true], [5, 80, true],
-    [10, 99, false], [10, 100, true], [10, 150, true],
-    [5, 4, false], [10, 12, false], [10, 0, false],
+    [5, 24, false, 'banco_incompleto'], [5, 25, true], [5, 26, false, 'banco_excedido'], [5, 50, false, 'banco_excedido'],
+    [10, 49, false, 'banco_incompleto'], [10, 50, true], [10, 51, false, 'banco_excedido'], [10, 100, false, 'banco_excedido'],
+    [5, 4, false, 'banco_incompleto'], [10, 12, false, 'banco_incompleto'], [10, 0, false, 'banco_incompleto'],
   ]
-  for (const [n, tam, inicia] of casos) {
+  for (const [n, tam, inicia, error] of casos) {
     const v = validarBanco(banco(tam), n)
     const etiqueta = `${n} preguntas con ${tam} reactivos`
     assert.strictEqual(v.ok, inicia, etiqueta)
     assert.strictEqual(v.completo, inicia, etiqueta)
     assert.strictEqual(v.total, tam, etiqueta)
-    assert.strictEqual(v.requerido, n * 10, etiqueta)
-    assert.deepStrictEqual(v.errores, inicia ? [] : ['banco_incompleto'], etiqueta)
+    assert.strictEqual(v.requerido, n * 5, etiqueta)
+    assert.deepStrictEqual(v.errores, inicia ? [] : [error], etiqueta)
   }
 })
 
-caso('B · un banco con más del mínimo no se recorta y se sortea de TODO el banco, sin repetir', () => {
-  const b = banco(80)
+caso('B · el sorteo sale de TODO el banco exacto, sin repetir', () => {
+  const b = banco(25)
   const copia = JSON.parse(JSON.stringify(b))
   assert.ok(validarBanco(b, 5).ok)
   assert.deepStrictEqual(b, copia) // validar no quita reactivos
@@ -154,11 +154,11 @@ caso('B · un banco con más del mínimo no se recorta y se sortea de TODO el ba
     assert.strictEqual(new Set(orden).size, 5)
     orden.forEach((id) => vistos.add(id))
   }
-  assert.strictEqual(vistos.size, 80) // también salen los reactivos más allá de los 50
+  assert.strictEqual(vistos.size, 25)
 })
 
-caso('B · completo pero con errores de estructura: rechazado, y completo sigue diciendo que alcanza el mínimo', () => {
-  const b = banco(50)
+caso('B · completo pero con errores de estructura: rechazado, y completo sigue diciendo que tiene la cantidad exacta', () => {
+  const b = banco(25)
   b[7] = reactivo(7, { opciones: ['a', 'b', 'c'] })
   const v = validarBanco(b, 5)
   assert.strictEqual(v.ok, false)
@@ -171,13 +171,13 @@ caso('B · completo pero con errores de estructura: rechazado, y completo sigue 
 })
 
 caso('B · banco con ids o enunciados repetidos, reactivo inválido o tamaño de partida inválido: rechazado', () => {
-  const b = banco(50)
+  const b = banco(25)
   b[10] = reactivo(10, { id: 'r3' })
   assert.ok(validarBanco(b, 5).errores.includes('id_repetido:10'))
-  const c = banco(50)
+  const c = banco(25)
   c[20] = reactivo(20, { enunciado: '  PREGUNTA número 3 ' })
   assert.ok(validarBanco(c, 5).errores.includes('enunciado_repetido:20'))
-  const d = banco(50)
+  const d = banco(25)
   d[5] = reactivo(5, { correcta: 9 })
   assert.ok(validarBanco(d, 5).errores.includes('reactivo_invalido:5'))
   assert.ok(validarBanco(banco(50), 6).errores.includes('preguntas_por_partida'))
@@ -488,10 +488,12 @@ import {
 
 grupo('H · fase 2: límites del banco')
 
-caso('H · banco manual: mínimos 50/100 y máximos 100/200 (10 por pregunta, máximo el doble); 20 lanza RangeError', () => {
-  assert.deepStrictEqual([5, 10].map(tamanoBanco), [50, 100])
-  assert.deepStrictEqual([5, 10].map(maximoBanco), [100, 200])
-  assert.strictEqual(RULETA_CFG.REACTIVOS_MAXIMOS_POR_PREGUNTA, 20)
+caso('H · mínimo, máximo y generación con IA son el MISMO número exacto: 25 y 50; 20 lanza RangeError', () => {
+  assert.deepStrictEqual([5, 10].map(tamanoBanco), [25, 50])
+  assert.deepStrictEqual([5, 10].map(maximoBanco), [25, 50])
+  assert.deepStrictEqual([5, 10].map((n) => minimoBanco(n)), [25, 50])
+  assert.deepStrictEqual([5, 10].map(reactivosGeneracionIA), [25, 50])
+  assert.ok(!('REACTIVOS_MAXIMOS_POR_PREGUNTA' in RULETA_CFG) && !('REACTIVOS_IA_POR_PREGUNTA' in RULETA_CFG), 'sin rangos ni cantidades aparte')
   assert.throws(() => maximoBanco(20), RangeError)
   assert.throws(() => maximoBanco(7), RangeError)
 })
@@ -504,10 +506,10 @@ caso('H · 20 preguntas se rechazan en todas las entradas: banco, sorteo, partid
   assert.throws(() => avanceBanco(0, 20), RangeError)
 })
 
-caso('H · validarBanco: debajo del mínimo, exacto, entre mínimo y máximo, en el máximo y sobre el máximo', () => {
+caso('H · validarBanco: debajo, exacto y sobre la cantidad exacta', () => {
   for (const [n, tam, ok, error] of [
-    [5, 0, false, 'banco_incompleto'], [5, 49, false, 'banco_incompleto'], [5, 50, true], [5, 77, true], [5, 100, true], [5, 101, false, 'banco_excedido'],
-    [10, 0, false, 'banco_incompleto'], [10, 99, false, 'banco_incompleto'], [10, 100, true], [10, 150, true], [10, 200, true], [10, 201, false, 'banco_excedido'],
+    [5, 0, false, 'banco_incompleto'], [5, 24, false, 'banco_incompleto'], [5, 25, true], [5, 26, false, 'banco_excedido'],
+    [10, 0, false, 'banco_incompleto'], [10, 49, false, 'banco_incompleto'], [10, 50, true], [10, 51, false, 'banco_excedido'],
   ]) {
     const v = validarBanco(banco(tam), n)
     assert.strictEqual(v.ok, ok, `${n}/${tam}`)
@@ -580,17 +582,18 @@ caso('I · datos inválidos se rechazan con un mensaje para el docente', () => {
 
 grupo('J · fase 2: avance del banco')
 
-caso('J · «32 de 50 reactivos. Faltan 18.», completo, en el máximo y sobre el máximo (banco manual)', () => {
-  const a = avanceBanco(32, 5)
-  assert.deepStrictEqual([a.conteo, a.mensaje, a.faltan, a.completo, a.lleno], ['32 de 50 reactivos.', 'Faltan 18.', 18, false, false])
-  const b = avanceBanco(50, 5)
-  assert.deepStrictEqual([b.conteo, b.mensaje, b.completo], ['50 de 50 reactivos.', 'Banco completo. Puedes aprobarlo.', true])
-  const c = avanceBanco(100, 5)
-  assert.deepStrictEqual([c.completo, c.lleno, c.sobran], [true, true, 0])
-  const d = avanceBanco(103, 5)
-  assert.deepStrictEqual([d.completo, d.sobran, d.mensaje], [false, 3, 'Pasaste el máximo de 100: quita 3.'])
-  assert.strictEqual(avanceBanco(0, 10).mensaje, 'Faltan 100.')
-  assert.deepStrictEqual([avanceBanco(200, 10).completo, avanceBanco(200, 10).lleno, avanceBanco(201, 10).sobran], [true, true, 1])
+caso('J · «20 de 25 reactivos. Faltan 5.», exacto (completo y lleno) y con sobrantes', () => {
+  const a = avanceBanco(20, 5)
+  assert.deepStrictEqual([a.conteo, a.mensaje, a.faltan, a.completo, a.lleno], ['20 de 25 reactivos.', 'Faltan 5.', 5, false, false])
+  const b = avanceBanco(25, 5)
+  assert.deepStrictEqual([b.conteo, b.mensaje, b.completo, b.lleno, b.minimo, b.maximo], ['25 de 25 reactivos.', 'Banco completo. Puedes aprobarlo.', true, true, 25, 25])
+  const d = avanceBanco(28, 5)
+  assert.deepStrictEqual([d.completo, d.sobran, d.mensaje], [false, 3, 'Sobran 3: el banco lleva exactamente 25.'])
+  assert.strictEqual(avanceBanco(0, 10).mensaje, 'Faltan 50.')
+  assert.strictEqual(avanceBanco(0, 10).conteo, '0 de 50 reactivos.')
+  assert.deepStrictEqual([avanceBanco(50, 10).completo, avanceBanco(50, 10).lleno, avanceBanco(51, 10).sobran], [true, true, 1])
+  // El origen no cambia la cantidad.
+  assert.deepStrictEqual(avanceBanco(25, 5, 'ia'), avanceBanco(25, 5, 'manual'))
   assert.throws(() => avanceBanco(-1, 5), RangeError)
   assert.throws(() => avanceBanco(5, 6), RangeError)
 })
@@ -623,13 +626,14 @@ caso('K · editar el enunciado cambia la huella sin cambiar el total', () => {
   assert.deepStrictEqual([r.banco.total, r.banco.huellas, r.banco.aprobado], [2, { h2: 'b', h9: 'a' }, false])
 })
 
-caso('K · con el banco lleno (el doble del mínimo) no entra uno nuevo; editar sí', () => {
-  const huellas = Object.fromEntries(Array.from({ length: 100 }, (_, i) => [`h${i}`, `r${i}`]))
-  const lleno = { total: 100, huellas, aprobado: false, version: 100 }
-  assert.strictEqual(guardarEnBanco(lleno, { id: 'nuevo', huella: 'hx', nuevo: true }, 5).codigo, 'banco_lleno')
-  assert.ok(guardarEnBanco(lleno, { id: 'r3', huella: 'hz', huellaAnterior: 'h3', nuevo: false }, 5).ok)
-  assert.ok(guardarEnBanco(lleno, { id: 'nuevo', huella: 'hx', nuevo: true }, 10).ok) // con 10 preguntas el máximo es 200
-  const lleno10 = { total: 200, huellas: { ...huellas }, aprobado: false, version: 200 }
+caso('K · con el banco en su cantidad exacta no entra uno nuevo (el 26.º ni el 51.º); editar sí', () => {
+  const huellas = Object.fromEntries(Array.from({ length: 50 }, (_, i) => [`h${i}`, `r${i}`]))
+  const lleno5 = { total: 25, huellas, aprobado: false, version: 25 }
+  assert.strictEqual(guardarEnBanco(lleno5, { id: 'nuevo', huella: 'hx', nuevo: true }, 5).codigo, 'banco_lleno')
+  assert.ok(guardarEnBanco(lleno5, { id: 'r3', huella: 'hz', huellaAnterior: 'h3', nuevo: false }, 5).ok)
+  assert.ok(guardarEnBanco({ ...lleno5, total: 24 }, { id: 'nuevo', huella: 'hx', nuevo: true }, 5).ok) // el 25.º sí entra
+  assert.ok(guardarEnBanco(lleno5, { id: 'nuevo', huella: 'hx', nuevo: true }, 10).ok) // con 10 preguntas son 50
+  const lleno10 = { total: 50, huellas, aprobado: false, version: 50 }
   assert.strictEqual(guardarEnBanco(lleno10, { id: 'nuevo', huella: 'hx', nuevo: true }, 10).codigo, 'banco_lleno')
 })
 
@@ -642,31 +646,30 @@ caso('K · borrar resta, libera la huella y retira la aprobación; nunca baja de
   assert.deepStrictEqual(quitarDeBanco(b, { id: 'a', huella: 'h2' }).banco.huellas, { h1: 'a', h2: 'b' })
 })
 
-caso('K · aprobar: solo con el banco completo, válido, sin duplicados y coherente con su estado', () => {
-  const completo = banco(50)
-  const estado = { total: 50, huellas: {}, aprobado: false, version: 50 }
+caso('K · aprobar: solo con la cantidad exacta, válido, sin duplicados y coherente con su estado', () => {
+  const completo = banco(25)
+  const estado = { total: 25, huellas: {}, aprobado: false, version: 25 }
   const ok = evaluarAprobacion(estado, completo, 5)
   assert.ok(ok.ok)
   assert.strictEqual(ok.banco.aprobado, true)
-  assert.strictEqual(evaluarAprobacion({ ...estado, total: 49 }, banco(49), 5).codigo, 'banco_incompleto')
-  assert.strictEqual(evaluarAprobacion({ ...estado, total: 101 }, banco(101), 5).codigo, 'banco_excedido')
-  assert.ok(evaluarAprobacion({ ...estado, total: 100 }, banco(100), 5).ok)
-  assert.ok(evaluarAprobacion({ ...estado, total: 100 }, banco(100), 10).ok)
-  assert.strictEqual(evaluarAprobacion({ ...estado, total: 99 }, banco(99), 10).codigo, 'banco_incompleto')
-  assert.ok(evaluarAprobacion({ ...estado, total: 200 }, banco(200), 10).ok)
-  assert.strictEqual(evaluarAprobacion({ ...estado, total: 201 }, banco(201), 10).codigo, 'banco_excedido')
-  const dup = banco(50)
+  assert.strictEqual(evaluarAprobacion({ ...estado, total: 24 }, banco(24), 5).codigo, 'banco_incompleto')
+  assert.strictEqual(evaluarAprobacion({ ...estado, total: 26 }, banco(26), 5).codigo, 'banco_excedido')
+  assert.strictEqual(evaluarAprobacion({ ...estado, total: 50 }, banco(50), 5).codigo, 'banco_excedido')
+  assert.ok(evaluarAprobacion({ ...estado, total: 50 }, banco(50), 10).ok)
+  assert.strictEqual(evaluarAprobacion({ ...estado, total: 49 }, banco(49), 10).codigo, 'banco_incompleto')
+  assert.strictEqual(evaluarAprobacion({ ...estado, total: 51 }, banco(51), 10).codigo, 'banco_excedido')
+  const dup = banco(25)
   dup[9] = reactivo(9, { enunciado: dup[3].enunciado })
   assert.strictEqual(evaluarAprobacion(estado, dup, 5).codigo, 'banco_con_errores')
-  const malo = banco(50)
+  const malo = banco(25)
   malo[2] = reactivo(2, { opciones: ['a', 'a', 'b', 'c'] })
   assert.strictEqual(evaluarAprobacion(estado, malo, 5).codigo, 'banco_con_errores')
-  assert.strictEqual(evaluarAprobacion({ ...estado, total: 51 }, completo, 5).codigo, 'banco_desfasado')
+  assert.strictEqual(evaluarAprobacion({ ...estado, total: 26 }, completo, 5).codigo, 'banco_desfasado')
   assert.strictEqual(evaluarAprobacion(null, completo, 5).codigo, 'banco_invalido')
 })
 
 caso('K · aprobar y perder la aprobación: cualquier cambio posterior la retira', () => {
-  let b = evaluarAprobacion({ total: 50, huellas: { h0: 'r0' }, aprobado: false, version: 50 }, banco(50), 5).banco
+  let b = evaluarAprobacion({ total: 25, huellas: { h0: 'r0' }, aprobado: false, version: 25 }, banco(25), 5).banco
   assert.strictEqual(b.aprobado, true)
   b = guardarEnBanco(b, { id: 'r0', huella: 'h0', huellaAnterior: 'h0', nuevo: false }, 5).banco
   assert.strictEqual(b.aprobado, false)
@@ -686,41 +689,37 @@ caso('K · datos inválidos en las transiciones se rechazan', () => {
 
 grupo('L · fase 2: cambiar preguntas por partida (R6, F2-6)')
 
-caso('L · solo sin partidas, a 5 o 10, distinto del actual y con el banco entre el nuevo mínimo y máximo', () => {
+caso('L · solo sin partidas, a 5 o 10, distinto del actual y sin pasar de la cantidad exacta del nuevo tamaño', () => {
   const ruleta = { modalidad: 'individual', acceso: 'interno', preguntasPorPartida: 5 }
   const diez = { ...ruleta, preguntasPorPartida: 10 }
-  assert.deepStrictEqual(puedeCambiarPreguntas({ ruleta, total: 100, nuevo: 10 }), { ok: true })
-  assert.deepStrictEqual(puedeCambiarPreguntas({ ruleta: diez, total: 100, nuevo: 5 }), { ok: true })
-  assert.deepStrictEqual(puedeCambiarPreguntas({ ruleta: diez, total: 50, nuevo: 5 }), { ok: true })
-  assert.strictEqual(puedeCambiarPreguntas({ ruleta, total: 99, nuevo: 10 }).codigo, 'banco_incompleto')
-  assert.strictEqual(puedeCambiarPreguntas({ ruleta: diez, total: 49, nuevo: 5 }).codigo, 'banco_incompleto')
-  assert.strictEqual(puedeCambiarPreguntas({ ruleta: diez, total: 101, nuevo: 5 }).codigo, 'banco_excedido')
-  assert.strictEqual(puedeCambiarPreguntas({ ruleta: { ...ruleta, preguntasCongeladas: true }, total: 100, nuevo: 10 }).codigo, 'congeladas')
-  assert.strictEqual(puedeCambiarPreguntas({ ruleta, total: 100, nuevo: 7 }).codigo, 'preguntas_por_partida')
-  assert.strictEqual(puedeCambiarPreguntas({ ruleta, total: 100, nuevo: 20 }).codigo, 'preguntas_por_partida')
-  assert.strictEqual(puedeCambiarPreguntas({ ruleta, total: 100, nuevo: 5 }).codigo, 'sin_cambio')
-  assert.strictEqual(puedeCambiarPreguntas({ ruleta: null, total: 100, nuevo: 10 }).codigo, 'actividad_invalida')
-  // Con un banco de origen IA, el mínimo del nuevo tamaño es el de IA (25 o 50); el máximo, el mismo.
-  assert.deepStrictEqual(puedeCambiarPreguntas({ ruleta, total: 50, nuevo: 10, origen: 'ia' }), { ok: true })
-  assert.strictEqual(puedeCambiarPreguntas({ ruleta, total: 49, nuevo: 10, origen: 'ia' }).codigo, 'banco_incompleto')
+  // De 5 a 10 siempre cabe (después se completa a 50).
+  for (const total of [0, 1, 24, 25]) assert.deepStrictEqual(puedeCambiarPreguntas({ ruleta, total, nuevo: 10 }), { ok: true }, String(total))
+  // De 10 a 5, solo con 25 o menos.
+  for (const total of [0, 25]) assert.deepStrictEqual(puedeCambiarPreguntas({ ruleta: diez, total, nuevo: 5 }), { ok: true }, String(total))
+  for (const total of [26, 50]) assert.strictEqual(puedeCambiarPreguntas({ ruleta: diez, total, nuevo: 5 }).codigo, 'banco_excedido', String(total))
+  assert.strictEqual(puedeCambiarPreguntas({ ruleta, total: 51, nuevo: 10 }).codigo, 'banco_excedido')
+  assert.strictEqual(puedeCambiarPreguntas({ ruleta: { ...ruleta, preguntasCongeladas: true }, total: 25, nuevo: 10 }).codigo, 'congeladas')
+  assert.strictEqual(puedeCambiarPreguntas({ ruleta, total: 25, nuevo: 7 }).codigo, 'preguntas_por_partida')
+  assert.strictEqual(puedeCambiarPreguntas({ ruleta, total: 25, nuevo: 20 }).codigo, 'preguntas_por_partida')
+  assert.strictEqual(puedeCambiarPreguntas({ ruleta, total: 25, nuevo: 5 }).codigo, 'sin_cambio')
+  assert.strictEqual(puedeCambiarPreguntas({ ruleta: null, total: 25, nuevo: 10 }).codigo, 'actividad_invalida')
+  // El origen no cambia la regla.
   assert.deepStrictEqual(puedeCambiarPreguntas({ ruleta: diez, total: 25, nuevo: 5, origen: 'ia' }), { ok: true })
-  assert.strictEqual(puedeCambiarPreguntas({ ruleta: diez, total: 101, nuevo: 5, origen: 'ia' }).codigo, 'banco_excedido')
+  assert.strictEqual(puedeCambiarPreguntas({ ruleta: diez, total: 26, nuevo: 5, origen: 'ia' }).codigo, 'banco_excedido')
 })
 
-// ══ Generación con IA y origen del banco (7-nov-2026) ═════════════════════════
-grupo('M · generación con IA separada del banco manual; mínimo según el origen')
+// ══ Origen del banco (manual o IA): la cantidad es la misma y exacta (9-nov-2026) ══
+grupo('M · origen del banco: misma cantidad exacta para manual e IA')
 
 caso('M · la IA genera EXACTAMENTE 25 (5 preguntas) o 50 (10); 20 y otros tamaños lanzan RangeError', () => {
-  assert.strictEqual(RULETA_CFG.REACTIVOS_IA_POR_PREGUNTA, 5)
   assert.strictEqual(reactivosGeneracionIA(5), 25)
   assert.strictEqual(reactivosGeneracionIA(10), 50)
   for (const n of [20, 7, 0, '5', null, undefined]) assert.throws(() => reactivosGeneracionIA(n), RangeError, String(n))
 })
 
-caso('M · matriz completa: generación IA, mínimo y máximo manual, mínimo de un banco IA, y las dos cantidades nunca coinciden', () => {
+caso('M · matriz completa: generación IA, mínimo y máximo, por origen: todo es 25 o 50', () => {
   const matriz = [5, 10].map((n) => [n, reactivosGeneracionIA(n), tamanoBanco(n), maximoBanco(n), minimoBanco(n, 'ia'), minimoBanco(n, 'manual'), minimoBanco(n)])
-  assert.deepStrictEqual(matriz, [[5, 25, 50, 100, 25, 50, 50], [10, 50, 100, 200, 50, 100, 100]])
-  for (const n of [5, 10]) assert.notStrictEqual(reactivosGeneracionIA(n), tamanoBanco(n))
+  assert.deepStrictEqual(matriz, [[5, 25, 25, 25, 25, 25, 25], [10, 50, 50, 50, 50, 50, 50]])
   assert.throws(() => minimoBanco(20, 'ia'), RangeError)
   assert.throws(() => minimoBanco(20, 'manual'), RangeError)
 })
@@ -730,38 +729,27 @@ caso('M · origen: solo el valor exacto «ia» es IA; ausente, «IA», «manual�
   assert.strictEqual(origenBanco({ origen: 'ia' }), 'ia')
   for (const b of [{}, { origen: 'manual' }, { origen: 'IA' }, { origen: ' ia' }, { origen: true }, null, undefined]) assert.strictEqual(origenBanco(b), 'manual', JSON.stringify(b))
   assert.strictEqual(bancoVacio().origen, 'manual')
-  assert.strictEqual(minimoBanco(5, 'IA'), 50) // un origen mal escrito nunca baja el mínimo
+  assert.strictEqual(minimoBanco(5, 'IA'), 25)
 })
 
-caso('M · validarBanco con origen IA: 5 → 24 ✗, 25 ✓, 100 ✓, 101 ✗; 10 → 49 ✗, 50 ✓, 200 ✓, 201 ✗', () => {
-  for (const [n, tam, ok, error] of [
-    [5, 24, false, 'banco_incompleto'], [5, 25, true], [5, 100, true], [5, 101, false, 'banco_excedido'],
-    [10, 49, false, 'banco_incompleto'], [10, 50, true], [10, 200, true], [10, 201, false, 'banco_excedido'],
-  ]) {
-    const v = validarBanco(banco(tam), n, { origen: 'ia' })
-    assert.strictEqual(v.ok, ok, `${n}/${tam}`)
-    assert.deepStrictEqual(v.errores, ok ? [] : [error], `${n}/${tam}`)
-    assert.strictEqual(v.requerido, reactivosGeneracionIA(n))
-  }
-})
-
-caso('M · aprobar según el origen: IA 25/5 ✓, 50/10 ✓, 24/5 ✗, 49/10 ✗; manual 49/5 ✗, 50/5 ✓, 99/10 ✗, 100/10 ✓; ninguno pasa su máximo', () => {
+caso('M · validarBanco y aprobar con origen IA o manual: 24 ✗, 25 ✓, 26 ✗ (5); 49 ✗, 50 ✓, 51 ✗ (10)', () => {
   const estado = (origen, total) => ({ total, huellas: {}, aprobado: false, version: total, ...(origen ? { origen } : {}) })
-  const aprobar = (origen, total, n) => evaluarAprobacion(estado(origen, total), banco(total), n)
-  assert.ok(aprobar('ia', 25, 5).ok)
-  assert.ok(aprobar('ia', 50, 10).ok)
-  assert.strictEqual(aprobar('ia', 24, 5).codigo, 'banco_incompleto')
-  assert.strictEqual(aprobar('ia', 49, 10).codigo, 'banco_incompleto')
-  assert.strictEqual(aprobar('manual', 49, 5).codigo, 'banco_incompleto')
-  assert.ok(aprobar('manual', 50, 5).ok)
-  assert.strictEqual(aprobar('manual', 99, 10).codigo, 'banco_incompleto')
-  assert.ok(aprobar('manual', 100, 10).ok)
-  assert.strictEqual(aprobar(null, 25, 5).codigo, 'banco_incompleto') // sin origen guardado = manual
-  for (const origen of ['ia', 'manual']) {
-    assert.strictEqual(aprobar(origen, 101, 5).codigo, 'banco_excedido', origen)
-    assert.strictEqual(aprobar(origen, 201, 10).codigo, 'banco_excedido', origen)
+  for (const origen of ['ia', 'manual', null]) {
+    for (const [n, tam, ok, error] of [
+      [5, 24, false, 'banco_incompleto'], [5, 25, true], [5, 26, false, 'banco_excedido'],
+      [10, 49, false, 'banco_incompleto'], [10, 50, true], [10, 51, false, 'banco_excedido'],
+    ]) {
+      const etiqueta = `${origen}: ${n}/${tam}`
+      const v = validarBanco(banco(tam), n, origen ? { origen } : {})
+      assert.strictEqual(v.ok, ok, etiqueta)
+      assert.deepStrictEqual(v.errores, ok ? [] : [error], etiqueta)
+      assert.strictEqual(v.requerido, n * 5, etiqueta)
+      const a = evaluarAprobacion(estado(origen, tam), banco(tam), n)
+      assert.strictEqual(a.ok, ok, etiqueta)
+      if (!ok) assert.strictEqual(a.codigo, error, etiqueta)
+    }
   }
-  assert.strictEqual(aprobar('ia', 25, 5).banco.origen, 'ia') // aprobar conserva el origen
+  assert.strictEqual(evaluarAprobacion(estado('ia', 25), banco(25), 5).banco.origen, 'ia') // aprobar conserva el origen
 })
 
 caso('M · editar, agregar o borrar en un banco IA conserva el origen; borrar por debajo de 25 impide aprobar', () => {
@@ -769,15 +757,14 @@ caso('M · editar, agregar o borrar en un banco IA conserva el origen; borrar po
   let b = { total: 25, huellas, aprobado: true, version: 25, origen: 'ia' }
   b = guardarEnBanco(b, { id: 'r3', huella: 'h3b', huellaAnterior: 'h3', nuevo: false }, 5).banco // editar
   assert.deepStrictEqual([b.origen, b.total, b.aprobado], ['ia', 25, false])
-  b = guardarEnBanco(b, { id: 'r99', huella: 'h99', nuevo: true }, 5).banco // agregar a mano
-  assert.deepStrictEqual([b.origen, b.total], ['ia', 26])
-  b = quitarDeBanco(b, { id: 'r99', huella: 'h99' }).banco
+  assert.strictEqual(guardarEnBanco(b, { id: 'r99', huella: 'h99', nuevo: true }, 5).codigo, 'banco_lleno') // no cabe el 26.º
   b = quitarDeBanco(b, { id: 'r0', huella: 'h0' }).banco // queda en 24
   assert.deepStrictEqual([b.origen, b.total], ['ia', 24])
-  const reactivos = banco(25).slice(1)
-  assert.strictEqual(evaluarAprobacion(b, reactivos, 5).codigo, 'banco_incompleto')
+  assert.strictEqual(evaluarAprobacion(b, banco(25).slice(1), 5).codigo, 'banco_incompleto')
+  b = guardarEnBanco(b, { id: 'r99', huella: 'h99', nuevo: true }, 5).banco // se repone a mano
+  assert.deepStrictEqual([b.origen, b.total], ['ia', 25])
   assert.strictEqual(avanceBanco(24, 5, 'ia').faltan, 1)
-  assert.deepStrictEqual([avanceBanco(25, 5, 'ia').completo, avanceBanco(25, 5).completo], [true, false])
+  assert.deepStrictEqual([avanceBanco(25, 5, 'ia').completo, avanceBanco(25, 5).completo], [true, true])
 })
 
 grupo('N · banco vaciado: el origen vuelve a manual SOLO al llegar a 0')
@@ -819,15 +806,16 @@ caso('N · solo cambia en 0: de 24 a 1, cada borrado conserva «ia»; el siguien
   assert.deepStrictEqual([b.total, b.origen], [0, 'manual'])
 })
 
-caso('N · vaciado y recapturado a mano: 25 en una de 5 y 50 en una de 10 NO se aprueban; 50 y 100 sí', () => {
-  for (const [n, minIA, minManual] of [[5, 25, 50], [10, 50, 100]]) {
+caso('N · vaciado y recapturado a mano: con 25 (de 5) o 50 (de 10) se aprueba, igual que uno de IA', () => {
+  for (const n of [5, 10]) {
+    const exacto = n * 5
     let b = quitarDeBanco(estadoIA(1), { id: 'r0', huella: 'h0' }).banco
-    for (let i = 0; i < minIA; i++) b = guardarEnBanco(b, { id: `n${i}`, huella: `hn${i}`, nuevo: true }, n).banco
-    assert.deepStrictEqual([b.total, b.origen], [minIA, 'manual'], `n=${n}`)
-    assert.strictEqual(evaluarAprobacion(b, banco(minIA), n).codigo, 'banco_incompleto', `n=${n}`)
-    assert.strictEqual(avanceBanco(b.total, n, origenBanco(b)).minimo, minManual)
-    for (let i = minIA; i < minManual; i++) b = guardarEnBanco(b, { id: `n${i}`, huella: `hn${i}`, nuevo: true }, n).banco
-    assert.ok(evaluarAprobacion(b, banco(minManual), n).ok, `n=${n}`)
+    for (let i = 0; i < exacto - 1; i++) b = guardarEnBanco(b, { id: `n${i}`, huella: `hn${i}`, nuevo: true }, n).banco
+    assert.strictEqual(evaluarAprobacion(b, banco(exacto - 1), n).codigo, 'banco_incompleto', `n=${n}`)
+    b = guardarEnBanco(b, { id: 'ultimo', huella: 'hu', nuevo: true }, n).banco
+    assert.deepStrictEqual([b.total, b.origen], [exacto, 'manual'], `n=${n}`)
+    assert.strictEqual(avanceBanco(b.total, n, origenBanco(b)).minimo, exacto)
+    assert.ok(evaluarAprobacion(b, banco(exacto), n).ok, `n=${n}`)
   }
 })
 
