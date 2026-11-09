@@ -28,7 +28,7 @@ async function crearRuleta(id, { n = 5, modalidad = 'individual', acceso = 'inte
   const visible = publicada && acceso === 'interno' ? { oculta: false, publishedAt: '2026-11-01T08:00' } : {}
   // Otra modalidad ya no se puede crear (7-nov-2026); se escribe directo para probar la defensa del servidor.
   await db.doc(`activities/${id}`).set({ ...r.datos, ...visible, ruleta: { ...r.datos.ruleta, modalidad } })
-  const total = reactivos ?? n * 10
+  const total = reactivos ?? n * 5 // banco de cantidad exacta (5→25, 10→50)
   const lote = db.batch()
   const huellas = {}
   for (let i = 0; i < total; i++) {

@@ -80,7 +80,7 @@ function reactivoDelCuerpo(body, id) {
 
 function errorDeBanco(codigo, n) {
   if (codigo === 'duplicado') return new ErrorRuleta(409, 'Ya hay un reactivo con ese enunciado.', 'DUPLICADO')
-  if (codigo === 'banco_lleno') return new ErrorRuleta(409, `El banco ya tiene el máximo de ${maximoBanco(n)} reactivos.`, 'BANCO_LLENO')
+  if (codigo === 'banco_lleno') return new ErrorRuleta(409, `El banco ya tiene sus ${maximoBanco(n)} reactivos: edita o quita uno para cambiarlo.`, 'BANCO_LLENO')
   return new ErrorRuleta(409, 'No se pudo actualizar el banco. Recarga la página.', String(codigo || 'BANCO').toUpperCase())
 }
 
@@ -165,8 +165,8 @@ async function aprobar(db, uid, body) {
     const e = evaluarAprobacion(banco, reactivos, n)
     if (!e.ok) {
       const mensajes = {
-        banco_incompleto: `Faltan reactivos: necesitas al menos ${minimoBanco(n, origenBanco(banco))}.`,
-        banco_excedido: `Hay más de ${maximoBanco(n)} reactivos: quita los que sobran.`,
+        banco_incompleto: `Faltan reactivos: el banco lleva exactamente ${minimoBanco(n, origenBanco(banco))}.`,
+        banco_excedido: `Sobran reactivos: el banco lleva exactamente ${maximoBanco(n)}.`,
         banco_con_errores: 'Hay reactivos repetidos o incompletos. Revísalos antes de aprobar.',
         banco_desfasado: 'El banco cambió mientras lo revisabas. Recarga la página.',
       }
@@ -194,13 +194,16 @@ async function config(db, uid, body) {
         congeladas: 'Esta ruleta ya tiene partidas: sus preguntas no cambian.',
         preguntas_por_partida: `Elige ${TEXTO_PREGUNTAS_VALIDAS} preguntas por partida.`,
         sin_cambio: 'Ya tiene ese número de preguntas.',
-        banco_incompleto: preguntasPorPartidaValida(nuevo) ? `Para ${nuevo} preguntas el banco necesita al menos ${minimoBanco(nuevo, origen)} reactivos.` : `Elige ${TEXTO_PREGUNTAS_VALIDAS}.`,
-        banco_excedido: preguntasPorPartidaValida(nuevo) ? `Para ${nuevo} preguntas el banco puede tener como máximo ${maximoBanco(nuevo)} reactivos.` : `Elige ${TEXTO_PREGUNTAS_VALIDAS}.`,
+        banco_excedido: preguntasPorPartidaValida(nuevo) ? `Para ${nuevo} preguntas el banco lleva exactamente ${maximoBanco(nuevo)} reactivos: quita los que sobran antes de cambiar.` : `Elige ${TEXTO_PREGUNTAS_VALIDAS}.`,
       }
       throw new ErrorRuleta(409, mensajes[p.codigo] || 'No se puede cambiar.', p.codigo.toUpperCase())
     }
     tx.update(refs.actividad, { 'ruleta.preguntasPorPartida': nuevo })
-    return { preguntasPorPartida: nuevo, banco: resumenBanco(banco, nuevo) }
+    // Cambiar el número de preguntas cambia la cantidad exacta del banco: la aprobación se retira (como cualquier
+    // otro cambio del banco) y el docente lo vuelve a aprobar cuando tenga los reactivos exactos.
+    const sinAprobar = { ...banco, aprobado: false, version: (banco.version ?? 0) + 1 }
+    tx.set(refs.banco, datosBanco(sinAprobar, { uid, actividadId }))
+    return { preguntasPorPartida: nuevo, banco: resumenBanco(sinAprobar, nuevo) }
   })
 }
 

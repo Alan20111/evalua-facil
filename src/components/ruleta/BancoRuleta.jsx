@@ -1,5 +1,5 @@
-// La Ruleta del Destino · el banco de reactivos en la pantalla del docente (fase 2): avance («32 de 50 reactivos.
-// Faltan 18.»), aprobación y la lista con la respuesta correcta marcada. Solo muestra y avisa; cada cambio lo pide la
+// La Ruleta del Destino · el banco de reactivos en la pantalla del docente (fase 2): avance («20 de 25 reactivos.
+// Faltan 5.»), aprobación y la lista con la respuesta correcta marcada. Solo muestra y avisa; cada cambio lo pide la
 // pantalla al servidor (RuletaPage → /api/subject/ruleta-banco).
 import { CheckCircle2, Circle, Pencil, Plus, ShieldCheck, Trash2 } from 'lucide-react'
 import { Badge, Button, IconButton, Progress } from '../ui'
@@ -19,8 +19,8 @@ export function idsRepetidos(reactivos) {
   return repetidos
 }
 
-// `origen` es el que guardó el servidor en ruletaBancos ('manual' o 'ia'): fija el mínimo del avance y del botón de
-// aprobar (IA 25 o 50; manual 50 o 100). La aprobación definitiva la decide siempre el servidor.
+// `origen` es el que guardó el servidor en ruletaBancos ('manual' o 'ia'); solo cambia el aviso. La cantidad es la misma
+// y exacta para los dos (5→25, 10→50). La aprobación definitiva la decide siempre el servidor.
 export default function BancoRuleta({ reactivos, preguntasPorPartida, origen = ORIGENES_BANCO.manual, aprobado, ocupado, onAgregar, onEditar, onBorrar, onAprobar }) {
   const avance = avanceBanco(reactivos.length, preguntasPorPartida, origen)
   const deIA = origen === ORIGENES_BANCO.ia
@@ -43,7 +43,7 @@ export default function BancoRuleta({ reactivos, preguntasPorPartida, origen = O
         </div>
         <Progress value={Math.min(1, reactivos.length / avance.minimo)} label="Avance del banco" />
         <p className="text-xs text-hint">
-          {deIA ? 'Banco generado con IA. ' : ''}Mínimo {avance.minimo} y máximo {avance.maximo} reactivos para partidas de {preguntasPorPartida} preguntas. Cualquier cambio quita la aprobación.
+          {deIA ? 'Banco generado con IA. ' : ''}El banco lleva exactamente {avance.maximo} reactivos para partidas de {preguntasPorPartida} preguntas. Cualquier cambio quita la aprobación.
         </p>
       </div>
 
@@ -54,7 +54,7 @@ export default function BancoRuleta({ reactivos, preguntasPorPartida, origen = O
         </Button>
       </div>
       {motivoNoAprobar && !aprobado && <p className="text-sm text-muted">{motivoNoAprobar}</p>}
-      {avance.lleno && <p className="text-sm text-muted">Llegaste al máximo de {avance.maximo} reactivos.</p>}
+      {avance.lleno && <p className="text-sm text-muted">El banco ya tiene sus {avance.maximo} reactivos. Para cambiar uno, edítalo o quítalo.</p>}
 
       {reactivos.length === 0 ? (
         <p className="text-sm text-muted">Todavía no hay reactivos. Agrega el primero.</p>

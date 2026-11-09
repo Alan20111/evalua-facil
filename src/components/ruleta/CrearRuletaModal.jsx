@@ -6,14 +6,14 @@ import { useState } from 'react'
 import { useToast } from '../Toast'
 import { Button, Input, Modal, RadioGroup, Textarea } from '../ui'
 import { crearRuleta } from '../../utils/ruletaDestinoDb'
-import { RULETA_CFG, tamanoBanco, maximoBanco } from '../../utils/ruletaDestino'
+import { RULETA_CFG, tamanoBanco } from '../../utils/ruletaDestino'
 
 const OPCIONES_ACCESO = [
   { value: 'interno', label: 'Mis estudiantes', hint: 'Entran con su cuenta de Evalúa Fácil.' },
   { value: 'externo', label: 'Con enlace o QR', hint: 'Sin cuenta. Siempre queda oculta y no cuenta como calificación.' },
 ]
 const OPCIONES_PREGUNTAS = RULETA_CFG.PREGUNTAS_POR_PARTIDA.map((n) => ({
-  value: String(n), label: `${n} preguntas`, hint: `Banco de ${tamanoBanco(n)} a ${maximoBanco(n)} reactivos`,
+  value: String(n), label: `${n} preguntas`, hint: `Banco de ${tamanoBanco(n)} reactivos`,
 }))
 
 export default function CrearRuletaModal({ open, asignaturaId, docenteId, parcial, existingActivitiesCountInParcial = 0, onClose, onCreated }) {
