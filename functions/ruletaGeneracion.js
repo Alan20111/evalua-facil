@@ -4,7 +4,10 @@
 // COMPLETO de la ruleta: exactamente 25 reactivos para partidas de 5 preguntas o 50 para partidas de 10 (decisión 18),
 // cada uno de opción múltiple con 4 opciones y una sola correcta, sustentado en los documentos.
 //
-//   · precheckGenerarBancoRuleta (ANTES de cobrar): dueño, ruleta, banco VACÍO, archivos (cantidad, formato, tamaño,
+//   · «¿Qué quieres evaluar?» (`params.quiereEvaluar`, 12-nov-2026, decisión 20): lo que el docente pide evaluar, el
+//     mismo campo de Reto Exprés y Crear evaluación con IA (mínimo 40 y máximo 4000 caracteres). Es el criterio
+//     principal del prompt: TODOS los reactivos evalúan ese contenido, sustentados en los documentos.
+//   · precheckGenerarBancoRuleta (ANTES de cobrar): dueño, ruleta, qué quiere evaluar, banco VACÍO, archivos (cantidad, formato, tamaño,
 //     origen) y lectura de cada documento. Un documento que no se puede leer o que no tiene texto verificable (un PDF
 //     escaneado) detiene la operación sin reservar créditos. Fija las unidades a cobrar: 1 por pregunta de la partida
 //     (5 o 10 créditos con la tarifa `generar_banco_ruleta = 1`).
@@ -40,6 +43,9 @@ const RULETA_IA = {
   MAX_OPCION: 200,
   MAX_CITA: 500,
   MAX_CONTEXTO: 1000,
+  // «¿Qué quieres evaluar?»: los mismos límites que `reactivos` y `crear_evaluacion_ia` (functions/ia.js).
+  MIN_QUIERE_EVALUAR: 40,
+  MAX_QUIERE_EVALUAR: 4000,
   // Lotes de reactivos por llamada a la IA y cuántos de más se piden para cubrir los que no pasen la verificación.
   LOTE: 25,
   MARGEN: 5,
@@ -232,6 +238,19 @@ async function precheckGenerarBancoRuleta({ uid, params }) {
   if (!RULETA_IA.PREGUNTAS_POR_PARTIDA.includes(n)) {
     throw new HttpsError('failed-precondition', 'La ruleta no tiene 5 ni 10 preguntas por partida. No se descontaron créditos.')
   }
+  // Qué quiere evaluar el docente: se revisa antes que nada que cueste (leer archivos, llamar a la IA, reservar).
+  const quiereEvaluar = typeof params?.quiereEvaluar === 'string' ? params.quiereEvaluar.trim() : ''
+  if (quiereEvaluar.length < RULETA_IA.MIN_QUIERE_EVALUAR) {
+    throw new HttpsError('invalid-argument',
+      `Describe con más detalle qué quieres evaluar (mínimo ${RULETA_IA.MIN_QUIERE_EVALUAR} caracteres) para que la IA pueda generar los reactivos. No se descontaron créditos.`,
+      { codigo: 'QUIERE_EVALUAR_CORTO' })
+  }
+  if (quiereEvaluar.length > RULETA_IA.MAX_QUIERE_EVALUAR) {
+    throw new HttpsError('invalid-argument',
+      `Lo que quieres evaluar puede tener como máximo ${RULETA_IA.MAX_QUIERE_EVALUAR} caracteres. No se descontaron créditos.`,
+      { codigo: 'QUIERE_EVALUAR_LARGO' })
+  }
+
   // La IA genera solo con el banco VACÍO (decisión 10): nunca completa ni reemplaza un banco con reactivos.
   const [banco, reactivos] = await Promise.all([
     db.doc(`ruletaBancos/${actividadId}`).get(),
@@ -258,6 +277,7 @@ async function precheckGenerarBancoRuleta({ uid, params }) {
     cantidad: reactivosExactos(n),
     nombre: String(act.nombre || '').slice(0, 120),
     tema: String(act.tema || '').slice(0, 500),
+    quiereEvaluar,
     documentos,
     // Se cobra 1 unidad por pregunta de la partida (5 o 10 créditos con la tarifa 1): ni el cliente la baja.
     unidadesMinimas: n,
@@ -269,7 +289,9 @@ async function precheckGenerarBancoRuleta({ uid, params }) {
 const SISTEMA =
   'Eres el asistente pedagógico de Evalúa Fácil y preparas el banco de reactivos de «La Ruleta del Destino», una ' +
   'actividad de bachillerato mexicano en la que cada estudiante contesta preguntas de opción múltiple que salen al azar. ' +
-  'Generas reactivos ÚNICAMENTE a partir de los documentos de apoyo del docente: nada que no esté en ellos. Cada reactivo ' +
+  'Generas reactivos ÚNICAMENTE a partir de los documentos de apoyo del docente: nada que no esté en ellos. El docente ' +
+  'indica qué quiere evaluar y ese es el criterio principal: TODOS los reactivos evalúan ese contenido; no preguntes otras ' +
+  'partes de los documentos que no tengan que ver con él. Cada reactivo ' +
   'tiene 4 opciones, una sola correcta y 3 distractores plausibles del mismo tema; sin preguntas repetidas ni paráfrasis ' +
   'de otra. Cada reactivo trae su sustento: "cita" es un fragmento copiado LITERALMENTE del documento que demuestra la ' +
   'respuesta correcta, y "contexto" son una o dos oraciones contiguas copiadas literalmente del documento que contienen ' +
@@ -286,8 +308,9 @@ function bloqueDocumentos(documentos) {
 
 function promptLote(ctx, pedir, yaGenerados) {
   return (
-    `Ruleta: «${ctx.nombre || 'La Ruleta del Destino'}». Tema que indicó el docente: ${ctx.tema || 'el de los documentos'}.\n` +
-    `Genera EXACTAMENTE ${pedir} reactivos nuevos de opción múltiple, en español, sustentados en los documentos.\n` +
+    `Ruleta: «${ctx.nombre || 'La Ruleta del Destino'}». Tema general de la ruleta: ${ctx.tema || 'el de los documentos'}.\n` +
+    `\nQUÉ QUIERE EVALUAR EL DOCENTE (criterio principal: TODOS los reactivos deben evaluar este contenido):\n"""${ctx.quiereEvaluar}"""\n\n` +
+    `Genera EXACTAMENTE ${pedir} reactivos nuevos de opción múltiple, en español, que evalúen lo que pide el docente y estén sustentados en los documentos.\n` +
     (yaGenerados.length
       ? `Ya existen estos enunciados: NO los repitas ni los parafrasees; pregunta otras ideas de los documentos.\n${yaGenerados.map((e) => `- ${e}`).join('\n')}\n`
       : '') +
