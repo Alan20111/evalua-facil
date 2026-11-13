@@ -54,6 +54,12 @@ partida, sea capturado a mano o generado con IA. Sin rangos ni mínimos o máxim
   por páginas (`pdf-parse`), el DOCX con `mammoth` y el DOC (Word 97-2003) con `word-extractor`. Un documento que no
   se puede leer, que pesa más de 15 MB o que no tiene texto verificable (un PDF escaneado) detiene la operación
   **antes de cobrar**, con el nombre del archivo.
+- **«¿Qué quieres evaluar?»** (12-nov-2026, decisión 20): en «Generar con IA» el docente escribe qué deben evaluar los
+  reactivos (`params.quiereEvaluar`, el mismo campo de Reto Exprés y Crear evaluación con IA). Nace con el tema de la
+  ruleta y se precisa ahí; no cambia el tema guardado ni se almacena. Mínimo 40 y máximo 4000 caracteres, validados en el
+  cliente (`RULETA_QUIERE_EVALUAR`, con los caracteres que faltan) y en el servidor antes de descargar archivos, llamar a
+  la IA o reservar créditos. En el prompt es el criterio principal: TODOS los reactivos evalúan ese contenido y se
+  sustentan en los documentos (el tema de la ruleta queda como referencia general).
 - Opción múltiple: 4 opciones, 1 correcta, 3 distractores plausibles; sin duplicados ni paráfrasis triviales;
   sustentados en los documentos del docente (cada reactivo guarda en `sustento` el documento, la página si es PDF, la
   cita y el contexto).
@@ -200,6 +206,10 @@ Motivos de rechazo, contados por separado:
     servidor) y genera el banco completo con la cantidad exacta de la decisión 18; cada reactivo, 4 opciones y una
     correcta. El banco generado queda para que el docente lo revise y apruebe: no se publica la ruleta ni se inician
     partidas.
+20. (12-nov-2026) **«¿Qué quieres evaluar?» al generar con IA**: el docente indica el tema, contenido o unidad que deben
+    evaluar los reactivos (mismo campo y límites que Reto Exprés y Crear evaluación con IA: 40 a 4000 caracteres),
+    precargado con el tema de la ruleta y editable sin cambiarlo. Es el criterio principal del prompt; los archivos de
+    apoyo siguen siendo la fuente. Sin cambios en la tarifa, las cantidades ni la captura manual.
 
 ### Seguridad (R1–R8, 6-nov-2026)
 - **R1** Solo el servidor escribe `ruletaReactivos`; el docente administra el banco con acciones del API. Ningún cliente

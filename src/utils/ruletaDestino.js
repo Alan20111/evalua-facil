@@ -111,6 +111,23 @@ export function extensionArchivo(nombre) {
  * Revisa los archivos de apoyo elegidos ({ name | nombre, size | tamano }). Con `completa`, exige además el mínimo
  * (al generar); sin ella solo revisa lo que ya se eligió (al ir agregando). { ok } o { ok: false, codigo, mensaje }.
  */
+/**
+ * «¿Qué quieres evaluar?» al generar con IA (12-nov-2026, decisión 20): el mismo campo y los mismos límites que Reto
+ * Exprés y Crear evaluación con IA (mínimo 40 y máximo 4000 caracteres). El servidor (functions/ruletaGeneracion.js →
+ * RULETA_IA) aplica exactamente los mismos.
+ */
+export const RULETA_QUIERE_EVALUAR = Object.freeze({ MIN: 40, MAX: 4000 })
+
+/** Revisa lo que el docente pide evaluar. { ok, faltan, sobran } y, si no pasa, { codigo, mensaje }. */
+export function validarQuiereEvaluar(texto) {
+  const largo = String(texto ?? '').trim().length
+  const faltan = Math.max(0, RULETA_QUIERE_EVALUAR.MIN - largo)
+  const sobran = Math.max(0, largo - RULETA_QUIERE_EVALUAR.MAX)
+  if (faltan) return { ok: false, faltan, sobran, codigo: 'corto', mensaje: `Describe con más detalle qué quieres evaluar: faltan ${faltan} ${faltan === 1 ? 'carácter' : 'caracteres'} (mínimo ${RULETA_QUIERE_EVALUAR.MIN}).` }
+  if (sobran) return { ok: false, faltan, sobran, codigo: 'largo', mensaje: `Lo que quieres evaluar puede tener como máximo ${RULETA_QUIERE_EVALUAR.MAX} caracteres.` }
+  return { ok: true, faltan: 0, sobran: 0 }
+}
+
 export function validarArchivosRuleta(archivos, { completa = true } = {}) {
   const lista = Array.isArray(archivos) ? archivos : []
   if (lista.length > RULETA_ARCHIVOS.MAX) return { ok: false, codigo: 'demasiados', mensaje: `Puedes adjuntar máximo ${RULETA_ARCHIVOS.MAX} archivos de apoyo.` }

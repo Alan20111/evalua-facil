@@ -263,7 +263,7 @@ export default function RuletaPage() {
           )}
           {reactivos.length === 0 && !congeladas && modoBanco === 'ia' ? (
             <GenerarBancoIA actividadId={actividad.id} asignaturaId={actividad.asignaturaId} preguntasPorPartida={n}
-              disabled={Boolean(ocupado)} onGenerado={recargarBanco} />
+              temaRuleta={actividad.tema} disabled={Boolean(ocupado)} onGenerado={recargarBanco} />
           ) : (
             <BancoRuleta
               reactivos={reactivos} preguntasPorPartida={n} origen={origen} aprobado={aprobado} ocupado={ocupado}

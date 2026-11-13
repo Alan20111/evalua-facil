@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs'
 import { db, limpiar, caso, grupo, resumen, assert, llamar, sesion } from './helpers/entorno.mjs'
 import * as FX from './helpers/fixturesEvidencias.mjs'
 import { handleRuletaBanco, huellaEnunciado as huellaApi } from '../api/_lib/ruletaBanco.js'
-import { RULETA_ARCHIVOS, datosNuevaRuleta, normalizarTexto, reactivosGeneracionIA, validarArchivosRuleta, tamanoBanco } from '../src/utils/ruletaDestino.js'
+import { RULETA_ARCHIVOS, RULETA_QUIERE_EVALUAR, datosNuevaRuleta, normalizarTexto, reactivosGeneracionIA, validarArchivosRuleta, validarQuiereEvaluar, tamanoBanco } from '../src/utils/ruletaDestino.js'
 
 const require = createRequire(import.meta.url)
 const { jsPDF } = require('jspdf')
@@ -146,9 +146,12 @@ async function preparar({ tarifas = TARIFAS } = {}) {
   await crearRuleta('ru5', { n: 5 })
   await crearRuleta('ru10', { n: 10 })
 }
-const generar = (actividadId, archivos, { uid = DOC, unidades } = {}) => IA_FN.ejecutarOperacionIA.run({
+// «¿Qué quieres evaluar?» (decisión 20): todas las generaciones lo llevan; el grupo F prueba sus límites.
+// `quiereEvaluar: null` = el navegador no manda el campo.
+const QUIERE = 'Las funciones de las membranas y los organelos de la célula, según el manual de la unidad 2.'
+const generar = (actividadId, archivos, { uid = DOC, unidades, quiereEvaluar = QUIERE } = {}) => IA_FN.ejecutarOperacionIA.run({
   auth: { uid },
-  data: { operacion: 'generar_banco_ruleta', idempotencyKey: clave(), unidades: unidades ?? 5, params: { actividadId, asignaturaId: S, archivos } },
+  data: { operacion: 'generar_banco_ruleta', idempotencyKey: clave(), unidades: unidades ?? 5, params: { actividadId, asignaturaId: S, archivos, ...(quiereEvaluar !== null && { quiereEvaluar }) } },
 })
 async function sinCobroNiBanco(act, saldoEsperado = 100) {
   assert.strictEqual(await saldo(), saldoEsperado, 'el saldo no cambia')
@@ -426,6 +429,94 @@ await caso('E · el docente captura un reactivo mientras la IA genera: no se ree
   const rs = await reactivosDe('ru5')
   assert.deepStrictEqual(rs.map((x) => x.enunciado), ['¿A mano a mitad?'], 'solo queda el reactivo del docente')
   assert.strictEqual((await bancoDe('ru5')).origen, 'manual')
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('F · «¿Qué quieres evaluar?» (decisión 20)')
+// ═════════════════════════════════════════════════════════════════════════════
+await caso('F · mismos límites en el cliente y en el servidor (40 y 4000, los de la plataforma)', () => {
+  assert.deepStrictEqual([RULETA_QUIERE_EVALUAR.MIN, RULETA_QUIERE_EVALUAR.MAX], [G.RULETA_IA.MIN_QUIERE_EVALUAR, G.RULETA_IA.MAX_QUIERE_EVALUAR])
+  assert.deepStrictEqual([RULETA_QUIERE_EVALUAR.MIN, RULETA_QUIERE_EVALUAR.MAX], [40, 4000])
+})
+
+await caso('F · validarQuiereEvaluar (cliente): cuenta los caracteres que faltan; 40 y 4000 pasan; 4001 no; se recorta', () => {
+  assert.deepStrictEqual(validarQuiereEvaluar(''), validarQuiereEvaluar('   '))
+  assert.strictEqual(validarQuiereEvaluar('').faltan, 40)
+  const v = validarQuiereEvaluar('La célula')
+  assert.deepStrictEqual([v.ok, v.codigo, v.faltan], [false, 'corto', 31])
+  assert.match(v.mensaje, /faltan 31 caracteres/)
+  assert.strictEqual(validarQuiereEvaluar('x'.repeat(39)).faltan, 1)
+  assert.match(validarQuiereEvaluar('x'.repeat(39)).mensaje, /falta 1 carácter|faltan 1 carácter/)
+  assert.ok(validarQuiereEvaluar('x'.repeat(40)).ok)
+  assert.ok(validarQuiereEvaluar(`  ${'x'.repeat(40)}  `).ok)
+  assert.strictEqual(validarQuiereEvaluar(`  ${'x'.repeat(39)}  `).faltan, 1, 'los espacios no cuentan')
+  assert.ok(validarQuiereEvaluar('x'.repeat(4000)).ok)
+  assert.deepStrictEqual([validarQuiereEvaluar('x'.repeat(4001)).ok, validarQuiereEvaluar('x'.repeat(4001)).codigo], [false, 'largo'])
+})
+
+await caso('F · sin texto, con menos de 40 o con más de 4000: rechazado ANTES de descargar, llamar a la IA o reservar', async () => {
+  await preparar()
+  for (const [quiereEvaluar, mensaje] of [
+    [null, /mínimo 40 caracteres/], ['', /mínimo 40 caracteres/], ['La célula', /mínimo 40 caracteres/],
+    [`   ${'x'.repeat(39)}   `, /mínimo 40 caracteres/], [12345, /mínimo 40 caracteres/],
+    ['x'.repeat(4001), /máximo 4000 caracteres/],
+  ]) {
+    const e = await falla(() => generar('ru5', [archivo('manual.pdf'), archivo('apuntes.docx')], { quiereEvaluar }))
+    assert.match(codigo(e), /invalid-argument/, String(quiereEvaluar).slice(0, 20))
+    assert.match(e.message, mensaje)
+    assert.match(e.message, /No se descontaron créditos/)
+  }
+  assert.strictEqual(descargas.length, 0, 'no se descargó ningún archivo')
+  assert.strictEqual(pedidos.length, 0, 'no se llamó a la IA')
+  assert.strictEqual((await consumos()).length, 0, 'no se reservó nada')
+  await sinCobroNiBanco('ru5')
+})
+
+await caso('F · con exactamente 40 caracteres genera los 25; el texto llega al prompt como criterio principal', async () => {
+  await preparar()
+  const cuarenta = 'Funciones de la membrana de la celula 12'
+  assert.strictEqual(cuarenta.length, 40)
+  const r = await generar('ru5', [archivo('manual.pdf'), archivo('apuntes.docx')], { quiereEvaluar: `  ${cuarenta}  ` })
+  assert.strictEqual(r.resultado.total, 25)
+  const prompt = pedidos[0].messages[0].content[1].text
+  assert.ok(prompt.includes(`QUÉ QUIERE EVALUAR EL DOCENTE (criterio principal: TODOS los reactivos deben evaluar este contenido):\n"""${cuarenta}"""`), 'llega recortado y entre comillas')
+  assert.ok(prompt.indexOf('QUÉ QUIERE EVALUAR') < prompt.indexOf('Genera EXACTAMENTE'), 'va antes del pedido')
+  assert.match(prompt, /que evalúen lo que pide el docente y estén sustentados en los documentos/)
+  assert.match(pedidos[0].system, /El docente indica qué quiere evaluar y ese es el criterio principal: TODOS los reactivos evalúan ese contenido/)
+  // Los documentos siguen siendo la fuente: van en el prefijo (en caché) y cada reactivo trae su cita verificada.
+  assert.match(pedidos[0].messages[0].content[0].text, /=== DOCUMENTO 1: «manual\.pdf»/)
+  assert.ok(pedidos[0].messages[0].content[0].cache_control, 'el prefijo de documentos sigue en caché')
+  assert.ok(!pedidos[0].messages[0].content[0].text.includes(cuarenta), 'la instrucción no se mezcla con los documentos')
+  for (const x of await reactivosDe('ru5')) assert.ok(['manual.pdf', 'apuntes.docx'].includes(x.sustento.documento))
+  assert.strictEqual(await saldo(), 95)
+})
+
+await caso('F · con exactamente 4000 caracteres: 50 reactivos, 4 opciones y una correcta; el texto va en CADA lote', async () => {
+  await preparar()
+  const largo = `Evaluar las membranas y los organelos. ${'Detalle del contenido. '.repeat(400)}`.slice(0, 4000)
+  assert.strictEqual(largo.length, 4000)
+  const r = await generar('ru10', [archivo('manual.pdf'), archivo('apuntes.docx'), archivo('antiguo.doc')], { unidades: 10, quiereEvaluar: largo })
+  assert.strictEqual(r.resultado.total, 50)
+  assert.ok(pedidos.length >= 2)
+  for (const pq of pedidos) assert.ok(pq.messages[0].content[1].text.includes(`"""${largo}"""`), 'cada lote lleva la instrucción completa')
+  const rs = await reactivosDe('ru10')
+  assert.strictEqual(rs.length, 50)
+  for (const x of rs) assert.ok(x.opciones.length === 4 && Number.isInteger(x.correcta) && x.correcta >= 0 && x.correcta <= 3)
+  const b = await bancoDe('ru10')
+  assert.deepStrictEqual([b.total, b.origen, b.aprobado], [50, 'ia', false], 'queda sin aprobar')
+  assert.strictEqual(await saldo(), 90)
+})
+
+await caso('F · el tema guardado de la ruleta no cambia: la instrucción solo viaja en esta generación', async () => {
+  await preparar()
+  const antes = (await db.doc('activities/ru5').get()).data()
+  await generar('ru5', [archivo('manual.pdf'), archivo('apuntes.docx')], { quiereEvaluar: 'Otra cosa distinta del tema: solo las funciones de los ribosomas del tejido.' })
+  const despues = (await db.doc('activities/ru5').get()).data()
+  assert.strictEqual(despues.tema, antes.tema)
+  assert.deepStrictEqual(despues, antes, 'la actividad queda idéntica')
+  assert.ok(pedidos[0].messages[0].content[1].text.includes(`Tema general de la ruleta: ${antes.tema}`), 'el tema sigue como referencia general')
+  assert.ok(!JSON.stringify((await reactivosDe('ru5'))[0]).includes('ribosomas del tejido.'), 'no se guarda la instrucción en los reactivos')
+  assert.ok(!('quiereEvaluar' in (await bancoDe('ru5'))), 'ni en el banco')
 })
 
 globalThis.fetch = FETCH_REAL
