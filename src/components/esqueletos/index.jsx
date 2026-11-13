@@ -454,6 +454,7 @@ export function EsqueletoRuletaDocente({ filas = 4 }) {
         </div>
         <div data-esq="ruleta-banco" className="bg-surface-card rounded-card shadow-card p-4 space-y-4">
           <SkeletonLine texto="text-lg font-semibold" className="w-48" />
+          <SkeletonLine texto="text-sm" className="w-full max-w-[36rem]" />
           <Skeleton className="h-2 w-full rounded-full" />
           {Array.from({ length: filas }, (_, i) => (
             <Skeleton key={i} className="h-20 w-full rounded-card" />

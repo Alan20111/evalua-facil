@@ -253,6 +253,10 @@ export default function RuletaPage() {
 
         <section data-esq="ruleta-banco" className="bg-surface-card rounded-card shadow-card p-4 space-y-4" aria-labelledby="ruleta-banco-titulo">
           <h2 id="ruleta-banco-titulo" className="text-lg font-semibold text-on-surface">Banco de reactivos</h2>
+          <p className="text-sm text-muted">
+            Son las preguntas de la ruleta: en cada partida salen {n} al azar, sin repetirse. Necesitas
+            exactamente {tamanoBanco(n)} reactivos y aprobar el banco para que se pueda jugar.
+          </p>
           {reactivos.length === 0 && !congeladas && (
             <RadioGroup label="¿Cómo quieres preparar el banco?" name="ruleta-modo-banco" options={MODOS_BANCO}
               value={modoBanco} onChange={setModoBanco} />
