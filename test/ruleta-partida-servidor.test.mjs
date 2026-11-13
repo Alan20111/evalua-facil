@@ -475,4 +475,152 @@ await caso('O · las operaciones responden «no existe» y no se escribe ni part
   assert.strictEqual((await db.doc('ruletaParticipantes/ru_borrada_st_a2').get()).exists, false)
 })
 
+// ── P · Fecha límite (decisión 22): después de ella no se INICIA una partida; la ya iniciada se termina ──
+grupo('P · fecha límite: el servidor no deja iniciar después; quien ya empezó termina')
+
+const { Timestamp } = await import('firebase-admin/firestore')
+const conLimite = (id, ms) => db.doc(`activities/${id}`).update({ fechaLimite: '2027-01-15T23:59', fechaLimiteTS: Timestamp.fromMillis(ms) })
+
+await caso('P · una ruleta SIN fecha límite (las que ya existían) se inicia como siempre', async () => {
+  await crearRuleta('ru_sin_fecha')
+  const act = (await db.doc('activities/ru_sin_fecha').get()).data()
+  assert.ok(!('fechaLimiteTS' in act) && !('instrucciones' in act), 'nace sin los campos nuevos')
+  const r = await op('estado', { actividadId: 'ru_sin_fecha' })
+  assert.deepStrictEqual([r.statusCode, r.cuerpo.nueva, r.cuerpo.estado], [200, true, 'lista'])
+})
+
+await caso('P · antes de la fecha límite se inicia; vencida, no: 409 FUERA_DE_PLAZO sin crear partida, congelar ni calificar', async () => {
+  await crearRuleta('ru_plazo')
+  await conLimite('ru_plazo', ahora + 60_000)
+  const a1 = await op('estado', { actividadId: 'ru_plazo' }, tk.a1)
+  assert.deepStrictEqual([a1.statusCode, a1.cuerpo.nueva], [200, true], 'un minuto antes sí inicia')
+
+  await crearRuleta('ru_vencida')
+  await conLimite('ru_vencida', ahora - 1)
+  const r = await op('estado', { actividadId: 'ru_vencida' }, tk.a2)
+  assert.deepStrictEqual([r.statusCode, r.cuerpo.codigo], [409, 'FUERA_DE_PLAZO'])
+  assert.match(r.cuerpo.error, /fecha límite/)
+  assert.strictEqual((await db.doc('ruletaParticipantes/ru_vencida_st_a2').get()).exists, false, 'no se crea la partida')
+  assert.notStrictEqual((await db.doc('activities/ru_vencida').get()).data().ruleta.preguntasCongeladas, true, 'no se congela nada')
+  assert.strictEqual(await entrega('ru_vencida', 'st_a2'), null)
+  // Sin partida, girar y responder tampoco abren nada.
+  assert.deepStrictEqual((await op('girar', { actividadId: 'ru_vencida' }, tk.a2)).cuerpo.codigo, 'SIN_PARTIDA')
+})
+
+await caso('P · en el instante exacto de la fecha límite ya no se inicia; un milisegundo antes, sí', async () => {
+  await crearRuleta('ru_exacta')
+  await conLimite('ru_exacta', ahora)
+  assert.strictEqual((await op('estado', { actividadId: 'ru_exacta' }, tk.a1)).cuerpo.codigo, 'FUERA_DE_PLAZO')
+  await conLimite('ru_exacta', ahora + 1)
+  assert.strictEqual((await op('estado', { actividadId: 'ru_exacta' }, tk.a1)).statusCode, 200)
+})
+
+await caso('P · quien inició antes del vencimiento puede girar, responder y terminar después; su nota se registra', async () => {
+  await crearRuleta('ru_termina')
+  await conLimite('ru_termina', ahora + 5_000)
+  await op('estado', { actividadId: 'ru_termina' }, tk.a3) // inicia a tiempo
+  await op('girar', { actividadId: 'ru_termina' }, tk.a3)
+  ahora += 1000
+  const c0 = await claveAbierta('ru_termina', 'st_a3')
+  await op('responder', { actividadId: 'ru_termina', indice: 0, opcion: c0 }, tk.a3)
+  ahora += 3_600_000 // una hora después: la fecha límite ya pasó
+  const vuelve = await op('estado', { actividadId: 'ru_termina' }, tk.a3)
+  assert.deepStrictEqual([vuelve.statusCode, vuelve.cuerpo.nueva, vuelve.cuerpo.respondidas], [200, false, 1], 'recupera su partida')
+  let ultima
+  for (let i = 1; i < 5; i++) {
+    const g = await op('girar', { actividadId: 'ru_termina' }, tk.a3)
+    assert.strictEqual(g.statusCode, 200, `girar ${i} después del vencimiento`)
+    ahora += 1000
+    ultima = await op('responder', { actividadId: 'ru_termina', indice: i, opcion: await claveAbierta('ru_termina', 'st_a3') }, tk.a3)
+    assert.strictEqual(ultima.statusCode, 200)
+  }
+  assert.deepStrictEqual([ultima.cuerpo.estado, ultima.cuerpo.resultado.calificacion], ['terminada', 10])
+  assert.strictEqual((await entrega('ru_termina', 'st_a3')).calificacion, 10, 'la nota se registra aunque terminó después')
+  // Otro estudiante que no había empezado ya no puede iniciar.
+  assert.strictEqual((await op('estado', { actividadId: 'ru_termina' }, tk.a4)).cuerpo.codigo, 'FUERA_DE_PLAZO')
+  // Y quien terminó sigue viendo su resultado.
+  const ver = await op('estado', { actividadId: 'ru_termina' }, tk.a3)
+  assert.deepStrictEqual([ver.statusCode, ver.cuerpo.estado], [200, 'terminada'])
+})
+
+await caso('P · `estados` sigue informando el avance con la fecha vencida (solo lectura)', async () => {
+  const r = await op('estados', { asignaturaId: S }, tk.a3)
+  assert.strictEqual(r.statusCode, 200)
+  assert.strictEqual(r.cuerpo.ruletas.ru_termina.estado, 'terminada')
+  assert.ok(!('ru_vencida' in r.cuerpo.ruletas), 'sin partida, no aparece')
+})
+
+await caso('P · si el docente amplía la fecha límite, el estudiante ya puede iniciar', async () => {
+  await conLimite('ru_vencida', ahora + 86_400_000)
+  assert.deepStrictEqual((await op('estado', { actividadId: 'ru_vencida' }, tk.a2)).statusCode, 200)
+  await db.doc('activities/ru_vencida').update({ fechaLimite: null, fechaLimiteTS: null }) // y sin fecha, tampoco vence
+  assert.deepStrictEqual((await op('estado', { actividadId: 'ru_vencida' }, tk.a4)).statusCode, 200)
+})
+
+// ── R · Publicación programada (decisión 22): el instante real (`publishAtTS`) manda sobre el texto sin zona horaria ──
+grupo('R · publicación programada: no se inicia antes de la hora real; la partida iniciada no cambia')
+
+// Lo que ve un servidor en UTC de una ruleta programada por un docente en México: el texto `publishAt` YA pasó
+// (lo lee seis horas antes), pero el instante real todavía no llega.
+const programada = (id, tsMs, extra = {}) => db.doc(`activities/${id}`).update({
+  oculta: true, publishedAt: null, publishAt: '2026-01-01T08:00', publishAtTS: tsMs === null ? null : Timestamp.fromMillis(tsMs), ...extra,
+})
+
+await caso('R · con el texto ya «pasado» pero el instante real en el futuro, NO se inicia: 403 AUN_NO_PUBLICADA y nada se escribe', async () => {
+  await crearRuleta('ru_prog')
+  await programada('ru_prog', ahora + 6 * 3_600_000)
+  const r = await op('estado', { actividadId: 'ru_prog' }, tk.a1)
+  assert.deepStrictEqual([r.statusCode, r.cuerpo.codigo], [403, 'AUN_NO_PUBLICADA'])
+  assert.strictEqual((await db.doc('ruletaParticipantes/ru_prog_st_a1').get()).exists, false)
+  assert.notStrictEqual((await db.doc('activities/ru_prog').get()).data().ruleta.preguntasCongeladas, true)
+  assert.strictEqual(await entrega('ru_prog', 'st_a1'), null)
+  // Un milisegundo antes tampoco; en el instante exacto, sí.
+  await programada('ru_prog', ahora + 1)
+  assert.strictEqual((await op('estado', { actividadId: 'ru_prog' }, tk.a1)).cuerpo.codigo, 'AUN_NO_PUBLICADA')
+  await programada('ru_prog', ahora)
+  const ya = await op('estado', { actividadId: 'ru_prog' }, tk.a1)
+  assert.deepStrictEqual([ya.statusCode, ya.cuerpo.nueva], [200, true])
+})
+
+await caso('R · al llegar la hora programada los estudiantes ya inician', async () => {
+  await crearRuleta('ru_prog2')
+  await programada('ru_prog2', ahora + 3_600_000)
+  assert.strictEqual((await op('estado', { actividadId: 'ru_prog2' }, tk.a2)).cuerpo.codigo, 'AUN_NO_PUBLICADA')
+  ahora += 3_600_000
+  assert.deepStrictEqual((await op('estado', { actividadId: 'ru_prog2' }, tk.a2)).statusCode, 200)
+})
+
+await caso('R · una partida YA iniciada no se altera si el docente reprograma después: gira, responde y termina con su nota', async () => {
+  await crearRuleta('ru_prog3')
+  await op('estado', { actividadId: 'ru_prog3' }, tk.a3) // la ruleta estaba publicada
+  await op('girar', { actividadId: 'ru_prog3' }, tk.a3)
+  ahora += 1000
+  await op('responder', { actividadId: 'ru_prog3', indice: 0, opcion: await claveAbierta('ru_prog3', 'st_a3') }, tk.a3)
+  await programada('ru_prog3', ahora + 86_400_000) // reprogramada para mañana
+  const vuelve = await op('estado', { actividadId: 'ru_prog3' }, tk.a3)
+  assert.deepStrictEqual([vuelve.statusCode, vuelve.cuerpo.nueva, vuelve.cuerpo.respondidas], [200, false, 1])
+  let ultima
+  for (let i = 1; i < 5; i++) {
+    assert.strictEqual((await op('girar', { actividadId: 'ru_prog3' }, tk.a3)).statusCode, 200)
+    ahora += 1000
+    ultima = await op('responder', { actividadId: 'ru_prog3', indice: i, opcion: await claveAbierta('ru_prog3', 'st_a3') }, tk.a3)
+  }
+  assert.deepStrictEqual([ultima.cuerpo.estado, (await entrega('ru_prog3', 'st_a3')).calificacion], ['terminada', 10])
+  // Quien no había empezado espera a la hora real.
+  assert.strictEqual((await op('estado', { actividadId: 'ru_prog3' }, tk.a4)).cuerpo.codigo, 'AUN_NO_PUBLICADA')
+})
+
+await caso('R · sin `publishAtTS` (programada antes de este campo) o ya visible, decide la visibilidad de siempre', async () => {
+  await crearRuleta('ru_prog_vieja')
+  await programada('ru_prog_vieja', null) // texto pasado, sin instante: como hasta hoy, se puede iniciar
+  assert.strictEqual((await op('estado', { actividadId: 'ru_prog_vieja' }, tk.a1)).statusCode, 200)
+  await crearRuleta('ru_prog_futura')
+  await programada('ru_prog_futura', null, { publishAt: '2099-01-01T08:00' }) // texto futuro: sigue oculta
+  assert.strictEqual((await op('estado', { actividadId: 'ru_prog_futura' }, tk.a1)).cuerpo.codigo, 'NO_PUBLICADA')
+  // Publicada con el ojo o «publicar ahora»: un instante viejo que hubiera quedado guardado no estorba.
+  await crearRuleta('ru_prog_visible')
+  await db.doc('activities/ru_prog_visible').update({ oculta: false, publishAt: null, publishAtTS: Timestamp.fromMillis(ahora + 86_400_000) })
+  assert.strictEqual((await op('estado', { actividadId: 'ru_prog_visible' }, tk.a1)).statusCode, 200)
+})
+
 resumen('RULETA-PARTIDA-SERVIDOR CHECKS')

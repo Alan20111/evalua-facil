@@ -15,6 +15,7 @@ import Select from '../../components/ui/Select'
 import { exportSubjectGrades, exportParcialGrades, exportRankingExcel, exportSubjectAttendance, exportParcialAttendance, parseStudentExcel } from '../../utils/excel'
 import { importActivitiesToSubject } from '../../utils/importActivities'
 import { camposComunesCopia, nombreParaCopia, esCopiable, esJuego } from '../../utils/copiaActividad'
+import { puedePublicarRuleta, ruletasQueNoSeMuestran } from '../../utils/ruletaDestinoDb'
 import { copiarClaveJuego } from '../../utils/juegoClave'
 import { exportSubjectGradesPDF, exportParcialGradesPDF, exportRankingPDF, exportCredentialsPDF } from '../../utils/pdf'
 import { membreteDe } from '../../utils/membrete'
@@ -3108,18 +3109,27 @@ export default function SubjectPage() {
         colorPalette: unarchiveEdits.colorPalette || 'default',
         icon: unarchiveEdits.icon || 'book',
       }
+      // La Ruleta del Destino (decisión 22): al MOSTRAR todo, una ruleta sin instrucciones o sin su banco completo y
+      // aprobado se queda como está (oculta), y las demás actividades sí se muestran. Las reglas rechazarían el lote
+      // completo si se incluyera.
+      let ruletasOcultas = []
       if (unarchiveActivities !== 'keep') {
+        const retenidas = unarchiveActivities === 'show' ? await ruletasQueNoSeMuestran(activities) : []
+        const fuera = new Set(retenidas.map((r) => r.actividad.id))
+        ruletasOcultas = retenidas.filter((r) => !r.externa).map((r) => r.actividad.nombre || 'La Ruleta del Destino')
         const batch = writeBatch(db)
-        activities.forEach((a) => batch.update(doc(db, 'activities', a.id), {
+        activities.filter((a) => !fuera.has(a.id)).forEach((a) => batch.update(doc(db, 'activities', a.id), {
           oculta: unarchiveActivities === 'hide',
           publishAt: null,
         }))
         await batch.commit()
-        setActivities((prev) => prev.map((a) => ({ ...a, oculta: unarchiveActivities === 'hide', publishAt: null })))
+        setActivities((prev) => prev.map((a) => (fuera.has(a.id) ? a : { ...a, oculta: unarchiveActivities === 'hide', publishAt: null })))
       }
       await updateDoc(doc(db, 'subjects', subjectId), updates)
       setSubject((s) => ({ ...s, ...updates }))
-      toast('Asignatura restaurada')
+      toast(ruletasOcultas.length
+        ? `Asignatura restaurada. ${ruletasOcultas.length === 1 ? 'Una ruleta se quedó oculta' : `${ruletasOcultas.length} ruletas se quedaron ocultas`} porque le${ruletasOcultas.length === 1 ? '' : 's'} faltan las instrucciones o el banco aprobado: ${ruletasOcultas.map((n) => `«${n}»`).join(', ')}.`
+        : 'Asignatura restaurada')
       setShowUnarchiveModal(false)
     } catch (err) { toast('Error: ' + err.message, 'error') }
     finally { setUnarchivedSaving(false) }
@@ -3147,6 +3157,12 @@ export default function SubjectPage() {
   // Eye toggle: show a hidden (already published) activity immediately —
   // no modal, mirror of hideActivity.
   async function showActivityNow(act) {
+    // La Ruleta del Destino: volver a mostrarla exige lo mismo que publicarla (decisión 22).
+    if (act.categoria === 'ruleta') {
+      const r = await puedePublicarRuleta(act)
+        .catch(() => ({ ok: false, error: 'No se pudo comprobar el banco de la ruleta. Intenta de nuevo.' }))
+      if (!r.ok) { toast(r.error, 'error'); return }
+    }
     try {
       await updateDoc(doc(db, 'activities', act.id), { oculta: false, publishAt: null })
       setActivities((prev) => prev.map((a) => a.id === act.id ? { ...a, oculta: false, publishAt: null } : a))
@@ -3316,6 +3332,16 @@ export default function SubjectPage() {
       toast(mensajeParcialCerrado(publishDraftConfirm.parcial), 'error')
       setPublishDraftConfirm(null)
       return
+    }
+    // La Ruleta del Destino: no se publica sin instrucciones ni sin el banco completo y aprobado (decisión 22).
+    if (publishDraftConfirm.categoria === 'ruleta') {
+      const r = await puedePublicarRuleta(publishDraftConfirm)
+        .catch(() => ({ ok: false, error: 'No se pudo comprobar el banco de la ruleta. Intenta de nuevo.' }))
+      if (!r.ok) {
+        toast(r.error, 'error')
+        setPublishDraftConfirm(null)
+        return
+      }
     }
     const d = new Date()
     const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`

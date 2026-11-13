@@ -26,7 +26,8 @@ import { ORIGEN_SERVIDOR } from '../../src/utils/evaluacionGrading.js'
 import { submissionDocId } from '../../src/utils/submissionId.js'
 import {
   RULETA_CFG, ESTADOS_PARTIDA, MOTIVOS_RESPUESTA, preguntasPorPartidaValida, evaluarAprobacion, sortearPreguntas,
-  crearPartida, validarPartida, girar, responder, vencerPregunta, tiempoRestanteMs, resumenPartida,
+  crearPartida, validarPartida, girar, responder, vencerPregunta, tiempoRestanteMs, resumenPartida, fechaLimiteVencida,
+  programadaParaDespues,
 } from '../../src/utils/ruletaDestino.js'
 
 const { FieldValue } = admin.firestore
@@ -210,6 +211,17 @@ async function estado(db, req, body) {
     if (actual) {
       const p = actual.nuevas.length ? await guardar(tx, db, ref, actual.p, actual.partida, actual.nuevas) : { ...actual.p, partida: actual.partida }
       return { nueva: false, ...vista(p, ahora, opciones) }
+    }
+    // Fecha límite (decisión 22): después de ella no se INICIA una partida. Quien ya la empezó llegó arriba y la
+    // termina: girar y responder no revisan la fecha. Sin fecha límite, nunca vence.
+    if (fechaLimiteVencida(act, ahora)) {
+      throw new ErrorRuleta(409, 'La fecha límite de esta ruleta ya pasó. Habla con tu docente si necesitas más tiempo.', 'FUERA_DE_PLAZO')
+    }
+    // Publicación programada (decisión 22): no se INICIA una partida antes del instante real de publicación
+    // (`publishAtTS`). El texto `publishAt` no lleva zona horaria y este servidor puede leerlo horas antes. Una
+    // partida ya iniciada no pasa por aquí.
+    if (programadaParaDespues(act, ahora)) {
+      throw new ErrorRuleta(403, 'Esta ruleta todavía no está disponible.', 'AUN_NO_PUBLICADA')
     }
     // Partida nueva: solo con el banco aprobado y completo (mínimo según su origen).
     const n = act.ruleta.preguntasPorPartida
