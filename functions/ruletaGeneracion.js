@@ -8,9 +8,13 @@
 //     mismo campo de Reto Exprés y Crear evaluación con IA (mínimo 40 y máximo 4000 caracteres). Es el criterio
 //     principal del prompt: TODOS los reactivos evalúan ese contenido, sustentados en los documentos.
 //   · precheckGenerarBancoRuleta (ANTES de cobrar): dueño, ruleta, qué quiere evaluar, banco VACÍO, archivos (cantidad, formato, tamaño,
-//     origen) y lectura de cada documento. Un documento que no se puede leer o que no tiene texto verificable (un PDF
-//     escaneado) detiene la operación sin reservar créditos. Fija las unidades a cobrar: 1 por pregunta de la partida
-//     (5 o 10 créditos con la tarifa `generar_banco_ruleta = 1`).
+//     origen) y lectura de cada documento. Un documento que no se puede leer, o que no tiene texto ni páginas que se
+//     puedan leer visualmente, detiene la operación sin reservar créditos. Fija las unidades a cobrar: 1 por pregunta
+//     de la partida (5 o 10 créditos con la tarifa `generar_banco_ruleta = 1`).
+//   · Lectura visual de PDF (13-nov-2026, decisión 21; functions/ruletaPdfVisual.js): las páginas escaneadas o con
+//     imágenes se detectan en el precheck (sin IA). Si suman más del tope (15 con 5 preguntas, 30 con 10) se rechaza
+//     ANTES de cobrar. Ya con la reserva hecha, esas páginas se transcriben con el mismo modelo y su texto se une al
+//     del documento; si la transcripción falla, el callable devuelve la reserva. La tarifa no cambia.
 //   · ejecutarGenerarBancoRuleta: pide los reactivos a la IA por lotes y verifica cada uno contra los documentos
 //     (forma, sin repetir, cita y contexto literales en una sola página; ver «Sustento documental» en el documento).
 //     Si no se reúne la cantidad exacta de reactivos válidos, falla y el callable devuelve la reserva: nunca se guarda
@@ -25,6 +29,7 @@ const crypto = require('crypto')
 const { HttpsError } = require('firebase-functions/v2/https')
 const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const { escribirSiActividadExiste } = require('./actividadLimpieza')
+const pdfVisual = require('./ruletaPdfVisual')
 
 const RULETA_IA = {
   CATEGORIA: 'ruleta',
@@ -155,9 +160,12 @@ async function leerArchivo({ url, nombre, ext }) {
   if (bytes.byteLength > RULETA_IA.MAX_BYTES) throw falla(`«${nombre}» pesa más de 15 MB.`)
 
   let paginas
+  let visuales = []
   try {
     if (ext === 'pdf') {
       paginas = await paginasPdf(bytes)
+      // Páginas que necesitan lectura visual. Si el análisis falla, el PDF se trata como hasta hoy (solo su texto).
+      try { visuales = pdfVisual.clasificarPaginas(paginas, await pdfVisual.analizarPaginas(bytes)) } catch { visuales = [] }
     } else if (ext === 'docx') {
       const mammoth = require('mammoth')
       paginas = [(await mammoth.extractRawText({ buffer: Buffer.from(bytes) })).value || '']
@@ -169,10 +177,53 @@ async function leerArchivo({ url, nombre, ext }) {
     throw falla(`«${nombre}» está dañado o protegido y no se puede leer.`)
   }
   const caracteres = paginas.reduce((s, p) => s + p.trim().length, 0)
-  if (caracteres < RULETA_IA.MIN_CARACTERES_DOCUMENTO) {
+  if (caracteres < RULETA_IA.MIN_CARACTERES_DOCUMENTO && !visuales.length) {
     throw falla(`«${nombre}» no tiene texto que se pueda verificar (por ejemplo, un PDF escaneado o de imágenes). Usa un PDF con texto, un DOC o un DOCX.`)
   }
-  return { nombre, ext, paginas, porPaginas: ext === 'pdf', normalizadas: paginas.map(normalizarCita) }
+  const documento = { nombre, ext, paginas, porPaginas: ext === 'pdf', normalizadas: paginas.map(normalizarCita) }
+  // Solo los PDF con páginas por leer visualmente cargan sus bytes hasta la generación.
+  return visuales.length ? { ...documento, visuales, bytes } : documento
+}
+
+/** Tope de páginas con lectura visual para una partida de `n` preguntas. */
+const maxPaginasVisuales = (n) => pdfVisual.VISUAL.MAX_PAGINAS[n] || 0
+const paginasVisualesDe = (documentos) => documentos.reduce((s, d) => s + (d.visuales?.length || 0), 0)
+
+/**
+ * Transcribe las páginas visuales de los documentos (ya con la reserva hecha) y une su texto al del documento:
+ * una página 'visual' queda con su transcripción; una 'mixta' conserva su texto y suma lo que dicen sus imágenes.
+ * Devuelve { documentos, interno }. Lanza HttpsError si algo falla: el callable reembolsa.
+ */
+async function leerPaginasVisuales(documentos, { client, modelo, pedirJSON }) {
+  const interno = { tokensEntrada: 0, tokensSalida: 0, cacheEscritura: 0, cacheLectura: 0, ms: 0, llamadas: 0, paginas: 0 }
+  const listos = []
+  for (const d of documentos) {
+    if (!d.visuales?.length) { listos.push(d); continue }
+    const { textos, interno: i } = await pdfVisual.transcribirPaginas({ bytes: d.bytes, nombre: d.nombre, paginas: d.visuales, client, modelo, pedirJSON })
+    for (const k of ['tokensEntrada', 'tokensSalida', 'cacheEscritura', 'cacheLectura', 'ms', 'llamadas']) interno[k] += i[k]
+    interno.paginas += d.visuales.length
+    const paginas = [...d.paginas]
+    for (const { indice, tipo } of d.visuales) {
+      const leido = textos.get(indice) || ''
+      paginas[indice] = tipo === 'mixta' ? [d.paginas[indice].trim(), leido].filter(Boolean).join('\n') : leido
+    }
+    if (paginas.reduce((s, p) => s + p.trim().length, 0) < RULETA_IA.MIN_CARACTERES_DOCUMENTO) {
+      throw new HttpsError('failed-precondition',
+        `En «${d.nombre}» no se encontró texto suficiente, ni siquiera leyendo sus imágenes. Usa un documento más legible. No se descontaron créditos.`,
+        { codigo: 'DOCUMENTO_ILEGIBLE', archivo: d.nombre })
+    }
+    listos.push({
+      nombre: d.nombre, ext: d.ext, paginas, porPaginas: true, normalizadas: paginas.map(normalizarCita),
+      // Para saber si un sustento salió de la transcripción: el texto que el PDF ya traía, por página.
+      normalizadasTexto: d.normalizadas, paginasVisuales: new Set(d.visuales.map((v) => v.indice + 1)),
+    })
+  }
+  const caracteres = listos.reduce((s, d) => s + d.paginas.reduce((t, p) => t + p.length, 0), 0)
+  if (caracteres > RULETA_IA.MAX_CARACTERES_TOTALES) {
+    throw new HttpsError('failed-precondition',
+      'Los documentos son demasiado extensos para generar el banco. Adjunta solo las secciones del tema. No se descontaron créditos.')
+  }
+  return { documentos: listos, interno }
 }
 
 // ── Verificación de un reactivo ─────────────────────────────────────────────
@@ -217,10 +268,10 @@ function verificarReactivo(r, documentos, huellas = new Set()) {
     if (veces > 1) return { ok: false, motivo: 'cita_ambigua' }
     if (veces === 0) return { ok: false, motivo: doc.normalizadas[0].includes(nc) ? 'cita_no_verificable' : 'cita_inexistente' }
   }
-  return {
-    ok: true,
-    reactivo: { enunciado, opciones, correcta, huella, sustento: { documento: doc.nombre, pagina, cita, contexto } },
-  }
+  const sustento = { documento: doc.nombre, pagina, cita, contexto }
+  // El contexto no está en el texto que el PDF ya traía: salió de la lectura visual de esa página.
+  if (pagina && doc.paginasVisuales?.has(pagina) && !doc.normalizadasTexto[pagina - 1].includes(nx)) sustento.visual = true
+  return { ok: true, reactivo: { enunciado, opciones, correcta, huella, sustento } }
 }
 
 // ── Precheck (antes de cobrar) ──────────────────────────────────────────────
@@ -265,6 +316,14 @@ async function precheckGenerarBancoRuleta({ uid, params }) {
   const archivos = validarArchivos(params?.archivos)
   const documentos = []
   for (const a of archivos) documentos.push(await leerArchivo(a))
+  // Lectura visual: todas las páginas que la necesitan tienen que caber en el tope; nunca se omite una parte.
+  const visuales = paginasVisualesDe(documentos)
+  if (visuales > maxPaginasVisuales(n)) {
+    throw new HttpsError('failed-precondition',
+      `Tus archivos tienen ${visuales} páginas escaneadas o con imágenes que hay que leer, y para una partida de ${n} preguntas el máximo es de ${maxPaginasVisuales(n)}. ` +
+      'Adjunta solo las páginas del tema o un documento con texto. No se descontaron créditos.',
+      { codigo: 'EXCEDE_PAGINAS_VISUALES', paginas: visuales, maximo: maxPaginasVisuales(n) })
+  }
   const caracteres = documentos.reduce((s, d) => s + d.paginas.reduce((t, p) => t + p.length, 0), 0)
   if (caracteres > RULETA_IA.MAX_CARACTERES_TOTALES) {
     throw new HttpsError('failed-precondition',
@@ -329,12 +388,16 @@ async function ejecutarGenerarBancoRuleta({ params, modelo, apiKey, pedirJSON })
   const ctx = params.__contexto // lo puso el precheck; el cliente no puede tocarlo
   const uid = params.__uid
   const objetivo = ctx.cantidad
-  const prefijo = [{ type: 'text', text: bloqueDocumentos(ctx.documentos) }]
+  // Primero se leen las páginas escaneadas o con imágenes; desde aquí todo trabaja con el texto ya unido.
+  const lectura = await leerPaginasVisuales(ctx.documentos, { client, modelo, pedirJSON })
+  const documentos = lectura.documentos
+  const prefijo = [{ type: 'text', text: bloqueDocumentos(documentos) }]
 
   const aceptados = []
   const huellas = new Set()
   const rechazos = {}
   const interno = { modelo, tokensEntrada: 0, tokensSalida: 0, cacheEscritura: 0, cacheLectura: 0, ms: 0, llamadas: 0 }
+  for (const k of ['tokensEntrada', 'tokensSalida', 'cacheEscritura', 'cacheLectura', 'ms']) interno[k] += lectura.interno[k]
   const maxLlamadas = Math.ceil(objetivo / RULETA_IA.LOTE) + RULETA_IA.LLAMADAS_EXTRA
 
   while (aceptados.length < objetivo && interno.llamadas < maxLlamadas) {
@@ -348,7 +411,7 @@ async function ejecutarGenerarBancoRuleta({ params, modelo, apiKey, pedirJSON })
     for (const k of ['tokensEntrada', 'tokensSalida', 'cacheEscritura', 'cacheLectura', 'ms']) interno[k] += Number(i?.[k]) || 0
     for (const r of Array.isArray(datos?.reactivos) ? datos.reactivos : []) {
       if (aceptados.length >= objetivo) break
-      const v = verificarReactivo(r, ctx.documentos, huellas)
+      const v = verificarReactivo(r, documentos, huellas)
       if (!v.ok) { rechazos[v.motivo] = (rechazos[v.motivo] || 0) + 1; continue }
       huellas.add(v.reactivo.huella)
       aceptados.push(v.reactivo)
@@ -399,7 +462,10 @@ async function ejecutarGenerarBancoRuleta({ params, modelo, apiKey, pedirJSON })
   return {
     resultado: { actividadId: ctx.actividadId, total: aceptados.length, rechazados: rechazos },
     unidadesReales: ctx.n, // 1 por pregunta de la partida: 5 o 10 créditos
-    interno: { ...interno, reactivos: aceptados.length, rechazados: Object.values(rechazos).reduce((s, x) => s + x, 0) },
+    interno: {
+      ...interno, reactivos: aceptados.length, rechazados: Object.values(rechazos).reduce((s, x) => s + x, 0),
+      ...(lectura.interno.paginas && { paginasVisuales: lectura.interno.paginas, llamadasTranscripcion: lectura.interno.llamadas }),
+    },
   }
 }
 
@@ -407,5 +473,5 @@ module.exports = {
   RULETA_IA,
   precheckGenerarBancoRuleta,
   ejecutarGenerarBancoRuleta,
-  _pruebas: { normalizarTexto, normalizarCita, huellaEnunciado, verificarReactivo, validarArchivos, leerArchivo, extensionDe, oraciones },
+  _pruebas: { normalizarTexto, normalizarCita, huellaEnunciado, verificarReactivo, validarArchivos, leerArchivo, extensionDe, oraciones, leerPaginasVisuales, maxPaginasVisuales },
 }

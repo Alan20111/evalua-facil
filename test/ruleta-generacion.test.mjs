@@ -73,8 +73,32 @@ const requireFn = createRequire(new URL('../functions/index.js', import.meta.url
 const rutaSdk = requireFn.resolve('@anthropic-ai/sdk')
 requireFn(rutaSdk)
 const pedidos = []
-let comportamiento = {} // { malosPorLlamada, maxValidos, borrarActividad, soloDocumentos }
+let comportamiento = {} // { malosPorLlamada, maxValidos, borrarActividad, soloDocumentos, visual }
 let usadas = new Set()
+// Lectura visual (grupo G): la IA falsa «transcribe» cada página del PDF que recibe con oraciones únicas y las pone
+// al frente del corpus de `comportamiento.visual.nombre`, para que la generación las use primero.
+const transcripciones = []
+let numeroLectura = 0
+async function transcripcionFalsa(req) {
+  const v = comportamiento.visual || {}
+  transcripciones.push(req)
+  if (v.falla) throw new Error('fallo simulado de la transcripción')
+  const usage = { input_tokens: 2000, output_tokens: 300 }
+  if (v.jsonMalo) return { content: [{ type: 'text', text: 'Aquí va la transcripción, pero no en JSON' }], usage }
+  const sub = await requireFn('pdf-lib').PDFDocument.load(Buffer.from(req.messages[0].content[0].source.data, 'base64'))
+  const nuevas = []
+  const paginas = sub.getPages().map((_, i) => {
+    if (v.vacio) return { numero: i + 1, texto: '' }
+    const os = Array.from({ length: v.oraciones ?? 10 }, (_, j) => {
+      numeroLectura += 1
+      return `Lectura visual ${numeroLectura}, oracion ${j + 1}: la figura numero ${numeroLectura} muestra el cloroplasto ${j + 1}.`
+    })
+    nuevas.push(...os.map((texto) => ({ texto, pagina: null })))
+    return { numero: i + 1, texto: os.join(' ') }
+  })
+  CORPUS[v.nombre].unshift(...nuevas)
+  return { content: [{ type: 'text', text: JSON.stringify({ paginas }) }], usage }
+}
 require.cache[rutaSdk].exports = class AnthropicFalso {
   constructor() {
     this.messages = {
@@ -82,6 +106,7 @@ require.cache[rutaSdk].exports = class AnthropicFalso {
         pedidos.push(req)
         if (comportamiento.borrarActividad) await db.doc(`activities/${comportamiento.borrarActividad}`).delete()
         const contenido = req.messages[0].content
+        if (contenido[0].type === 'document') return transcripcionFalsa(req)
         const docsTexto = contenido[0].text
         const prompt = contenido[1].text
         const pedir = Number(prompt.match(/EXACTAMENTE (\d+)/)[1])
@@ -517,6 +542,273 @@ await caso('F · el tema guardado de la ruleta no cambia: la instrucción solo v
   assert.ok(pedidos[0].messages[0].content[1].text.includes(`Tema general de la ruleta: ${antes.tema}`), 'el tema sigue como referencia general')
   assert.ok(!JSON.stringify((await reactivosDe('ru5'))[0]).includes('ribosomas del tejido.'), 'no se guarda la instrucción en los reactivos')
   assert.ok(!('quiereEvaluar' in (await bancoDe('ru5'))), 'ni en el banco')
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+grupo('G · lectura visual de PDF: páginas escaneadas y con imágenes (decisión 21)')
+// ═════════════════════════════════════════════════════════════════════════════
+const V = require('../functions/ruletaPdfVisual.js')
+const PDFLIB = requireFn('pdf-lib')
+const oracionTexto = (doc, p, i) => `${doc} pagina ${p}, oracion ${i}: la vacuola numero ${i} de la hoja ${p} guarda agua.`
+const A4 = [595, 842]
+/** PDF armado con pdf-lib. Cada página: { texto: [oraciones], imagen: [ancho, alto] en puntos, diagrama: true }. */
+async function pdfVisual(paginas) {
+  const d = await PDFLIB.PDFDocument.create()
+  const fuente = await d.embedFont(PDFLIB.StandardFonts.Helvetica)
+  // `repetida`: la MISMA imagen en cada hoja (un membrete o un logotipo). Si no, cada hoja lleva la suya (un escaneo).
+  const membrete = await d.embedPng(FX.png(64, 64))
+  for (const p of paginas) {
+    const hoja = d.addPage(A4)
+    ;(p.texto || []).forEach((t, i) => hoja.drawText(t, { x: 30, y: 800 - i * 13, size: 9, font: fuente }))
+    if (p.imagen) hoja.drawImage(p.repetida ? membrete : await d.embedPng(FX.png(64, 64)), { x: 30, y: 20, width: p.imagen[0], height: p.imagen[1] })
+    if (p.diagrama) {
+      hoja.drawRectangle({ x: 50, y: 400, width: 200, height: 100, borderColor: PDFLIB.rgb(0, 0, 0), borderWidth: 2 })
+      hoja.drawLine({ start: { x: 250, y: 450 }, end: { x: 400, y: 450 }, thickness: 2 })
+    }
+  }
+  return Buffer.from(await d.save())
+}
+const hojaTexto = (doc, p, extra = {}) => ({ texto: Array.from({ length: 12 }, (_, i) => oracionTexto(doc, p, i + 1)), ...extra })
+const ESCANEO = { imagen: [595, 842] } // la hoja completa es una imagen, sin capa de texto
+const LOGO = { imagen: [60, 30], repetida: true } // 0.4 % de la hoja
+const FIGURA = { imagen: [320, 320] } // 20 % de la hoja
+const MEMBRETE = { imagen: [595, 842], repetida: true } // un fondo de hoja completa, el mismo en todas
+const corpusTexto = (doc, paginas) => paginas.flatMap((p) => Array.from({ length: 12 }, (_, i) => ({ texto: oracionTexto(doc, p, i + 1), pagina: p })))
+Object.assign(ARCHIVOS, {
+  'escaneo.pdf': await pdfVisual([ESCANEO, ESCANEO, ESCANEO]),
+  'mixto.pdf': await pdfVisual([hojaTexto('Mixto', 1), hojaTexto('Mixto', 2, FIGURA), hojaTexto('Mixto', 3, LOGO)]),
+  'logos.pdf': await pdfVisual([1, 2, 3].map((p) => hojaTexto('Logos', p, LOGO))),
+  'membrete.pdf': await pdfVisual([1, 2, 3, 4].map((p) => hojaTexto('Membrete', p, MEMBRETE))),
+  'diagramas.pdf': await pdfVisual([hojaTexto('Diagramas', 1), { diagrama: true }, ESCANEO, {}]),
+  'escaneo15.pdf': await pdfVisual(Array.from({ length: 15 }, () => ESCANEO)),
+  'escaneo16.pdf': await pdfVisual(Array.from({ length: 16 }, () => ESCANEO)),
+  'escaneo31.pdf': await pdfVisual(Array.from({ length: 31 }, () => ESCANEO)),
+})
+const CORPUS_BASE = {
+  'escaneo.pdf': [], 'escaneo15.pdf': [], 'escaneo16.pdf': [], 'escaneo31.pdf': [],
+  'mixto.pdf': corpusTexto('Mixto', [1, 2, 3]),
+  'logos.pdf': corpusTexto('Logos', [1, 2, 3]),
+  'membrete.pdf': corpusTexto('Membrete', [1, 2, 3, 4]),
+  'diagramas.pdf': corpusTexto('Diagramas', [1]),
+}
+async function prepararVisual(nombre, visual = {}) {
+  await preparar()
+  transcripciones.length = 0
+  for (const [n, base] of Object.entries(CORPUS_BASE)) CORPUS[n] = [...base]
+  comportamiento = { visual: { nombre, ...visual } }
+}
+const sha = (b) => crypto.createHash('sha256').update(b).digest('hex')
+const leer = (n) => G._pruebas.leerArchivo({ ...archivo(n), ext: 'pdf' })
+const tipos = (d) => (d.visuales || []).map((v) => `${v.indice + 1}:${v.tipo}`)
+
+await caso('G · detección por contenido dibujado: los 8 casos de la prueba de concepto', async () => {
+  // 1 texto · 2 escaneo · 3 mixta · 4 texto que DECLARA una imagen sin pintarla · 5 imagen anidada en una forma ·
+  // 6 diagrama vectorial sin texto · 7 en blanco · 8 texto con bordes de tabla.
+  const d = await PDFLIB.PDFDocument.create()
+  const fuente = await d.embedFont(PDFLIB.StandardFonts.Helvetica)
+  const foto = await d.embedPng(FX.png(64, 64))
+  const escribir = (hoja, p) => hojaTexto('Casos', p).texto.forEach((t, i) => hoja.drawText(t, { x: 30, y: 800 - i * 13, size: 9, font: fuente }))
+  escribir(d.addPage(A4), 1)
+  d.addPage(A4).drawImage(foto, { x: 40, y: 300, width: 500, height: 500 })
+  const p3 = d.addPage(A4); escribir(p3, 3); p3.drawImage(foto, { x: 40, y: 100, width: 300, height: 300 })
+  const p4 = d.addPage(A4); escribir(p4, 4)
+  const aux = await PDFLIB.PDFDocument.create()
+  aux.addPage([300, 300]).drawImage(await aux.embedPng(FX.png(32, 32)), { x: 0, y: 0, width: 300, height: 300 })
+  const [incrustada] = await d.embedPdf(await aux.save())
+  d.addPage(A4).drawPage(incrustada, { x: 40, y: 300 })
+  const p6 = d.addPage(A4)
+  p6.drawRectangle({ x: 50, y: 400, width: 200, height: 100, borderColor: PDFLIB.rgb(0, 0, 0), borderWidth: 2 })
+  d.addPage(A4)
+  const p8 = d.addPage(A4); escribir(p8, 8)
+  p8.drawRectangle({ x: 25, y: 640, width: 540, height: 175, borderColor: PDFLIB.rgb(0, 0, 0), borderWidth: 1 })
+  p4.node.Resources().set(PDFLIB.PDFName.of('XObject'), p3.node.Resources().lookup(PDFLIB.PDFName.of('XObject'), PDFLIB.PDFDict))
+  const bytes = Buffer.from(await d.save())
+  const huella = sha(bytes)
+
+  const dibujo = await V.analizarPaginas(bytes)
+  assert.deepStrictEqual(dibujo.map((x) => x.imagenes), [0, 1, 1, 0, 1, 0, 0, 0], 'solo cuentan las imágenes que de verdad se pintan')
+  assert.deepStrictEqual(dibujo.map((x) => x.vectorial), [false, false, false, false, false, true, false, true])
+  assert.ok(Math.abs(dibujo[1].fraccionImagen - 250000 / (595 * 842)) < 0.001, 'el área sale de la matriz con que se pinta')
+  assert.ok(Math.abs(dibujo[4].fraccionImagen - 90000 / (595 * 842)) < 0.001, 'también la de una imagen anidada')
+  const textos = await leerTextos(bytes)
+  assert.deepStrictEqual(V.clasificarPaginas(textos, dibujo), [
+    { indice: 1, tipo: 'visual' }, { indice: 2, tipo: 'mixta' }, { indice: 4, tipo: 'visual' }, { indice: 5, tipo: 'visual' },
+  ])
+  // Separar páginas arma un PDF nuevo y deja el original tal cual.
+  const sub = await V.separarPaginas(bytes, [1, 2, 5])
+  assert.strictEqual((await PDFLIB.PDFDocument.load(sub)).getPageCount(), 3)
+  assert.deepStrictEqual((await V.analizarPaginas(sub)).map((x) => [x.imagenes, x.vectorial]), [[1, false], [1, false], [0, true]])
+  assert.strictEqual(sha(bytes), huella, 'el PDF original no se modifica')
+  // Un archivo que pdf-lib no puede abrir no rompe nada: sin análisis, sin páginas visuales.
+  assert.strictEqual(await V.analizarPaginas(FX.pdfDanado()), null)
+  assert.deepStrictEqual(V.clasificarPaginas(['x'], null), [])
+})
+async function leerTextos(bytes) {
+  ARCHIVOS['temporal.pdf'] = bytes
+  pincharArchivos()
+  try { return (await leer('temporal.pdf')).paginas } finally { delete ARCHIVOS['temporal.pdf'] }
+}
+
+await caso('G · clasificación de los documentos de prueba: escaneo, mixto, logotipos y diagramas', async () => {
+  pincharArchivos()
+  assert.deepStrictEqual(tipos(await leer('escaneo.pdf')), ['1:visual', '2:visual', '3:visual'])
+  assert.deepStrictEqual(tipos(await leer('mixto.pdf')), ['2:mixta'], 'la hoja con logotipo y la de solo texto no se leen visualmente')
+  const logos = await leer('logos.pdf')
+  assert.deepStrictEqual([tipos(logos), 'bytes' in logos, 'visuales' in logos], [[], false, false], 'un PDF de texto con logotipos queda como hasta hoy')
+  assert.deepStrictEqual(tipos(await leer('diagramas.pdf')), ['2:visual', '3:visual'], 'el diagrama y la imagen; la hoja en blanco no')
+  // Un membrete o fondo de hoja completa, el mismo en todas las hojas, es decoración: el documento es de texto.
+  assert.deepStrictEqual(tipos(await leer('membrete.pdf')), [])
+  assert.deepStrictEqual((await V.analizarPaginas(ARCHIVOS['membrete.pdf'])).map((x) => x.imagenes), [0, 0, 0, 0])
+  assert.deepStrictEqual([G._pruebas.maxPaginasVisuales(5), G._pruebas.maxPaginasVisuales(10)], [15, 30])
+  assert.strictEqual(V.VISUAL.UMBRAL_IMAGEN, 0.15)
+})
+
+await caso('G · PDF escaneado (3 páginas sin texto): se transcribe, genera 25 exactos con sustento.visual y cobra 5', async () => {
+  await prepararVisual('escaneo.pdf')
+  const original = sha(ARCHIVOS['escaneo.pdf'])
+  const r = await generar('ru5', [archivo('escaneo.pdf')])
+  assert.strictEqual(r.resultado.total, 25)
+  assert.strictEqual(transcripciones.length, 1, '3 páginas: un solo lote')
+  const t = transcripciones[0]
+  assert.strictEqual(t.model, 'claude-haiku-4-5', 'el mismo modelo de la operación')
+  assert.deepStrictEqual([t.messages[0].content[0].source.type, t.messages[0].content[0].source.media_type], ['base64', 'application/pdf'])
+  assert.strictEqual((await PDFLIB.PDFDocument.load(Buffer.from(t.messages[0].content[0].source.data, 'base64'))).getPageCount(), 3)
+  assert.match(t.messages[0].content[1].text, /Página 3: transcribe todo el texto/)
+  const rs = await reactivosDe('ru5')
+  assert.strictEqual(rs.length, 25)
+  for (const x of rs) {
+    assert.strictEqual(x.sustento.visual, true)
+    assert.ok([1, 2, 3].includes(x.sustento.pagina), 'la página es la del PDF original')
+    assert.strictEqual(x.sustento.documento, 'escaneo.pdf')
+  }
+  assert.deepStrictEqual([...new Set(rs.map((x) => x.sustento.pagina))].sort(), [1, 2, 3])
+  const b = await bancoDe('ru5')
+  assert.deepStrictEqual([b.total, b.origen, b.aprobado], [25, 'ia', false])
+  assert.strictEqual(await saldo(), 95, 'la tarifa no cambia: 5 créditos')
+  assert.strictEqual(sha(ARCHIVOS['escaneo.pdf']), original, 'el PDF original no se modifica')
+  // La generación recibe el texto transcrito como texto de cada página.
+  const gen = pedidos.find((p) => p.messages[0].content[0].type === 'text')
+  assert.match(gen.messages[0].content[0].text, /\[Página 2\]\nLectura visual \d+, oracion 1:/)
+})
+
+await caso('G · PDF mixto: solo viaja la página con imagen; conserva su texto y suma lo visual; visual solo donde corresponde', async () => {
+  await prepararVisual('mixto.pdf')
+  await generar('ru5', [archivo('mixto.pdf')])
+  assert.strictEqual(transcripciones.length, 1)
+  const t = transcripciones[0].messages[0].content
+  assert.strictEqual((await PDFLIB.PDFDocument.load(Buffer.from(t[0].source.data, 'base64'))).getPageCount(), 1, 'no se manda el PDF completo')
+  assert.match(t[1].text, /Página 1: ya se tiene su texto corrido\. Transcribe SOLO lo que está dentro de sus imágenes/)
+  const gen = pedidos.find((p) => p.messages[0].content[0].type === 'text').messages[0].content[0].text
+  const pagina2 = gen.split('[Página 2]')[1].split('[Página 3]')[0]
+  assert.ok(pagina2.includes(oracionTexto('Mixto', 2, 7)) && /Lectura visual \d+, oracion 10:/.test(pagina2), 'texto extraído + lectura visual en la misma página')
+  const rs = await reactivosDe('ru5')
+  assert.strictEqual(rs.length, 25)
+  const visuales = rs.filter((x) => x.sustento.visual === true)
+  const deTexto = rs.filter((x) => !('visual' in x.sustento))
+  assert.deepStrictEqual([visuales.length, deTexto.length], [10, 15])
+  assert.ok(visuales.every((x) => x.sustento.pagina === 2 && x.sustento.cita.startsWith('la figura')))
+  assert.ok(deTexto.some((x) => x.sustento.pagina === 2), 'un sustento del texto de la página mixta NO se marca visual')
+  assert.ok(deTexto.every((x) => x.sustento.cita.startsWith('la vacuola')))
+  assert.strictEqual(await saldo(), 95)
+})
+
+await caso('G · PDF con logotipos pequeños: sin lectura visual, mismo resultado que antes (sin campo visual)', async () => {
+  await prepararVisual('logos.pdf')
+  const r = await generar('ru5', [archivo('logos.pdf')])
+  assert.strictEqual(r.resultado.total, 25)
+  assert.strictEqual(transcripciones.length, 0, 'ninguna llamada de transcripción')
+  assert.strictEqual(pedidos.length, 1, 'una sola llamada, como hasta hoy')
+  for (const x of await reactivosDe('ru5')) assert.deepStrictEqual(Object.keys(x.sustento).sort(), ['cita', 'contexto', 'documento', 'pagina'])
+  assert.strictEqual(await saldo(), 95)
+  // Lo mismo con un membrete de hoja completa repetido en las 4 hojas.
+  await prepararVisual('membrete.pdf')
+  assert.strictEqual((await generar('ru5', [archivo('membrete.pdf')])).resultado.total, 25)
+  assert.deepStrictEqual([transcripciones.length, pedidos.length], [0, 1])
+  assert.ok((await reactivosDe('ru5')).every((x) => !('visual' in x.sustento)))
+})
+
+await caso('G · PDF con diagrama e imagen con texto: se leen esas dos páginas y se combinan con la de texto', async () => {
+  await prepararVisual('diagramas.pdf')
+  await generar('ru5', [archivo('diagramas.pdf')])
+  assert.strictEqual(transcripciones.length, 1)
+  assert.strictEqual((await PDFLIB.PDFDocument.load(Buffer.from(transcripciones[0].messages[0].content[0].source.data, 'base64'))).getPageCount(), 2)
+  const rs = await reactivosDe('ru5')
+  assert.strictEqual(rs.length, 25)
+  assert.deepStrictEqual([...new Set(rs.filter((x) => x.sustento.visual).map((x) => x.sustento.pagina))].sort(), [2, 3])
+  assert.ok(rs.filter((x) => !x.sustento.visual).every((x) => x.sustento.pagina === 1))
+})
+
+await caso('G · límite de páginas visuales: 15 con 5 preguntas y 30 con 10; al rebasarlo se rechaza ANTES de cobrar', async () => {
+  await prepararVisual('escaneo16.pdf')
+  const casos = [
+    ['ru5', [archivo('escaneo16.pdf')], /tienen 16 páginas escaneadas o con imágenes.*partida de 5 preguntas el máximo es de 15/],
+    ['ru5', [archivo('escaneo15.pdf'), archivo('mixto.pdf')], /tienen 16 páginas.*máximo es de 15/], // suman entre archivos
+    ['ru10', [archivo('escaneo31.pdf')], /tienen 31 páginas.*partida de 10 preguntas el máximo es de 30/],
+  ]
+  for (const [act, archivos, mensaje] of casos) {
+    const e = await falla(() => generar(act, archivos, { unidades: act === 'ru10' ? 10 : 5 }))
+    assert.match(e.message, mensaje)
+    assert.match(e.message, /No se descontaron créditos/)
+    assert.match(codigo(e), /failed-precondition/)
+  }
+  assert.strictEqual(pedidos.length, 0, 'nunca se llamó a la IA')
+  assert.strictEqual((await consumos()).length, 0, 'no se reservó nada')
+  await sinCobroNiBanco('ru5')
+  await sinCobroNiBanco('ru10')
+})
+
+await caso('G · justo en el límite (15 páginas, 5 preguntas) sí genera: 3 lotes de transcripción de 5 páginas', async () => {
+  await prepararVisual('escaneo15.pdf')
+  const r = await generar('ru5', [archivo('escaneo15.pdf')])
+  assert.strictEqual(r.resultado.total, 25)
+  assert.strictEqual(transcripciones.length, 3)
+  assert.strictEqual(await saldo(), 95)
+  // Y 16 páginas caben en una partida de 10 preguntas (tope 30).
+  await prepararVisual('escaneo16.pdf')
+  assert.strictEqual((await generar('ru10', [archivo('escaneo16.pdf')], { unidades: 10 })).resultado.total, 50)
+  assert.strictEqual(transcripciones.length, 4)
+  assert.strictEqual(await saldo(), 90, 'la tarifa no cambia: 10 créditos')
+})
+
+await caso('G · reembolso: la transcripción falla, responde algo ilegible o no encuentra texto', async () => {
+  const casos = [
+    [{ falla: true }, /No se pudieron leer las páginas escaneadas o con imágenes de «escaneo\.pdf»/],
+    [{ jsonMalo: true }, /No se pudieron leer las páginas escaneadas o con imágenes de «escaneo\.pdf»/],
+    [{ vacio: true }, /no se encontró texto suficiente, ni siquiera leyendo sus imágenes/],
+  ]
+  for (const [visual, mensaje] of casos) {
+    await prepararVisual('escaneo.pdf', visual)
+    const e = await falla(() => generar('ru5', [archivo('escaneo.pdf')]))
+    assert.match(e.message, mensaje, JSON.stringify(visual))
+    assert.match(e.message, /No se descontaron créditos/)
+    assert.strictEqual(transcripciones.length, 1, 'sí se intentó leer (ya con la reserva hecha)')
+    const cs = await consumos()
+    assert.strictEqual(cs.length, 1, 'hubo una reserva')
+    await sinCobroNiBanco('ru5')
+  }
+})
+
+await caso('G · reembolso: la transcripción sale bien pero la generación no completa los 25', async () => {
+  await prepararVisual('escaneo.pdf')
+  comportamiento.maxValidos = 20
+  const e = await falla(() => generar('ru5', [archivo('escaneo.pdf')]))
+  assert.match(e.message, /se lograron 20/)
+  assert.match(e.message, /No se descontaron créditos/)
+  await sinCobroNiBanco('ru5')
+})
+
+await caso('G · regresión: los PDF de texto de siempre y el DOCX no pasan por la lectura visual', async () => {
+  await prepararVisual('manual.pdf')
+  const r = await generar('ru5', [archivo('manual.pdf'), archivo('apuntes.docx')])
+  assert.strictEqual(r.resultado.total, 25)
+  assert.strictEqual(transcripciones.length, 0)
+  assert.ok((await reactivosDe('ru5')).every((x) => !('visual' in x.sustento)))
+  // El PDF de imagen pequeña y sin texto se sigue rechazando antes de cobrar, con el mensaje de siempre.
+  await prepararVisual('escaneado.pdf')
+  const e = await falla(() => generar('ru5', [archivo('escaneado.pdf')]))
+  assert.match(e.message, /no tiene texto que se pueda verificar/)
+  assert.strictEqual(pedidos.length, 0)
+  await sinCobroNiBanco('ru5')
 })
 
 globalThis.fetch = FETCH_REAL

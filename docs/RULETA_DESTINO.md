@@ -52,8 +52,26 @@ partida, sea capturado a mano o generado con IA. Sin rangos ni mínimos o máxim
   apoyo, PDF, DOC o DOCX, hasta 15 MB cada uno** (`RULETA_ARCHIVOS` en el cliente, `RULETA_IA` en el servidor; los
   dos los validan). Se suben a Cloudinary con la subida firmada de siempre y el servidor los descarga y los lee: el PDF
   por páginas (`pdf-parse`), el DOCX con `mammoth` y el DOC (Word 97-2003) con `word-extractor`. Un documento que no
-  se puede leer, que pesa más de 15 MB o que no tiene texto verificable (un PDF escaneado) detiene la operación
-  **antes de cobrar**, con el nombre del archivo.
+  se puede leer, que pesa más de 15 MB o que no tiene texto ni páginas que se puedan leer visualmente detiene la
+  operación **antes de cobrar**, con el nombre del archivo.
+- **Lectura visual de PDF** (13-nov-2026, decisión 21; `functions/ruletaPdfVisual.js`): las páginas escaneadas o con
+  imágenes también se leen. Solo PDF; DOC y DOCX conservan su extracción de texto.
+  - **Detección, sin IA y antes de cobrar**: se recorre lo que cada página realmente dibuja (con `pdf-lib`, sin
+    decodificar imágenes). Página **visual**: menos de 200 caracteres de texto y además imágenes que cubren el 15 % o
+    más de la hoja, o trazos (un diagrama). Página **mixta**: 200 caracteres o más y además imágenes que cubren el
+    15 % o más. Una misma imagen pintada en 3 hojas o más es decoración (membrete, fondo, logotipo) y no cuenta. Un
+    PDF de texto con logotipos, una tabla con bordes o una hoja en blanco se procesan como siempre.
+  - **Tope**: 15 páginas con lectura visual en partidas de 5 preguntas y 30 en partidas de 10, sumando los archivos.
+    Si se rebasa, la generación se **rechaza antes de cobrar** diciendo cuántas páginas son y cuál es el máximo
+    (`EXCEDE_PAGINAS_VISUALES`). Nunca se genera con material visual omitido.
+  - **Transcripción, ya con la reserva hecha**: se arma un PDF nuevo solo con esas páginas (el original no se
+    modifica) y se manda al mismo modelo de la operación en lotes de 5 páginas en paralelo. La página visual queda con
+    su transcripción; la mixta conserva su texto extraído y suma lo que dicen sus imágenes. Si la transcripción
+    falla, responde algo ilegible o no deja texto suficiente, la operación falla y se devuelve la reserva.
+  - **Sustento**: un reactivo cuyo contexto salió de una transcripción guarda `sustento.visual: true`; los
+    sustentados en texto del documento no llevan ese campo. En esas páginas la cita se verifica contra lo que el
+    modelo transcribió, no contra el PDF: el docente lo revisa al aprobar el banco. Sin cambios en pantalla.
+  - La tarifa, las cantidades y los límites de archivos no cambian.
 - **«¿Qué quieres evaluar?»** (12-nov-2026, decisión 20): en «Generar con IA» el docente escribe qué deben evaluar los
   reactivos (`params.quiereEvaluar`, el mismo campo de Reto Exprés y Crear evaluación con IA). Nace con el tema de la
   ruleta y se precisa ahí; no cambia el tema guardado ni se almacena. Mínimo 40 y máximo 4000 caracteres, validados en el
@@ -210,6 +228,11 @@ Motivos de rechazo, contados por separado:
     evaluar los reactivos (mismo campo y límites que Reto Exprés y Crear evaluación con IA: 40 a 4000 caracteres),
     precargado con el tema de la ruleta y editable sin cambiarlo. Es el criterio principal del prompt; los archivos de
     apoyo siguen siendo la fuente. Sin cambios en la tarifa, las cantidades ni la captura manual.
+21. (13-nov-2026) **Lectura visual de PDF al generar con IA**: las páginas escaneadas o con imágenes se transcriben
+    con el mismo modelo y se unen al texto del documento. Tope de 15 páginas visuales (5 preguntas) o 30 (10
+    preguntas); si se rebasa, se rechaza antes de cobrar, sin generar con material omitido. Los reactivos sustentados
+    en una transcripción guardan `sustento.visual: true`, sin cambios en pantalla. Solo PDF: DOC y DOCX siguen con su
+    extracción de texto. Sin cambios en la tarifa, las cantidades, los límites de archivos ni la captura manual.
 
 ### Seguridad (R1–R8, 6-nov-2026)
 - **R1** Solo el servidor escribe `ruletaReactivos`; el docente administra el banco con acciones del API. Ningún cliente
