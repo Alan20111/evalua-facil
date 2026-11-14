@@ -836,5 +836,63 @@ caso('N · editar y agregar NO cambian el origen; borrar en un banco ya vacío l
   assert.deepStrictEqual([cero.total, cero.origen], [0, 'manual'])
 })
 
+// ── Configuración de la actividad (decisión 22): publicar, instrucciones y fecha límite ──
+const { requisitosPublicarRuleta, textoDeInstrucciones, fechaLimiteVencida, datosNuevaRuleta: nuevaRuleta } = logicaRuleta
+
+caso('Q · textoDeInstrucciones: un HTML vacío no cuenta como instrucciones', () => {
+  for (const vacio of ['', null, undefined, '<p></p>', '<p><br></p>', '<p>&nbsp; </p>', '  ']) assert.strictEqual(textoDeInstrucciones(vacio), '', JSON.stringify(vacio))
+  assert.strictEqual(textoDeInstrucciones('<p>Repasa la <strong>unidad 2</strong></p>'), 'Repasa la unidad 2')
+})
+
+caso('Q · publicar exige instrucciones y el banco COMPLETO y APROBADO (25 para 5 preguntas, 50 para 10)', () => {
+  const base = { acceso: 'interno', instrucciones: '<p>Repasa la unidad 2</p>', preguntasPorPartida: 5, bancoTotal: 25, bancoAprobado: true }
+  assert.deepStrictEqual(requisitosPublicarRuleta(base), { ok: true, faltan: [] })
+  assert.deepStrictEqual(requisitosPublicarRuleta({ ...base, preguntasPorPartida: 10, bancoTotal: 50 }).ok, true)
+  assert.deepStrictEqual(requisitosPublicarRuleta({ ...base, instrucciones: '<p></p>' }).faltan, ['instrucciones'])
+  assert.deepStrictEqual(requisitosPublicarRuleta({ ...base, bancoAprobado: false }).faltan, ['banco'])
+  assert.deepStrictEqual(requisitosPublicarRuleta({ ...base, bancoTotal: 24 }).faltan, ['banco'], 'incompleto')
+  assert.deepStrictEqual(requisitosPublicarRuleta({ ...base, bancoTotal: 26 }).faltan, ['banco'], 'excedido')
+  assert.deepStrictEqual(requisitosPublicarRuleta({ ...base, preguntasPorPartida: 10, bancoTotal: 25 }).faltan, ['banco'], '25 no alcanzan para 10 preguntas')
+  const todo = requisitosPublicarRuleta({ ...base, instrucciones: '', bancoTotal: 0, bancoAprobado: false })
+  assert.deepStrictEqual(todo.faltan, ['instrucciones', 'banco'])
+  assert.match(todo.error, /instrucciones.*y.*banco/)
+  assert.deepStrictEqual(requisitosPublicarRuleta({ ...base, acceso: 'externo' }).faltan, ['externa'], 'una externa nunca se publica')
+  assert.strictEqual(requisitosPublicarRuleta().ok, false)
+})
+
+caso('Q · fechaLimiteVencida: compara el Timestamp contra el instante; sin fecha, nunca vence', () => {
+  const ts = (ms) => ({ toMillis: () => ms })
+  assert.strictEqual(fechaLimiteVencida({ fechaLimiteTS: ts(1000) }, 999), false)
+  assert.strictEqual(fechaLimiteVencida({ fechaLimiteTS: ts(1000) }, 1000), true)
+  assert.strictEqual(fechaLimiteVencida({ fechaLimiteTS: ts(1000) }, 5000), true)
+  assert.strictEqual(fechaLimiteVencida({ fechaLimiteTS: { seconds: 1, nanoseconds: 0 } }, 1000), true, 'forma que llega al navegador')
+  assert.strictEqual(fechaLimiteVencida({ fechaLimiteTS: { _seconds: 2 } }, 1000), false)
+  for (const sin of [{}, { fechaLimiteTS: null }, { fechaLimite: '2020-01-01T00:00' }, null, undefined]) assert.strictEqual(fechaLimiteVencida(sin, Date.now()), false, JSON.stringify(sin))
+  assert.strictEqual(fechaLimiteVencida({ fechaLimiteTS: ts(1000) }, NaN), false)
+})
+
+caso('Q · una ruleta nueva nace igual que antes: oculta, sin instrucciones ni fecha, y el mapa `ruleta` sin claves nuevas', () => {
+  const r = nuevaRuleta({ nombre: 'R', tema: 'T', acceso: 'interno', preguntasPorPartida: 5, parcial: 1, orden: 1, asignaturaId: 's', docenteId: 'd' })
+  assert.ok(r.ok)
+  assert.deepStrictEqual(Object.keys(r.datos.ruleta).sort(), ['acceso', 'modalidad', 'preguntasPorPartida'])
+  assert.deepStrictEqual([r.datos.oculta, r.datos.publishAt, r.datos.publishedAt, r.datos.maxCalif], [true, null, null, 10])
+  assert.ok(!('instrucciones' in r.datos) && !('fechaLimite' in r.datos) && !('fechaLimiteTS' in r.datos))
+})
+
+caso('Q · programadaParaDespues: solo una ruleta oculta y programada, con su instante real todavía en el futuro', () => {
+  const { programadaParaDespues } = logicaRuleta
+  const ts = (ms) => ({ toMillis: () => ms })
+  const prog = (extra = {}) => ({ oculta: true, publishAt: '2026-11-13T17:20', publishAtTS: ts(1000), ...extra })
+  assert.strictEqual(programadaParaDespues(prog(), 999), true)
+  assert.strictEqual(programadaParaDespues(prog(), 1000), false, 'en el instante exacto ya está publicada')
+  assert.strictEqual(programadaParaDespues(prog(), 5000), false)
+  assert.strictEqual(programadaParaDespues(prog({ publishAtTS: { seconds: 2 } }), 1000), true, 'forma que llega al navegador')
+  // No opina: ya visible, sin programar o sin el instante (programada antes de este campo).
+  for (const a of [prog({ oculta: false }), prog({ publishAt: null }), prog({ publishAt: '' }), prog({ publishAtTS: null }), { oculta: true }, {}, null]) {
+    assert.strictEqual(programadaParaDespues(a, 0), false, JSON.stringify(a))
+  }
+  assert.strictEqual(programadaParaDespues(prog(), NaN), false)
+})
+
 console.log(`\n${pasadas} pasaron, ${fallos} fallaron`)
 if (fallos) process.exit(1)

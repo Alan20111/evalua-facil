@@ -5104,7 +5104,9 @@ ok('F-05 · admin CAN read publicProfiles')
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore()
     await setDoc(doc(db, 'subjects', 'SRU_CERR'), { docenteId: T1, escuelaId: 'E1', parciales: 3, nombre: 'Cerrada', parcialesCerrados: { 1: HOYR } })
-    await setDoc(doc(db, 'activities', 'RU_INT'), interna())
+    // RU_INT se publica más abajo: lleva instrucciones y su banco completo y aprobado (decisión 22).
+    await setDoc(doc(db, 'activities', 'RU_INT'), interna({}, { instrucciones: '<p>Repasa la unidad 2.</p>' }))
+    await setDoc(doc(db, 'ruletaBancos', 'RU_INT'), { docenteId: T1, actividadId: 'RU_INT', total: 50, aprobado: true, huellas: {}, version: 50 })
     await setDoc(doc(db, 'activities', 'RU_IND'), interna({ preguntasPorPartida: 5 }))
     await setDoc(doc(db, 'activities', 'RU_EXT'), externa())
     await setDoc(doc(db, 'activities', 'RU_BORRAR'), interna())
@@ -5182,6 +5184,103 @@ ok('F-05 · admin CAN read publicProfiles')
   await assertSucceeds(updateDoc(refInt, { parcial: 2, oculta: true, publishedAt: null }))
   await assertSucceeds(updateDoc(refInt, { ruleta: { modalidad: 'individual', acceso: 'interno', preguntasPorPartida: 10 } }))
   ok('RULETA · R6: el docente dueño edita nombre y tema, publica y mueve de parcial como siempre (el mapa igual también pasa)')
+
+  // — Publicar, programar y volver a mostrar (decisión 22): instrucciones + banco completo y aprobado —
+  {
+    const INST = { instrucciones: '<p>Repasa la unidad 2.</p>' }
+    const banco = (id, total, aprobado) => ({ docenteId: T1, actividadId: id, total, aprobado, huellas: {}, version: total })
+    const PUBLICAR = { oculta: false, publishAt: null, publishedAt: HOYR }
+    const PROGRAMAR = { oculta: true, publishAt: '2027-01-10T08:00', publishAtTS: Timestamp.fromDate(new Date('2027-01-10T08:00')) }
+    const MOSTRAR = { oculta: false, publishAt: null } // el ojo: volver a mostrar
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore()
+      const sembrar = async (id, act, b) => {
+        await setDoc(doc(db, 'activities', id), act)
+        if (b) await setDoc(doc(db, 'ruletaBancos', id), banco(id, b[0], b[1]))
+      }
+      await sembrar('RUP_OK', interna({ preguntasPorPartida: 5 }, INST), [25, true])
+      await sembrar('RUP_OK10', interna({}, INST), [50, true])
+      await sembrar('RUP_SIN_BANCO', interna({ preguntasPorPartida: 5 }, INST), null)
+      await sembrar('RUP_NO_APROBADO', interna({ preguntasPorPartida: 5 }, INST), [25, false])
+      await sembrar('RUP_INCOMPLETO', interna({ preguntasPorPartida: 5 }, INST), [24, true])
+      await sembrar('RUP_EXCEDIDO', interna({ preguntasPorPartida: 5 }, INST), [26, true])
+      await sembrar('RUP_10_CON_25', interna({}, INST), [25, true])
+      await sembrar('RUP_SIN_INSTRUCCIONES', interna({ preguntasPorPartida: 5 }), [25, true])
+      await sembrar('RUP_INSTRUCCIONES_VACIAS', interna({ preguntasPorPartida: 5 }, { instrucciones: '' }), [25, true])
+      // Publicadas ANTES de este candado: sin instrucciones y sin banco aprobado. Tienen que poder editarse.
+      await sembrar('RUP_YA_PUBLICADA', interna({ preguntasPorPartida: 5 }, { oculta: false, publishedAt: HOYR }), [25, false])
+      await sembrar('RUP_YA_PROGRAMADA', interna({ preguntasPorPartida: 5 }, { ...INST, publishAt: '2027-01-05T08:00' }), [25, true])
+      // Publicada y ocultada con el ojo; después su banco perdió la aprobación.
+      await sembrar('RUP_OCULTA', interna({ preguntasPorPartida: 5 }, { ...INST, publishedAt: HOYR }), [25, false])
+      await sembrar('RUP_OCULTA_OK', interna({ preguntasPorPartida: 5 }, { ...INST, publishedAt: HOYR }), [25, true])
+    })
+    const ref = (id) => doc(asT1, 'activities', id)
+
+    for (const id of ['RUP_SIN_BANCO', 'RUP_NO_APROBADO', 'RUP_INCOMPLETO', 'RUP_EXCEDIDO', 'RUP_10_CON_25', 'RUP_SIN_INSTRUCCIONES', 'RUP_INSTRUCCIONES_VACIAS']) {
+      await assertFails(updateDoc(ref(id), PUBLICAR), `${id}: se publicó`)
+      await assertFails(updateDoc(ref(id), PROGRAMAR), `${id}: se programó`)
+      await assertFails(updateDoc(ref(id), MOSTRAR), `${id}: se mostró`)
+      await assertFails(updateDoc(ref(id), { oculta: false }), `${id}: se mostró con una sola clave`)
+      // Guardar el borrador con todo lo demás sí pasa: el candado es solo de publicación.
+      await assertSucceeds(updateDoc(ref(id), { nombre: `Borrador ${id}`, tema: 'La célula', fechaLimite: null, oculta: true, publishAt: null, publishedAt: null }))
+    }
+    ok('RULETA · publicar: sin banco, sin aprobar, incompleto (24), excedido (26), 25 para 10 preguntas o sin instrucciones → no se publica, programa ni muestra; el borrador sí se guarda')
+
+    // No vale escribir las instrucciones en la misma escritura si el banco no está listo, ni al revés.
+    await assertFails(updateDoc(ref('RUP_NO_APROBADO'), { ...PUBLICAR, ...INST }))
+    await assertFails(updateDoc(ref('RUP_SIN_INSTRUCCIONES'), { ...PUBLICAR, instrucciones: '' }))
+    await assertSucceeds(updateDoc(ref('RUP_SIN_INSTRUCCIONES'), { ...PUBLICAR, ...INST })) // con banco listo, escribirlas al publicar sí vale
+    ok('RULETA · publicar: las instrucciones pueden llegar en la misma escritura, pero el banco tiene que estar listo')
+
+    await assertSucceeds(updateDoc(ref('RUP_OK'), PUBLICAR))
+    await assertSucceeds(updateDoc(ref('RUP_OK10'), PROGRAMAR))
+    await assertSucceeds(updateDoc(ref('RUP_OK10'), { ...PROGRAMAR, publishAt: '2027-02-01T08:00' })) // reprogramar
+    await assertSucceeds(updateDoc(ref('RUP_OK10'), PUBLICAR)) // de programada a publicada
+    ok('RULETA · publicar: con instrucciones y el banco exacto y aprobado (25 o 50) se publica, se programa y se reprograma')
+
+    // Edición normal de una ruleta ya publicada: nada de esto cambia `oculta` ni `publishAt`.
+    const pub = ref('RUP_YA_PUBLICADA')
+    await assertSucceeds(updateDoc(pub, { nombre: 'Publicada antes del candado' }))
+    await assertSucceeds(updateDoc(pub, { tema: 'Otro tema', instrucciones: '<p>Nuevas instrucciones.</p>' }))
+    await assertSucceeds(updateDoc(pub, { fechaLimite: '2027-01-20T23:59', fechaLimiteTS: Timestamp.fromDate(new Date('2027-01-20T23:59')) }))
+    await assertSucceeds(updateDoc(pub, { orden: 3, parcial: 2 }))
+    await assertSucceeds(updateDoc(pub, { oculta: false, publishAt: null, nombre: 'Mismo estado de visibilidad' }))
+    await assertSucceeds(updateDoc(ref('RUP_YA_PROGRAMADA'), { nombre: 'Programada', fechaLimite: null }))
+    ok('RULETA · publicar: una ruleta ya publicada o programada se edita como siempre (nombre, tema, instrucciones, fecha límite, parcial, orden)')
+
+    // Ocultar y regresar a borrador siempre se puede; volver a mostrar pasa otra vez por el candado.
+    await assertSucceeds(updateDoc(pub, { oculta: true, publishAt: null }))
+    await assertFails(updateDoc(pub, MOSTRAR), 'se volvió a mostrar con el banco sin aprobar')
+    await assertSucceeds(updateDoc(pub, { oculta: true, publishAt: null, publishedAt: null }))
+    await assertFails(updateDoc(ref('RUP_OCULTA'), MOSTRAR), 'el ojo mostró una ruleta con el banco sin aprobar')
+    await assertSucceeds(updateDoc(ref('RUP_OCULTA_OK'), MOSTRAR))
+    await assertSucceeds(updateDoc(ref('RUP_OK'), { oculta: true, publishAt: null }))
+    await assertSucceeds(updateDoc(ref('RUP_OK'), MOSTRAR))
+    ok('RULETA · publicar: ocultar y regresar a borrador siempre pasan; volver a mostrar con el ojo exige otra vez el banco aprobado')
+
+    // Reprogramar cuando el banco perdió la aprobación después de programar.
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'ruletaBancos', 'RUP_YA_PROGRAMADA'), banco('RUP_YA_PROGRAMADA', 25, false))
+    })
+    await assertFails(updateDoc(ref('RUP_YA_PROGRAMADA'), { publishAt: '2027-03-01T08:00' }))
+    await assertSucceeds(updateDoc(ref('RUP_YA_PROGRAMADA'), { oculta: true, publishAt: null, publishedAt: null }))
+    ok('RULETA · publicar: no se reprograma con el banco sin aprobar; regresarla a borrador sí')
+
+    // Una ruleta no nace visible ni programada (todavía no tiene banco).
+    await assertFails(setDoc(doc(asT1, 'activities', 'RUP_NACE_VISIBLE'), interna({}, { ...INST, oculta: false, publishedAt: HOYR })))
+    await assertFails(setDoc(doc(asT1, 'activities', 'RUP_NACE_PROGRAMADA'), interna({}, { ...INST, publishAt: '2027-01-10T08:00' })))
+    await assertFails(setDoc(doc(asT1, 'activities', 'RUP_NACE_SIN_OCULTA'), interna({}, { ...INST, oculta: undefined })))
+    await assertSucceeds(setDoc(doc(asT1, 'activities', 'RUP_NACE_OCULTA'), interna({}, INST)))
+    ok('RULETA · publicar: una ruleta no se crea visible ni programada')
+
+    // Los bancos sembrados aquí no se quedan: más abajo se cuenta que ningún cliente haya creado uno.
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore()
+      for (const b of (await getDocs(collection(db, 'ruletaBancos'))).docs) {
+        if (b.id === 'RU_INT' || b.id.startsWith('RUP_')) await deleteDoc(b.ref)
+      }
+    })
+  }
 
   for (const [motivo, cambio] of [
     ['cambiar la modalidad a en vivo', { 'ruleta.modalidad': 'vivo' }],

@@ -621,3 +621,63 @@ export function puedeCambiarPreguntas({ ruleta, total, nuevo, origen = ORIGENES_
   if (total > maximoBanco(nuevo)) return { ok: false, codigo: 'banco_excedido' }
   return { ok: true }
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Configuración de la actividad (14-nov-2026, decisión 22): la ruleta lleva instrucciones, visibilidad y fecha límite
+// como un Entregable. Los campos viven en el mismo documento de `activities` (instrucciones, fechaLimite,
+// fechaLimiteTS, oculta, publishAt, publishedAt); aquí solo están las dos reglas propias de la ruleta, que comparten
+// la pantalla del docente, la del estudiante y el servidor de la partida.
+// ═════════════════════════════════════════════════════════════════════════════
+
+/** Texto visible de unas instrucciones con formato (HTML). Solo para saber si hay algo escrito. */
+export function textoDeInstrucciones(html) {
+  return String(html ?? '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * ¿Se puede publicar (ahora o programada) esta ruleta? Exige instrucciones para el estudiante y el banco completo y
+ * aprobado. Guardar el borrador no pasa por aquí. Una ruleta externa nunca se publica (R5).
+ * Devuelve { ok } o { ok: false, faltan: [códigos], error: mensaje para el docente }.
+ */
+export function requisitosPublicarRuleta({ acceso, instrucciones, preguntasPorPartida, bancoTotal, bancoAprobado } = {}) {
+  if (acceso !== 'interno') return { ok: false, faltan: ['externa'], error: 'Una ruleta con enlace o QR no se publica a los estudiantes.' }
+  const faltan = []
+  if (!textoDeInstrucciones(instrucciones)) faltan.push('instrucciones')
+  const completo = preguntasPorPartidaValida(preguntasPorPartida) && bancoTotal === tamanoBanco(preguntasPorPartida)
+  if (!completo || bancoAprobado !== true) faltan.push('banco')
+  if (!faltan.length) return { ok: true, faltan }
+  const partes = { instrucciones: 'escribe las instrucciones para tus estudiantes', banco: 'completa y aprueba el banco de reactivos' }
+  const lista = faltan.map((f) => partes[f]).join(' y ')
+  return { ok: false, faltan, error: `Para publicar la ruleta, ${lista}.` }
+}
+
+/**
+ * ¿Ya pasó la fecha límite? Se compara el espejo en Timestamp (`fechaLimiteTS`, el mismo que usan las reglas para los
+ * Entregables) contra un instante en milisegundos. Sin fecha límite, nunca vence: una ruleta creada antes de esta
+ * configuración sigue abierta como siempre.
+ */
+export function fechaLimiteVencida(actividad, ahoraMs) {
+  const limite = milisegundosDe(actividad?.fechaLimiteTS)
+  return limite !== null && Number.isFinite(ahoraMs) && ahoraMs >= limite
+}
+
+// Un Timestamp de Firestore (el del servidor, el del navegador o el que llega rehidratado por la API) en milisegundos.
+function milisegundosDe(t) {
+  if (typeof t?.toMillis === 'function') return t.toMillis()
+  if (Number.isFinite(t?.seconds)) return t.seconds * 1000
+  if (Number.isFinite(t?._seconds)) return t._seconds * 1000
+  return null
+}
+
+/**
+ * ¿La ruleta está programada para una hora que TODAVÍA no llega? `publishAt` es un texto en hora local sin zona
+ * horaria: un servidor en UTC lo lee varias horas antes (para la hora del centro de México, seis). Por eso la
+ * pantalla guarda además `publishAtTS`, el instante real, y el servidor de la partida usa este para no dejar iniciar
+ * antes de tiempo. Solo aplica mientras la ruleta sigue oculta y programada; sin `publishAtTS` (una ruleta programada
+ * antes de este campo) no opina y decide la regla de visibilidad de siempre.
+ */
+export function programadaParaDespues(actividad, ahoraMs) {
+  if (!actividad?.oculta || !actividad.publishAt) return false
+  const hora = milisegundosDe(actividad.publishAtTS)
+  return hora !== null && Number.isFinite(ahoraMs) && ahoraMs < hora
+}

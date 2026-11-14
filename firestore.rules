@@ -385,7 +385,38 @@ service cloud.firestore {
     }
     // Al crear desde un cliente: forma válida y SIN la bandera del servidor (ni siquiera en false).
     function ruletaBienFormada(d) {
-      return !esRuletaData(d) || (ruletaFormaValida(d) && !('preguntasCongeladas' in d.ruleta));
+      return !esRuletaData(d) || (
+        ruletaFormaValida(d) && !('preguntasCongeladas' in d.ruleta) &&
+        // Nace oculta y sin programar: todavía no tiene banco, así que no puede cumplir `ruletaPublicable`.
+        !ruletaVisibleOProgramada(d)
+      );
+    }
+
+    // ── Publicar una ruleta (decisión 22, 14-nov-2026) ──
+    // Una ruleta solo se hace visible (o se programa) con instrucciones para el estudiante y su banco COMPLETO y
+    // APROBADO: la cantidad exacta (5 reactivos por pregunta de la partida) y la aprobación que pone el servidor en
+    // `ruletaBancos/{actividadId}`. Antes este candado vivía solo en la pantalla y una escritura directa lo saltaba.
+    // Mismo patrón que el candado de los juegos sin confirmar (más abajo, en `activities`).
+    //
+    // Se exige SOLO cuando la escritura cambia `oculta` o `publishAt` y el resultado queda visible o programado:
+    // publicar un borrador, programarlo, reprogramarlo o volver a mostrarlo con el ojo. Editar el nombre, las
+    // instrucciones, la fecha límite, el parcial o el orden de una ruleta que ya está publicada no pasa por aquí, y
+    // ocultarla o regresarla a borrador siempre se puede.
+    function ruletaVisibleOProgramada(d) {
+      return d.get('oculta', false) != true || !vacio(d.get('publishAt', null));
+    }
+    function ruletaBancoListo(actId, d) {
+      return exists(/databases/$(database)/documents/ruletaBancos/$(actId)) &&
+        get(/databases/$(database)/documents/ruletaBancos/$(actId)).data.get('aprobado', false) == true &&
+        get(/databases/$(database)/documents/ruletaBancos/$(actId)).data.get('total', 0) == d.ruleta.preguntasPorPartida * 5;
+    }
+    function ruletaPublicable(actId, antes, despues) {
+      return !esRuletaData(despues) ||
+        !ruletaVisibleOProgramada(despues) ||
+        (despues.get('oculta', false) == antes.get('oculta', false) &&
+          despues.get('publishAt', null) == antes.get('publishAt', null)) ||
+        (despues.get('instrucciones', '') is string && despues.get('instrucciones', '').size() > 0 &&
+          ruletaBancoListo(actId, despues));
     }
     // Al actualizar desde un cliente: nada entra ni sale de la categoría y el mapa `ruleta` no cambia (modalidad,
     // acceso, preguntas y la bandera quedan exactamente igual, también si se reemplaza el mapa completo).
@@ -998,7 +1029,10 @@ service cloud.firestore {
         (request.method == 'delete' || retoIntacto(resource.data, request.resource.data)) &&
         // La Ruleta del Destino: al actualizar, la categoría y el mapa `ruleta` no cambian (R6, R8). Borrar sigue las
         // reglas de cualquier actividad, también con partidas: la limpieza la hace el trigger onRuletaBorrada (paso 3).
-        (request.method == 'delete' || ruletaIntacta(resource.data, request.resource.data));
+        (request.method == 'delete' || ruletaIntacta(resource.data, request.resource.data)) &&
+        // La Ruleta del Destino: no se publica, programa ni vuelve a mostrar sin instrucciones y sin el banco completo
+        // y aprobado (decisión 22). La edición normal de una ruleta ya publicada no pasa por este candado.
+        (request.method == 'delete' || ruletaPublicable(activityId, resource.data, request.resource.data));
 
       // Reactivos de una evaluación. Los lee cualquier cuenta autenticada
       // porque el alumno los necesita para contestar; los escribe solo el

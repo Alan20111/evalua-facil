@@ -7,7 +7,9 @@
 import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, updateDoc, where } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { fetchApi } from './apiBase'
-import { RULETA_CFG, bancoVacio, datosNuevaRuleta, origenBanco } from './ruletaDestino'
+import { RULETA_CFG, bancoVacio, datosNuevaRuleta, origenBanco, requisitosPublicarRuleta, textoDeInstrucciones } from './ruletaDestino'
+import { sanitizeHtml } from './sanitizeHtml'
+import { fechaLimiteTimestamp } from './deadline'
 
 const segundos = (t) => (t?.toMillis ? t.toMillis() : 0)
 
@@ -40,9 +42,54 @@ export async function cargarRuleta(activityId, uid) {
   return { actividad, reactivos, banco: { total: banco.total ?? 0, aprobado: banco.aprobado === true, origen: origenBanco(banco) } }
 }
 
-/** Nombre y tema (campos de la actividad; el tema va fuera del mapa `ruleta`). */
-export async function guardarDatosRuleta(activityId, { nombre, tema }) {
-  await updateDoc(doc(db, 'activities', activityId), { nombre: nombre.trim(), tema: tema.trim() })
+/**
+ * Configuración de la actividad (decisión 22): nombre, tema e instrucciones para el estudiante; y, en una ruleta
+ * interna, la visibilidad ya resuelta (`resolveVisibilidad`, la misma del Entregable) y la fecha límite, con su espejo
+ * en Timestamp (`fechaLimiteTS`) que es el que compara el servidor. Una externa no toca visibilidad ni fecha: las
+ * reglas la mantienen oculta. Devuelve los campos guardados para reflejarlos en pantalla.
+ */
+export async function guardarConfiguracionRuleta(activityId, { nombre, tema, instrucciones, interna, fechaLimite, oculta, publishAt, publishedAt }) {
+  // Sin texto visible se guardan vacías: las reglas exigen instrucciones no vacías para publicar, y un «<p></p>» no lo es.
+  const cambios = { nombre: nombre.trim(), tema: tema.trim(), instrucciones: textoDeInstrucciones(instrucciones) ? sanitizeHtml(instrucciones) : '' }
+  if (interna) {
+    Object.assign(cambios, {
+      fechaLimite: fechaLimite || null, fechaLimiteTS: fechaLimiteTimestamp(fechaLimite || null),
+      oculta: oculta === true, publishAt: publishAt || null, publishedAt: publishedAt || null,
+      // El instante real de la publicación programada (el texto `publishAt` no lleva zona horaria): lo usa el
+      // servidor de la partida para no dejar iniciar antes de tiempo.
+      publishAtTS: fechaLimiteTimestamp(publishAt || null),
+    })
+  }
+  await updateDoc(doc(db, 'activities', activityId), cambios)
+  return cambios
+}
+
+/**
+ * ¿Esta ruleta se puede publicar? Lee el estado del banco (solo el dueño puede) y aplica `requisitosPublicarRuleta`.
+ * La usa la tarjeta de la asignatura (el ojo de publicar), que no tiene el banco cargado.
+ */
+export async function puedePublicarRuleta(actividad) {
+  const banco = await getDoc(doc(db, 'ruletaBancos', actividad.id)).then((b) => (b.exists() ? b.data() : bancoVacio())).catch(() => bancoVacio())
+  return requisitosPublicarRuleta({
+    acceso: actividad.ruleta?.acceso, instrucciones: actividad.instrucciones,
+    preguntasPorPartida: actividad.ruleta?.preguntasPorPartida, bancoTotal: banco.total ?? 0, bancoAprobado: banco.aprobado === true,
+  })
+}
+
+/**
+ * De una lista de actividades que se van a MOSTRAR en bloque (desarchivar una asignatura), las ruletas que no se
+ * pueden mostrar y deben quedarse como están: las externas (nunca se publican) y las internas a las que les faltan
+ * las instrucciones o el banco completo y aprobado. Una ruleta que ya está visible no se revisa: mostrarla no cambia
+ * nada. Devuelve [{ actividad, externa, error }].
+ */
+export async function ruletasQueNoSeMuestran(actividades) {
+  const candidatas = (actividades || []).filter((a) => a?.categoria === RULETA_CFG.CATEGORIA && (a.oculta === true || a.publishAt))
+  const revisadas = await Promise.all(candidatas.map(async (actividad) => {
+    const externa = actividad.ruleta?.acceso !== 'interno'
+    const r = externa ? { ok: false, error: null } : await puedePublicarRuleta(actividad).catch(() => ({ ok: false, error: 'No se pudo comprobar su banco.' }))
+    return r.ok ? null : { actividad, externa, error: r.error }
+  }))
+  return revisadas.filter(Boolean)
 }
 
 /**

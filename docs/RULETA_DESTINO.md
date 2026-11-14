@@ -33,6 +33,57 @@ servidor rechazan cualquier otro valor) y nunca lleva `ranking`.
 - **Externo** (`externo`): enlace y QR, sin cuenta; resultados ligados a la partida y al identificador que defina el
   docente. Siempre oculta, sin calificación académica y sin entregas (R5).
 
+### Configuración de la actividad (14-nov-2026, decisión 22)
+La ruleta se configura como un Entregable, en su misma pantalla (`/ruleta/:id`) y con los mismos componentes
+(`RichTextEditor`, `VisibilitySelect`, `EFDateTimePicker`, `resolveVisibilidad`). Todo vive en el mismo documento de
+`activities`; no hay colecciones nuevas, y de reglas solo se agrega el candado de publicación.
+
+| Campo | Dónde se guarda | Notas |
+|---|---|---|
+| Nombre | `nombre` | Ya existía |
+| Tema o contenido a evaluar | `tema` | Para el docente y la IA; el estudiante no lo ve |
+| Instrucciones para el estudiante | `instrucciones` (HTML saneado) | Obligatorias para publicar, no para el borrador |
+| Visibilidad | `oculta`, `publishAt`, `publishedAt` | Borrador, publicar ahora o programar; igual que el Entregable |
+| Fecha límite | `fechaLimite` (texto) y `fechaLimiteTS` (Timestamp) | Opcional; solo en ruletas internas |
+| Asignatura, parcial, calificación sobre 10 | — | Informativos; la calificación máxima es fija, como en el Entregable |
+
+- **Publicar** (ahora o programada) exige instrucciones y el banco **completo y aprobado**
+  (`requisitosPublicarRuleta`). **Guardar el borrador no exige nada de eso.** Una externa no se publica.
+  - **El candado real está en las reglas** (`firestore.rules`, `ruletaPublicable`): toda escritura que cambie
+    `oculta` o `publishAt` y deje la ruleta visible o programada exige `instrucciones` no vacías y
+    `ruletaBancos/{id}` con `aprobado == true` y `total == preguntasPorPartida * 5`. Una escritura directa que
+    intente publicar, programar o mostrar sin eso recibe `permission-denied`. Una ruleta tampoco puede crearse
+    visible ni programada.
+  - **No bloquea la edición normal**: cambiar nombre, tema, instrucciones, fecha límite, parcial u orden de una ruleta
+    ya publicada o programada no pasa por el candado. Ocultarla y regresarla a borrador siempre se puede.
+  - **Las mismas condiciones en todas las rutas de la pantalla**: publicar o programar desde `/ruleta/:id`, publicar
+    un borrador con el ojo, **volver a mostrar** con el ojo y **desarchivar una asignatura con «Mostrar todas»**. Al
+    desarchivar, una ruleta que no cumple se queda oculta, las demás actividades sí se muestran y el aviso nombra las
+    ruletas que se quedaron ocultas (`ruletasQueNoSeMuestran`).
+  - **Sin instrucciones visibles se guarda `''`** (no un `<p></p>`), para que la regla de «no vacías» sea fiel.
+  - **Lo que este candado no cubre**: si el docente edita el banco de una ruleta ya publicada (o programada), pierde
+    la aprobación y la ruleta sigue visible. Ahí el servidor impide iniciar partidas (`BANCO_NO_LISTO`) y la pantalla
+    del docente lo avisa.
+- **Publicación programada**: `publishAt` es un texto en hora local sin zona horaria, así que un servidor en UTC lo
+  lee horas antes (seis para la hora del centro de México). La pantalla guarda además **`publishAtTS`**, el instante
+  real, y el servidor de la partida no deja **iniciar** antes de él (`403 AUN_NO_PUBLICADA`, `programadaParaDespues`).
+  Una partida ya iniciada no pasa por esa comprobación. Sin `publishAtTS` (programada antes de este campo) decide la
+  visibilidad de siempre.
+  - **Incidencia abierta, NO resuelta aquí**: la visibilidad anticipada es de toda la plataforma
+    (`isActivityPublished` la usan la lista de actividades del estudiante y los avisos). La **tarjeta** de una ruleta
+    programada podría aparecerle al estudiante antes de la hora; lo único corregido es que no puede iniciar la
+    partida. Falta confirmarlo en producción y analizarlo como tema independiente para todas las actividades.
+- **Fecha límite**: la valida el servidor (`api/_lib/ruletaPartida.js`, operación `estado`) contra `fechaLimiteTS` con
+  su reloj. Después de ella no se **inicia** una partida (`409 FUERA_DE_PLAZO`); quien la inició antes puede girar,
+  responder y terminar, y su nota se registra. Sin fecha límite, nunca vence.
+- **Presentación para el estudiante** (`RuletaAlumnoPage`): antes de jugar ve el nombre, las instrucciones, cuántas
+  preguntas son, los 15 segundos, que es una sola partida, cuánto vale y la fecha límite. La partida se crea al oprimir
+  «Comenzar», no al abrir la página. Con una partida en curso o terminada entra directo a ella.
+- **Ruletas anteriores**: no tienen `instrucciones` ni fecha; se siguen jugando igual y conservan sus datos. Para
+  guardar cambios en una ya publicada, el docente tiene que escribir sus instrucciones.
+- No cambian la selección de preguntas, las cantidades 25/50, la generación con IA ni la calificación. De las reglas
+  solo se agrega el candado de publicación de la ruleta; las de las demás actividades quedan igual.
+
 ### Banco de preguntas
 Solo dos tamaños de partida: 5 y 10 preguntas (las de 20 se eliminaron el 7-nov-2026). **El banco tiene una cantidad
 EXACTA** (decisión definitiva del PO, 9-nov-2026; reemplaza las decisiones 6 y 15): 5 reactivos por pregunta de la
@@ -233,6 +284,11 @@ Motivos de rechazo, contados por separado:
     preguntas); si se rebasa, se rechaza antes de cobrar, sin generar con material omitido. Los reactivos sustentados
     en una transcripción guardan `sustento.visual: true`, sin cambios en pantalla. Solo PDF: DOC y DOCX siguen con su
     extracción de texto. Sin cambios en la tarifa, las cantidades, los límites de archivos ni la captura manual.
+22. (14-nov-2026) **La ruleta se configura como una actividad formal**, con los patrones del Entregable:
+    instrucciones para el estudiante, visibilidad y fecha límite. (D1) La fecha límite la valida el servidor: después
+    de ella no se inicia una partida; la ya iniciada se termina. (D2) Las instrucciones son obligatorias para publicar,
+    no para el borrador. (D3) No se publica sin el banco completo y aprobado. (D4) El estudiante ve la presentación
+    de la actividad antes de comenzar; la partida se crea al oprimir «Comenzar».
 
 ### Seguridad (R1–R8, 6-nov-2026)
 - **R1** Solo el servidor escribe `ruletaReactivos`; el docente administra el banco con acciones del API. Ningún cliente
